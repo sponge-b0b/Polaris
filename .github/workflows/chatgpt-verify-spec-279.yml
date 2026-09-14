@@ -1,0 +1,242 @@
+name: ChatGPT verify Spec 279
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: spec-279
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Pin exact candidate
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = "spec-279"
+          test "$(git rev-parse HEAD)" = "4baa54445e0bcd9f19bb75277a9abc84bea3008c"
+          git status --short
+
+      - name: Change provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python .agents/skills/spec-contract/scripts/classify_ownership.py \
+            --baseline 4daed9034891600597a47c01b6c39d5ebd9914ca \
+            --branch spec-279 \
+            --head 4baa54445e0bcd9f19bb75277a9abc84bea3008c \
+            | tee /tmp/spec-279-provenance.json
+
+      - name: Build fresh source-unit inventory
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh issue view 279 --repo sponge-b0b/Polaris --json body --jq .body > /tmp/spec-279.md
+          python - <<'PY'
+          from __future__ import annotations
+          import hashlib
+          import re
+          from pathlib import Path
+
+          text = Path('/tmp/spec-279.md').read_text()
+          lines = text.splitlines()
+          units: list[tuple[str, str, str]] = []
+          section = '(preamble)'
+          paragraph: list[str] = []
+
+          def norm(s: str) -> str:
+              return '\n'.join(part.rstrip() for part in s.replace('\r\n', '\n').replace('\r', '\n').split('\n')).rstrip()
+
+          def add(kind: str, body: str) -> None:
+              body = norm(body)
+              if body:
+                  units.append((section, kind, body))
+
+          def flush() -> None:
+              nonlocal paragraph
+              if paragraph:
+                  add('paragraph', '\n'.join(paragraph))
+                  paragraph = []
+
+          i = 0
+          while i < len(lines):
+              line = lines[i]
+              stripped = line.strip()
+              if re.match(r'^#{1,6}\s+', stripped):
+                  flush()
+                  section = re.sub(r'^#{1,6}\s+', '', stripped)
+                  i += 1
+                  continue
+              if stripped.startswith('```'):
+                  flush()
+                  block = [line]
+                  i += 1
+                  while i < len(lines):
+                      block.append(lines[i])
+                      if lines[i].strip().startswith('```'):
+                          i += 1
+                          break
+                      i += 1
+                  add('code', '\n'.join(block))
+                  continue
+              if not stripped:
+                  flush()
+                  i += 1
+                  continue
+              if stripped.startswith('>'):
+                  flush()
+                  block = [line]
+                  i += 1
+                  while i < len(lines) and lines[i].strip().startswith('>'):
+                      block.append(lines[i])
+                      i += 1
+                  add('blockquote', '\n'.join(block))
+                  continue
+              if re.match(r'^\s*(?:[-*+]\s+|\d+\.\s+)', line):
+                  flush()
+                  item = [line]
+                  i += 1
+                  while i < len(lines):
+                      nxt = lines[i]
+                      if not nxt.strip() or re.match(r'^\s*(?:[-*+]\s+|\d+\.\s+)', nxt) or re.match(r'^#{1,6}\s+', nxt.strip()):
+                          break
+                      if nxt.startswith('  ') or nxt.startswith('\t'):
+                          item.append(nxt)
+                          i += 1
+                          continue
+                      break
+                  add('list-item', '\n'.join(item))
+                  continue
+              if stripped.startswith('|') and stripped.endswith('|'):
+                  flush()
+                  if not re.fullmatch(r'\|?[\s:|-]+\|?', stripped):
+                      add('table-row', line)
+                  i += 1
+                  continue
+              if stripped.startswith('<') and stripped.endswith('>'):
+                  flush()
+                  add('html', line)
+                  i += 1
+                  continue
+              paragraph.append(line)
+              i += 1
+          flush()
+
+          print(f'SOURCE_UNIT_COUNT={len(units)}')
+          for idx, (sec, kind, body) in enumerate(units, 1):
+              digest = hashlib.sha256(body.encode()).hexdigest()
+              display = body.replace('\n', ' ↩ ')
+              print(f'SU-{idx:04d}\t{sec}\t{kind}\t{digest}\t{display}')
+          PY
+
+      - name: Diff whitespace gate
+        run: git diff --check 4daed9034891600597a47c01b6c39d5ebd9914ca
+
+      - name: Verifier artifact self-test
+        run: python .agents/skills/verify-spec/scripts/verify_spec_artifacts.py self-test
+
+      - name: Targeted Ruff format
+        run: POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-279 uv run --locked ruff format --check src/polaris/application tests/application/decisions
+
+      - name: Targeted Ruff lint
+        run: POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-279 uv run --locked ruff check src/polaris/application tests/application/decisions
+
+      - name: Targeted Mypy
+        run: POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-279 uv run --locked mypy --explicit-package-bases src/polaris/application tests/application/decisions
+
+      - name: Acceptance-test service preflight
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+          import ast
+          from pathlib import Path
+          roots = set()
+          fixtures = set()
+          for path in sorted(Path('tests/application/decisions').glob('test_*.py')):
+              tree = ast.parse(path.read_text(), filename=str(path))
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.Import):
+                      roots.update(alias.name.split('.')[0] for alias in node.names)
+                  elif isinstance(node, ast.ImportFrom) and node.module:
+                      roots.add(node.module.split('.')[0])
+                  elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                      for deco in node.decorator_list:
+                          if isinstance(deco, ast.Attribute) and deco.attr == 'fixture':
+                              fixtures.add(node.name)
+          print('Acceptance import roots:', ', '.join(sorted(roots)))
+          print('Local fixtures:', ', '.join(sorted(fixtures)) or 'none')
+          forbidden = {'asyncpg','psycopg','sqlalchemy','qdrant_client','neo4j','redis','boto3','requests','httpx','socket'}
+          present = sorted(roots & forbidden)
+          if present:
+              raise SystemExit(f'external-service import roots require manual preflight: {present}')
+          print('SERVICE PREFLIGHT: service-free exact acceptance scope')
+          PY
+
+      - name: Spec acceptance tests
+        run: POLARIS_BROAD_VERIFY_AUTHORIZED=verify-spec-279 uv run --locked pytest -q tests/application/decisions/
+
+      - name: Architecture-suite service preflight
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+          import ast
+          from pathlib import Path
+          paths = [
+              Path('tests/test_architecture_guard.py'),
+              Path('tests/test_architecture_guard_identity_aliases.py'),
+              Path('tests/test_architecture_guard_legacy_loaders.py'),
+          ]
+          roots = set()
+          for path in paths:
+              tree = ast.parse(path.read_text(), filename=str(path))
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.Import):
+                      roots.update(alias.name.split('.')[0] for alias in node.names)
+                  elif isinstance(node, ast.ImportFrom) and node.module:
+                      roots.add(node.module.split('.')[0])
+          print('Architecture import roots:', ', '.join(sorted(roots)))
+          forbidden = {'asyncpg','psycopg','sqlalchemy','qdrant_client','neo4j','redis','boto3','requests','httpx','socket'}
+          present = sorted(roots & forbidden)
+          if present:
+              raise SystemExit(f'external-service import roots require manual preflight: {present}')
+          print('SERVICE PREFLIGHT: service-free complete architecture suite')
+          PY
+
+      - name: Complete architecture suite
+        run: |
+          POLARIS_BROAD_VERIFY_AUTHORIZED=verify-architecture \
+            uv run --locked pytest -q \
+            tests/test_architecture_guard.py \
+            tests/test_architecture_guard_identity_aliases.py \
+            tests/test_architecture_guard_legacy_loaders.py
+
+      - name: Arid whole-repository gate
+        run: uv run --locked arid . --fail-on-stale --suppression-summary
+
+      - name: Install JSCPD runtime
+        run: npm install --global jscpd@4.0.5
+
+      - name: JSCPD whole-repository gate
+        run: jscpd .
+
+      - name: Final candidate cleanliness
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "4baa54445e0bcd9f19bb75277a9abc84bea3008c"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          echo 'CANDIDATE CLEAN: yes'

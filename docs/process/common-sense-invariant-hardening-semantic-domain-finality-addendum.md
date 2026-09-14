@@ -93,7 +93,7 @@ The governing Spec/root/architecture/contract authority materially changed after
 
 Unchanged durable authority contains an **explicit, mechanically identifiable contradiction** to the frozen membership predicate or source set—for example, an exact enumerated member/source clause was omitted even though the certification claimed that exact enumeration as authoritative.
 
-This is a semantic-certification integrity failure. It does not silently become current implementation remediation. Halt the affected lifecycle boundary and require explicit authority/domain reconciliation. Preserve the implementation observation, but do not authorize `$to-tickets` from it until the authoritative domain conflict is resolved.
+This is a semantic-certification integrity failure. It does not silently become current implementation remediation. Halt only the affected certified domain/cell and route it to the semantic completion owner that created that domain for **Certified Closure Domain Reconciliation**. For ticket/root domains created by `$verify-ticket-closure`, that skill owns the reconciliation. Preserve the implementation observation while reconciliation runs, but do not authorize `$to-tickets` from that observation until reconciliation makes it actionable. Unrelated finality-surviving remediation remains actionable and must not be globally held.
 
 A broader plausible reading, lexical sibling, thematic similarity, implementation adjacency, or reviewer preference is **not** an explicit authority contradiction.
 
@@ -106,6 +106,32 @@ The candidate is non-actionable for the current closed domain. Preserve it as a 
 ### Ambiguous membership
 
 If the old domain record is malformed or membership cannot be resolved, do not silently expand it. Treat the situation as certification/process-integrity debt and require explicit reconciliation. The ambiguity itself does not authorize implementation remediation.
+
+## Certified Closure Domain Reconciliation
+
+A `closure-authority-defect` is a transitional certification-integrity state, not a terminal lifecycle dead end and not a new public workflow stage.
+
+The domain's semantic completion owner independently reconciles the exact prior certification against the exact unchanged authority it claimed to represent. The reconciliation has exactly three terminal results:
+
+```text
+defect-confirmed
+defect-rejected
+reconciliation-unresolved
+```
+
+### `defect-confirmed`
+
+The prior membership predicate/source set is explicitly contradicted by its own unchanged authority. Reconstruct the **complete affected domain** authority-first from that same authority; do not merely append the candidate that exposed the defect. Persist a superseding membership record that preserves the historical PASS as historical truth while marking the defective prior membership boundary as no longer finality authority. A later/current review then reruns Domain Finality Reconciliation against the superseding domain. If the implementation observation is in-domain under the corrected boundary, it may become ordinary Blocking remediation.
+
+### `defect-rejected`
+
+The claimed contradiction is not explicit authority evidence sufficient to invalidate the frozen boundary. The prior Certified Closure Domain remains finality authority and the observation is handled as `domain-expansion` unless another ordinary finality disposition applies.
+
+### `reconciliation-unresolved`
+
+The authority/certification relationship cannot be resolved without guesswork. Hold only the affected certified domain/cell. Unrelated current Blocking remediation may continue, but review PASS remains illegal while any required reconciliation is unresolved.
+
+Reconciliation must be independently certified under the same no-self-certification principle as the original semantic completion transition. It may supersede membership authority; it does not rewrite historical evidence, retroactively recertify the historical implementation candidate, or create implementation work by itself.
 
 ## Root and Review Convergence
 

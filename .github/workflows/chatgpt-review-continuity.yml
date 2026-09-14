@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   apply:
-    if: "${{ github.event.head_commit.message == 'chore(workflow): repair review continuity validation' }}"
+    if: "${{ github.event.head_commit.message == 'chore(workflow): finish review continuity validation repair' }}"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,7 +30,7 @@ jobs:
           old = 'fresh-review non-rediscovery cannot erase'
           if old not in text:
               raise SystemExit('expected validator needle not found')
-          path.write_text(text.replace(old, '## Review Finding Continuity', 1))
+          path.write_text(text.replace(old, '## Review Finding Continuity'))
           PY
           python -m py_compile /tmp/review_continuity_patch.py
           python /tmp/review_continuity_patch.py

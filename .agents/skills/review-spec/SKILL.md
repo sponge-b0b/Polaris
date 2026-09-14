@@ -218,7 +218,7 @@ Missing/malformed `review-spec-proof-reuse:v1` state may require a full current 
 
 It does **not** erase applicable Certified Closure Domains from prior semantic ticket/root completion.
 
-Likewise, a repository mutation that makes member proof stale does not by itself change domain membership. Domain membership becomes stale only when its recorded governing authority changes or an explicit closure-authority defect is reconciled.
+Likewise, a repository mutation that makes member proof stale does not by itself change domain membership. Domain membership becomes stale only when its recorded governing authority changes or exact explicit authority invalidates the prior boundary under the rules below.
 
 ### Domain Finality and decomposition integrity
 
@@ -274,7 +274,7 @@ For a root with an applicable Certified Closure Domain:
 * `root-definition gap` may not expand the frozen domain under unchanged authority;
 * saturation challenge coverage is limited to the frozen domain plus members newly admitted by an actual governing-authority change;
 * the bounded challenge may discover additional **in-domain** siblings omitted by prior execution, but may not replace the membership predicate/source sets with a broader sibling universe;
-* `domain-expansion` and `closure-authority-defect` observations are excluded from active remediation until their own finality disposition authorizes otherwise.
+* `domain-expansion` observations are excluded from active remediation under unchanged authority; `decomposition-defect` findings remain Blocking but route to `$to-tickets` rather than ordinary Root Blocker synthesis.
 
 A genuinely distinct current obligation not governed by an existing certified root/domain may still become a Candidate new root normally.
 
@@ -719,11 +719,11 @@ Coverage is complete only when every supplied cell is dispositioned, no manifest
 
 First freeze/deduplicate **provisional** findings and validate their axis authority. Then apply Certified Semantic Domain Finality to every finding implicated by a prior satisfied/closed root/domain.
 
-Only finality-surviving findings become current Blocking findings. Preserve rejected domain-expansion/closure-authority-defect observations explicitly; do not silently delete them or move them to another axis.
+Only findings that survive the applicable decomposition-integrity and semantic-domain-finality gates become ordinary current Blocking findings. Preserve rejected `domain-expansion` observations explicitly; preserve `decomposition-defect` findings as Blocking routing state until `$to-tickets` reconciles them.
 
 ## 11. Reconcile Durable Roots
 
-Only after findings survive axis provenance **and Domain Finality Reconciliation** may the parent use them to mutate Root Blocker state.
+Only after findings survive axis provenance, decomposition-integrity routing, **and semantic-domain finality** may the parent use ordinary findings to mutate Root Blocker state.
 
 Map a finding to an existing root only when the stable invariant and applicable certified domain already derive it, or when an actual changed authority has made the prior domain stale. Otherwise mark `Candidate new root` only for a genuinely distinct current obligation, not as an escape hatch around domain finality.
 

@@ -100,9 +100,9 @@ A missed prior finding makes a root `open`, not `regressed`.
 
 ### Root Definition Integrity
 
-A root-definition gap may expand affected semantic surfaces, exit checks, and acceptance obligations while preserving the same stable invariant **only when the Certified Domain Reconciliation Gate above permits that expansion**. A certified frozen domain under unchanged authority may not be enlarged by this clause.
+A root-definition gap may expand affected semantic surfaces, exit checks, and acceptance obligations while preserving the same stable invariant **only when the current `$review-spec` semantic-domain-finality disposition permits that expansion**. A certified frozen domain under unchanged authority may not be enlarged by this clause.
 
-If the invariant itself would materially broaden, create a new root only when the current accepted finding is not a prohibited domain-expansion/closure-authority-defect under the gate above.
+If the invariant itself would materially broaden, create a new root only when the current accepted finding is neither a non-actionable `domain-expansion` nor an unresolved `decomposition-defect` awaiting `$to-tickets` reconciliation.
 
 Do not let a root become an unlimited thematic container.
 
@@ -124,7 +124,7 @@ Omission from a later update does not remove a cell.
 
 A satisfied cell stays satisfied unless current accepted evidence violates the same semantic obligation or durable state explicitly supersedes/retires/overrides it.
 
-A new sibling manifestation adds/opens the narrow missing cell only when it survived Certified Domain Reconciliation. A domain-expansion observation becomes `domain-excluded`; it does not downgrade unrelated satisfied siblings.
+A new sibling manifestation adds/opens the narrow missing cell only when it survived the current `$review-spec` semantic-domain-finality gate. A domain-expansion observation becomes `domain-excluded`; a decomposition defect remains separate routing state until `$to-tickets` reconciles it.
 
 A root is active-satisfied only when every non-retired required cell is `satisfied`, `owner-overridden`, or `domain-excluded`.
 
@@ -219,7 +219,7 @@ When durable state exists:
 1. recover complete ledger/matrix;
 2. preserve every active prior obligation;
 3. apply explicit Scope Corrections first;
-4. apply Certified Domain Reconciliation to every finding against a previously satisfied/closed root;
+4. consume the current `$review-spec` decomposition-integrity and semantic-domain-finality disposition for every finding against a previously satisfied/closed root;
 5. reconcile only finality-surviving current Blocking findings;
 6. add root-definition-gap cells only when allowed by the finality gate;
 7. mark corrected out-of-domain historical/current observations `domain-excluded` rather than deleting them;
@@ -248,7 +248,7 @@ Append a concise dated section containing:
 
 * current independently validated findings by axis;
 * applied scope corrections;
-* Domain Finality Reconciliation results;
+* decomposition-integrity and semantic-domain-finality results;
 * saturation result when present;
 * root updates;
 * matrix updates.
@@ -293,7 +293,7 @@ Let:
 ACTIVE_BLOCKING_FINDINGS
 ```
 
-mean current independently validated Blocking findings that remain active after validated scope corrections **and Certified Domain Reconciliation**.
+mean current independently validated ordinary Blocking findings that remain active after validated scope corrections **and semantic-domain finality**; decomposition defects are tracked separately as required above.
 
 Active decomposition defects are tracked separately from ordinary Root Blocker findings. They do not block a `$to-tickets` handoff for unrelated active remediation; instead the same `$to-tickets #<Spec Review>` invocation consumes both categories.
 
@@ -329,4 +329,4 @@ For an explicit owner override:
 * remove from Blocking counts;
 * suppress the unchanged finding later.
 
-Do not use Owner Override to repair attribution/domain mistakes that meet Scope Correction or Certified Domain Reconciliation rules.
+Do not use Owner Override to repair attribution, decomposition, or semantic-domain-finality mistakes that meet Scope Correction, decomposition-defect, or domain-expansion rules.

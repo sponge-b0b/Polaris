@@ -48,7 +48,6 @@ jobs:
           printf 'SOURCE_UNITS=%s\n' "$SOURCE_UNITS" >> "$GITHUB_ENV"
           printf 'MODEL_OUTPUT=%s\n' "$MODEL_OUTPUT" >> "$GITHUB_ENV"
 
-          # Read only the current Spec body. Do not read issue comments or prior receipts.
           gh issue view 279 --repo sponge-b0b/Polaris --json body --jq .body > "$SPEC_BODY"
 
           python - "$SPEC_BODY" "$SOURCE_UNITS" <<'PY'
@@ -235,8 +234,6 @@ jobs:
 
           command = [
               "copilot", "-s",
-              "--model", "gpt-5.4",
-              "--effort", "high",
               "--no-custom-instructions",
               "--disable-builtin-mcps",
               "--deny-tool=shell,write,url,memory",

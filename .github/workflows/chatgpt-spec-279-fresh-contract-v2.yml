@@ -48,12 +48,11 @@ jobs:
           printf 'SOURCE_UNITS=%s\n' "$SOURCE_UNITS" >> "$GITHUB_ENV"
           printf 'MODEL_OUTPUT=%s\n' "$MODEL_OUTPUT" >> "$GITHUB_ENV"
 
-          # Fetch only the current issue body; comments/receipts are intentionally not read.
+          # Read only the current Spec body. Do not read issue comments or prior receipts.
           gh issue view 279 --repo sponge-b0b/Polaris --json body --jq .body > "$SPEC_BODY"
 
           python - "$SPEC_BODY" "$SOURCE_UNITS" <<'PY'
           from __future__ import annotations
-
           import hashlib
           import json
           import re
@@ -63,7 +62,6 @@ jobs:
           body_path = Path(sys.argv[1])
           output_path = Path(sys.argv[2])
           lines = body_path.read_text(encoding="utf-8").splitlines()
-
           units: list[dict[str, object]] = []
           section = "(preamble)"
           paragraph: list[str] = []
@@ -89,16 +87,14 @@ jobs:
               body = normalize(raw)
               if not body:
                   return
-              units.append(
-                  {
-                      "source_unit": f"SU-{len(units) + 1:04d}",
-                      "source": source_identity(kind, body),
-                      "section": section,
-                      "kind": kind,
-                      "text_hash": hashlib.sha256(body.encode("utf-8")).hexdigest(),
-                      "text": body,
-                  }
-              )
+              units.append({
+                  "source_unit": f"SU-{len(units) + 1:04d}",
+                  "source": source_identity(kind, body),
+                  "section": section,
+                  "kind": kind,
+                  "text_hash": hashlib.sha256(body.encode("utf-8")).hexdigest(),
+                  "text": body,
+              })
 
           def flush_paragraph() -> None:
               if paragraph:
@@ -145,11 +141,7 @@ jobs:
                   i += 1
                   while i < len(lines):
                       nxt = lines[i]
-                      if not nxt.strip():
-                          break
-                      if re.match(r"^\s*(?:[-*+]\s+|\d+\.\s+)", nxt):
-                          break
-                      if re.match(r"^#{1,6}\s+", nxt.strip()):
+                      if not nxt.strip() or re.match(r"^\s*(?:[-*+]\s+|\d+\.\s+)", nxt) or re.match(r"^#{1,6}\s+", nxt.strip()):
                           break
                       if nxt.startswith("  ") or nxt.startswith("\t"):
                           item.append(nxt)
@@ -173,10 +165,7 @@ jobs:
               i += 1
 
           flush_paragraph()
-          output_path.write_text(
-              json.dumps(units, ensure_ascii=False, separators=(",", ":")),
-              encoding="utf-8",
-          )
+          output_path.write_text(json.dumps(units, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
           print(f"Fresh source units materialized: {len(units)}")
           PY
 
@@ -194,10 +183,21 @@ jobs:
           export COPILOT_HOME
           mkdir -p "$COPILOT_HOME"
 
-          PROMPT=$(cat <<'EOF'
-          You are the genuinely fresh, non-mutating semantic classifier inside a Polaris `$spec-contract` build for Spec #279.
+          python - "$SPEC_BODY" "$SOURCE_UNITS" "$MODEL_OUTPUT" <<'PY'
+          from __future__ import annotations
+          import subprocess
+          import sys
+          from pathlib import Path
 
-          This invocation is intentionally isolated. You have not been given and must not infer or seek any prior Spec Contract hash, prior manifest, prior source-unit classification, prior receipt, prior proof-reuse state, prior handoff, prior conversation, or scratch contract artifact. Do not use memory. Do not access the network, GitHub issue comments, old receipts, Git history as a contract source, or any state outside the four attached authoritative/current inputs.
+          spec_body = Path(sys.argv[1]).read_text(encoding="utf-8")
+          source_units = Path(sys.argv[2]).read_text(encoding="utf-8")
+          output_path = Path(sys.argv[3])
+          agents = Path("AGENTS.md").read_text(encoding="utf-8")
+          contract_skill = Path(".agents/skills/spec-contract/SKILL.md").read_text(encoding="utf-8")
+
+          instructions = r'''You are the genuinely fresh, non-mutating semantic classifier inside a Polaris `$spec-contract` build for Spec #279.
+
+          This invocation is intentionally isolated. You have not been given and must not infer or seek any prior Spec Contract hash, prior manifest, prior source-unit classification, prior receipt, prior proof-reuse state, prior handoff, prior conversation, or scratch contract artifact. Do not use memory. Do not access the network, GitHub issue comments, old receipts, Git history as a contract source, or any state outside the four authoritative/current inputs embedded below.
 
           Exact build identity:
           - Spec: #279, Implement Investment Decision application lifecycle and Decision Memory queries
@@ -206,66 +206,50 @@ jobs:
           - HEAD: 4baa54445e0bcd9f19bb75277a9abc84bea3008c
           - Mode: build
 
-          Attached inputs:
-          1. current root AGENTS.md;
-          2. current `.agents/skills/spec-contract/SKILL.md`;
-          3. the current Spec #279 body fetched in this fresh job;
-          4. a deterministic, unclassified Source Unit Inventory derived in this fresh job from that body. It contains only source identity, source text, and source text hash. It contains NO semantic classification and NO source-to-cell mapping.
+          Follow the embedded `$spec-contract` contract exactly for semantic classification and manifest construction. The surrounding fresh builder process will perform deterministic validation, V2 hashing, change-provenance calculation, handoff serialization, and handoff digest calculation after your semantic result returns. You own all semantic judgments: `normative-new`, `normative-represented`, `non-normative`, source-to-cell mapping, whether additional `NORM-*` obligations exist, and faithful human-readable manifest requirements.
 
-          Follow the attached `$spec-contract` contract exactly for semantic classification and manifest construction. The surrounding fresh builder process will perform deterministic validation, V2 hashing, change-provenance calculation, handoff serialization, and handoff digest calculation after your semantic result returns. You own all semantic judgments: `normative-new`, `normative-represented`, `non-normative`, source-to-cell mapping, whether additional `NORM-*` obligations exist, and faithful human-readable manifest requirements.
+          Output EXACTLY one JSON object and nothing else with this schema:
+          {"inventory":[{"source_unit":"SU-0001","classification":"normative-new | normative-represented | non-normative","manifest_cells":["US-1"] or null,"reason":"concise reason" or null}],"manifest":[{"cell":"US-1","source":"exact deterministic source identity from the Source Unit Inventory","requirement":"concise faithful normative obligation","named_surfaces":"explicit named surface when present" or null}]}
 
-          Required result schema — output EXACTLY one JSON object and nothing else:
-          {
-            "inventory": [
-              {
-                "source_unit": "SU-0001",
-                "classification": "normative-new | normative-represented | non-normative",
-                "manifest_cells": ["US-1"] or null,
-                "reason": "concise reason" or null
-              }
-            ],
-            "manifest": [
-              {
-                "cell": "US-1",
-                "source": "exact deterministic source identity from the attached inventory",
-                "requirement": "concise faithful normative obligation",
-                "named_surfaces": "explicit named surface when present" or null
-              }
-            ]
-          }
-
-          Semantic requirements:
-          - Return one inventory row for EVERY attached SU-* row, in the same order. Omission is invalid.
-          - Every numbered User Story must create/map its stable `US-<n>` cell.
-          - Every Implementation Decision item must create/map its stable `ID-<n>` cell.
-          - Every Testing Decision item must create/map its stable `TD-<n>` cell.
-          - Every Out of Scope item must create/map its stable `OOS-<n>` cell.
-          - Materially unique normative obligations elsewhere use stable document-order `NORM-<n>` cells only when they are not already fully represented by US/ID/TD/OOS cells.
-          - A source unit containing normative meaning already fully represented elsewhere is `normative-represented`, maps every cell that fully represents it, and has a concise equivalence/reference reason.
-          - A `non-normative` source unit has `manifest_cells: null` and a concise reason.
-          - A mixed explanatory+normative unit is normative.
+          Requirements:
+          - Return one inventory row for EVERY SU-* row, in the same order. Omission is invalid.
+          - Every numbered User Story creates/maps `US-<n>`; every Implementation Decision creates/maps `ID-<n>`; every Testing Decision creates/maps `TD-<n>`; every Out of Scope item creates/maps `OOS-<n>`.
+          - Materially unique normative obligations elsewhere use stable document-order `NORM-<n>` cells only when not already fully represented by US/ID/TD/OOS cells.
+          - A unit whose normative meaning is already fully represented is `normative-represented`, maps every cell that fully represents it, and gives a concise equivalence/reference reason.
+          - A `non-normative` unit has `manifest_cells: null` and a concise reason. Mixed explanatory+normative units are normative.
           - Do not create obligations from ADRs, architecture documents, implementation, tests, or prior history; the originating Spec is the manifest universe.
-          - Do not collapse distinct positive and negative obligations.
-          - Preserve MUST/MUST NOT/ONLY/CANNOT/fail-closed semantics in requirement prose where the source establishes them.
-          - `source` for each manifest row must use the deterministic source identity from the attached Source Unit Inventory, not a new semantic label.
-          - Keep reasons and requirements concise so the complete source-unit result fits comfortably in one response.
+          - Do not collapse distinct positive and negative obligations. Preserve MUST/MUST NOT/ONLY/CANNOT/fail-closed semantics when established by source text.
+          - `source` for each manifest row must use the deterministic source identity from the embedded Source Unit Inventory.
+          - Keep reasons and requirements concise.
+          - Before emitting JSON, check that every source unit is classified; every normative unit mapped; every non-normative unit reasoned; every manifest cell has an originating source unit; no canonical numbered source item is missing; no cell is duplicated; no mapping is ambiguous.
+          - Do not emit prose, Markdown fences, a hash, expected counts, or any historical comparison.
+          '''
 
-          Before emitting JSON, internally check: every source unit classified; every normative unit mapped; every non-normative unit reasoned; every manifest cell has at least one originating source unit; no missing canonical numbered source item; no duplicate cell; no ambiguous mapping. Do not emit prose, Markdown fences, a hash, expected counts, or any comparison with historical state.
-          EOF
-          )
+          prompt = "\n".join([
+              instructions,
+              "\n=== INPUT 1: ROOT AGENTS.md ===\n", agents,
+              "\n=== INPUT 2: CURRENT spec-contract SKILL.md ===\n", contract_skill,
+              "\n=== INPUT 3: CURRENT SPEC #279 BODY ===\n", spec_body,
+              "\n=== INPUT 4: FRESH UNCLASSIFIED SOURCE UNIT INVENTORY ===\n", source_units,
+          ])
 
-          copilot -sp "$PROMPT" \
-            --model gpt-5.4 \
-            --effort high \
-            --no-custom-instructions \
-            --disable-builtin-mcps \
-            --deny-tool='shell,write,url,memory' \
-            --no-ask-user \
-            --attachment AGENTS.md \
-            --attachment .agents/skills/spec-contract/SKILL.md \
-            --attachment "$SPEC_BODY" \
-            --attachment "$SOURCE_UNITS" \
-            > "$MODEL_OUTPUT"
+          command = [
+              "copilot", "-s",
+              "--model", "gpt-5.4",
+              "--effort", "high",
+              "--no-custom-instructions",
+              "--disable-builtin-mcps",
+              "--deny-tool=shell,write,url,memory",
+              "--no-ask-user",
+              "--no-remote",
+              "--no-remote-export",
+          ]
+          result = subprocess.run(command, input=prompt, text=True, capture_output=True, check=False)
+          if result.returncode != 0:
+              sys.stderr.write(result.stderr)
+              raise SystemExit(result.returncode)
+          output_path.write_text(result.stdout, encoding="utf-8")
+          PY
 
           python -m json.tool "$MODEL_OUTPUT" >/dev/null
           echo "Fresh semantic classifier returned parseable JSON."
@@ -286,7 +270,6 @@ jobs:
           set -euo pipefail
           python - "$SPEC_BODY" "$SOURCE_UNITS" "$MODEL_OUTPUT" "$BUILD_ROOT/provenance.json" "$CONTRACT_HANDOFF" <<'PY'
           from __future__ import annotations
-
           import hashlib
           import json
           import re
@@ -294,43 +277,29 @@ jobs:
           from pathlib import Path
 
           spec_body_path = Path(sys.argv[1])
-          source_units_path = Path(sys.argv[2])
-          model_output_path = Path(sys.argv[3])
-          provenance_path = Path(sys.argv[4])
+          units = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+          semantic = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
+          provenance = json.loads(Path(sys.argv[4]).read_text(encoding="utf-8"))
           handoff_path = Path(sys.argv[5])
-
           if handoff_path.exists():
               raise SystemExit("SPEC CONTRACT: INVALID\nReason: handoff path existed before build")
-
-          units = json.loads(source_units_path.read_text(encoding="utf-8"))
-          semantic = json.loads(model_output_path.read_text(encoding="utf-8"))
-          provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
-
-          if set(semantic) != {"inventory", "manifest"}:
+          if set(semantic) != {"inventory", "manifest"} or not isinstance(semantic["inventory"], list) or not isinstance(semantic["manifest"], list):
               raise SystemExit("SPEC CONTRACT: INVALID\nReason: semantic result schema mismatch")
+
           inventory = semantic["inventory"]
           manifest = semantic["manifest"]
-          if not isinstance(inventory, list) or not isinstance(manifest, list):
-              raise SystemExit("SPEC CONTRACT: INVALID\nReason: inventory/manifest must be arrays")
-
           expected_ids = [row["source_unit"] for row in units]
           if [row.get("source_unit") for row in inventory] != expected_ids:
               raise SystemExit("SPEC CONTRACT: INVALID\nReason: semantic inventory does not exactly cover ordered source units")
 
-          family_rank = {"US": 0, "ID": 1, "TD": 2, "OOS": 3, "NORM": 4}
-          cell_pattern = re.compile(r"^(US|ID|TD|OOS|NORM)-(\d+)(?:\.(.+))?$")
-
+          rank = {"US": 0, "ID": 1, "TD": 2, "OOS": 3, "NORM": 4}
+          pattern = re.compile(r"^(US|ID|TD|OOS|NORM)-(\d+)(?:\.(.+))?$")
           def cell_key(cell: str) -> tuple[int, int, int, str]:
-              match = cell_pattern.fullmatch(cell)
+              match = pattern.fullmatch(cell)
               if not match or int(match.group(2)) <= 0:
-                  raise ValueError(f"invalid cell ID: {cell}")
+                  raise ValueError(cell)
               suffix = match.group(3)
-              return (
-                  family_rank[match.group(1)],
-                  int(match.group(2)),
-                  0 if suffix is None else 1,
-                  "" if suffix is None else suffix,
-              )
+              return rank[match.group(1)], int(match.group(2)), 0 if suffix is None else 1, "" if suffix is None else suffix
 
           manifest_by_cell: dict[str, dict[str, object]] = {}
           for row in manifest:
@@ -338,26 +307,21 @@ jobs:
                   raise SystemExit("SPEC CONTRACT: INVALID\nReason: manifest row schema mismatch")
               cell = row["cell"]
               if not isinstance(cell, str):
-                  raise SystemExit("SPEC CONTRACT: INVALID\nReason: manifest cell must be a string")
+                  raise SystemExit("SPEC CONTRACT: INVALID\nReason: manifest cell must be string")
               try:
                   cell_key(cell)
-              except ValueError as exc:
-                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: {exc}") from exc
+              except ValueError:
+                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: invalid cell ID {cell}")
               if cell in manifest_by_cell:
-                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: duplicate manifest cell {cell}")
-              if not isinstance(row["source"], str) or not row["source"].strip():
-                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: empty source for {cell}")
-              if not isinstance(row["requirement"], str) or not row["requirement"].strip():
-                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: empty requirement for {cell}")
-              if row["named_surfaces"] is not None and not isinstance(row["named_surfaces"], str):
-                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: invalid named_surfaces for {cell}")
+                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: duplicate cell {cell}")
+              if not isinstance(row["source"], str) or not row["source"].strip() or not isinstance(row["requirement"], str) or not row["requirement"].strip():
+                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: incomplete manifest row {cell}")
               manifest_by_cell[cell] = row
 
-          classifications = {"normative-new", "normative-represented", "non-normative"}
-          normalized_inventory: list[dict[str, object]] = []
-          origins_by_cell: dict[str, list[str]] = {cell: [] for cell in manifest_by_cell}
-          new_origins_by_cell: dict[str, list[str]] = {cell: [] for cell in manifest_by_cell}
-
+          allowed = {"normative-new", "normative-represented", "non-normative"}
+          normalized: list[dict[str, object]] = []
+          origins = {cell: [] for cell in manifest_by_cell}
+          new_origins = {cell: [] for cell in manifest_by_cell}
           for row in inventory:
               if not isinstance(row, dict) or set(row) != {"source_unit", "classification", "manifest_cells", "reason"}:
                   raise SystemExit("SPEC CONTRACT: INVALID\nReason: inventory row schema mismatch")
@@ -365,57 +329,37 @@ jobs:
               classification = row["classification"]
               cells = row["manifest_cells"]
               reason = row["reason"]
-              if classification not in classifications:
-                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: invalid classification for {source_unit}")
+              if classification not in allowed:
+                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: invalid classification {source_unit}")
               if classification == "non-normative":
-                  if cells not in (None, []):
-                      raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: non-normative {source_unit} has manifest mapping")
-                  if not isinstance(reason, str) or not reason.strip():
-                      raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: non-normative {source_unit} lacks reason")
+                  if cells not in (None, []) or not isinstance(reason, str) or not reason.strip():
+                      raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: invalid non-normative row {source_unit}")
                   normalized_cells = None
               else:
-                  if not isinstance(cells, list) or not cells or any(not isinstance(cell, str) for cell in cells):
-                      raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: normative {source_unit} lacks manifest mapping")
-                  if len(set(cells)) != len(cells):
-                      raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: duplicate mapping in {source_unit}")
+                  if not isinstance(cells, list) or not cells or any(not isinstance(cell, str) for cell in cells) or len(cells) != len(set(cells)):
+                      raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: invalid normative mapping {source_unit}")
                   try:
                       normalized_cells = sorted(cells, key=cell_key)
                   except ValueError as exc:
-                      raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: {exc}") from exc
-                  missing = [cell for cell in normalized_cells if cell not in manifest_by_cell]
-                  if missing:
-                      raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: {source_unit} maps missing cells {missing}")
+                      raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: invalid mapped cell {exc}")
+                  if any(cell not in manifest_by_cell for cell in normalized_cells):
+                      raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: missing mapped cell {source_unit}")
                   if classification == "normative-represented" and (not isinstance(reason, str) or not reason.strip()):
-                      raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: represented {source_unit} lacks equivalence reason")
+                      raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: represented row lacks reason {source_unit}")
                   for cell in normalized_cells:
-                      origins_by_cell[cell].append(source_unit)
+                      origins[cell].append(source_unit)
                       if classification == "normative-new":
-                          new_origins_by_cell[cell].append(source_unit)
-              normalized_inventory.append(
-                  {
-                      "source_unit": source_unit,
-                      "classification": classification,
-                      "manifest_cells": normalized_cells,
-                      "reason": reason,
-                  }
-              )
+                          new_origins[cell].append(source_unit)
+              normalized.append({"source_unit": source_unit, "classification": classification, "manifest_cells": normalized_cells, "reason": reason})
 
-          for cell, origins in origins_by_cell.items():
-              if not origins:
-                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: manifest cell {cell} has no source unit")
-              if not new_origins_by_cell[cell]:
-                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: manifest cell {cell} has no normative-new origin")
+          for cell in manifest_by_cell:
+              if not origins[cell] or not new_origins[cell]:
+                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: cell lacks originating normative-new source {cell}")
 
-          canonical_sections = {
-              "User Stories": "US",
-              "Implementation Decisions": "ID",
-              "Testing Decisions": "TD",
-              "Out of Scope": "OOS",
-          }
+          canonical_sections = {"User Stories": "US", "Implementation Decisions": "ID", "Testing Decisions": "TD", "Out of Scope": "OOS"}
           canonical_counts = {prefix: 0 for prefix in canonical_sections.values()}
-          canonical_unit_ids: set[str] = set()
-
-          for unit, inv in zip(units, normalized_inventory, strict=True):
+          canonical_units: set[str] = set()
+          for unit, inv in zip(units, normalized, strict=True):
               section = unit["section"]
               if section not in canonical_sections:
                   continue
@@ -423,130 +367,63 @@ jobs:
               source = unit["source"]
               match = re.fullmatch(rf"{re.escape(section)} (\d+)", source)
               if not match:
-                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: malformed canonical source identity {source}")
+                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: malformed canonical source {source}")
               number = int(match.group(1))
               canonical_counts[prefix] += 1
-              canonical_unit_ids.add(unit["source_unit"])
+              canonical_units.add(unit["source_unit"])
               cell = f"{prefix}-{number}"
-              if inv["classification"] != "normative-new":
-                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: canonical source {source} is not normative-new")
-              if cell not in (inv["manifest_cells"] or []):
-                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: canonical source {source} does not map {cell}")
-              if cell not in manifest_by_cell:
-                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: canonical cell {cell} missing")
-              if manifest_by_cell[cell]["source"] != source:
-                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: canonical manifest source mismatch for {cell}")
+              if inv["classification"] != "normative-new" or cell not in (inv["manifest_cells"] or []) or cell not in manifest_by_cell or manifest_by_cell[cell]["source"] != source:
+                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: canonical mapping mismatch {source}")
 
           for prefix, count in canonical_counts.items():
               base_cells = {cell for cell in manifest_by_cell if re.fullmatch(rf"{prefix}-\d+", cell)}
-              expected = {f"{prefix}-{number}" for number in range(1, count + 1)}
-              if base_cells != expected:
-                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: {prefix} source coverage mismatch")
+              if base_cells != {f"{prefix}-{n}" for n in range(1, count + 1)}:
+                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: {prefix} coverage mismatch")
 
-          for inv in normalized_inventory:
-              if inv["source_unit"] in canonical_unit_ids:
-                  continue
-              if inv["classification"] == "normative-new":
-                  cells = inv["manifest_cells"] or []
-                  if any(not cell.startswith("NORM-") for cell in cells):
-                      raise SystemExit(
-                          f"SPEC CONTRACT: INVALID\nReason: non-canonical normative-new {inv['source_unit']} must create NORM cells"
-                      )
+          for inv in normalized:
+              if inv["source_unit"] not in canonical_units and inv["classification"] == "normative-new" and any(not cell.startswith("NORM-") for cell in (inv["manifest_cells"] or [])):
+                  raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: noncanonical normative-new source must create NORM cells {inv['source_unit']}")
 
           sorted_cells = sorted(manifest_by_cell, key=cell_key)
-          manifest_rows = [manifest_by_cell[cell] for cell in sorted_cells]
-
-          identity_source_units = [
-              [unit["source_unit"], unit["text_hash"], inv["classification"], inv["manifest_cells"]]
-              for unit, inv in zip(units, normalized_inventory, strict=True)
-          ]
-          identity_manifest = [[cell, origins_by_cell[cell]] for cell in sorted_cells]
-
+          identity_units = [[unit["source_unit"], unit["text_hash"], inv["classification"], inv["manifest_cells"]] for unit, inv in zip(units, normalized, strict=True)]
+          identity_manifest = [[cell, origins[cell]] for cell in sorted_cells]
           spec_body_hash = hashlib.sha256(spec_body_path.read_bytes()).hexdigest()
-          payload = (
-              "SPEC-CONTRACT-V2\n"
-              + spec_body_hash
-              + "\n--SOURCE-UNITS--\n"
-              + "\n".join(json.dumps(row, ensure_ascii=False, separators=(",", ":")) for row in identity_source_units)
-              + "\n--MANIFEST--\n"
-              + "\n".join(json.dumps(row, ensure_ascii=False, separators=(",", ":")) for row in identity_manifest)
-              + "\n"
-          )
-          spec_contract_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-
-          other_normative = sum(
-              1
-              for unit, inv in zip(units, normalized_inventory, strict=True)
-              if unit["source_unit"] not in canonical_unit_ids and inv["classification"] == "normative-new"
-          )
-          source_counts = {
-              "user_stories": canonical_counts["US"],
-              "implementation_decisions": canonical_counts["ID"],
-              "testing_decisions": canonical_counts["TD"],
-              "out_of_scope": canonical_counts["OOS"],
-              "other_normative": other_normative,
-          }
-
+          payload = "SPEC-CONTRACT-V2\n" + spec_body_hash + "\n--SOURCE-UNITS--\n" + "\n".join(json.dumps(row, ensure_ascii=False, separators=(",", ":")) for row in identity_units) + "\n--MANIFEST--\n" + "\n".join(json.dumps(row, ensure_ascii=False, separators=(",", ":")) for row in identity_manifest) + "\n"
+          contract_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+          other_normative = sum(1 for unit, inv in zip(units, normalized, strict=True) if unit["source_unit"] not in canonical_units and inv["classification"] == "normative-new")
+          source_counts = {"user_stories": canonical_counts["US"], "implementation_decisions": canonical_counts["ID"], "testing_decisions": canonical_counts["TD"], "out_of_scope": canonical_counts["OOS"], "other_normative": other_normative}
           handoff = {
               "spec_issue": 279,
               "head": "4baa54445e0bcd9f19bb75277a9abc84bea3008c",
               "baseline": "4daed9034891600597a47c01b6c39d5ebd9914ca",
               "branch": "spec-279",
               "spec_body_hash": spec_body_hash,
-              "spec_contract_hash": spec_contract_hash,
+              "spec_contract_hash": contract_hash,
               "default_branch": provenance["default_branch"],
               "default_head": provenance["default_head"],
               "source_counts": source_counts,
-              "manifest": [
-                  {"cell": row["cell"], "source": row["source"], "requirement": row["requirement"]}
-                  for row in manifest_rows
-              ],
-              "contract_identity": {
-                  "source_units": identity_source_units,
-                  "manifest": identity_manifest,
-              },
+              "manifest": [{"cell": manifest_by_cell[cell]["cell"], "source": manifest_by_cell[cell]["source"], "requirement": manifest_by_cell[cell]["requirement"]} for cell in sorted_cells],
+              "contract_identity": {"source_units": identity_units, "manifest": identity_manifest},
           }
           handoff_bytes = json.dumps(handoff, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
           handoff_path.write_bytes(handoff_bytes)
-          handoff_digest = hashlib.sha256(handoff_bytes).hexdigest()
-
-          counts = {
-              value: sum(1 for row in normalized_inventory if row["classification"] == value)
-              for value in classifications
-          }
+          digest = hashlib.sha256(handoff_bytes).hexdigest()
+          counts = {value: sum(1 for row in normalized if row["classification"] == value) for value in allowed}
           print("SPEC CONTRACT: VALID")
-          print("Spec: #279")
           print(f"Spec Body Hash: {spec_body_hash}")
-          print(f"Spec Contract Hash: {spec_contract_hash}")
-          print(f"Contract handoff digest: {handoff_digest}")
-          print("Baseline: 4daed9034891600597a47c01b6c39d5ebd9914ca")
-          print("Branch: spec-279")
-          print("HEAD: 4baa54445e0bcd9f19bb75277a9abc84bea3008c")
-          print(f"Default branch: {provenance['default_branch']}")
+          print(f"Spec Contract Hash: {contract_hash}")
+          print(f"Contract handoff digest: {digest}")
           print(f"Default branch ref: {provenance['default_head']}")
-          print("Source unit integrity:")
-          print(f"- Source units: {len(units)}")
-          print(f"- Classified source units: {len(normalized_inventory)}")
-          print(f"- Normative-new source units: {counts['normative-new']}")
-          print(f"- Normative-represented source units: {counts['normative-represented']}")
-          print(f"- Non-normative source units: {counts['non-normative']}")
-          print("- Unclassified source units: 0")
-          print("- Normative source units without manifest mapping: 0")
-          print("- Non-normative source units without reason: 0")
-          print("Source counts:")
-          print(f"- User Stories: {source_counts['user_stories']}")
-          print(f"- Implementation Decisions: {source_counts['implementation_decisions']}")
-          print(f"- Testing Decisions: {source_counts['testing_decisions']}")
-          print(f"- Out of Scope: {source_counts['out_of_scope']}")
-          print(f"- Other normative source items: {source_counts['other_normative']}")
-          print(f"Manifest cells: {len(manifest_rows)}")
+          print(f"Source units: {len(units)}; classified: {len(normalized)}; normative-new: {counts['normative-new']}; normative-represented: {counts['normative-represented']}; non-normative: {counts['non-normative']}")
+          print(f"Source counts: US {source_counts['user_stories']}; ID {source_counts['implementation_decisions']}; TD {source_counts['testing_decisions']}; OOS {source_counts['out_of_scope']}; Other normative {source_counts['other_normative']}")
+          print(f"Manifest cells: {len(sorted_cells)}")
+          print("Unclassified source units: 0")
+          print("Normative source units without manifest mapping: 0")
+          print("Non-normative source units without reason: 0")
           print("Unmapped source items: 0")
           print("Duplicate source mappings: 0")
           print("Ambiguous source items: 0")
-          print(f"Branch-local commits: {len(provenance['branch_local_commits'])}")
-          print(f"Branch-local repository surfaces: {len(provenance['branch_local_surfaces'])}")
-          print(f"Mixed-provenance repository surfaces: {len(provenance['mixed_provenance_surfaces'])}")
-          print(f"Inherited-only integration surfaces: {len(provenance['inherited_only_surfaces'])}")
+          print(f"Branch-local commits: {len(provenance['branch_local_commits'])}; branch-local surfaces: {len(provenance['branch_local_surfaces'])}; mixed-provenance surfaces: {len(provenance['mixed_provenance_surfaces'])}; inherited-only surfaces: {len(provenance['inherited_only_surfaces'])}")
           print("Build isolation: PASS")
           print("Prior contract representations supplied or inspected: 0")
           print("Pre-existing scratch contract artifacts inspected: 0")

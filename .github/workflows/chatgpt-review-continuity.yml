@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   apply:
-    if: github.event.head_commit.message == 'chore(workflow): stage review continuity hardening'
+    if: "${{ github.event.head_commit.message == 'chore(workflow): arm review continuity hardening' }}"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

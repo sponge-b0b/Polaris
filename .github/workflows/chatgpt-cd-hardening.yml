@@ -38,7 +38,7 @@ jobs:
 
       - name: Commit canonical hardening and remove transport
         run: |
-          rm -f .github/scripts/chatgpt_cd_hardening.py
+          rm -f .github/scripts/chatgpt_cd_hardening.py .github/scripts/chatgpt_cd_hardening.part*
           rm -f .github/workflows/chatgpt-cd-hardening.yml
           git add -A
           git diff --cached --check

@@ -66,10 +66,9 @@ jobs:
                   units.append((section, kind, body))
 
           def flush() -> None:
-              nonlocal paragraph
               if paragraph:
                   add('paragraph', '\n'.join(paragraph))
-                  paragraph = []
+                  paragraph.clear()
 
           i = 0
           while i < len(lines):
@@ -173,7 +172,7 @@ jobs:
                       roots.update(alias.name.split('.')[0] for alias in node.names)
                   elif isinstance(node, ast.ImportFrom) and node.module:
                       roots.add(node.module.split('.')[0])
-                  elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                  elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                       for deco in node.decorator_list:
                           if isinstance(deco, ast.Attribute) and deco.attr == 'fixture':
                               fixtures.add(node.name)

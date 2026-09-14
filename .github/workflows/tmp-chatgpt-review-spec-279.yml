@@ -1,0 +1,64 @@
+name: Temporary ChatGPT Spec 279 fresh reviewer
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  issues: read
+  copilot-requests: write
+
+jobs:
+  review:
+    if: "${{ github.event.head_commit.message == 'chore(review): arm fresh Spec 279 reviewer' }}"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: transport
+          fetch-depth: 1
+
+      - uses: actions/checkout@v4
+        with:
+          ref: spec-279
+          path: candidate
+          fetch-depth: 0
+
+      - name: Pin execution identities
+        run: |
+          set -euo pipefail
+          test "$(git -C transport rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git -C candidate branch --show-current)" = "spec-279"
+          test "$(git -C candidate rev-parse HEAD)" = "4baa54445e0bcd9f19bb75277a9abc84bea3008c"
+          test -z "$(git -C candidate status --porcelain)"
+          test "$(git -C transport show HEAD:AGENTS.md | git hash-object --stdin)" = "66a1be7f0498f92ac9574d258443ec4cb8a15059"
+          test -f transport/.github/tmp/review_spec_279_fresh.py
+
+      - name: Install current Copilot CLI
+        run: npm install --global @github/copilot
+
+      - name: Run fresh reviewer
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: "false"
+          COPILOT_MCP_TOOL_CACHE: "false"
+        run: |
+          set -euo pipefail
+          python transport/.github/tmp/review_spec_279_fresh.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: review-spec-279-fresh-review
+          path: |
+            ${{ env.REVIEW_ROOT }}/review-result.json
+            ${{ env.REVIEW_ROOT }}/review-summary.json
+            ${{ env.REVIEW_ROOT }}/checkpoint.json
+            ${{ env.REVIEW_ROOT }}/provenance.json
+            ${{ env.REVIEW_ROOT }}/standards-universe.json
+            ${{ env.REVIEW_ROOT }}/architecture-universe.json
+          if-no-files-found: error
+          retention-days: 1

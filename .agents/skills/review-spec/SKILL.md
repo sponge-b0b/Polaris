@@ -90,6 +90,8 @@ Semantic axis independence: required
 
 Token/model cost is an execution constraint, never permission to omit coverage, skip required proof, weaken Domain Finality Reconciliation, bypass Attention, or relax the Exit Gate.
 
+A `$verify-ticket-closure` Certified Domain Reconciliation invoked by the finality gate is delegated semantic certification, not an additional review/challenger pass. Its fresh-verifier requirement is governed by that skill and does not authorize any extra review agents or challengers.
+
 ## Review Execution Efficiency
 
 Correctness coverage is mandatory; repeated retrieval and transcript volume are not. Use the following execution discipline for every review:

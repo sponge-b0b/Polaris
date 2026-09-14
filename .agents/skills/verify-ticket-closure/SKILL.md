@@ -143,7 +143,7 @@ The reconciler returns the terminal record to `$review-spec`. The review parent 
 
 ## Invocation Semantics
 
-`$verify-ticket-closure` has two execution modes. The normal ticket lifecycle uses the fresh verifier leaf; direct human invocation is optional recovery/manual entry, not a required authorization gate.
+For ordinary ticket-candidate certification, `$verify-ticket-closure` has two entry modes. The Certified Closure Domain Reconciliation mode above is a separate prescribed internal-composition path and terminates after its reconciliation result; it does not enter the ordinary candidate-certification procedure below. The normal ticket lifecycle uses the fresh verifier leaf; direct human invocation is optional recovery/manual entry, not a required authorization gate.
 
 ### Fresh verifier leaf — normal path
 
@@ -174,7 +174,7 @@ A direct ad hoc execution outside the `$implement-ticket` checkpoint lifecycle i
 
 ## Verifier Integrity
 
-Only the fresh dispatched verifier executes the remaining sections.
+For ordinary ticket-candidate certification, only the fresh dispatched verifier executes the remaining sections. Certified Closure Domain Reconciliation uses its own Reconciler Integrity contract above and stops before this ordinary certification path.
 
 A valid verifier is:
 

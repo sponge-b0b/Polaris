@@ -262,7 +262,7 @@ Clean first review:
 
 ```text
 $review-spec
-    ↓ zero Blocking findings
+    ↓ zero Blocking findings and zero unresolved certification reconciliations
 create or reuse the one conventional Spec Review issue
     ↓
 persist Spec Review Exit Receipt on that review issue

@@ -1,0 +1,25 @@
+name: Temporary ChatGPT ticket 314 closure reconciliation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/tmp-chatgpt-ticket-314-close.yml
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  close:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout main authority
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Reconcile root and close ticket
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python .github/tmp/ticket_314_close.py

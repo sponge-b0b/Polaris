@@ -1,0 +1,180 @@
+name: Temporary ChatGPT ticket 316 candidate implementation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-chatgpt-implement-316.yml'
+
+permissions:
+  contents: read
+  copilot-requests: write
+  issues: read
+
+jobs:
+  implement:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout transport authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: transport
+          fetch-depth: 1
+
+      - name: Checkout exact ticket baseline
+        uses: actions/checkout@v4
+        with:
+          ref: e243c2c50b0d2a2ed4ee539f040fed53597a402f
+          path: candidate
+          fetch-depth: 0
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install current Copilot CLI
+        run: npm install --global @github/copilot
+
+      - name: Implement ticket 316 in disposable candidate
+        working-directory: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+          COPILOT_MCP_TOOL_CACHE: 'false'
+        run: |
+          cat > "$RUNNER_TEMP/ticket-316-prompt.txt" <<'PROMPT'
+          You are the implementation helper for Polaris ticket #316, working in an exact checkout of ticket baseline e243c2c50b0d2a2ed4ee539f040fed53597a402f on branch context spec-279. Modify this checkout only. Do NOT commit, push, change GitHub tracker state, create branches, or touch anything outside this checkout.
+
+          Read AGENTS.md and the current repository authority before editing. This is implementation of frozen architecture, not a design phase. Work inside-out/bottom-up. Preserve existing comments and behavior unless necessary for this ticket. Keep the change lean and avoid speculative abstractions.
+
+          Ticket #316: Add atomic multi-relationship correction coordination.
+          Parent: Spec Review #310; Parent Spec #279; DD-1 / RF-3; architecture obligation ARCHSRC-1. No direct Spec cells.
+
+          Governing architecture MUST be read directly from:
+          - docs/proposed/application-use-cases-investment-decision-lifecycle.md §§12–13 and §17
+          - docs/proposed/investment-decisions-decision-relationship-model.md §5.4
+          - docs/proposed/durable-persistence-investment-decision-history.md §§5 and 8
+          Also inspect current application/domain/persistence contracts and tests.
+
+          Frozen required behavior:
+          - Extend the privileged relationship-correction application command to accept a complete one-or-more correction set instead of exactly one correction.
+          - Preserve explicit same-command correction target ancestry and validate the COMPLETE proposed post-command relationship history across the entire correction set.
+          - Run the existing/frozen temporal mixed-lineage graph predicate over the complete final history across all materially distinct known historical/future intervals. Do not invent an application-side graph reducer if domain logic already owns this.
+          - Commit the full correction set, all required protected endpoint DecisionVersion effects, and the command receipt atomically, or commit nothing. No tentative/intermediate correction order may become public state.
+          - Require expected-version guards for every directly touched pre-existing endpoint and preserve transactional revalidation of material endpoint/admission histories, correction ancestry, graph paths/return paths, known-future facts, and absence predicates through the existing commit contract.
+          - Operation idempotency binds the complete semantic correction set: exact replay returns stored result; same OperationId with changed set conflicts.
+          - Existing single-target correction remains the one-element case.
+          - Relationship-only version effects remain support/basis-sensitive, advance each existing Decision at most once for the atomic command, never fabricate lifecycle facts, and never advance DecisionLifecycleSequence.
+          - Preserve existing renewal and Supersession behavior.
+
+          Acceptance includes deterministic tests for: multi-correction success; one-invalid-member rollback/no partial state; recursive restoration/contest; definite and possible cycles; stale non-endpoint/future/absence dependencies through the existing store/revalidation seam where applicable; replay/conflict; version effects; no visible intermediate graph state; and single-target compatibility.
+
+          Important semantic constraint: request-list, insertion, UUID, timestamp, or tentative serialization order must not acquire semantic precedence. If the existing domain apply_relationship_command already accepts multiple history facts atomically and evaluates final history, use that owner rather than duplicating logic.
+
+          Before editing, inspect all relevant domain and application code and current tests. If you discover a genuine unresolved material design gap where two reasonable implementations would create different product/domain/persistence contracts, stop without editing and print DESIGN GAP with the exact missing authority. Otherwise implement the smallest correct change.
+
+          Run focused tests while working. Do not modify docs, workflow/policy files, or unrelated code. At the end print a concise summary beginning IMPLEMENTATION COMPLETE, then list changed files and tests run. Do not claim ticket closure or independent certification.
+          PROMPT
+          copilot -s --allow-all-tools --no-custom-instructions --disable-builtin-mcps --no-ask-user --no-remote --no-remote-export < "$RUNNER_TEMP/ticket-316-prompt.txt" | tee "$RUNNER_TEMP/copilot-output.txt"
+          if grep -q '^DESIGN GAP' "$RUNNER_TEMP/copilot-output.txt"; then
+            exit 2
+          fi
+
+      - name: Require bounded existing-file implementation scope
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "e243c2c50b0d2a2ed4ee539f040fed53597a402f"
+          if test -n "$(git ls-files --others --exclude-standard)"; then
+            echo 'Unexpected untracked product files:'
+            git ls-files --others --exclude-standard
+            exit 1
+          fi
+          git diff --name-status e243c2c50b0d2a2ed4ee539f040fed53597a402f
+          git diff --check e243c2c50b0d2a2ed4ee539f040fed53597a402f
+
+      - name: Format changed Python files
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          mapfile -t pyfiles < <(git diff --name-only e243c2c50b0d2a2ed4ee539f040fed53597a402f -- '*.py')
+          test ${#pyfiles[@]} -gt 0
+          uv run --locked ruff check --fix "${pyfiles[@]}"
+          uv run --locked ruff format "${pyfiles[@]}"
+          uv run --locked ruff check "${pyfiles[@]}"
+          uv run --locked ruff format --check "${pyfiles[@]}"
+          uv run --locked mypy --explicit-package-bases "${pyfiles[@]}"
+
+      - name: Relationship behavioral tests
+        working-directory: candidate
+        env:
+          UV_CACHE_DIR: /tmp/uv-cache
+        run: |
+          set -euo pipefail
+          mapfile -t relationship_tests < <(find tests -type f -name '*relationship*.py' | sort)
+          printf '%s\n' "${relationship_tests[@]}"
+          test ${#relationship_tests[@]} -gt 0
+          uv run --locked pytest -q "${relationship_tests[@]}"
+
+      - name: Complete architecture invariant gate
+        working-directory: candidate
+        env:
+          UV_CACHE_DIR: /tmp/uv-cache
+        run: |
+          POLARIS_BROAD_VERIFY_AUTHORIZED=verify-architecture \
+            uv run --locked pytest -q \
+            tests/test_architecture_guard.py \
+            tests/test_architecture_guard_identity_aliases.py \
+            tests/test_architecture_guard_legacy_loaders.py
+          echo 'ARCHITECTURE INVARIANT: PASS'
+
+      - name: Freeze candidate artifact
+        working-directory: candidate
+        env:
+          TICKET_BASELINE: e243c2c50b0d2a2ed4ee539f040fed53597a402f
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/ticket-316-candidate"
+          mkdir -p "$root"
+          git diff --no-renames --binary "$TICKET_BASELINE" -- > "$root/candidate.patch"
+          git diff --no-renames --name-only "$TICKET_BASELINE" -- > "$root/changed-files.txt"
+          git diff --stat "$TICKET_BASELINE" -- > "$root/diff-stat.txt"
+          cp "$RUNNER_TEMP/copilot-output.txt" "$root/copilot-output.txt"
+          python - <<'PY' > "$root/candidate-state.txt"
+          import hashlib, os, stat, subprocess
+          baseline=os.environ['TICKET_BASELINE']
+          def zpaths(*args):
+              out=subprocess.run(['git',*args],check=True,stdout=subprocess.PIPE).stdout
+              return [p for p in out.split(b'\0') if p]
+          paths=set(zpaths('diff','--no-renames','--name-only','-z',baseline,'--'))
+          paths.update(zpaths('ls-files','--others','--exclude-standard','-z'))
+          digest=hashlib.sha256()
+          for raw in sorted(paths):
+              path=os.fsdecode(raw); digest.update(b'path\0'+raw+b'\0')
+              try: meta=os.lstat(path)
+              except FileNotFoundError: digest.update(b'state\0DELETED\0'); continue
+              if stat.S_ISLNK(meta.st_mode):
+                  mode=b'120000'; content=hashlib.sha256(os.fsencode(os.readlink(path))).hexdigest()
+              elif stat.S_ISREG(meta.st_mode):
+                  mode=b'100755' if meta.st_mode & stat.S_IXUSR else b'100644'; h=hashlib.sha256()
+                  with open(path,'rb') as f:
+                      for chunk in iter(lambda: f.read(1024*1024),b''): h.update(chunk)
+                  content=h.hexdigest()
+              else: raise SystemExit(f'unsupported path type: {path}')
+              digest.update(b'mode\0'+mode+b'\0sha256\0'+content.encode()+b'\0')
+          print(digest.hexdigest())
+          PY
+          echo "CANDIDATE_STATE=$(cat "$root/candidate-state.txt")"
+
+      - name: Upload candidate evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ticket-316-candidate
+          path: ${{ runner.temp }}/ticket-316-candidate
+          retention-days: 7

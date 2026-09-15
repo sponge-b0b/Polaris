@@ -18,7 +18,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: sponge-b0b/Polaris
           EXPECTED_HEAD: e2d59797ebcaf4b87b3c2c941fb08bffc2213dd7
-          EXPECTED_BASELINE: 4daed9034891600597a47c01b6c39d5ebd9914ca
           EXPECTED_BODY_HASH: 5f59ee666c65e9e93fe3b69403dbf4bc5328332d14d6339fc55b067755e4eb17
           EXPECTED_CONTRACT_HASH: ab243bb1e38159aef9de1a87dd6ad4de43773c093f2149dc83e2ca81087411f2
           EXPECTED_AGENTS_BLOB: 66a1be7f0498f92ac9574d258443ec4cb8a15059
@@ -36,19 +35,19 @@ jobs:
 
           gh issue view 279 --repo "$REPO" --json body --jq .body > "$RUNNER_TEMP/spec-body.md"
           test "$(sha256sum "$RUNNER_TEMP/spec-body.md" | awk '{print $1}')" = "$EXPECTED_BODY_HASH"
-          gh api "repos/$REPO/issues/310" --jq .body > "$RUNNER_TEMP/review-body.md"
-          gh api "repos/$REPO/issues/comments/$DECOMPOSITION_COMMENT" --jq .body > "$RUNNER_TEMP/decomposition.md"
-          gh api "repos/$REPO/issues/comments/$FINDING_LEDGER_COMMENT" --jq .body > "$RUNNER_TEMP/prior-ledger.md"
+          gh api "repos/$REPO/issues/310" | jq -j '.body' > "$RUNNER_TEMP/review-body.md"
+          gh api "repos/$REPO/issues/comments/$DECOMPOSITION_COMMENT" | jq -j '.body' > "$RUNNER_TEMP/decomposition.md"
+          gh api "repos/$REPO/issues/comments/$FINDING_LEDGER_COMMENT" | jq -j '.body' > "$RUNNER_TEMP/finding-ledger.md"
 
           python - <<'PY'
-          import os, re
+          import importlib.util, os, re
           from pathlib import Path
 
           review = Path(os.environ['RUNNER_TEMP'], 'review-body.md').read_text()
           roots = dict(re.findall(r'^### (RB-\d+) —[^\n]*\n\nStatus: ([^\n]+)', review, re.M))
-          assert roots == {'RB-1': 'satisfied  ', 'RB-2': 'satisfied  ', 'RB-3': 'satisfied  '} or {
-              key: value.strip() for key, value in roots.items()
-          } == {'RB-1': 'satisfied', 'RB-2': 'satisfied', 'RB-3': 'satisfied'}, roots
+          assert {key: value.strip() for key, value in roots.items()} == {
+              'RB-1': 'satisfied', 'RB-2': 'satisfied', 'RB-3': 'satisfied'
+          }, roots
 
           decomp = Path(os.environ['RUNNER_TEMP'], 'decomposition.md').read_text()
           defects = dict(re.findall(r'^### (DD-\d+) —[^\n]*\nStatus: ([^\n]+)', decomp, re.M))
@@ -58,57 +57,23 @@ jobs:
           assert 'Unresolved decomposition defects: 0' in decomp
           assert 'Current implementation obligations from decomposition defects: satisfied 2' in decomp
           assert 'open 0; unmapped 0; ambiguous 0' in decomp
-          PY
-
-      - name: Render and persist current finding ledger
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: sponge-b0b/Polaris
-          FINDING_LEDGER_COMMENT: '5662220111'
-          EXPECTED_HEAD: e2d59797ebcaf4b87b3c2c941fb08bffc2213dd7
-          EXPECTED_BODY_HASH: 5f59ee666c65e9e93fe3b69403dbf4bc5328332d14d6339fc55b067755e4eb17
-          EXPECTED_CONTRACT_HASH: ab243bb1e38159aef9de1a87dd6ad4de43773c093f2149dc83e2ca81087411f2
-        shell: bash
-        run: |
-          set -euo pipefail
-          REVIEW_TOOL=.agents/skills/review-spec/scripts/review_spec_artifacts.py
-          python - <<'PY'
-          import importlib.util, json, os
-          from pathlib import Path
 
           tool_path = Path('.agents/skills/review-spec/scripts/review_spec_artifacts.py')
           spec = importlib.util.spec_from_file_location('review_spec_artifacts', tool_path)
           assert spec and spec.loader
           module = importlib.util.module_from_spec(spec)
           spec.loader.exec_module(module)
-          prior_body = Path(os.environ['RUNNER_TEMP'], 'prior-ledger.md').read_text()
-          prior = module.parse_finding_ledger(prior_body)
-          assert prior['parent_spec'] == 279
-          assert prior['spec_review'] == 310
-          assert len(prior['findings']) == 4
-          assert all(row['severity'] == 'blocking' for row in prior['findings'])
-          assert all(row['status'] in module.TERMINAL_FINDING_STATUSES for row in prior['findings'])
-          payload = {
-              'parent_spec': 279,
-              'spec_review': 310,
-              'head': os.environ['EXPECTED_HEAD'],
-              'spec_body_hash': os.environ['EXPECTED_BODY_HASH'],
-              'spec_contract_hash': os.environ['EXPECTED_CONTRACT_HASH'],
-              'findings': prior['findings'],
-          }
-          Path(os.environ['RUNNER_TEMP'], 'ledger-input.json').write_text(
-              json.dumps(payload, indent=2, sort_keys=True) + '\n'
-          )
+          ledger_body = Path(os.environ['RUNNER_TEMP'], 'finding-ledger.md').read_text()
+          ledger = module.parse_finding_ledger(ledger_body)
+          assert ledger['parent_spec'] == 279
+          assert ledger['spec_review'] == 310
+          assert ledger['head'] == os.environ['EXPECTED_HEAD']
+          assert ledger['spec_body_hash'] == os.environ['EXPECTED_BODY_HASH']
+          assert ledger['spec_contract_hash'] == os.environ['EXPECTED_CONTRACT_HASH']
+          assert len(ledger['findings']) == 4
+          assert all(row['severity'] == 'blocking' for row in ledger['findings'])
+          assert all(row['status'] in module.TERMINAL_FINDING_STATUSES for row in ledger['findings'])
           PY
-          python "$REVIEW_TOOL" render-finding-ledger \
-            --input "$RUNNER_TEMP/ledger-input.json" \
-            --prior-ledger "$RUNNER_TEMP/prior-ledger.md" \
-            --output "$RUNNER_TEMP/finding-ledger.md"
-          jq -Rs '{body: .}' "$RUNNER_TEMP/finding-ledger.md" > "$RUNNER_TEMP/finding-ledger.json"
-          gh api --method PATCH "repos/$REPO/issues/comments/$FINDING_LEDGER_COMMENT" \
-            --input "$RUNNER_TEMP/finding-ledger.json" > "$RUNNER_TEMP/finding-ledger-response.json"
-          gh api "repos/$REPO/issues/comments/$FINDING_LEDGER_COMMENT" --jq .body > "$RUNNER_TEMP/finding-ledger-readback.md"
-          cmp -s "$RUNNER_TEMP/finding-ledger.md" "$RUNNER_TEMP/finding-ledger-readback.md"
 
       - name: Render and persist Exit Receipt
         env:
@@ -122,6 +87,36 @@ jobs:
         run: |
           set -euo pipefail
           REVIEW_TOOL=.agents/skills/review-spec/scripts/review_spec_artifacts.py
+
+          # A failed prior transport must not result in duplicate Exit Receipts.
+          gh api --paginate "repos/$REPO/issues/310/comments?per_page=100" > "$RUNNER_TEMP/review-comments-pages.jsonl"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+
+          text = Path(os.environ['RUNNER_TEMP'], 'review-comments-pages.jsonl').read_text()
+          decoder = json.JSONDecoder()
+          index = 0
+          comments = []
+          while index < len(text):
+              while index < len(text) and text[index].isspace():
+                  index += 1
+              if index >= len(text):
+                  break
+              page, end = decoder.raw_decode(text, index)
+              comments.extend(page)
+              index = end
+          head = os.environ['EXPECTED_HEAD']
+          contract = os.environ['EXPECTED_CONTRACT_HASH']
+          matches = [
+              item for item in comments
+              if item.get('body', '').startswith('## Spec Review Exit Receipt\n')
+              and f'**Reviewed HEAD:** {head}' in item.get('body', '')
+              and f'**Spec Contract Hash:** {contract}' in item.get('body', '')
+          ]
+          assert len(matches) == 0, f'exact current Exit Receipt already exists: {[m["id"] for m in matches]}'
+          PY
+
           python - <<'PY'
           import json, os
           from pathlib import Path
@@ -152,7 +147,7 @@ jobs:
           PY
           python "$REVIEW_TOOL" render-exit \
             --input "$RUNNER_TEMP/exit-input.json" \
-            --finding-ledger "$RUNNER_TEMP/finding-ledger-readback.md" \
+            --finding-ledger "$RUNNER_TEMP/finding-ledger.md" \
             --output "$RUNNER_TEMP/exit-receipt.md"
           jq -Rs '{body: .}' "$RUNNER_TEMP/exit-receipt.md" > "$RUNNER_TEMP/exit-receipt.json"
           gh api --method POST "repos/$REPO/issues/310/comments" \
@@ -160,9 +155,9 @@ jobs:
           EXIT_ID=$(jq -r .id "$RUNNER_TEMP/exit-comment.json")
           EXIT_URL=$(jq -r .html_url "$RUNNER_TEMP/exit-comment.json")
           test -n "$EXIT_ID" && test "$EXIT_ID" != null
-          gh api "repos/$REPO/issues/comments/$EXIT_ID" --jq .body > "$RUNNER_TEMP/exit-readback.md"
+          gh api "repos/$REPO/issues/comments/$EXIT_ID" | jq -j '.body' > "$RUNNER_TEMP/exit-readback.md"
           cmp -s "$RUNNER_TEMP/exit-receipt.md" "$RUNNER_TEMP/exit-readback.md"
-          LEDGER_HASH=$(sha256sum "$RUNNER_TEMP/finding-ledger-readback.md" | awk '{print $1}')
+          LEDGER_HASH=$(sha256sum "$RUNNER_TEMP/finding-ledger.md" | awk '{print $1}')
           printf '{"exit_comment_id":%s,"exit_url":"%s","finding_ledger_hash":"%s"}\n' \
             "$EXIT_ID" "$EXIT_URL" "$LEDGER_HASH" > "$GITHUB_WORKSPACE/review-exit-metadata.json"
 

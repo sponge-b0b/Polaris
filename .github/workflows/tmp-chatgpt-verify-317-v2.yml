@@ -1,0 +1,140 @@
+name: Temporary ChatGPT verify ticket 317 attempt 2
+
+'on':
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-chatgpt-verify-317-v2.yml'
+
+permissions:
+  contents: read
+  actions: read
+  issues: read
+  copilot-requests: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    env:
+      TICKET_BASELINE: 36f06cf396e50409e432b99fa00941053fe83f02
+      CANDIDATE_STATE: 8a3ada741d4fde4e86a04bfbd821be9cc1e436e02214b57c974d41914646ee56
+      CANDIDATE_ARTIFACT_ID: '10386609580'
+      CHECKPOINT_COMMENT_ID: '5676814349'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: transport
+          fetch-depth: 1
+      - uses: actions/checkout@v4
+        with:
+          ref: 36f06cf396e50409e432b99fa00941053fe83f02
+          path: candidate
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@v6
+      - run: npm install --global @github/copilot
+
+      - name: Restore exact Attempt-2 candidate
+        working-directory: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/sponge-b0b/Polaris/actions/artifacts/$CANDIDATE_ARTIFACT_ID/zip > "$RUNNER_TEMP/candidate.zip"
+          unzip -q "$RUNNER_TEMP/candidate.zip" -d "$RUNNER_TEMP/t317"
+          test "$(cat "$RUNNER_TEMP/t317/candidate-state.txt")" = "$CANDIDATE_STATE"
+          git apply "$RUNNER_TEMP/t317/candidate.patch"
+          test "$(gh api repos/sponge-b0b/Polaris/git/ref/heads/spec-279 --jq .object.sha)" = "$TICKET_BASELINE"
+          body=$(gh api repos/sponge-b0b/Polaris/issues/comments/$CHECKPOINT_COMMENT_ID --jq .body)
+          grep -Fq '**Stage:** awaiting-closure-verification' <<<"$body"
+          grep -Fq '**Attempt:** 2' <<<"$body"
+          grep -Fq "$CANDIDATE_STATE" <<<"$body"
+
+      - name: Fresh independent Attempt-2 verification
+        working-directory: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+          COPILOT_MCP_TOOL_CACHE: 'false'
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/prompt.txt" <<'PROMPT'
+          You are a genuinely fresh, non-mutating Polaris `$verify-ticket-closure` verifier for ticket #317, Attempt 2. You did not implement either candidate and may not repair this candidate.
+
+          Binding: repo sponge-b0b/Polaris; ticket #317; Review Remediation parent #310; Parent Spec #279; branch `spec-279`; baseline `36f06cf396e50409e432b99fa00941053fe83f02`; architecture obligation `ARCHSRC-2`; DD-2/RF-4; candidate state `8a3ada741d4fde4e86a04bfbd821be9cc1e436e02214b57c974d41914646ee56`; v2 checkpoint comment 5676814349, Stage awaiting-closure-verification, Attempt 2. Candidate changes are already applied locally.
+
+          Execute current `.agents/skills/verify-ticket-closure/SKILL.md` completely. Read current `AGENTS.md` and the verifier skill first. Independently recover/validate the ticket, native hierarchy, checkpoint, parent Spec #279 Ticket Coverage Manifest comment 5630203405, Spec Review #310 Finding Continuity Ledger comment 5662220111 and Decomposition Defects comment 5663250943, and the bounded governing architecture/design sources. Treat Proposed Closure Evidence and Attempt-1 history only as retrieval pointers/known falsifier history, never proof.
+
+          Core authority starts at current:
+          - application-use-cases-investment-decision-lifecycle.md §11, §§13-14, §17;
+          - investment-decisions-decision-relationship-model.md §2.1, §5, §§6.8-6.11;
+          - durable-persistence-investment-decision-history.md §§8-10;
+          - current platform architecture where needed to establish privileged/internal application exposure.
+          Close the bounded authority-source universe yourself.
+
+          Independently construct/freeze the complete acceptance universe and proof plans before using candidate evidence. Re-derive Architecture/Design Decomposition Integrity for `ARCHSRC-2`; report decomposition defect separately if one exists. Close all material finite/discoverable semantic domains with explicit Certified Closure Domain records when required by the skill. Inspect all relevant production/application/domain/store behavior and generate authority-derived falsifiers; do not infer completeness from green tests.
+
+          At minimum independently challenge:
+          - existing source Decision/Need identity and lifecycle/work-history immutability; no replacement/reopen;
+          - explicit typed renewal basis and complete attribution/provenance/effective-time/OperationId preservation;
+          - every authoritative predecessor resolution family at BOTH source-episode start and relationship-effective time; unsupported/contested/incomplete boundaries;
+          - effective time before/equal/after source episode and historical-resolution boundaries;
+          - one-or-more predecessor cardinality, independent validation, zero-predecessor invalidity if authoritative, and no partial result;
+          - complete mixed-lineage temporal graph safety including definite/possible cycles and known-future intervals;
+          - exact expected version guard set for source + all directly touched predecessors plus store-side non-endpoint/path/history/future/absence revalidation;
+          - both-endpoint support/basis-sensitive DecisionVersion effects and no DecisionLifecycleSequence/lifecycle fact mutation;
+          - exact replay and changed semantic request dimensions under same OperationId;
+          - persistence/read/revalidation failures and atomic no-partial commit/receipt;
+          - later endpoint lifecycle correction does not rewrite admitted relationship truth;
+          - ordinary new-identity `renew()` remains unchanged/distinct;
+          - privileged/internal exposure: `AttachOmittedRenewalLineageCommand` must NOT be in ordinary `polaris.application.decisions.__all__` while the internal relationships-module capability remains usable;
+          - no PRIOR_DECISION_CONTEXT, generic graph framework, schema/persistence broadening, or unrelated surface.
+
+          Attempt-1 verifier found one implementation defect: the command was publicly exported. Attempt 2 claims to correct only that finding and restore `decisions/__init__.py` to baseline. Independently verify this and also re-certify all other ticket semantics; do not carry Attempt-1 proof forward without revalidation.
+
+          Before any pytest invocation, perform exact-scope service preflight per AGENTS.md. Use `uv run --locked`. You may run read-only one-off commands/tests. You MUST NOT edit repository files or Git/tracker state, delegate verification, commit, or post anything. Any verifier mutation invalidates the run.
+
+          Required final output: exactly one line `TICKET CLOSURE: PASS` or `TICKET CLOSURE: FAIL`, followed by complete verifier record. PASS record must include exact candidate state; authority/decomposition accounting; authoritative obligations and AC dispositions/counts; proof-plan accounting; domain accounting and every required Certified Closure Domain record; DD-2/RF-4 conclusion; preservation conclusions; checks actually run; fresh/non-mutating/non-delegating integrity; and confirmation candidate remained unchanged. FAIL must include every actionable finding with classification, exact authority, invariant, falsifier, invalidation boundary and owner, plus accounting that prohibits PASS.
+          PROMPT
+          copilot -s --allow-all-tools --no-custom-instructions --disable-builtin-mcps --no-ask-user --no-remote --no-remote-export < "$RUNNER_TEMP/prompt.txt" | tee "$RUNNER_TEMP/verifier-output.txt"
+          grep -Eq '^TICKET CLOSURE: (PASS|FAIL)$' "$RUNNER_TEMP/verifier-output.txt"
+
+      - name: Freeze verifier result and candidate state
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          python - <<'PY' > "$RUNNER_TEMP/post-state.txt"
+          import hashlib, os, stat, subprocess
+          baseline=os.environ['TICKET_BASELINE']
+          def zp(*args):
+              x=subprocess.run(['git',*args],check=True,stdout=subprocess.PIPE).stdout
+              return [p for p in x.split(b'\0') if p]
+          paths=set(zp('diff','--no-renames','--name-only','-z',baseline,'--')); paths.update(zp('ls-files','--others','--exclude-standard','-z'))
+          d=hashlib.sha256()
+          for raw in sorted(paths):
+              path=os.fsdecode(raw); d.update(b'path\0'+raw+b'\0'); m=os.lstat(path)
+              if stat.S_ISLNK(m.st_mode): mode=b'120000'; content=hashlib.sha256(os.fsencode(os.readlink(path))).hexdigest()
+              else:
+                  mode=b'100755' if m.st_mode & stat.S_IXUSR else b'100644'; h=hashlib.sha256()
+                  with open(path,'rb') as f:
+                      for c in iter(lambda:f.read(1048576),b''): h.update(c)
+                  content=h.hexdigest()
+              d.update(b'mode\0'+mode+b'\0sha256\0'+content.encode()+b'\0')
+          print(d.hexdigest())
+          PY
+          test "$(cat "$RUNNER_TEMP/post-state.txt")" = "$CANDIDATE_STATE"
+          git diff --check "$TICKET_BASELINE"
+          echo "VERDICT=$(grep -E '^TICKET CLOSURE: (PASS|FAIL)$' "$RUNNER_TEMP/verifier-output.txt" | tail -1)"
+          mkdir -p "$RUNNER_TEMP/t317verify2"
+          cp "$RUNNER_TEMP/verifier-output.txt" "$RUNNER_TEMP/t317verify2/verifier-output.txt"
+          cp "$RUNNER_TEMP/post-state.txt" "$RUNNER_TEMP/t317verify2/candidate-state.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ticket-317-verifier-attempt-2
+          path: ${{ runner.temp }}/t317verify2
+          retention-days: 7

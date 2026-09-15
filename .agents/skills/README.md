@@ -330,8 +330,8 @@ Use one canonical machine-managed record on the artifact that is currently the p
 
 Ownership is deterministic:
 
-* before an active conventional Spec Review owns remediation, the record lives on the parent Spec and the handoff is `$to-tickets #<Spec>`;
-* once an active conventional Spec Review owns the remediation lifecycle, the record lives on that Spec Review and the handoff is `$to-tickets #<Spec Review>`;
+* before an active conventional Spec Review owns remediation, the record lives on the parent Spec and the Human Handoff targets that parent Spec: `$to-tickets - <Parent Spec Title> (<Spec URL>)`;
+* once an active conventional Spec Review owns the remediation lifecycle, the record lives on that Spec Review and the Human Handoff targets that review: `$to-tickets - <Spec Review Title> (<Spec Review URL>)`;
 * the parent Spec remains the durable owner of the current `Ticket Coverage Manifest` and its Architecture/Design Obligation Disposition Manifest even when the defect record lives on a Spec Review.
 
 `$verify-ticket-closure`, `$verify-spec`, and `$review-spec` may discover a decomposition defect, but none may create or rewrite implementation-ticket scope directly. The discovering lifecycle parent persists or updates the canonical record with a stable `DD-*` identity, exact governing source, missing/misrouted obligation, current manifest/ticket state, discovery provenance, and `Status: unresolved`, then stops at the Human Handoff to `$to-tickets`.
@@ -572,13 +572,36 @@ HITL inside a skill is not automatically a lifecycle handoff.
 
 Use a Human Handoff only at an intentional lifecycle or fresh-session boundary.
 
+### Canonical Human Handoff Format
+
+Every copy-ready cross-skill Human Handoff that invokes a skill against a durable tracker artifact MUST use exactly:
+
+```text
+$<skill-name> - <Artifact Title> (<Artifact URL>)
+```
+
+Rules:
+
+* use the artifact's actual current tracker title and canonical URL;
+* never substitute a bare issue number, issue ID, slug, or URL-only target;
+* keep the invocation line limited to the skill and target artifact;
+* put blocker summaries, evidence, rationale, warnings, and other context outside the invocation line;
+* when several artifacts are independently actionable, emit one complete invocation line per artifact;
+* the artifact named in the handoff must be the artifact the receiving skill is expected to consume, not merely a related parent or provenance artifact;
+* internal composition, ordinary returns, in-skill HITL, and commands whose defined grammar inherently requires an action/subcommand are not artifact Human Handoffs and are not rewritten into this form;
+* schematic lifecycle diagrams may use bare skill names because they describe topology rather than copy-ready user commands.
+
+The canonical format governs only the copy-ready invocation line. Preserve the owning skill's Human Handoff presentation around it, including status emoji, success/warning heading, explanatory text, the `Please run:` line, and any supporting blocker/evidence detail required by that workflow.
+
+A prose sentence that merely names the next skill does not satisfy a required Human Handoff.
+
 ### Fresh-Session Durability Gate
 
 Every Human Handoff is a fresh-session boundary. The user may clear all conversational context before invoking the next skill.
 
 Before emitting a Human Handoff, the current lifecycle owner must prove that the destination can recover every correctness-critical reason, blocker, binding, and required input from the copy-ready invocation plus durable repository/tracker state. Prior chat, prose elsewhere in the current response, local scratch files, and agent memory are not recoverable handoff state.
 
-If the invoked durable artifact does not already contain enough information, persist the missing transition context on its authoritative source/destination artifact before presenting the handoff, then read it back and verify it. The handoff command must identify a durable artifact by title and URL when available. A concise summary in the command or surrounding prose may help the human, but it is supplemental and must never be the only source of correctness-critical transition state.
+If the invoked durable artifact does not already contain enough information, persist the missing transition context on its authoritative source/destination artifact before presenting the handoff, then read it back and verify it. The handoff command must identify a durable artifact by title and URL when available. A concise summary in surrounding prose may help the human, but it is supplemental and must never be the only source of correctness-critical transition state.
 
 Do not require the human to copy explanatory prose, restate a prior finding, remember why the workflow stopped, or reconstruct evidence in the fresh session.
 
@@ -612,7 +635,7 @@ The marker is single-owner state for the source artifact: maintain zero or one a
 
 When a helper discovers the blocker, it returns structured blocker state to its lifecycle-owning parent; the parent persists the report and owns the Human Handoff.
 
-`$architecture-remediation` is the consumer/disposition owner for blocker reports handed to it. A producer may include a concise blocker summary in the command, but the report—not the prior session—is the recoverable blocker authority.
+`$architecture-remediation` is the consumer/disposition owner for blocker reports handed to it. A producer may include a concise blocker summary in surrounding prose, but the report—not the prior session—is the recoverable blocker authority.
 
 For a pre-Spec handoff directly back to an existing Wayfinder rather than `$architecture-remediation`, apply the same durability rule: the invoked Wayfinder map/decision must durably contain the unresolved question or receive an equivalent persisted blocker record before the handoff.
 

@@ -373,11 +373,13 @@ After persisting the complete FAIL in the durable checkpoint:
    * otherwise → the parent Spec;
 3. create or update that owner's single `<!-- decomposition-defects:v1 -->` record with stable `DD-*` entries for every decomposition finding, exact source/requirement/current manifest state, the discovering ticket/verifier provenance, and `Status: unresolved`;
 4. read back the record exactly;
-5. stop at **Human Handoff** with:
+5. stop at **Human Handoff** with the current decomposition owner as the durable target:
 
 ```text
-$to-tickets #<current decomposition owner>
+$to-tickets - <Current Decomposition Owner Title> (<Current Decomposition Owner URL>)
 ```
+
+Use the parent Spec title/URL when the parent Spec is the current decomposition owner, or the conventional Spec Review title/URL when that Spec Review owns remediation.
 
 When any decomposition defect is present, do not continue local implementation correction first: the executable contract is incomplete. After `$to-tickets` reconciles ticket scope, resume `$implement-ticket` only after re-reading the ticket/branch/baseline/lineage and treating any changed contract or candidate binding as stale closure-checkpoint state that requires a new proposed-evidence/certification attempt.
 
@@ -641,7 +643,7 @@ Halt with:
 > Please run:
 >
 > ```
-> $architecture-remediation - <Current Ticket Title> (<Ticket URL>) — <concise blocker-set summary>
+> $architecture-remediation - <Current Ticket Title> (<Ticket URL>)
 > ```
 >
 > **Architecture blockers:**

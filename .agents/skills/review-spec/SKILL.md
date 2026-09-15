@@ -294,8 +294,10 @@ Review PASS/Exit Receipt requires both counts to be zero. Persist unresolved dec
 When `$review-spec` is the discovery workflow, the conventional Spec Review issue is already the active remediation owner; persist/update the defect record there and hand off:
 
 ```text
-$to-tickets #<Spec Review>
+$to-tickets - <Spec Review Title> (<Spec Review URL>)
 ```
+
+Use the conventional Spec Review's actual current tracker title and canonical URL.
 
 The parent Spec continues to own the current Ticket Coverage Manifest / Architecture-Design Obligation Manifest that `$to-tickets` will supersede or reconcile.
 
@@ -876,7 +878,17 @@ Targeted-only validated findings: <n>
 Saturation-only in-domain findings: <n>
 ```
 
-If any finality-surviving Blocking Architecture finding requires an architecture decision, halt with `$architecture-remediation`; do not invent the decision.
+If any finality-surviving Blocking Architecture finding requires an architecture decision, halt with a Human Handoff to the durable remediation source established by the review:
+
+> ⚠️ **Spec remediation is blocked by incomplete architecture.**
+>
+> Please run:
+>
+> ```
+> $architecture-remediation - <Architecture Remediation Source Title> (<Source URL>)
+> ```
+
+Present the Blocking architecture finding and its evidence separately from the invocation line. Do not invent the decision.
 
 ## 13. Pending Review Remediation
 
@@ -899,7 +911,17 @@ Domain Finality Reconciliation:
 
 Do not hand-build a parallel root-remediation packet that bypasses the deterministic renderer's existing checkpoint bindings.
 
-If remediation remains active and `$review-spec-remediation` returns `$to-tickets`, present that handoff from durable review/remediation state without eager GitHub Project projection; the repository-wide `$project-tracking` cadence remains authoritative.
+If remediation remains active and `$review-spec-remediation` returns `$to-tickets`, target the conventional Spec Review issue and present the Human Handoff from durable review/remediation state:
+
+> ⚠️ **Spec Review Failed with Blocking Findings.**
+>
+> Please run:
+>
+> ```
+> $to-tickets - <Spec Review Title> (<Spec Review URL>)
+> ```
+
+Use the conventional Spec Review's actual current tracker title and canonical URL. Keep the review findings, blocker counts, and any supporting remediation context outside the invocation line. Do not eagerly project this transition into the GitHub Project; the repository-wide `$project-tracking` cadence remains authoritative.
 
 ## 14. Exit Gate
 

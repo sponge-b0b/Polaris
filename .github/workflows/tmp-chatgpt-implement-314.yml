@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/tmp-chatgpt-implement-314.yml'
       - '.github/tmp/implement_314_candidate.py'
+      - '.github/tmp/implement_314_refactor.py'
 
 permissions:
   contents: read
@@ -37,7 +38,9 @@ jobs:
       - name: Build candidate
         env:
           CANDIDATE_ROOT: ${{ github.workspace }}/candidate
-        run: python .github/tmp/implement_314_candidate.py
+        run: |
+          python .github/tmp/implement_314_candidate.py
+          python .github/tmp/implement_314_refactor.py
 
       - name: Format candidate
         working-directory: candidate

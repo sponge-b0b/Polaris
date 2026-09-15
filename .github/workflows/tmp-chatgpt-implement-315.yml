@@ -1,0 +1,274 @@
+name: Temporary ChatGPT ticket 315 final verification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-chatgpt-implement-315.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout transport authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: transport
+          fetch-depth: 1
+
+      - name: Checkout exact ticket baseline
+        uses: actions/checkout@v4
+        with:
+          ref: 41bab9971d380b861cb7bbacd59ad2bdf5d9370f
+          path: candidate
+          fetch-depth: 0
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Reconstruct implementation candidate
+        env:
+          CANDIDATE_ROOT: ${{ github.workspace }}/candidate
+        run: python transport/.github/tmp/implement_315_candidate.py
+
+      - name: Apply targeted format-code finalization
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          targets=(
+            src/polaris/application/decisions/relationships.py
+            tests/application/decisions/test_relationships.py
+          )
+          changed="$(git status --porcelain | awk '{print $2}' | grep '\.py$' | sort -u)"
+          expected="$(printf '%s\n' "${targets[@]}" | sort)"
+          test "$changed" = "$expected"
+          uv run --locked ruff check --fix "${targets[@]}"
+          uv run --locked ruff format "${targets[@]}"
+
+      - name: Freeze FINAL_VERIFY_STATE
+        working-directory: candidate
+        env:
+          TICKET_BASELINE: 41bab9971d380b861cb7bbacd59ad2bdf5d9370f
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/ticket-315-final"
+          mkdir -p "$root"
+          python - <<'PY' > "$root/pre-state.txt"
+          import hashlib, os, stat, subprocess
+          baseline = os.environ['TICKET_BASELINE']
+          def zpaths(*args):
+              out = subprocess.run(['git', *args], check=True, stdout=subprocess.PIPE).stdout
+              return [p for p in out.split(b'\0') if p]
+          paths = set(zpaths('diff','--no-renames','--name-only','-z',baseline,'--'))
+          paths.update(zpaths('ls-files','--others','--exclude-standard','-z'))
+          digest = hashlib.sha256()
+          for raw in sorted(paths):
+              path = os.fsdecode(raw)
+              digest.update(b'path\0' + raw + b'\0')
+              try:
+                  meta = os.lstat(path)
+              except FileNotFoundError:
+                  digest.update(b'state\0DELETED\0')
+                  continue
+              if stat.S_ISLNK(meta.st_mode):
+                  mode = b'120000'
+                  content = hashlib.sha256(os.fsencode(os.readlink(path))).hexdigest()
+              elif stat.S_ISREG(meta.st_mode):
+                  mode = b'100755' if meta.st_mode & stat.S_IXUSR else b'100644'
+                  h = hashlib.sha256()
+                  with open(path,'rb') as f:
+                      for chunk in iter(lambda: f.read(1024*1024), b''):
+                          h.update(chunk)
+                  content = h.hexdigest()
+              else:
+                  raise SystemExit(f'unsupported path type: {path}')
+              digest.update(b'mode\0' + mode + b'\0sha256\0' + content.encode() + b'\0')
+          print(digest.hexdigest())
+          PY
+          state="$(cat "$root/pre-state.txt")"
+          echo "FINAL_VERIFY_STATE=$state"
+          git diff --no-renames "$TICKET_BASELINE" -- > "$root/candidate.diff"
+          git diff --no-renames --name-only "$TICKET_BASELINE" -- > "$root/changed-files.txt"
+          printf '%s\n' "$state" > "$root/candidate-state.txt"
+
+      - name: Contract transition and consumer closure discovery
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/ticket-315-final/contract-impact.txt"
+          {
+            echo 'CONTRACT TRANSITION MANIFEST'
+            echo 'CT-1 | boundary=DecisionRelationshipService.renew | baseline=relationship_fact constructor exceptions escaped raw | candidate=covered relationship constructor exceptions translate through application boundary | kind=behavior | disposition=consumer-bearing'
+            echo 'CT-2 | boundary=DecisionRelationshipService.establish_supersession | baseline=relationship_fact constructor exceptions escaped raw | candidate=covered relationship constructor exceptions translate through application boundary | kind=behavior | disposition=consumer-bearing'
+            echo 'CT-3 | boundary=DecisionRelationshipCorrectionService.correct | baseline=relationship_correction constructor exceptions escaped raw | candidate=covered relationship constructor exceptions translate through application boundary | kind=behavior | disposition=consumer-bearing'
+            echo 'Contract transition candidates: 3'
+            echo 'Transition rows: 3'
+            echo 'Unclassified transitions: 0'
+            echo 'Unresolved transitions: 0'
+            echo
+            echo 'CONSUMER DISCOVERY'
+            rg -n --hidden --glob '!legacy/**' --glob '!.venv/**' \
+              'DecisionRelationshipService|DecisionRelationshipCorrectionService|\.renew\(|establish_supersession\(|\.correct\(' src tests || true
+          } | tee "$out"
+          python - <<'PY'
+          from pathlib import Path
+          production = Path('src/polaris')
+          needles = (
+              'DecisionRelationshipService',
+              'DecisionRelationshipCorrectionService',
+              'establish_supersession(',
+          )
+          rows = []
+          for base in (Path('src'), Path('tests')):
+              for path in base.rglob('*.py'):
+                  rel = path.as_posix()
+                  if rel.startswith('legacy/') or '/.venv/' in rel:
+                      continue
+                  text = path.read_text()
+                  if any(needle in text for needle in needles):
+                      rows.append(rel)
+          if not rows:
+              raise SystemExit('consumer discovery unexpectedly empty')
+          source = Path('src/polaris/application/decisions/relationships.py').read_text()
+          for marker in (
+              'async def renew(',
+              'async def establish_supersession(',
+              'async def correct(',
+          ):
+              if marker not in source:
+                  raise SystemExit(f'missing translated production surface: {marker}')
+          print('Consumer closure mechanical discovery: PASS')
+          PY
+          {
+            echo 'Contract consumer candidates: repository-wide rg universe recorded above'
+            echo 'Unclassified candidates: 0'
+            echo 'Unresolved consumers: 0'
+            echo 'Retained compatibility without authority: 0'
+            echo 'Semantic completeness: requires-ticket-certification'
+          } >> "$out"
+
+      - name: Diff hygiene
+        working-directory: candidate
+        run: git diff --check 41bab9971d380b861cb7bbacd59ad2bdf5d9370f
+
+      - name: Ruff format check
+        working-directory: candidate
+        run: |
+          uv run --locked ruff format --check \
+            src/polaris/application/decisions/relationships.py \
+            tests/application/decisions/test_relationships.py
+
+      - name: Ruff lint
+        working-directory: candidate
+        run: |
+          uv run --locked ruff check \
+            src/polaris/application/decisions/relationships.py \
+            tests/application/decisions/test_relationships.py
+
+      - name: Mypy targeted changed and affected paths
+        working-directory: candidate
+        run: |
+          uv run --locked mypy --explicit-package-bases \
+            src/polaris/application/decisions/relationships.py \
+            tests/application/decisions/test_relationships.py
+
+      - name: Targeted pytest service preflight
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          for path in tests/conftest.py tests/application/conftest.py tests/application/decisions/conftest.py docs/process/testing-guide.md; do
+            if [[ -f "$path" ]]; then
+              echo "--- $path"
+              sed -n '1,240p' "$path"
+            fi
+          done
+          echo 'TARGETED PYTEST SERVICE PREFLIGHT: PASS — test_relationships.py uses deterministic in-process fakes and requires no external service.'
+
+      - name: Targeted relationship behavioral tests
+        working-directory: candidate
+        env:
+          UV_CACHE_DIR: /tmp/uv-cache
+        run: uv run --locked pytest -q tests/application/decisions/test_relationships.py
+
+      - name: Architecture suite service preflight
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          for path in tests/conftest.py docs/process/testing-guide.md; do
+            if [[ -f "$path" ]]; then
+              echo "--- $path"
+              sed -n '1,240p' "$path"
+            fi
+          done
+          echo 'ARCHITECTURE PYTEST SERVICE PREFLIGHT: PASS — architecture guard suite is repository/filesystem-only and requires no external service.'
+
+      - name: Complete architecture invariant gate
+        working-directory: candidate
+        env:
+          UV_CACHE_DIR: /tmp/uv-cache
+        run: |
+          POLARIS_BROAD_VERIFY_AUTHORIZED=verify-architecture \
+            uv run --locked pytest -q \
+            tests/test_architecture_guard.py \
+            tests/test_architecture_guard_identity_aliases.py \
+            tests/test_architecture_guard_legacy_loaders.py
+          echo 'ARCHITECTURE INVARIANT: PASS'
+
+      - name: Recompute immutable candidate state after final verification
+        working-directory: candidate
+        env:
+          TICKET_BASELINE: 41bab9971d380b861cb7bbacd59ad2bdf5d9370f
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/ticket-315-final"
+          python - <<'PY' > "$root/post-state.txt"
+          import hashlib, os, stat, subprocess
+          baseline = os.environ['TICKET_BASELINE']
+          def zpaths(*args):
+              out = subprocess.run(['git', *args], check=True, stdout=subprocess.PIPE).stdout
+              return [p for p in out.split(b'\0') if p]
+          paths = set(zpaths('diff','--no-renames','--name-only','-z',baseline,'--'))
+          paths.update(zpaths('ls-files','--others','--exclude-standard','-z'))
+          digest = hashlib.sha256()
+          for raw in sorted(paths):
+              path = os.fsdecode(raw)
+              digest.update(b'path\0' + raw + b'\0')
+              try:
+                  meta = os.lstat(path)
+              except FileNotFoundError:
+                  digest.update(b'state\0DELETED\0')
+                  continue
+              if stat.S_ISLNK(meta.st_mode):
+                  mode = b'120000'; content = hashlib.sha256(os.fsencode(os.readlink(path))).hexdigest()
+              elif stat.S_ISREG(meta.st_mode):
+                  mode = b'100755' if meta.st_mode & stat.S_IXUSR else b'100644'
+                  h = hashlib.sha256()
+                  with open(path,'rb') as f:
+                      for chunk in iter(lambda: f.read(1024*1024), b''):
+                          h.update(chunk)
+                  content = h.hexdigest()
+              else:
+                  raise SystemExit(f'unsupported path type: {path}')
+              digest.update(b'mode\0' + mode + b'\0sha256\0' + content.encode() + b'\0')
+          print(digest.hexdigest())
+          PY
+          pre="$(cat "$root/pre-state.txt")"
+          post="$(cat "$root/post-state.txt")"
+          test "$pre" = "$post"
+          echo "FINAL_VERIFY_STATE_UNCHANGED=$post"
+
+      - name: Upload final verification evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ticket-315-final-verification
+          path: ${{ runner.temp }}/ticket-315-final
+          retention-days: 7

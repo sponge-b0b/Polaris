@@ -41,6 +41,7 @@ from polaris.application.decisions import (
     SupersessionTarget,
 )
 from polaris.application.decisions.relationships import (
+    AttachOmittedRenewalLineageCommand,
     CorrectDecisionRelationshipCommand,
     CorrectDecisionRelationshipSetCommand,
     DecisionRelationshipContinuityConflict,
@@ -415,6 +416,7 @@ def _supersede(
 
 
 def test_relationship_correction_is_privileged_not_package_exported() -> None:
+    assert "AttachOmittedRenewalLineageCommand" not in decisions_api.__all__
     assert "CorrectDecisionRelationshipCommand" not in decisions_api.__all__
     assert "DecisionRelationshipCorrectionService" not in decisions_api.__all__
 
@@ -1035,6 +1037,128 @@ def test_renewal_creates_new_need_decision_and_supported_lineage_atomically() ->
     assert fact.relationship_type is DecisionRelationshipType.RENEWED_FROM
     assert fact.source_decision_id == result.new_decision_id
     assert fact.target_decision_id == predecessor.decision_id
+
+
+def test_late_renewal_lineage_attaches_to_existing_source_without_new_identity() -> (
+    None
+):
+    first_predecessor = _decision(resolved=True)
+    second_predecessor = _decision(resolved=True)
+    store = FakeRelationshipStore((first_predecessor, second_predecessor))
+    renewal = RenewDecisionCommand(
+        envelope=_envelope((first_predecessor,), effective_at=NOW),
+        need_statement="Revisit portfolio exposure after new evidence",
+        subject=DecisionSubject("Portfolio exposure"),
+        scope=DecisionScope.unresolved(),
+        predecessors=(
+            RenewalPredecessor(
+                first_predecessor.decision_id,
+                RenewedFromRelationshipBasis(("first-renewal",)),
+            ),
+        ),
+    )
+    initial = asyncio.run(_service(store).renew(renewal))
+    source = store.decisions[initial.new_decision_id]
+    source_history = source.history
+    source_need_id = source.need_id
+    operation_id = OperationId(uuid4())
+    envelope = _envelope(
+        (source, second_predecessor),
+        operation_id=operation_id,
+        effective_at=NOW,
+        technical_reference="late-renewal-trace",
+    )
+    command = AttachOmittedRenewalLineageCommand(
+        envelope=envelope,
+        source_decision_id=source.decision_id,
+        predecessors=(
+            RenewalPredecessor(
+                second_predecessor.decision_id,
+                RenewedFromRelationshipBasis(("omitted-renewal",)),
+            ),
+        ),
+    )
+
+    result = asyncio.run(_service(store).attach_omitted_renewal_lineage(command))
+
+    assert result.new_decision_id is None
+    assert result.need_id is None
+    assert len(store.decisions) == 3
+    assert store.decisions[source.decision_id].need_id == source_need_id
+    assert store.decisions[source.decision_id].history == source_history
+    assert len(store.history) == 2
+    fact = store.history[-1]
+    assert isinstance(fact, DecisionRelationshipFact)
+    assert fact.source_decision_id == source.decision_id
+    assert fact.target_decision_id == second_predecessor.decision_id
+    assert fact.relationship_basis.references == frozenset({"omitted-renewal"})
+    assert fact.metadata.operation_id == operation_id
+    assert fact.metadata.actor_attribution == envelope.actor_attribution
+    assert fact.metadata.trigger == envelope.trigger
+    assert fact.metadata.technical_provenance == envelope.technical_provenance
+    assert fact.relationship_effective_at == NOW
+    assert result.versioned_decision_ids == frozenset(
+        {source.decision_id, second_predecessor.decision_id}
+    )
+
+
+def test_late_renewal_lineage_replays_exact_request_and_conflicts_on_change() -> None:
+    first_predecessor = _decision(resolved=True)
+    predecessor = _decision(resolved=True)
+    store = FakeRelationshipStore((first_predecessor, predecessor))
+    initial = asyncio.run(
+        _service(store).renew(
+            RenewDecisionCommand(
+                _envelope((first_predecessor,), effective_at=NOW),
+                "Revisit portfolio exposure",
+                DecisionSubject("Portfolio exposure"),
+                DecisionScope.unresolved(),
+                (
+                    RenewalPredecessor(
+                        first_predecessor.decision_id,
+                        RenewedFromRelationshipBasis(("initial-renewal",)),
+                    ),
+                ),
+            )
+        )
+    )
+    source = store.decisions[initial.new_decision_id]
+    operation_id = OperationId(uuid4())
+    command = AttachOmittedRenewalLineageCommand(
+        _envelope((source, predecessor), operation_id=operation_id),
+        source.decision_id,
+        (
+            RenewalPredecessor(
+                predecessor.decision_id,
+                RenewedFromRelationshipBasis(("omitted-renewal",)),
+            ),
+        ),
+    )
+
+    first = asyncio.run(_service(store).attach_omitted_renewal_lineage(command))
+    replay = asyncio.run(_service(store).attach_omitted_renewal_lineage(command))
+
+    assert first.relationship_fact_ids == replay.relationship_fact_ids
+    assert replay.replayed is True
+    assert len(store.history) == 2
+    changed = AttachOmittedRenewalLineageCommand(
+        _envelope(
+            (store.decisions[source.decision_id], predecessor),
+            operation_id=operation_id,
+            effective_at=NOW - timedelta(minutes=1),
+        ),
+        source.decision_id,
+        (
+            RenewalPredecessor(
+                predecessor.decision_id,
+                RenewedFromRelationshipBasis(("changed-renewal",)),
+            ),
+        ),
+    )
+
+    with pytest.raises(IdempotencyConflict):
+        asyncio.run(_service(store).attach_omitted_renewal_lineage(changed))
+    assert len(store.history) == 2
 
 
 def test_renewal_with_candidate_requires_explicit_create_new() -> None:

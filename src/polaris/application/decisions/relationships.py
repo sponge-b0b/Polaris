@@ -109,6 +109,33 @@ class RenewDecisionCommand:
 
 
 @dataclass(frozen=True, slots=True)
+class AttachOmittedRenewalLineageCommand:
+    """Privileged attachment of omitted lineage to an existing Decision."""
+
+    envelope: DecisionCommandEnvelope
+    source_decision_id: InvestmentDecisionId
+    predecessors: tuple[RenewalPredecessor, ...]
+
+    def __post_init__(self) -> None:
+        _known_actor(self.envelope)
+        if type(self.source_decision_id) is not InvestmentDecisionId:
+            raise TypeError("source_decision_id must be InvestmentDecisionId")
+        if not self.predecessors:
+            raise InvalidDecisionCommand(
+                "late renewal lineage requires at least one predecessor"
+            )
+        predecessor_ids = {item.decision_id for item in self.predecessors}
+        if len(predecessor_ids) != len(self.predecessors):
+            raise InvalidDecisionCommand("renewal predecessors must be unique")
+        expected_ids = {self.source_decision_id, *predecessor_ids}
+        if set(_expected_versions(self.envelope)) != expected_ids:
+            raise InvalidDecisionCommand(
+                "late renewal lineage requires expected versions for source and "
+                "every predecessor"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class SupersessionTarget:
     decision_id: InvestmentDecisionId
     basis: SupersedesRelationshipBasis
@@ -234,6 +261,7 @@ class CorrectDecisionRelationshipSetCommand:
 
 class DecisionRelationshipCommandKind(StrEnum):
     RENEW = "renew"
+    ATTACH_OMITTED_RENEWAL_LINEAGE = "attach_omitted_renewal_lineage"
     ESTABLISH_SUPERSESSION = "establish_supersession"
     CORRECT_RELATIONSHIP = "correct_relationship"
 
@@ -245,6 +273,12 @@ class RenewalPayload:
     scope: DecisionScope
     predecessors: tuple[RenewalPredecessor, ...]
     continuity: ContinuityDetermination | None
+
+
+@dataclass(frozen=True, slots=True)
+class OmittedRenewalLineagePayload:
+    source_decision_id: InvestmentDecisionId
+    predecessors: tuple[RenewalPredecessor, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -287,6 +321,7 @@ class RelationshipCorrectionSetPayload:
 
 RelationshipPayload = (
     RenewalPayload
+    | OmittedRenewalLineagePayload
     | SupersessionPayload
     | RelationshipCorrectionPayload
     | RelationshipCorrectionSetPayload
@@ -505,6 +540,61 @@ class DecisionRelationshipService:
             candidate_basis,
             renewal.relationship_result.history,
             renewal.relationship_result.updated_decisions,
+            result,
+        )
+
+    async def attach_omitted_renewal_lineage(
+        self, command: AttachOmittedRenewalLineageCommand
+    ) -> DecisionRelationshipResult:
+        request = _request(command)
+        prior = await _read_relationship_receipt(
+            self._store, command.envelope.operation_id
+        )
+        if prior is not None:
+            return _replay(prior, request, command.envelope.operation_id)
+        recorded_at = _recording_time(self._now())
+        state = await _read_relationship_state(self._store, recorded_at)
+        predecessor_ids = {item.decision_id for item in command.predecessors}
+        endpoint_ids = {command.source_decision_id, *predecessor_ids}
+        decisions = _required_decisions(state, endpoint_ids)
+        expected = _expected_versions(command.envelope)
+        _require_versions(decisions, expected)
+        try:
+            facts = tuple(
+                relationship_fact(
+                    source_decision_id=command.source_decision_id,
+                    target_decision_id=item.decision_id,
+                    relationship_type=DecisionRelationshipType.RENEWED_FROM,
+                    relationship_effective_at=command.envelope.effective_at,
+                    relationship_basis=item.basis,
+                    mutation=_relationship_mutation(
+                        command.envelope, recorded_at, self._new_uuid
+                    ),
+                )
+                for item in command.predecessors
+            )
+            applied = apply_relationship_command(
+                state.history,
+                facts,
+                decisions=decisions,
+                expected_versions=expected,
+                recording_boundary=recorded_at,
+            )
+        except _RELATIONSHIP_ERRORS as error:
+            _raise_relationship_error(error)
+        result = DecisionRelationshipResult(
+            tuple(fact.metadata.relationship_fact_id for fact in facts),
+            applied.versioned_decision_ids,
+        )
+        return await _commit_relationship(
+            self._store,
+            command.envelope.operation_id,
+            request,
+            state,
+            expected,
+            None,
+            applied.history,
+            applied.updated_decisions,
             result,
         )
 
@@ -956,6 +1046,7 @@ def _renewal_continuity(
 
 def _request(
     command: RenewDecisionCommand
+    | AttachOmittedRenewalLineageCommand
     | EstablishSupersessionCommand
     | CorrectDecisionRelationshipCommand,
 ) -> DecisionRelationshipSemanticRequest:
@@ -969,6 +1060,12 @@ def _request(
             command.scope,
             command.predecessors,
             command.continuity,
+        )
+    elif isinstance(command, AttachOmittedRenewalLineageCommand):
+        kind = DecisionRelationshipCommandKind.ATTACH_OMITTED_RENEWAL_LINEAGE
+        payload = OmittedRenewalLineagePayload(
+            command.source_decision_id,
+            command.predecessors,
         )
     elif isinstance(command, EstablishSupersessionCommand):
         kind = DecisionRelationshipCommandKind.ESTABLISH_SUPERSESSION

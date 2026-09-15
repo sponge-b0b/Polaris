@@ -1,0 +1,131 @@
+name: Temporary ChatGPT ticket 316 semantic hardening
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-chatgpt-implement-316-v3.yml'
+
+permissions:
+  contents: read
+  copilot-requests: write
+  issues: read
+
+jobs:
+  implement:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: transport
+          fetch-depth: 1
+      - uses: actions/checkout@v4
+        with:
+          ref: e243c2c50b0d2a2ed4ee539f040fed53597a402f
+          path: candidate
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@v6
+      - run: npm install --global @github/copilot
+
+      - name: Implement semantically complete candidate
+        working-directory: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+          COPILOT_MCP_TOOL_CACHE: 'false'
+        run: |
+          cat > "$RUNNER_TEMP/prompt.txt" <<'PROMPT'
+          Implement Polaris ticket #316 from exact baseline e243c2c50b0d2a2ed4ee539f040fed53597a402f. Modify this checkout only; no commit/push/GitHub mutation. Read AGENTS.md and ALL ARCHSRC-1 authority before editing, especially relationship model §§5.4 and 6.1–6.3, application design §§12–14 and 17, durable persistence §§5 and 8, plus current domain/application/store tests.
+
+          The goal is a COMPLETE one-or-more atomic relationship-correction set coordinated by the application while the existing domain reducer owns final-history interpretation, temporal mixed-lineage graph validation, version effects, and protection requirements.
+
+          Two discarded drafts exposed important falsifiers. Your implementation MUST avoid both:
+
+          (A) ORDER: the semantic correction set must not depend on caller list order. Same OperationId + same semantic set in a different list order must replay rather than conflict. Observable result ordering must be canonical rather than caller-order-derived.
+
+          (B) CORRECTION GRAPH: DO NOT reject multiple sibling corrections targeting the same prior fact. The frozen relationship model explicitly says sibling correction branches remain independent; an atomic set may need multiple siblings to produce/repair contest. Also, the ticket explicitly requires preserving SAME-COMMAND correction target ancestry. A correction in the same atomic set must be able to target another correction in that set without relying on request-list/insertion order. The application command therefore needs a lean, explicit, order-independent way to name set members and reference a same-command parent before durable fact IDs are allocated. Use a request-local opaque member identity/reference if that is the smallest correct mechanism; map it to fresh durable DecisionRelationshipFactId values before constructing domain corrections. Request-local member identity must not become a persisted domain identity or gain business meaning.
+
+          Requirements:
+          - one or more correction members; preserve existing single-correction call surface as one-element compatibility where clean;
+          - each set member has an explicit order-independent request-local identity sufficient for same-command ancestry; targets may be either an already-existing durable DecisionRelationshipFactId or another member identity in the same set;
+          - reject duplicate member identities, missing same-command targets, self-targets, or same-command ancestry cycles before domain construction; allow sibling members to target the same existing or same-command fact;
+          - allocate all fresh durable correction fact IDs first, then construct the whole set so same-command target references resolve to those allocated IDs; every resulting fact shares the command OperationId/recording boundary as existing domain validation requires;
+          - canonical semantic request identity must be independent of input list order and generated durable UUIDs. It MUST preserve the correction ancestry graph, so changing a member target changes the semantic request and conflicts on OperationId reuse;
+          - complete expected-version coverage for all directly touched existing endpoints; no extra endpoint guards if current frozen semantics require exact coverage;
+          - pass entire constructed set once into existing apply_relationship_command; no application-side graph reducer and no prefix validation;
+          - existing commit seam must atomically persist final history, updated Decisions, protection/revalidation state, and one receipt or nothing;
+          - each Decision versions at most once; DecisionLifecycleSequence unchanged;
+          - preserve recursive restoration, sibling independence/contest, definite/possible cycle safety, stale non-endpoint/future/absence revalidation, persistence failures, exact replay, and single-member behavior.
+
+          Add focused deterministic tests for: multi-member success; invalid member rollback; order-independent replay; changed set conflict; exact endpoint expected-version coverage; same-command child correction targeting another set member; sibling corrections sharing one target are accepted and interpreted independently/contest as appropriate; invalid request-local ancestry (missing/self/cycle) fails before commit; version-once/lifecycle-sequence preservation. Existing tests must continue proving graph/cycle/revalidation/persistence/single-member paths.
+
+          IMPORTANT: If the frozen authority cannot support an implementation representation without a genuinely material new domain/public contract choice, print `DESIGN GAP:` and explain exactly why, making no edits. Otherwise choose the narrowest internal application-command representation that satisfies the authority; this is a privileged/internal command, so a request-local reference type is an implementation mechanism, not a new domain identity.
+
+          Run Ruff, mypy, and `uv run --locked pytest -q`. End with IMPLEMENTATION COMPLETE and changed files/tests.
+          PROMPT
+          copilot -s --allow-all-tools --no-custom-instructions --disable-builtin-mcps --no-ask-user --no-remote --no-remote-export < "$RUNNER_TEMP/prompt.txt" | tee "$RUNNER_TEMP/copilot-output.txt"
+          ! grep -q '^DESIGN GAP:' "$RUNNER_TEMP/copilot-output.txt"
+
+      - name: Verify candidate
+        working-directory: candidate
+        env:
+          UV_CACHE_DIR: /tmp/uv-cache
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = e243c2c50b0d2a2ed4ee539f040fed53597a402f
+          test -z "$(git ls-files --others --exclude-standard)"
+          git diff --check e243c2c50b0d2a2ed4ee539f040fed53597a402f
+          mapfile -t pyfiles < <(git diff --name-only e243c2c50b0d2a2ed4ee539f040fed53597a402f -- '*.py')
+          test ${#pyfiles[@]} -gt 0
+          uv run --locked ruff check --fix "${pyfiles[@]}"
+          uv run --locked ruff format "${pyfiles[@]}"
+          uv run --locked ruff check "${pyfiles[@]}"
+          uv run --locked ruff format --check "${pyfiles[@]}"
+          uv run --locked mypy --explicit-package-bases "${pyfiles[@]}"
+          uv run --locked pytest -q
+          POLARIS_BROAD_VERIFY_AUTHORIZED=verify-architecture uv run --locked pytest -q tests/test_architecture_guard.py tests/test_architecture_guard_identity_aliases.py tests/test_architecture_guard_legacy_loaders.py
+
+      - name: Freeze candidate
+        working-directory: candidate
+        env:
+          TICKET_BASELINE: e243c2c50b0d2a2ed4ee539f040fed53597a402f
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/ticket-316-candidate-v3"; mkdir -p "$root"
+          git diff --no-renames --binary "$TICKET_BASELINE" -- > "$root/candidate.patch"
+          git diff --no-renames --name-only "$TICKET_BASELINE" -- > "$root/changed-files.txt"
+          git diff --stat "$TICKET_BASELINE" -- > "$root/diff-stat.txt"
+          cp "$RUNNER_TEMP/copilot-output.txt" "$root/copilot-output.txt"
+          python - <<'PY' > "$root/candidate-state.txt"
+          import hashlib, os, stat, subprocess
+          baseline=os.environ['TICKET_BASELINE']
+          def zpaths(*args):
+              out=subprocess.run(['git',*args],check=True,stdout=subprocess.PIPE).stdout
+              return [p for p in out.split(b'\0') if p]
+          paths=set(zpaths('diff','--no-renames','--name-only','-z',baseline,'--')); paths.update(zpaths('ls-files','--others','--exclude-standard','-z'))
+          d=hashlib.sha256()
+          for raw in sorted(paths):
+              path=os.fsdecode(raw); d.update(b'path\0'+raw+b'\0')
+              try: meta=os.lstat(path)
+              except FileNotFoundError: d.update(b'state\0DELETED\0'); continue
+              if stat.S_ISLNK(meta.st_mode): mode=b'120000'; content=hashlib.sha256(os.fsencode(os.readlink(path))).hexdigest()
+              elif stat.S_ISREG(meta.st_mode):
+                  mode=b'100755' if meta.st_mode & stat.S_IXUSR else b'100644'; h=hashlib.sha256()
+                  with open(path,'rb') as f:
+                      for chunk in iter(lambda: f.read(1024*1024),b''): h.update(chunk)
+                  content=h.hexdigest()
+              else: raise SystemExit(path)
+              d.update(b'mode\0'+mode+b'\0sha256\0'+content.encode()+b'\0')
+          print(d.hexdigest())
+          PY
+          echo "CANDIDATE_STATE=$(cat "$root/candidate-state.txt")"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ticket-316-candidate-v3
+          path: ${{ runner.temp }}/ticket-316-candidate-v3
+          retention-days: 7

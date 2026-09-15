@@ -1,0 +1,38 @@
+name: Temporary ChatGPT ticket 315 cleanup
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-chatgpt-ticket-315-cleanup.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Remove temporary ticket 315 transport files
+        run: |
+          set -euo pipefail
+          git config user.name "Bob Taylor"
+          git config user.email "bobltaylorjr@gmail.com"
+          git rm \
+            .github/tmp/implement_315_candidate.py \
+            .github/tmp/ticket_315_close.py \
+            .github/tmp/ticket_315_closure_certifier.py \
+            .github/tmp/ticket_315_persist.py \
+            .github/workflows/tmp-chatgpt-implement-315.yml \
+            .github/workflows/tmp-chatgpt-ticket-315-close.yml \
+            .github/workflows/tmp-chatgpt-ticket-315-closure-certifier.yml \
+            .github/workflows/tmp-chatgpt-ticket-315-persist.yml \
+            .github/workflows/tmp-chatgpt-ticket-315-cleanup.yml
+          git commit -m "chore(workflow): remove ticket 315 temporary transports"
+          git push origin HEAD:main

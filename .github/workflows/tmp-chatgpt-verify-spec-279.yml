@@ -1,0 +1,140 @@
+name: Temporary ChatGPT verify Spec 279
+
+'on':
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-chatgpt-verify-spec-279.yml'
+
+permissions:
+  contents: write
+  issues: write
+  actions: read
+  pull-requests: read
+  copilot-requests: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+    env:
+      EXPECTED_SPEC_HEAD: 87f437733979748a194409fa7242fc5c9749dc95
+      SPEC_NUMBER: '279'
+      REPO: sponge-b0b/Polaris
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: spec-279
+          fetch-depth: 0
+          persist-credentials: true
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install Copilot CLI
+        run: npm install --global @github/copilot
+
+      - name: Revalidate bounded starting state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin main spec-279
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SPEC_HEAD"
+          test "$(git rev-parse origin/spec-279)" = "$EXPECTED_SPEC_HEAD"
+          test "$(git status --porcelain | wc -l)" = "0"
+          test "$(gh api repos/$REPO/issues/$SPEC_NUMBER --jq .state)" = "open"
+          test "$(gh api repos/$REPO/issues/278 --jq .state)" = "closed"
+          test "$(git rev-parse HEAD:.agents/skills/verify-spec/SKILL.md)" = "875e3ab58dd2f7f2549c80a09eb32d96f0304ea3"
+
+      - name: Execute bounded verify-spec lifecycle
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+          COPILOT_MCP_TOOL_CACHE: 'false'
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/verify-spec-prompt.txt" <<'PROMPT'
+          You are the authorized parent executor for Polaris `$verify-spec` on:
+
+          `$verify-spec - Spec: Implement Investment Decision application lifecycle and Decision Memory queries (https://github.com/sponge-b0b/Polaris/issues/279)`
+
+          Repository: sponge-b0b/Polaris
+          Current checkout/branch: `spec-279`
+          Starting durable remote HEAD must be exactly `87f437733979748a194409fa7242fc5c9749dc95`.
+          The last product implementation commit is `c6a5955c944c72c01c052db743ef97d47b3a56f4`; later commits on this branch are main-owned skill synchronization only.
+          All implementation/remediation tickets are closed. Spec Review #310 has RF-1..RF-4 satisfied, DD-1/DD-2 satisfied, and zero open remediation children. The durable Session Ledger is issue #273 comment 5486199073, generation 312 at dispatch.
+
+          Execute `.agents/skills/verify-spec/SKILL.md` COMPLETELY as the authoritative procedure. Read exact current `AGENTS.md`, the full verify-spec skill, and any child skill you actually invoke before acting. This invocation authorizes the full lifecycle, including verification-owned repairs, commits/pushes to `spec-279`, GitHub issue/comment persistence required by the skill, and fresh semantic certification. Do not ask the human for intermediate approval. Do not stop for ordinary partial progress. Stop only at the skill's legal terminal state: successful receipt + required human handoff, a genuine Human Handoff required by a discovered decomposition/architecture decision, or a real Hard Blocker.
+
+          BOUNDED EXECUTION IS MANDATORY. Apply the new hardening sections as superseding older broad wording:
+          - minimal preflight -> repair-capable deterministic/delegated gates -> candidate stabilization -> ONE fresh final `$spec-contract` build -> ONE fresh non-mutating `$verify-spec-closure` certifier -> finalization;
+          - reuse durable Ticket Coverage/closure/Review/decomposition/governance records rather than rereading every closed ticket/comment history;
+          - accept current explicit Independent governance unless a real current conflict is found; do not enumerate all Wayfinders to prove absence;
+          - do not run whole-wiki discovery merely to decide applicability;
+          - runtime qualification is contract/impact driven, not triggered merely because the repo supports free-threaded Python;
+          - broad discovery is fallback for a concrete unresolved evidence domain, not the default.
+
+          DEDUPLICATION REQUIREMENT:
+          - if applicable, invoke `$deduplicate-code` in `spec-differential` mode exactly as the current skills require;
+          - Arid and JSCPD candidate scans remain GLOBAL across their normal configured repository scope;
+          - compare against the fixed Spec baseline globally and classify candidate-introduced / candidate-expanded / baseline-identical / unresolved;
+          - repair candidate-introduced/expanded duplication globally, including unchanged/non-Spec files when causally necessary;
+          - do NOT opportunistically clean baseline-identical historical debt;
+          - preserve scanner operational/stale-suppression failures as blocking.
+
+          MUTATION MODEL:
+          - `$verify-spec` parent is intentionally repair-capable. Fix Spec-relevant Ruff/Mypy/Pytest/gate failures and delegated-gate-authorized defects, rerun invalidated checks, commit/push verification-owned changes with `$conventional-commits`, then refresh exact-HEAD bindings.
+          - `$verify-spec-closure` is the fresh READ-ONLY semantic certifier and must not repair.
+          - any mutation after final contract build invalidates that handoff and requires a new fresh final build + fresh certifier.
+
+          FRESHNESS REQUIREMENTS:
+          - For every final `$spec-contract` build consumed for certification/finalization, use a genuinely fresh isolated context as required by the skill. You may spawn another `copilot` CLI subprocess from this runner. Give that child only the build-mode isolation inputs permitted by `$spec-contract`; do not leak prior contract representations/hashes/evidence into it.
+          - For `$verify-spec-closure`, spawn a different genuinely fresh `copilot` CLI subprocess after stable HEAD. It must be non-mutating/non-delegating and receive only the exact bounded inputs authorized by the parent skill. Mechanically verify the candidate did not change during certification.
+          - Do not self-certify in the parent.
+
+          RESOURCE/RESUMABILITY REQUIREMENT:
+          - if the execution environment itself signals an unavoidable context/usage limit that prevents safe completion, finish the current atomic step when safe, persist the compact exact-HEAD verification checkpoint required by the skill, record completed/outstanding gates and repair/certification state, and terminate only as a Hard Blocker. Do not spend the remaining budget opening another broad domain. A checkpoint is never PASS.
+
+          IMPORTANT CURRENT-STATE CAUTION:
+          - Ignore any abandoned LOCAL changes from the user's earlier Codex run: this GitHub Actions checkout is the durable clean remote branch and is authoritative.
+          - Do not merge main audit/transport history into `spec-279`.
+          - Do not modify `main`; push repository verification changes only to `spec-279`.
+          - Do not run `$review-spec` implicitly after successful verification. The legal success terminal is the canonical `$review-spec` Human Handoff printed by `$verify-spec`.
+
+          Use `gh` with the provided token for tracker reads/writes. Use `uv run --locked` and the repository's current service-preflight/testing rules. Preserve exact baseline authority from Workspace Metadata; do not guess it from this prompt.
+
+          At completion print a concise terminal block beginning with exactly one of:
+          `VERIFY SPEC TERMINAL: PASS`
+          `VERIFY SPEC TERMINAL: HUMAN HANDOFF`
+          `VERIFY SPEC TERMINAL: HARD BLOCKER`
+
+          For PASS include exact final `spec-279` HEAD, SPEC_CONTRACT_HASH, Verification Hash, receipt comment URL/ID, deterministic/delegated gate summary, independent semantic-certifier summary, and exact canonical next `$review-spec` command.
+          PROMPT
+
+          copilot -s --allow-all-tools --no-custom-instructions --disable-builtin-mcps --no-ask-user --no-remote --no-remote-export < "$RUNNER_TEMP/verify-spec-prompt.txt" | tee "$RUNNER_TEMP/verify-spec-output.txt"
+          grep -Eq '^VERIFY SPEC TERMINAL: (PASS|HUMAN HANDOFF|HARD BLOCKER)$' "$RUNNER_TEMP/verify-spec-output.txt"
+
+      - name: Capture final durable state
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin spec-279 main
+          mkdir -p "$RUNNER_TEMP/verify-spec-279-result"
+          printf '%s\n' "$(git rev-parse origin/spec-279)" > "$RUNNER_TEMP/verify-spec-279-result/spec-head.txt"
+          printf '%s\n' "$(git rev-parse origin/main)" > "$RUNNER_TEMP/verify-spec-279-result/main-head.txt"
+          cp "$RUNNER_TEMP/verify-spec-output.txt" "$RUNNER_TEMP/verify-spec-279-result/verify-spec-output.txt" 2>/dev/null || true
+          gh api repos/$REPO/issues/$SPEC_NUMBER/comments?per_page=100 --paginate > "$RUNNER_TEMP/verify-spec-279-result/spec-comments.json"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verify-spec-279-result
+          path: ${{ runner.temp }}/verify-spec-279-result
+          retention-days: 7

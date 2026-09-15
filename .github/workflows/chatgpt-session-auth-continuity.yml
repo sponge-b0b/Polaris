@@ -1,0 +1,13 @@
+name: ChatGPT session authorization continuity probe
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe runner
+        run: echo "session authorization continuity transport ready"

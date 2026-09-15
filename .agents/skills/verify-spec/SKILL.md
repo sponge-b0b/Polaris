@@ -257,6 +257,7 @@ It may only:
    * deterministic `$spec-contract` handoff/manifest, deterministic V2 structural identity rows, and hashes;
    * the invocation-local `CONTRACT_HANDOFF_DIGEST` for those exact handoff bytes;
    * change-provenance and Verification Scope Manifest state;
+   * the current parent-Spec `Ticket Coverage Manifest`, including the Architecture/Design Obligation Disposition Manifest and exact ticket `Architecture obligations` mappings;
    * applicable current architecture authority/context;
    * native deterministic/delegated gate results;
    * acceptance-test/preflight evidence;
@@ -271,6 +272,44 @@ It may only:
 While dispatcher-only, the parent must not perform a parallel semantic proof, search for evidence to overturn the verifier, mutate the candidate, repair findings, or dispatch shadow certifiers/reviewers.
 
 A verifier-integrity failure, handoff-digest mismatch, or incomplete saturation witness invalidates the attempt and must be resolved before certification can continue.
+
+## Architecture / Design Decomposition Integrity
+
+`$verify-spec` is the integrated decomposition backstop.
+
+Recover the parent Spec's current `Ticket Coverage Manifest`, including the complete Architecture/Design Obligation Disposition Manifest, and the exact `Architecture obligations` IDs on all relevant implementation/remediation tickets.
+
+Before semantic PASS, independently validate the bounded governing architecture/design sources for the completed Spec against that manifest and ticket routing. The manifest is reused as accounting state; it is not trusted as proof of its own completeness.
+
+Require:
+
+```text
+Material architecture/design obligations: <n>
+Manifest disposition rows: <n>
+Missing obligations: 0
+Ambiguous obligations: 0
+Misrouted obligations: 0
+Implementation obligations without durable ticket coverage: 0
+Ticket architecture mappings inconsistent with manifest: 0
+```
+
+Pass the exact manifest/ticket mappings and governing source pointers to the fresh `$verify-spec-closure` certifier so that leaf independently challenges the same decomposition boundary.
+
+If either the parent or fresh certifier establishes a decomposition defect, no Spec Verification Receipt is legal. Do not create ticket scope or repair implementation locally against an incomplete decomposition.
+
+The `$verify-spec` parent must:
+
+1. preserve the complete semantic FAIL;
+2. resolve the current decomposition owner: active conventional Spec Review if one currently owns remediation, otherwise the parent Spec;
+3. create/update that owner's single `<!-- decomposition-defects:v1 -->` record with stable unresolved `DD-*` entries and exact source/manifest/ticket provenance;
+4. read the record back exactly;
+5. stop at Human Handoff:
+
+```text
+$to-tickets #<current decomposition owner>
+```
+
+Historical ticket certification remains provenance and does not suppress the missing upstream obligation.
 
 ## Certifier Proof Contract
 
@@ -332,8 +371,8 @@ After a complete verifier FAIL returns:
 
 1. exit dispatcher-only mode;
 2. retain every returned independently actionable finding as current verification state;
-3. classify whether each finding is Spec-relevant repair, unresolved architecture, external/environmental blocker, or a deterministic contract defect requiring the owning workflow;
-4. repair every actionable Spec-relevant finding through the normal procedure and required owner skills;
+3. classify whether each finding is Spec-relevant repair, architecture/design decomposition defect, unresolved architecture, external/environmental blocker, or another deterministic contract defect requiring the owning workflow;
+4. route every architecture/design decomposition defect to the current `$to-tickets` source owner through the canonical `decomposition-defects:v1` record; repair every other actionable Spec-relevant finding through the normal procedure and required owner skills;
 5. rerun only invalidated gates/tests/failure dispositions;
 6. refresh exact-HEAD `$spec-contract` bindings;
 7. obtain another fresh semantic certification for the new stable candidate.

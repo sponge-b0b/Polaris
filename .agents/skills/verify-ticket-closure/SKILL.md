@@ -67,83 +67,50 @@ Lexical similarity, sibling APIs, implementation adjacency, subsystem proximity,
 
 A historical verifier result without these explicit records is not retroactively strengthened by this rule; later consumers may treat it as an equivalent frozen domain only when its durable record already contains enough authority, membership, construction, and boundary state to reconstruct the same interpretation without guesswork.
 
-## Certified Closure Domain Reconciliation Mode
+## Architecture / Design Decomposition Integrity
 
-`$verify-ticket-closure` also owns bounded reconciliation of a Certified Closure Domain that this skill previously created when `$review-spec` has established a provisional `closure-authority-defect`. This is **membership-authority reconciliation**, not re-verification of the historical ticket candidate.
+Ticket closure certification reuses the parent Spec's current `Ticket Coverage Manifest`, including its `Architecture / Design Obligation Coverage` (`ARCHSRC-*`) rows, and the ticket's exact `## Architecture obligations` IDs.
 
-### Invocation and inputs
+That artifact is routing/accounting evidence, not semantic authority.
 
-This mode is prescribed internal composition from `$review-spec`. The review parent supplies only durable retrieval coordinates:
+Before acceptance-cell construction, independently derive the bounded architecture/design source set materially governing this ticket's promised slice and compare it with:
 
-* originating ticket and parent Spec;
-* exact historical closure checkpoint/verdict;
-* affected Certified Closure Domain ID(s);
-* recorded prior authority identity;
-* current identity of the same authority;
-* exact explicit contradiction source(s);
-* the review observation that exposed the contradiction.
+* the current parent-Spec Architecture/Design Obligation Disposition Manifest;
+* the ticket's exact `Architecture obligations` IDs;
+* the ticket's build/acceptance/preservation contract.
 
-The fresh reconciler independently rereads the prior domain record and exact authority. The observation is a falsifier candidate, not authority and not the definition of the corrected domain.
-
-### Reconciler integrity
-
-Use one genuinely fresh, non-mutating, non-delegating semantic verifier. It must not have implemented the historical candidate or participated in the current review finding. It may not repair code, rewrite the ticket, mutate tracker state, or recertify historical member correctness.
-
-When the active host cannot create a separate verifier and repository owner authorization explicitly supplies an equivalent in-session substitute under the repository session-reconstitution contract, preserve every other integrity requirement and identify the result as that substitute.
-
-### Reconciliation procedure
-
-1. Validate the exact historical domain record, authority identity, and current unchanged/changed authority identity.
-2. Decide whether the cited contradiction is explicit and mechanically identifiable in the same authority the prior domain claimed to cover. A broader plausible interpretation or adjacent sibling is insufficient.
-3. If the contradiction is confirmed, reconstruct the **entire affected membership universe authority-first** using the same Domain Construction Manifest rules in this skill. Do not seed or bound reconstruction from the reviewer's discovered candidate.
-4. Close every nested finite/discoverable domain required to establish the corrected membership boundary.
-5. Return one terminal result below.
-
-### Terminal results
-
-Confirmed:
+Require:
 
 ```text
-DOMAIN RECONCILIATION: DEFECT CONFIRMED
-Originating ticket: <#n>
-Prior certification: <durable reference>
-Prior domain: <ND/root ID>
-Authority identity: <exact identity>
-Explicit contradiction: <exact source>
-Corrected membership predicate: <predicate>
-Corrected dimensions/source sets: <sets>
-Expected/generated/inspected/dispositioned: <counts or open-world criterion>
-Prior membership finality superseded: yes
-Historical PASS preserved: yes
+Applicable material architecture/design obligations: <n>
+Manifest rows covering applicable obligations: <n>
+Missing manifest obligations: 0
+Ambiguous manifest obligations: 0
+Misrouted manifest obligations: 0
+Ticket architecture IDs missing from manifest mapping: 0
+Manifest implementation obligations absent from ticket contract: 0
 ```
 
-Rejected:
+Two failure classes are distinct:
+
+* **implementation defect** — the architecture obligation is correctly decomposed/mapped to this ticket but the candidate does not satisfy it; return an ordinary `TICKET CLOSURE: FAIL` finding owned by `$implement-ticket`;
+* **decomposition defect** — current governing architecture/design contains a material implementation obligation absent from, incompletely represented by, or misrouted in the parent manifest/ticket contract; return `TICKET CLOSURE: FAIL` with:
 
 ```text
-DOMAIN RECONCILIATION: DEFECT REJECTED
-Originating ticket: <#n>
-Prior certification: <durable reference>
-Prior domain: <ND/root ID>
-Authority identity: <exact identity>
-Reason: <why the claimed contradiction does not invalidate the frozen predicate/source set>
-Prior membership finality superseded: no
+Finding classification: decomposition-defect
+Finding owner: $to-tickets
+Governing source: <exact durable source + section>
+Missing/misrouted obligation: <requirement>
+Current manifest state: absent | incomplete | misrouted
 ```
 
-Unresolved:
+The fresh verifier remains non-mutating. It does not update the parent manifest, ticket, or decomposition-defect record. The `$implement-ticket` parent persists the durable `DD-*` record and performs the Human Handoff to the current `$to-tickets` source owner.
 
-```text
-DOMAIN RECONCILIATION: UNRESOLVED
-Originating ticket: <#n>
-Prior certification: <durable reference>
-Prior domain: <ND/root ID>
-Unresolved state: <missing/ambiguous/contradictory authority or certification evidence>
-```
-
-The reconciler returns the terminal record to `$review-spec`. The review parent persists a confirmed/rejected result durably on the originating ticket as one `<!-- certified-domain-reconciliation:v1 -->` record, verifies exact readback, and then reruns only the affected Domain Finality Reconciliation. `UNRESOLVED` is preserved on the Spec Review state and holds only the affected domain/cell.
+Certified Closure Domains remain useful for independently freezing nested semantic membership **inside a correctly decomposed ticket claim**. They are not authority to suppress an explicit upstream architecture/design obligation that the decomposition failed to carry.
 
 ## Invocation Semantics
 
-For ordinary ticket-candidate certification, `$verify-ticket-closure` has two entry modes. The Certified Closure Domain Reconciliation mode above is a separate prescribed internal-composition path and terminates after its reconciliation result; it does not enter the ordinary candidate-certification procedure below. The normal ticket lifecycle uses the fresh verifier leaf; direct human invocation is optional recovery/manual entry, not a required authorization gate.
+For ordinary ticket-candidate certification, the normal ticket lifecycle uses the fresh verifier leaf; direct human invocation is optional recovery/manual entry, not a required authorization gate. Architecture/design decomposition defects are reported as classified FAIL findings and routed by `$implement-ticket` to `$to-tickets`; this skill does not run a separate historical-certification reconciliation lifecycle.
 
 ### Fresh verifier leaf — normal path
 
@@ -174,7 +141,7 @@ A direct ad hoc execution outside the `$implement-ticket` checkpoint lifecycle i
 
 ## Verifier Integrity
 
-For ordinary ticket-candidate certification, only the fresh dispatched verifier executes the remaining sections. Certified Closure Domain Reconciliation uses its own Reconciler Integrity contract above and stops before this ordinary certification path.
+Only the fresh dispatched verifier executes the remaining ticket-candidate certification sections.
 
 A valid verifier is:
 
@@ -197,6 +164,7 @@ Read:
 * durable v2 closure checkpoint used for dispatch;
 * ticket-governed durable tracker state when applicable;
 * the exact parent-Spec clauses identified by the ticket's `Spec obligations`, plus any specifically referenced completion/architecture section needed to interpret them; do **not** read unrelated parent-Spec sections by default, but broaden when the carried clauses depend on a cross-cutting rule or otherwise cannot be interpreted completely in isolation;
+* the current parent-Spec `Ticket Coverage Manifest`, including Architecture/Design Obligation Disposition Manifest rows, and the ticket's exact `Architecture obligations` IDs;
 * current architecture/Standards/policy authority materially required by the ticket's acceptance cells or candidate;
 * Proposed Closure Evidence as claims and evidence pointers to challenge, never authority.
 

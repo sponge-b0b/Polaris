@@ -84,11 +84,42 @@ Require exact:
 * invocation-local `CONTRACT_HANDOFF_DIGEST` for the exact handoff bytes supplied by the parent;
 * Spec-owned/Mixed/inherited ownership classifications;
 * current architecture impact/authority needed by manifest cells;
+* the current parent-Spec `Ticket Coverage Manifest`, including the Architecture/Design Obligation Disposition Manifest and exact relevant ticket `Architecture obligations` mappings;
 * executed deterministic/delegated gate evidence and acceptance-test evidence supplied by `$verify-spec`.
 
 The manifest is the outer acceptance universe. Do not add or remove originating Spec obligations locally.
 
 A newly discovered originating-Spec obligation absent from the deterministic contract is a contract defect and invalidates certification; return it to `$verify-spec` rather than silently expanding the manifest.
+
+## Architecture / Design Decomposition Integrity
+
+Before certifying Spec cells, independently challenge the complete bounded architecture/design decomposition used by the integrated candidate.
+
+Re-derive materially applicable architecture/design obligations from the exact governing sources supplied by `$verify-spec`; do not accept the parent's manifest counts or dispositions as semantic proof. Compare the independently derived set with the current parent-Spec Architecture/Design Obligation Disposition Manifest and relevant ticket `Architecture obligations` mappings.
+
+Record:
+
+```text
+Architecture/design obligations: <n>
+Manifest rows: <n>
+Missing: <n>
+Ambiguous: <n>
+Misrouted: <n>
+Implementation obligations without durable ticket coverage: <n>
+Ticket mappings inconsistent with manifest: <n>
+```
+
+A missing, ambiguous, or misrouted architecture/design obligation is an independently actionable finding with:
+
+```text
+Finding classification: decomposition-defect
+Finding owner: $to-tickets
+Governing source: <exact durable source + section>
+Missing/misrouted obligation: <requirement>
+Current manifest state: absent | incomplete | misrouted
+```
+
+Continue the bounded semantic sweep so the parent receives the complete independently observable failure set. The finding blocks PASS; the leaf remains non-mutating and does not edit tickets or manifests.
 
 ## 2. Per-Cell Semantic Certification
 
@@ -231,6 +262,10 @@ Undispositioned domain candidates: 0
 Independent actionable findings: <n>
 Unexplored authoritative siblings: 0
 Unproven material assumptions: 0
+Architecture/design missing obligations: 0
+Architecture/design ambiguous obligations: 0
+Architecture/design misrouted obligations: 0
+Architecture implementation obligations without durable ticket coverage: 0
 ```
 
 Preserve a compact Domain Membership Manifest for inspected candidates:

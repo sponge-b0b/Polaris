@@ -1,0 +1,161 @@
+name: Temporary ChatGPT ticket 316 coverage completion
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-chatgpt-implement-316-v6.yml'
+
+permissions:
+  contents: read
+  actions: read
+  copilot-requests: write
+  issues: read
+
+jobs:
+  implement:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: transport
+          fetch-depth: 1
+
+      - uses: actions/checkout@v4
+        with:
+          ref: e243c2c50b0d2a2ed4ee539f040fed53597a402f
+          path: candidate
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - uses: astral-sh/setup-uv@v6
+
+      - run: npm install --global @github/copilot
+
+      - name: Restore exact final candidate
+        working-directory: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/sponge-b0b/Polaris/actions/artifacts/10384513364/zip > "$RUNNER_TEMP/candidate.zip"
+          unzip -q "$RUNNER_TEMP/candidate.zip" -d "$RUNNER_TEMP/ticket316"
+          git apply "$RUNNER_TEMP/ticket316/candidate.patch"
+          test "$(TICKET_BASELINE=e243c2c50b0d2a2ed4ee539f040fed53597a402f python - <<'PY'
+          import hashlib, os, stat, subprocess
+          baseline=os.environ['TICKET_BASELINE']
+          def zpaths(*args):
+              out=subprocess.run(['git',*args],check=True,stdout=subprocess.PIPE).stdout
+              return [p for p in out.split(b'\0') if p]
+          paths=set(zpaths('diff','--no-renames','--name-only','-z',baseline,'--')); paths.update(zpaths('ls-files','--others','--exclude-standard','-z'))
+          d=hashlib.sha256()
+          for raw in sorted(paths):
+              path=os.fsdecode(raw); d.update(b'path\0'+raw+b'\0')
+              try: meta=os.lstat(path)
+              except FileNotFoundError: d.update(b'state\0DELETED\0'); continue
+              if stat.S_ISLNK(meta.st_mode): mode=b'120000'; content=hashlib.sha256(os.fsencode(os.readlink(path))).hexdigest()
+              elif stat.S_ISREG(meta.st_mode):
+                  mode=b'100755' if meta.st_mode & stat.S_IXUSR else b'100644'; h=hashlib.sha256()
+                  with open(path,'rb') as f:
+                      for chunk in iter(lambda: f.read(1024*1024),b''): h.update(chunk)
+                  content=h.hexdigest()
+              else: raise SystemExit(path)
+              d.update(b'mode\0'+mode+b'\0sha256\0'+content.encode()+b'\0')
+          print(d.hexdigest())
+          PY
+          )" = 506f59975a7e036f9dbe7b5b5ab601efa557f26ed2917ffcd44b2bcb85f70035
+
+      - name: Complete implementation evidence
+        working-directory: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+          COPILOT_MCP_TOOL_CACHE: 'false'
+        run: |
+          cat > "$RUNNER_TEMP/prompt.txt" <<'PROMPT'
+          Continue Polaris ticket #316 from the EXACT pre-certification candidate already applied to this checkout, baseline e243c2c50b0d2a2ed4ee539f040fed53597a402f. Do not commit/push/mutate GitHub. Read AGENTS.md, issue #316, and ARCHSRC-1 authority before editing.
+
+          The application implementation is a candidate, not authority. Preserve it only if correct. A direct inspection of the candidate patch established one known incompleteness: it adds only one new deterministic test, while #316 explicitly requires deterministic coverage of the complete multi-correction acceptance domain and the preserved one-element boundary. Complete the implementation/verification surface before closure dispatch.
+
+          Required deterministic test coverage for the NEW set command must explicitly prove, with the smallest maintainable tests and reuse of existing helpers where appropriate:
+          - valid several-correction atomic success;
+          - one-invalid-member rollback: no partial relationship history, DecisionVersion effect, or receipt;
+          - same semantic set replay under reordered tuple input AND renamed request-local handles;
+          - same OperationId + materially changed set/content/ancestry -> IdempotencyConflict;
+          - same-command child correction targeting another set member independent of input order;
+          - sibling corrections sharing one target remain independent and can produce contested interpretation where appropriate;
+          - missing/self/cyclic local ancestry rejects before commit;
+          - exact expected-version coverage for every directly touched existing endpoint, including rejection when missing and when extraneous guards are supplied if frozen semantics require exact coverage;
+          - each existing Decision versions at most once for the atomic set and DecisionLifecycleSequence is unchanged;
+          - singular CorrectDecisionRelationshipCommand exact replay remains compatible with its pre-ticket RelationshipCorrectionPayload request/receipt identity;
+          - no visible tentative/intermediate graph state.
+
+          Also verify that existing deterministic tests still cover recursive restoration, definite cycle, possible/indeterminate cycle, stale non-endpoint path, known-future fact, absence predicate revalidation, persistence failure, renewal, Supersession, and singular correction. If any of those existing proofs are only single-correction and do not actually prove the new SET contract where the ticket requires the set boundary, add the narrow missing set-level test. Do not duplicate domain graph logic in application tests merely for volume.
+
+          Critically review the candidate implementation while adding tests. Fix any implementation defect revealed by the required tests. Preserve: request order/local handle/generated UUID non-semantic identity; full same-command ancestry graph in semantic request identity; sibling independence; all durable IDs allocated before construction; one whole-set call to apply_relationship_command; domain/store ownership of graph/revalidation; exact endpoint expected-version coverage; atomic persistence; privileged/internal API; legacy singular receipt semantics.
+
+          Keep changes lean. Do not add speculative public aliases or framework abstractions unless existing repository conventions require them. Run targeted tests while editing, then Ruff on changed Python files, mypy on changed Python files, full `uv run --locked pytest -q`, and the architecture guards. End with IMPLEMENTATION COMPLETE and a precise proof summary.
+          PROMPT
+          copilot -s --allow-all-tools --no-custom-instructions --disable-builtin-mcps --no-ask-user --no-remote --no-remote-export < "$RUNNER_TEMP/prompt.txt" | tee "$RUNNER_TEMP/copilot-output.txt"
+          ! grep -q '^DESIGN GAP' "$RUNNER_TEMP/copilot-output.txt"
+
+      - name: Verify completed candidate
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          git diff --check e243c2c50b0d2a2ed4ee539f040fed53597a402f
+          mapfile -t pyfiles < <(git diff --name-only e243c2c50b0d2a2ed4ee539f040fed53597a402f -- '*.py')
+          test ${#pyfiles[@]} -gt 0
+          uv run --locked ruff check --fix "${pyfiles[@]}"
+          uv run --locked ruff format "${pyfiles[@]}"
+          uv run --locked ruff check "${pyfiles[@]}"
+          uv run --locked ruff format --check "${pyfiles[@]}"
+          uv run --locked mypy --explicit-package-bases "${pyfiles[@]}"
+          uv run --locked pytest -q
+          POLARIS_BROAD_VERIFY_AUTHORIZED=verify-architecture uv run --locked pytest -q tests/test_architecture_guard.py tests/test_architecture_guard_identity_aliases.py tests/test_architecture_guard_legacy_loaders.py
+
+      - name: Freeze completed candidate
+        working-directory: candidate
+        env:
+          TICKET_BASELINE: e243c2c50b0d2a2ed4ee539f040fed53597a402f
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/ticket-316-complete"; mkdir -p "$root"
+          git diff --no-renames --binary "$TICKET_BASELINE" -- > "$root/candidate.patch"
+          git diff --no-renames --name-only "$TICKET_BASELINE" -- > "$root/changed-files.txt"
+          git diff --stat "$TICKET_BASELINE" -- > "$root/diff-stat.txt"
+          cp "$RUNNER_TEMP/copilot-output.txt" "$root/copilot-output.txt"
+          python - <<'PY' > "$root/candidate-state.txt"
+          import hashlib, os, stat, subprocess
+          baseline=os.environ['TICKET_BASELINE']
+          def zpaths(*args):
+              out=subprocess.run(['git',*args],check=True,stdout=subprocess.PIPE).stdout
+              return [p for p in out.split(b'\0') if p]
+          paths=set(zpaths('diff','--no-renames','--name-only','-z',baseline,'--')); paths.update(zpaths('ls-files','--others','--exclude-standard','-z'))
+          d=hashlib.sha256()
+          for raw in sorted(paths):
+              path=os.fsdecode(raw); d.update(b'path\0'+raw+b'\0')
+              try: meta=os.lstat(path)
+              except FileNotFoundError: d.update(b'state\0DELETED\0'); continue
+              if stat.S_ISLNK(meta.st_mode): mode=b'120000'; content=hashlib.sha256(os.fsencode(os.readlink(path))).hexdigest()
+              elif stat.S_ISREG(meta.st_mode):
+                  mode=b'100755' if meta.st_mode & stat.S_IXUSR else b'100644'; h=hashlib.sha256()
+                  with open(path,'rb') as f:
+                      for chunk in iter(lambda: f.read(1024*1024),b''): h.update(chunk)
+                  content=h.hexdigest()
+              else: raise SystemExit(path)
+              d.update(b'mode\0'+mode+b'\0sha256\0'+content.encode()+b'\0')
+          print(d.hexdigest())
+          PY
+          echo "CANDIDATE_STATE=$(cat "$root/candidate-state.txt")"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ticket-316-complete
+          path: ${{ runner.temp }}/ticket-316-complete
+          retention-days: 7

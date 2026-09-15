@@ -303,11 +303,13 @@ The `$verify-spec` parent must:
 2. resolve the current decomposition owner: active conventional Spec Review if one currently owns remediation, otherwise the parent Spec;
 3. create/update that owner's single `<!-- decomposition-defects:v1 -->` record with stable unresolved `DD-*` entries and exact source/manifest/ticket provenance;
 4. read the record back exactly;
-5. stop at Human Handoff:
+5. stop at Human Handoff to the current decomposition owner:
 
 ```text
-$to-tickets #<current decomposition owner>
+$to-tickets - <Current Decomposition Owner Title> (<Current Decomposition Owner URL>)
 ```
+
+Use the parent Spec title/URL when the parent Spec is the current decomposition owner, or the conventional Spec Review title/URL when that Spec Review owns remediation.
 
 Historical ticket certification remains provenance and does not suppress the missing upstream obligation.
 
@@ -379,7 +381,13 @@ After a complete verifier FAIL returns:
 
 Do not drop a prior semantic failure merely because a narrower rerun passes. It remains current until the exact falsifier/claim is re-proven or explicitly superseded by authoritative contract change.
 
-If a finding requires a new durable architecture decision, use the architecture-remediation handoff below; the certifier does not invent that decision.
+If a finding requires a new durable architecture decision, halt at a Human Handoff to the durable architecture-remediation source established by this workflow:
+
+```text
+$architecture-remediation - <Architecture Remediation Source Title> (<Source URL>)
+```
+
+Present the blocker set separately from the invocation line. The certifier does not invent the decision.
 
 ## PASS Consumption
 

@@ -1,0 +1,170 @@
+name: Temporary ChatGPT verify ticket 316 closure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-chatgpt-verify-316.yml'
+
+permissions:
+  contents: read
+  actions: read
+  copilot-requests: write
+  issues: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: transport
+          fetch-depth: 1
+
+      - uses: actions/checkout@v4
+        with:
+          ref: e243c2c50b0d2a2ed4ee539f040fed53597a402f
+          path: candidate
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - uses: astral-sh/setup-uv@v6
+
+      - run: npm install --global @github/copilot
+
+      - name: Restore exact immutable candidate
+        working-directory: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/sponge-b0b/Polaris/actions/artifacts/10384438709/zip > "$RUNNER_TEMP/candidate.zip"
+          unzip -q "$RUNNER_TEMP/candidate.zip" -d "$RUNNER_TEMP/ticket316"
+          git apply "$RUNNER_TEMP/ticket316/candidate.patch"
+          test "$(cat "$RUNNER_TEMP/ticket316/candidate-state.txt")" = 4d9ce668a620ece4ad687ebea9fac2a53f1dcfc6f38128cdd080216cd9afc454
+          test "$(TICKET_BASELINE=e243c2c50b0d2a2ed4ee539f040fed53597a402f python - <<'PY'
+          import hashlib, os, stat, subprocess
+          baseline=os.environ['TICKET_BASELINE']
+          def zpaths(*args):
+              out=subprocess.run(['git',*args],check=True,stdout=subprocess.PIPE).stdout
+              return [p for p in out.split(b'\0') if p]
+          paths=set(zpaths('diff','--no-renames','--name-only','-z',baseline,'--')); paths.update(zpaths('ls-files','--others','--exclude-standard','-z'))
+          d=hashlib.sha256()
+          for raw in sorted(paths):
+              path=os.fsdecode(raw); d.update(b'path\0'+raw+b'\0')
+              try: meta=os.lstat(path)
+              except FileNotFoundError: d.update(b'state\0DELETED\0'); continue
+              if stat.S_ISLNK(meta.st_mode): mode=b'120000'; content=hashlib.sha256(os.fsencode(os.readlink(path))).hexdigest()
+              elif stat.S_ISREG(meta.st_mode):
+                  mode=b'100755' if meta.st_mode & stat.S_IXUSR else b'100644'; h=hashlib.sha256()
+                  with open(path,'rb') as f:
+                      for chunk in iter(lambda: f.read(1024*1024),b''): h.update(chunk)
+                  content=h.hexdigest()
+              else: raise SystemExit(path)
+              d.update(b'mode\0'+mode+b'\0sha256\0'+content.encode()+b'\0')
+          print(d.hexdigest())
+          PY
+          )" = 4d9ce668a620ece4ad687ebea9fac2a53f1dcfc6f38128cdd080216cd9afc454
+
+      - name: Fresh independent ticket closure verification
+        working-directory: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+          COPILOT_MCP_TOOL_CACHE: 'false'
+        run: |
+          cat > "$RUNNER_TEMP/prompt.txt" <<'PROMPT'
+          You are the genuinely fresh, non-mutating semantic verifier leaf for Polaris `$verify-ticket-closure` on ticket #316: https://github.com/sponge-b0b/Polaris/issues/316 .
+
+          You did NOT implement this candidate. You must not edit files, commit, push, comment, close issues, mutate tracker state, or delegate semantic verification. Execute the current verifier procedure from `../transport/.agents/skills/verify-ticket-closure/SKILL.md` exactly as the authoritative workflow policy. Read `AGENTS.md` and any current main hardening/policy sources the verifier skill requires.
+
+          Immutable dispatch binding:
+          - Ticket: #316 `Add atomic multi-relationship correction coordination`
+          - Mode: remediation (Spec Review #310 decomposition remediation; Root None; DD-1 / RF-3)
+          - Parent Spec: #279
+          - Spec obligations: None
+          - Architecture obligations: ARCHSRC-1
+          - Ticket branch: spec-279
+          - Ticket baseline: e243c2c50b0d2a2ed4ee539f040fed53597a402f
+          - Candidate state: 4d9ce668a620ece4ad687ebea9fac2a53f1dcfc6f38128cdd080216cd9afc454
+          - Closure checkpoint comment ID: 5676233718, marker `<!-- implement-ticket-closure-checkpoint:v2 -->`, Attempt 1, Stage awaiting-closure-verification.
+          - Candidate artifact source: Actions run 34939798138 artifact 10384438709. The exact patch is already applied to this checkout and state-checked before you run.
+
+          Independently recover and validate the ticket, native lineage, #279 Ticket Coverage Manifest including ARCHSRC-1, #310 decomposition-defect record DD-1/RF-3, the exact checkpoint, and governing architecture/design source set. Do not treat the checkpoint Proposed Closure Evidence or implementation actor report as authority; challenge every claim.
+
+          ARCHSRC-1 source pointers from durable coverage state are:
+          - `docs/proposed/application-use-cases-investment-decision-lifecycle.md` §§12–13 and §17, plus concurrency/idempotency §14 where needed by the ticket;
+          - `docs/proposed/investment-decisions-decision-relationship-model.md` §5.4 and the correction interpretation rules in §§6.1–6.3 needed to interpret sibling/recursive ancestry;
+          - `docs/proposed/durable-persistence-investment-decision-history.md` §§5 and 8.
+          Broaden only where those bounded sections explicitly depend on other authority.
+
+          Independently construct the complete authority-source universe and acceptance universe before using implementation/tests as proof. Specifically challenge:
+          - one-or-more atomic correction-set cardinality;
+          - order-independent same-command ancestry with request-local handles remaining non-semantic;
+          - sibling correction independence and recursive QUALIFY/DISCONFIRM/restoration/contest semantics;
+          - canonical idempotency identity independent of request order, handle names, generated durable UUIDs, and unordered basis-reference iteration while preserving graph/content/cardinality;
+          - whole-set final-history temporal mixed-lineage graph validation, including definite and possible/indeterminate cycle safety and known historical/future intervals;
+          - one atomic persistence boundary with no visible prefix/tentative graph state;
+          - exact expected-version coverage for every directly touched existing endpoint plus unchanged complete non-endpoint/path/future/history/absence revalidation;
+          - support/basis-sensitive DecisionVersion effects, one increment max, no lifecycle fact/DecisionLifecycleSequence mutation;
+          - exact replay/no append and changed-request conflict;
+          - legacy singular CorrectDecisionRelationshipCommand request/receipt compatibility using existing RelationshipCorrectionPayload;
+          - privilege/internal boundary and preservation of renewal/Supersession behavior.
+
+          Run any NON-MUTATING checks/tests needed. You may run pytest/Ruff check/mypy read-only checks, but do not run formatters or `--fix`. If a test command creates ignored caches, that is acceptable only if it does not change candidate Git-relevant state; the workflow independently rechecks candidate state afterward.
+
+          Return one complete verifier result following the skill. It must end with exactly one semantic verdict line:
+          `TICKET CLOSURE: PASS`
+          or
+          `TICKET CLOSURE: FAIL`
+
+          On PASS include all required Certified Closure Domain records/counts when material domain construction contributes to PASS, complete authority/acceptance accounting, architecture/design decomposition-integrity accounting, preservation result, and concise evidence. On FAIL include every finding with classification/owner where required. Do not repair anything.
+          PROMPT
+          copilot -s --allow-all-tools --no-custom-instructions --disable-builtin-mcps --no-ask-user --no-remote --no-remote-export < "$RUNNER_TEMP/prompt.txt" | tee "$RUNNER_TEMP/verifier-output.txt"
+          test "$(grep -c '^TICKET CLOSURE: PASS$\|^TICKET CLOSURE: FAIL$' "$RUNNER_TEMP/verifier-output.txt")" -eq 1
+
+      - name: Verify verifier integrity
+        working-directory: candidate
+        env:
+          TICKET_BASELINE: e243c2c50b0d2a2ed4ee539f040fed53597a402f
+        run: |
+          set -euo pipefail
+          state=$(python - <<'PY'
+          import hashlib, os, stat, subprocess
+          baseline=os.environ['TICKET_BASELINE']
+          def zpaths(*args):
+              out=subprocess.run(['git',*args],check=True,stdout=subprocess.PIPE).stdout
+              return [p for p in out.split(b'\0') if p]
+          paths=set(zpaths('diff','--no-renames','--name-only','-z',baseline,'--')); paths.update(zpaths('ls-files','--others','--exclude-standard','-z'))
+          d=hashlib.sha256()
+          for raw in sorted(paths):
+              path=os.fsdecode(raw); d.update(b'path\0'+raw+b'\0')
+              try: meta=os.lstat(path)
+              except FileNotFoundError: d.update(b'state\0DELETED\0'); continue
+              if stat.S_ISLNK(meta.st_mode): mode=b'120000'; content=hashlib.sha256(os.fsencode(os.readlink(path))).hexdigest()
+              elif stat.S_ISREG(meta.st_mode):
+                  mode=b'100755' if meta.st_mode & stat.S_IXUSR else b'100644'; h=hashlib.sha256()
+                  with open(path,'rb') as f:
+                      for chunk in iter(lambda: f.read(1024*1024),b''): h.update(chunk)
+                  content=h.hexdigest()
+              else: raise SystemExit(path)
+              d.update(b'mode\0'+mode+b'\0sha256\0'+content.encode()+b'\0')
+          print(d.hexdigest())
+          PY
+          )
+          test "$state" = 4d9ce668a620ece4ad687ebea9fac2a53f1dcfc6f38128cdd080216cd9afc454
+          mkdir -p "$RUNNER_TEMP/ticket-316-verifier"
+          cp "$RUNNER_TEMP/verifier-output.txt" "$RUNNER_TEMP/ticket-316-verifier/verifier-output.txt"
+          printf '%s\n' "$state" > "$RUNNER_TEMP/ticket-316-verifier/candidate-state.txt"
+          grep '^TICKET CLOSURE: PASS$\|^TICKET CLOSURE: FAIL$' "$RUNNER_TEMP/verifier-output.txt" > "$RUNNER_TEMP/ticket-316-verifier/verdict.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ticket-316-verifier
+          path: ${{ runner.temp }}/ticket-316-verifier
+          retention-days: 7

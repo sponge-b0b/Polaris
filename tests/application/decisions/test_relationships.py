@@ -30,6 +30,7 @@ from polaris.application.decisions import (
     EstablishSupersessionCommand,
     ExpectedDecisionVersion,
     IdempotencyConflict,
+    InvalidDecisionCommand,
     PersistenceUnavailable,
     RelationshipConflict,
     RelationshipCycle,
@@ -41,8 +42,10 @@ from polaris.application.decisions import (
 )
 from polaris.application.decisions.relationships import (
     CorrectDecisionRelationshipCommand,
+    CorrectDecisionRelationshipSetCommand,
     DecisionRelationshipContinuityConflict,
     DecisionRelationshipCorrectionService,
+    RelationshipCorrectionMember,
 )
 from polaris.domain.decisions import (
     ActorId,
@@ -123,6 +126,7 @@ class FakeRelationshipStore:
         self.decisions = {item.decision_id: item for item in decisions}
         self.continuity_candidates = continuity_candidates
         self.receipts: dict[OperationId, DecisionRelationshipReceipt] = {}
+        self.commits: list[DecisionRelationshipCommit] = []
         self.unavailable = unavailable
         self.barrier = barrier
         self.read_failure = read_failure
@@ -165,6 +169,7 @@ class FakeRelationshipStore:
         self, commit: DecisionRelationshipCommit
     ) -> DecisionRelationshipCommitOutcome:
         with self.lock:
+            self.commits.append(commit)
             if self.unavailable:
                 return DecisionRelationshipUnavailable(
                     "fake relationship store unavailable"
@@ -333,6 +338,52 @@ def _service(store: FakeRelationshipStore) -> DecisionRelationshipService:
     )
 
 
+def _correction_service(
+    store: FakeRelationshipStore,
+) -> DecisionRelationshipCorrectionService:
+    return DecisionRelationshipCorrectionService(store=store, now=lambda: NOW)
+
+
+def _correction_member(
+    local_id: str,
+    target: DecisionRelationshipFactId | str,
+    *,
+    effect: DecisionRelationshipCorrectionEffect = (
+        DecisionRelationshipCorrectionEffect.DISCONFIRM
+    ),
+    basis: str = "withdraw",
+    correction_effective_at: datetime = NOW,
+    replacement_effective_at: datetime | None = None,
+    replacement_basis: SupersedesRelationshipBasis | None = None,
+) -> RelationshipCorrectionMember:
+    return RelationshipCorrectionMember(
+        local_id,
+        target,
+        effect,
+        correction_effective_at,
+        DecisionRelationshipCorrectionBasis((basis,)),
+        replacement_effective_at,
+        replacement_basis,
+    )
+
+
+def _correction_set(
+    decisions: tuple[InvestmentDecision, ...],
+    corrections: tuple[RelationshipCorrectionMember, ...],
+    *,
+    operation_id: OperationId | None = None,
+    actor: KnownActorAttribution | None = None,
+) -> CorrectDecisionRelationshipSetCommand:
+    return CorrectDecisionRelationshipSetCommand(
+        _envelope(
+            decisions,
+            operation_id=operation_id,
+            actor=actor,
+        ),
+        corrections,
+    )
+
+
 def _supersede(
     store: FakeRelationshipStore,
     source: InvestmentDecision,
@@ -366,6 +417,589 @@ def _supersede(
 def test_relationship_correction_is_privileged_not_package_exported() -> None:
     assert "CorrectDecisionRelationshipCommand" not in decisions_api.__all__
     assert "DecisionRelationshipCorrectionService" not in decisions_api.__all__
+
+
+def test_atomic_correction_set_resolves_same_command_ancestry_without_ordering() -> (
+    None
+):
+    source = _decision()
+    target = _decision()
+    store = FakeRelationshipStore((source, target))
+    _supersede(store, source, target)
+    original = store.history[0]
+    current = (store.decisions[source.decision_id], store.decisions[target.decision_id])
+    command = CorrectDecisionRelationshipSetCommand(
+        envelope=_envelope(current),
+        corrections=(
+            RelationshipCorrectionMember(
+                "restore",
+                "withdraw",
+                DecisionRelationshipCorrectionEffect.QUALIFY,
+                NOW,
+                DecisionRelationshipCorrectionBasis(("restore",)),
+                NOW - timedelta(minutes=1),
+                SupersedesRelationshipBasis(("restore",)),
+            ),
+            RelationshipCorrectionMember(
+                "withdraw",
+                original.metadata.relationship_fact_id,
+                DecisionRelationshipCorrectionEffect.DISCONFIRM,
+                NOW,
+                DecisionRelationshipCorrectionBasis(("withdraw",)),
+            ),
+        ),
+    )
+
+    result = asyncio.run(_correction_service(store).correct(command))
+
+    assert len(result.relationship_fact_ids) == 2
+    assert tuple(fact.metadata.relationship_fact_id for fact in store.history[-2:]) == (
+        result.relationship_fact_ids
+    )
+
+
+def test_atomic_correction_set_commits_members_and_versions_endpoints_once() -> None:
+    source = _decision()
+    target_a = _decision()
+    target_b = _decision()
+    store = FakeRelationshipStore((source, target_a, target_b))
+    _supersede(store, source, target_a)
+    _supersede(
+        store,
+        store.decisions[source.decision_id],
+        store.decisions[target_b.decision_id],
+    )
+    before = {
+        identity: store.decisions[identity]
+        for identity in (source.decision_id, target_a.decision_id, target_b.decision_id)
+    }
+    facts = tuple(store.history)
+    current = tuple(store.decisions.values())
+    commits_before = len(store.commits)
+
+    result = asyncio.run(
+        _correction_service(store).correct(
+            _correction_set(
+                current,
+                (
+                    _correction_member("left", facts[0].metadata.relationship_fact_id),
+                    _correction_member("right", facts[1].metadata.relationship_fact_id),
+                ),
+            )
+        )
+    )
+
+    assert len(store.history) == 4
+    assert len(store.commits) == commits_before + 1
+    assert result.relationship_fact_ids == tuple(
+        fact.metadata.relationship_fact_id for fact in store.history[-2:]
+    )
+    assert result.versioned_decision_ids == frozenset(before)
+    for identity, prior in before.items():
+        assert store.decisions[identity].version == DecisionVersion(
+            prior.version.value + 1
+        )
+        assert store.decisions[identity].history == prior.history
+
+
+def test_atomic_correction_set_invalid_member_rolls_back_atomically() -> None:
+    source = _decision()
+    target = _decision()
+    store = FakeRelationshipStore((source, target))
+    _supersede(store, source, target)
+    current = (store.decisions[source.decision_id], store.decisions[target.decision_id])
+    history_before = store.history
+    decisions_before = dict(store.decisions)
+    receipts_before = dict(store.receipts)
+
+    with pytest.raises(RelationshipHistoryInvalidOrIncomplete):
+        asyncio.run(
+            DecisionRelationshipCorrectionService(store=store).correct(
+                _correction_set(
+                    current,
+                    (
+                        _correction_member(
+                            "valid", history_before[0].metadata.relationship_fact_id
+                        ),
+                        _correction_member(
+                            "invalid", DecisionRelationshipFactId(uuid4())
+                        ),
+                    ),
+                )
+            )
+        )
+
+    assert store.history == history_before
+    assert store.decisions == decisions_before
+    assert store.receipts == receipts_before
+
+
+def test_atomic_correction_set_replays_reordered_members_with_renamed_handles() -> None:
+    source = _decision()
+    target_a = _decision()
+    target_b = _decision()
+    store = FakeRelationshipStore((source, target_a, target_b))
+    _supersede(store, source, target_a)
+    _supersede(
+        store,
+        store.decisions[source.decision_id],
+        store.decisions[target_b.decision_id],
+    )
+    facts = tuple(store.history)
+    current = tuple(store.decisions.values())
+    operation_id = OperationId(uuid4())
+    actor = _actor()
+    first = _correction_set(
+        current,
+        (
+            _correction_member("first", facts[0].metadata.relationship_fact_id),
+            _correction_member("second", facts[1].metadata.relationship_fact_id),
+        ),
+        operation_id=operation_id,
+        actor=actor,
+    )
+    retry = _correction_set(
+        current,
+        (
+            _correction_member("renamed-b", facts[1].metadata.relationship_fact_id),
+            _correction_member("renamed-a", facts[0].metadata.relationship_fact_id),
+        ),
+        operation_id=operation_id,
+        actor=actor,
+    )
+
+    correction_service = _correction_service(store)
+    first_result = asyncio.run(correction_service.correct(first))
+    retry_result = asyncio.run(correction_service.correct(retry))
+
+    assert not first_result.replayed
+    assert retry_result.replayed
+    assert retry_result.relationship_fact_ids == first_result.relationship_fact_ids
+    assert len(store.history) == 4
+    assert len(store.receipts) == 3
+
+
+def test_atomic_correction_set_changed_content_with_same_operation_conflicts() -> None:
+    source = _decision()
+    target = _decision()
+    store = FakeRelationshipStore((source, target))
+    _supersede(store, source, target)
+    fact_id = store.history[0].metadata.relationship_fact_id
+    current = (store.decisions[source.decision_id], store.decisions[target.decision_id])
+    operation_id = OperationId(uuid4())
+    actor = _actor()
+    first = _correction_set(
+        current,
+        (_correction_member("member", fact_id),),
+        operation_id=operation_id,
+        actor=actor,
+    )
+    correction_service = _correction_service(store)
+    asyncio.run(correction_service.correct(first))
+    changed = _correction_set(
+        current,
+        (
+            _correction_member(
+                "member", fact_id, effect=DecisionRelationshipCorrectionEffect.QUALIFY
+            ),
+        ),
+        operation_id=operation_id,
+        actor=actor,
+    )
+
+    with pytest.raises(IdempotencyConflict):
+        asyncio.run(correction_service.correct(changed))
+
+
+def test_atomic_correction_set_changed_ancestry_with_same_operation_conflicts() -> None:
+    source = _decision()
+    target = _decision()
+    store = FakeRelationshipStore((source, target))
+    _supersede(store, source, target)
+    original = store.history[0].metadata.relationship_fact_id
+    current = (store.decisions[source.decision_id], store.decisions[target.decision_id])
+    operation_id = OperationId(uuid4())
+    actor = _actor()
+    first = _correction_set(
+        current,
+        (
+            _correction_member("parent", original, basis="parent"),
+            _correction_member("child", "parent", basis="child"),
+        ),
+        operation_id=operation_id,
+        actor=actor,
+    )
+    correction_service = _correction_service(store)
+    asyncio.run(correction_service.correct(first))
+    changed = _correction_set(
+        current,
+        (
+            _correction_member("parent", original, basis="parent"),
+            _correction_member("child", original, basis="child"),
+        ),
+        operation_id=operation_id,
+        actor=actor,
+    )
+
+    with pytest.raises(IdempotencyConflict):
+        asyncio.run(correction_service.correct(changed))
+
+
+def test_atomic_correction_set_child_target_is_order_independent() -> None:
+    source = _decision()
+    target = _decision()
+    store = FakeRelationshipStore((source, target))
+    _supersede(store, source, target)
+    original = store.history[0].metadata.relationship_fact_id
+    current = (store.decisions[source.decision_id], store.decisions[target.decision_id])
+    command = _correction_set(
+        current,
+        (
+            _correction_member(
+                "child",
+                "parent",
+                effect=DecisionRelationshipCorrectionEffect.DISCONFIRM,
+                basis="child",
+            ),
+            _correction_member(
+                "parent",
+                original,
+                effect=DecisionRelationshipCorrectionEffect.DISCONFIRM,
+                basis="parent",
+            ),
+        ),
+    )
+
+    result = asyncio.run(_correction_service(store).correct(command))
+
+    assert len(result.relationship_fact_ids) == 2
+    new_facts = store.history[-2:]
+    assert {fact.metadata.relationship_fact_id for fact in new_facts} == set(
+        result.relationship_fact_ids
+    )
+    parent_fact = next(
+        fact for fact in new_facts if fact.target_relationship_fact_id == original
+    )
+    child_fact = next(fact for fact in new_facts if fact is not parent_fact)
+    assert (
+        child_fact.target_relationship_fact_id
+        == parent_fact.metadata.relationship_fact_id
+    )
+
+
+def test_atomic_correction_set_sibling_corrections_are_independent_and_contested() -> (
+    None
+):
+    source = _decision()
+    target = _decision()
+    store = FakeRelationshipStore((source, target))
+    _supersede(store, source, target)
+    original = store.history[0].metadata.relationship_fact_id
+    current = (store.decisions[source.decision_id], store.decisions[target.decision_id])
+
+    result = asyncio.run(
+        _correction_service(store).correct(
+            _correction_set(
+                current,
+                (
+                    _correction_member(
+                        "sibling-a",
+                        original,
+                        effect=DecisionRelationshipCorrectionEffect.QUALIFY,
+                        basis="a",
+                        replacement_effective_at=NOW - timedelta(minutes=1),
+                        replacement_basis=SupersedesRelationshipBasis(("a",)),
+                    ),
+                    _correction_member(
+                        "sibling-b",
+                        original,
+                        effect=DecisionRelationshipCorrectionEffect.QUALIFY,
+                        basis="b",
+                        correction_effective_at=NOW - timedelta(minutes=1),
+                        replacement_effective_at=NOW - timedelta(minutes=2),
+                        replacement_basis=SupersedesRelationshipBasis(("b",)),
+                    ),
+                ),
+            )
+        )
+    )
+
+    assert len(result.relationship_fact_ids) == 2
+    interpretation = interpret_relationship(
+        store.history,
+        source_decision_id=source.decision_id,
+        relationship_type=DecisionRelationshipType.SUPERSEDES,
+        target_decision_id=target.decision_id,
+        effective_at=NOW,
+        known_at=NOW,
+    )
+    assert interpretation.state is DomainRelationshipState.CONTESTED
+    assert interpretation.support_fact_ids == frozenset(result.relationship_fact_ids)
+
+
+def test_atomic_correction_set_accepts_equivalent_siblings_as_distinct_facts() -> None:
+    source = _decision()
+    target = _decision()
+    store = FakeRelationshipStore((source, target))
+    _supersede(store, source, target)
+    original = store.history[0].metadata.relationship_fact_id
+
+    result = asyncio.run(
+        _correction_service(store).correct(
+            _correction_set(
+                tuple(store.decisions.values()),
+                (
+                    _correction_member("first", original, basis="same"),
+                    _correction_member("second", original, basis="same"),
+                ),
+            )
+        )
+    )
+
+    assert len(result.relationship_fact_ids) == 2
+    assert len(set(result.relationship_fact_ids)) == 2
+    assert (
+        tuple(fact.metadata.relationship_fact_id for fact in store.history[-2:])
+        == result.relationship_fact_ids
+    )
+
+
+def test_atomic_correction_set_replays_equivalent_siblings_order_independent() -> None:
+    source = _decision()
+    target = _decision()
+    store = FakeRelationshipStore((source, target))
+    _supersede(store, source, target)
+    original = store.history[0].metadata.relationship_fact_id
+    current = tuple(store.decisions.values())
+    operation_id = OperationId(uuid4())
+    actor = _actor()
+    first = _correction_set(
+        current,
+        (
+            _correction_member("first", original, basis="same"),
+            _correction_member("second", original, basis="same"),
+        ),
+        operation_id=operation_id,
+        actor=actor,
+    )
+    retry = _correction_set(
+        current,
+        (
+            _correction_member("renamed-second", original, basis="same"),
+            _correction_member("renamed-first", original, basis="same"),
+        ),
+        operation_id=operation_id,
+        actor=actor,
+    )
+
+    service = _correction_service(store)
+    first_result = asyncio.run(service.correct(first))
+    retry_result = asyncio.run(service.correct(retry))
+
+    assert not first_result.replayed
+    assert retry_result.replayed
+    assert retry_result.relationship_fact_ids == first_result.relationship_fact_ids
+    assert len(store.history) == 3
+    assert len(store.commits) == 2
+
+
+def test_atomic_correction_set_cardinality_change_conflicts_for_same_operation() -> (
+    None
+):
+    source = _decision()
+    target = _decision()
+    store = FakeRelationshipStore((source, target))
+    _supersede(store, source, target)
+    original = store.history[0].metadata.relationship_fact_id
+    current = tuple(store.decisions.values())
+    operation_id = OperationId(uuid4())
+    actor = _actor()
+    service = _correction_service(store)
+    asyncio.run(
+        service.correct(
+            _correction_set(
+                current,
+                (
+                    _correction_member("first", original, basis="same"),
+                    _correction_member("second", original, basis="same"),
+                ),
+                operation_id=operation_id,
+                actor=actor,
+            )
+        )
+    )
+
+    with pytest.raises(IdempotencyConflict):
+        asyncio.run(
+            service.correct(
+                _correction_set(
+                    current,
+                    (_correction_member("only", original, basis="same"),),
+                    operation_id=operation_id,
+                    actor=actor,
+                )
+            )
+        )
+
+    assert len(store.history) == 3
+
+
+def test_atomic_correction_set_equivalent_parents_preserve_ancestry_identity() -> None:
+    source = _decision()
+    target = _decision()
+    store = FakeRelationshipStore((source, target))
+    _supersede(store, source, target)
+    original = store.history[0].metadata.relationship_fact_id
+    current = tuple(store.decisions.values())
+    operation_id = OperationId(uuid4())
+    actor = _actor()
+
+    first = _correction_set(
+        current,
+        (
+            _correction_member("parent-a", original, basis="parent"),
+            _correction_member("parent-b", original, basis="parent"),
+            _correction_member("child", "parent-a", basis="child"),
+        ),
+        operation_id=operation_id,
+        actor=actor,
+    )
+    retry = _correction_set(
+        current,
+        (
+            _correction_member("renamed-child", "renamed-parent-b", basis="child"),
+            _correction_member("renamed-parent-a", original, basis="parent"),
+            _correction_member("renamed-parent-b", original, basis="parent"),
+        ),
+        operation_id=operation_id,
+        actor=actor,
+    )
+
+    service = _correction_service(store)
+    first_result = asyncio.run(service.correct(first))
+    retry_result = asyncio.run(service.correct(retry))
+
+    assert retry_result.replayed
+    assert retry_result.relationship_fact_ids == first_result.relationship_fact_ids
+    new_facts = store.history[-3:]
+    child_fact = next(
+        fact
+        for fact in new_facts
+        if fact.target_relationship_fact_id
+        in {
+            new_facts[0].metadata.relationship_fact_id,
+            new_facts[1].metadata.relationship_fact_id,
+        }
+    )
+    assert (
+        child_fact.metadata.relationship_fact_id in first_result.relationship_fact_ids
+    )
+
+
+@pytest.mark.parametrize(
+    ("corrections", "message"),
+    (
+        (
+            (_correction_member("missing", "unknown"),),
+            "missing",
+        ),
+        (
+            (_correction_member("self", "self"),),
+            "acyclic",
+        ),
+        (
+            (
+                _correction_member("left", "right"),
+                _correction_member("right", "left"),
+            ),
+            "acyclic",
+        ),
+    ),
+)
+def test_atomic_correction_set_rejects_invalid_local_ancestry_before_commit(
+    corrections: tuple[RelationshipCorrectionMember, ...], message: str
+) -> None:
+    decision = _decision()
+    store = FakeRelationshipStore((decision,))
+
+    with pytest.raises(InvalidDecisionCommand, match=message):
+        asyncio.run(
+            _correction_service(store).correct(
+                _correction_set((decision,), corrections)
+            )
+        )
+
+    assert store.history == ()
+    assert store.receipts == {}
+
+
+def test_atomic_correction_set_requires_exact_existing_endpoint_versions() -> None:
+    source = _decision()
+    target = _decision()
+    extra = _decision()
+    store = FakeRelationshipStore((source, target, extra))
+    _supersede(store, source, target)
+    current = (
+        store.decisions[source.decision_id],
+        store.decisions[target.decision_id],
+    )
+    fact_id = store.history[0].metadata.relationship_fact_id
+
+    missing = CorrectDecisionRelationshipSetCommand(
+        _envelope((store.decisions[source.decision_id],)),
+        (_correction_member("member", fact_id),),
+    )
+    with pytest.raises(ConcurrencyConflict):
+        asyncio.run(_correction_service(store).correct(missing))
+
+    extraneous_envelope = _envelope((*current, store.decisions[extra.decision_id]))
+    extraneous = CorrectDecisionRelationshipSetCommand(
+        extraneous_envelope,
+        (_correction_member("member", fact_id),),
+    )
+    with pytest.raises(InvalidDecisionCommand, match="exactly"):
+        asyncio.run(_correction_service(store).correct(extraneous))
+    assert len(store.history) == 1
+    assert len(store.receipts) == 1
+
+
+def test_set_preserves_lifecycle_sequence_and_singular_receipt_shape() -> None:
+    source = _decision()
+    target = _decision()
+    store = FakeRelationshipStore((source, target))
+    _supersede(store, source, target)
+    current = (store.decisions[source.decision_id], store.decisions[target.decision_id])
+    lifecycle_sequences = {
+        identity: decision.history[-1].metadata.sequence
+        for identity, decision in store.decisions.items()
+    }
+    original = store.history[0].metadata.relationship_fact_id
+    singular_operation = OperationId(uuid4())
+    singular = CorrectDecisionRelationshipCommand(
+        _envelope(current, operation_id=singular_operation),
+        original,
+        DecisionRelationshipCorrectionEffect.DISCONFIRM,
+        NOW,
+        DecisionRelationshipCorrectionBasis(("singular",)),
+    )
+    singular_result = asyncio.run(_correction_service(store).correct(singular))
+    singular_receipt = store.receipts[singular_operation]
+    assert singular_receipt.request.payload.target_relationship_fact_id == original
+    assert singular_receipt.result == singular_result
+
+    set_source = store.decisions[source.decision_id]
+    set_target = store.decisions[target.decision_id]
+    set_fact = store.history[0].metadata.relationship_fact_id
+    asyncio.run(
+        _correction_service(store).correct(
+            _correction_set(
+                (set_source, set_target),
+                (_correction_member("set-member", set_fact),),
+            )
+        )
+    )
+    for identity, sequence in lifecycle_sequences.items():
+        assert store.decisions[identity].history[-1].metadata.sequence == sequence
 
 
 # duplicate-code: renewal cases retain each candidate basis and lineage construction at

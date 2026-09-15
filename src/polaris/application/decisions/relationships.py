@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from enum import StrEnum
+from itertools import groupby, permutations, product
 from typing import Never, Protocol
 from uuid import UUID, uuid4
 
@@ -177,6 +178,60 @@ class CorrectDecisionRelationshipCommand:
         _expected_versions(self.envelope)
 
 
+@dataclass(frozen=True, slots=True)
+class RelationshipCorrectionMember:
+    local_id: str
+    target: DecisionRelationshipFactId | str
+    effect: DecisionRelationshipCorrectionEffect
+    correction_effective_at: datetime
+    correction_basis: DecisionRelationshipCorrectionBasis
+    replacement_relationship_effective_at: datetime | None = None
+    replacement_relationship_basis: (
+        RenewedFromRelationshipBasis | SupersedesRelationshipBasis | None
+    ) = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.local_id, str) or not self.local_id.strip():
+            raise InvalidDecisionCommand("correction local_id must be non-empty")
+        if not isinstance(self.target, (DecisionRelationshipFactId, str)):
+            raise TypeError("correction target must be a fact ID or local_id")
+        if isinstance(self.target, str) and not self.target.strip():
+            raise InvalidDecisionCommand("correction target local_id must be non-empty")
+        if type(self.effect) is not DecisionRelationshipCorrectionEffect:
+            raise TypeError("effect must be DecisionRelationshipCorrectionEffect")
+        _aware(self.correction_effective_at, "correction_effective_at")
+        if type(self.correction_basis) is not DecisionRelationshipCorrectionBasis:
+            raise TypeError(
+                "correction_basis must be DecisionRelationshipCorrectionBasis"
+            )
+        object.__setattr__(self, "local_id", self.local_id.strip())
+        if isinstance(self.target, str):
+            object.__setattr__(self, "target", self.target.strip())
+
+
+@dataclass(frozen=True, slots=True)
+class CorrectDecisionRelationshipSetCommand:
+    envelope: DecisionCommandEnvelope
+    corrections: tuple[RelationshipCorrectionMember, ...]
+
+    def __post_init__(self) -> None:
+        _known_actor(self.envelope)
+        if type(self.corrections) is not tuple or not self.corrections:
+            raise InvalidDecisionCommand(
+                "relationship correction set requires at least one member"
+            )
+        if any(
+            type(item) is not RelationshipCorrectionMember for item in self.corrections
+        ):
+            raise TypeError(
+                "corrections must be tuple[RelationshipCorrectionMember, ...]"
+            )
+        local_ids = [item.local_id for item in self.corrections]
+        if len(set(local_ids)) != len(local_ids):
+            raise InvalidDecisionCommand("correction local_id values must be unique")
+        _expected_versions(self.envelope)
+
+
 class DecisionRelationshipCommandKind(StrEnum):
     RENEW = "renew"
     ESTABLISH_SUPERSESSION = "establish_supersession"
@@ -210,11 +265,31 @@ class RelationshipCorrectionPayload:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class RelationshipCorrectionSetMemberPayload:
+    target: DecisionRelationshipFactId | int
+    effect: DecisionRelationshipCorrectionEffect
+    correction_effective_at: datetime
+    correction_basis: DecisionRelationshipCorrectionBasis
+    replacement_relationship_effective_at: datetime | None
+    replacement_relationship_basis: (
+        RenewedFromRelationshipBasis | SupersedesRelationshipBasis | None
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class RelationshipCorrectionSetPayload:
+    members: tuple[RelationshipCorrectionSetMemberPayload, ...]
+
+
 # arid: enable
 
 
 RelationshipPayload = (
-    RenewalPayload | SupersessionPayload | RelationshipCorrectionPayload
+    RenewalPayload
+    | SupersessionPayload
+    | RelationshipCorrectionPayload
+    | RelationshipCorrectionSetPayload
 )
 
 
@@ -503,6 +578,19 @@ class DecisionRelationshipService:
 # ordinary relationship admission semantics; a generic service template would obscure
 # that authority boundary.
 # arid: disable
+@dataclass(frozen=True, slots=True)
+class _CorrectionSpec:
+    target_relationship_fact_id: DecisionRelationshipFactId
+    relationship_fact_id: DecisionRelationshipFactId | None
+    effect: DecisionRelationshipCorrectionEffect
+    correction_effective_at: datetime
+    correction_basis: DecisionRelationshipCorrectionBasis
+    replacement_relationship_effective_at: datetime | None
+    replacement_relationship_basis: (
+        RenewedFromRelationshipBasis | SupersedesRelationshipBasis | None
+    )
+
+
 class DecisionRelationshipCorrectionService:
     """Privileged append-only relationship correction coordinator."""
 
@@ -518,8 +606,12 @@ class DecisionRelationshipCorrectionService:
         self._new_uuid = new_uuid or uuid4
 
     async def correct(
-        self, command: CorrectDecisionRelationshipCommand
+        self,
+        command: CorrectDecisionRelationshipCommand
+        | CorrectDecisionRelationshipSetCommand,
     ) -> DecisionRelationshipResult:
+        if isinstance(command, CorrectDecisionRelationshipSetCommand):
+            return await self.correct_set(command)
         request = _request(command)
         prior = await _read_relationship_receipt(
             self._store, command.envelope.operation_id
@@ -528,37 +620,123 @@ class DecisionRelationshipCorrectionService:
             return _replay(prior, request, command.envelope.operation_id)
         recorded_at = _recording_time(self._now())
         state = await _read_relationship_state(self._store, recorded_at)
-        expected = _expected_versions(command.envelope)
+        return await self._execute(
+            command.envelope,
+            request,
+            state,
+            _expected_versions(command.envelope),
+            recorded_at,
+            (
+                _CorrectionSpec(
+                    command.target_relationship_fact_id,
+                    None,
+                    command.effect,
+                    command.correction_effective_at,
+                    command.correction_basis,
+                    command.replacement_relationship_effective_at,
+                    command.replacement_relationship_basis,
+                ),
+            ),
+            exact_versions=False,
+        )
+
+    async def correct_set(
+        self, command: CorrectDecisionRelationshipSetCommand
+    ) -> DecisionRelationshipResult:
+        request, ordered = _correction_set_request(command)
+        prior = await _read_relationship_receipt(
+            self._store, command.envelope.operation_id
+        )
+        if prior is not None:
+            return _replay(prior, request, command.envelope.operation_id)
+        recorded_at = _recording_time(self._now())
+        state = await _read_relationship_state(self._store, recorded_at)
+        generated_ids = {
+            member.local_id: DecisionRelationshipFactId(self._new_uuid())
+            for member in ordered
+        }
+        specs = tuple(
+            _CorrectionSpec(
+                (
+                    member.target
+                    if isinstance(member.target, DecisionRelationshipFactId)
+                    else generated_ids[member.target]
+                ),
+                generated_ids[member.local_id],
+                member.effect,
+                member.correction_effective_at,
+                member.correction_basis,
+                member.replacement_relationship_effective_at,
+                member.replacement_relationship_basis,
+            )
+            for member in ordered
+        )
+        return await self._execute(
+            command.envelope,
+            request,
+            state,
+            _expected_versions(command.envelope),
+            recorded_at,
+            specs,
+            exact_versions=True,
+        )
+
+    async def _execute(
+        self,
+        envelope: DecisionCommandEnvelope,
+        request: DecisionRelationshipSemanticRequest,
+        state: DecisionRelationshipState,
+        expected: Mapping[InvestmentDecisionId, DecisionVersion],
+        recorded_at: datetime,
+        specs: tuple[_CorrectionSpec, ...],
+        *,
+        exact_versions: bool,
+    ) -> DecisionRelationshipResult:
         try:
-            correction = relationship_correction(
-                target_relationship_fact_id=command.target_relationship_fact_id,
-                effect=command.effect,
-                correction_effective_at=command.correction_effective_at,
-                correction_basis=command.correction_basis,
-                replacement_relationship_effective_at=(
-                    command.replacement_relationship_effective_at
-                ),
-                replacement_relationship_basis=command.replacement_relationship_basis,
-                mutation=_relationship_mutation(
-                    command.envelope, recorded_at, self._new_uuid
-                ),
+            corrections = tuple(
+                relationship_correction(
+                    target_relationship_fact_id=spec.target_relationship_fact_id,
+                    effect=spec.effect,
+                    correction_effective_at=spec.correction_effective_at,
+                    correction_basis=spec.correction_basis,
+                    replacement_relationship_effective_at=(
+                        spec.replacement_relationship_effective_at
+                    ),
+                    replacement_relationship_basis=spec.replacement_relationship_basis,
+                    mutation=_relationship_mutation(
+                        envelope,
+                        recorded_at,
+                        self._new_uuid,
+                        fact_id=spec.relationship_fact_id,
+                    ),
+                )
+                for spec in specs
             )
             applied = apply_relationship_command(
                 state.history,
-                (correction,),
+                corrections,
                 decisions=state.decisions,
                 expected_versions=expected,
                 recording_boundary=recorded_at,
             )
+            if exact_versions and set(expected) != set(
+                applied.protection_requirements.endpoint_decision_ids
+            ):
+                raise InvalidDecisionCommand(
+                    "correction set requires expected versions for exactly every "
+                    "directly touched endpoint"
+                )
         except _RELATIONSHIP_ERRORS as error:
             _raise_relationship_error(error)
         result = DecisionRelationshipResult(
-            (correction.metadata.relationship_fact_id,),
+            tuple(
+                correction.metadata.relationship_fact_id for correction in corrections
+            ),
             applied.versioned_decision_ids,
         )
         return await _commit_relationship(
             self._store,
-            command.envelope.operation_id,
+            envelope.operation_id,
             request,
             state,
             expected,
@@ -733,9 +911,11 @@ def _relationship_mutation(
     envelope: DecisionCommandEnvelope,
     recorded_at: datetime,
     new_uuid: Callable[[], UUID],
+    *,
+    fact_id: DecisionRelationshipFactId | None = None,
 ) -> DecisionRelationshipMutationContext:
     return DecisionRelationshipMutationContext(
-        DecisionRelationshipFactId(new_uuid()),
+        fact_id or DecisionRelationshipFactId(new_uuid()),
         envelope.operation_id,
         envelope.actor_attribution,
         envelope.trigger,
@@ -811,6 +991,126 @@ def _request(
         envelope.effective_at,
         expected,
         payload,
+    )
+
+
+def _correction_set_request(
+    command: CorrectDecisionRelationshipSetCommand,
+) -> tuple[
+    DecisionRelationshipSemanticRequest, tuple[RelationshipCorrectionMember, ...]
+]:
+    members = {member.local_id: member for member in command.corrections}
+    visiting: set[str] = set()
+    memo: dict[str, tuple[object, ...]] = {}
+
+    def descriptor(local_id: str) -> tuple[object, ...]:
+        if local_id in memo:
+            return memo[local_id]
+        if local_id in visiting:
+            raise InvalidDecisionCommand("correction target ancestry must be acyclic")
+        visiting.add(local_id)
+        member = members[local_id]
+        if isinstance(member.target, DecisionRelationshipFactId):
+            target: tuple[object, ...] = ("existing", str(member.target.value))
+        else:
+            if member.target not in members:
+                raise InvalidDecisionCommand("correction target local_id is missing")
+            target = ("local", descriptor(member.target))
+        replacement_basis = member.replacement_relationship_basis
+        value = (
+            target,
+            member.effect.value,
+            member.correction_effective_at,
+            tuple(sorted(member.correction_basis.references)),
+            member.replacement_relationship_effective_at,
+            (
+                type(replacement_basis).__name__,
+                tuple(sorted(replacement_basis.references)),
+            )
+            if replacement_basis is not None
+            else None,
+        )
+        visiting.remove(local_id)
+        memo[local_id] = value
+        return value
+
+    ordered = tuple(
+        sorted(command.corrections, key=lambda member: descriptor(member.local_id))
+    )
+    descriptor_groups: tuple[tuple[RelationshipCorrectionMember, ...], ...] = tuple(
+        tuple(group)
+        for _, group in groupby(ordered, key=lambda item: descriptor(item.local_id))
+    )
+
+    def payload_key(
+        candidate: tuple[RelationshipCorrectionMember, ...],
+    ) -> tuple[tuple[object, ...], ...]:
+        canonical_index = {
+            member.local_id: index for index, member in enumerate(candidate)
+        }
+        return tuple(
+            (
+                (
+                    "existing",
+                    str(member.target.value),
+                )
+                if isinstance(member.target, DecisionRelationshipFactId)
+                else ("local", canonical_index[member.target]),
+                member.effect.value,
+                member.correction_effective_at.isoformat(),
+                tuple(sorted(member.correction_basis.references)),
+                (
+                    member.replacement_relationship_effective_at.isoformat()
+                    if member.replacement_relationship_effective_at is not None
+                    else None
+                ),
+                (
+                    type(member.replacement_relationship_basis).__name__,
+                    tuple(sorted(member.replacement_relationship_basis.references)),
+                )
+                if member.replacement_relationship_basis is not None
+                else None,
+            )
+            for member in candidate
+        )
+
+    candidate_orders = tuple(
+        tuple(member for group in candidate_groups for member in group)
+        for candidate_groups in product(
+            *(permutations(group) for group in descriptor_groups)
+        )
+    )
+    ordered = candidate_orders[0]
+    for candidate in candidate_orders[1:]:
+        if payload_key(candidate) < payload_key(ordered):
+            ordered = candidate
+    canonical_index = {member.local_id: index for index, member in enumerate(ordered)}
+    payload_members = tuple(
+        RelationshipCorrectionSetMemberPayload(
+            (
+                member.target
+                if isinstance(member.target, DecisionRelationshipFactId)
+                else canonical_index[member.target]
+            ),
+            member.effect,
+            member.correction_effective_at,
+            member.correction_basis,
+            member.replacement_relationship_effective_at,
+            member.replacement_relationship_basis,
+        )
+        for member in ordered
+    )
+    assert type(command.envelope.actor_attribution) is KnownActorAttribution
+    return (
+        DecisionRelationshipSemanticRequest(
+            DecisionRelationshipCommandKind.CORRECT_RELATIONSHIP,
+            command.envelope.actor_attribution,
+            command.envelope.trigger,
+            command.envelope.effective_at,
+            frozenset(_expected_versions(command.envelope).items()),
+            RelationshipCorrectionSetPayload(payload_members),
+        ),
+        tuple(ordered),
     )
 
 

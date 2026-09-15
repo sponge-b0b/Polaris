@@ -1,0 +1,173 @@
+name: Temporary ChatGPT implement ticket 317
+
+'on':
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-chatgpt-implement-317.yml'
+
+permissions:
+  contents: read
+  actions: read
+  issues: read
+  copilot-requests: write
+
+jobs:
+  implement:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: transport
+          fetch-depth: 1
+
+      - uses: actions/checkout@v4
+        with:
+          ref: 36f06cf396e50409e432b99fa00941053fe83f02
+          path: candidate
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - uses: astral-sh/setup-uv@v6
+
+      - run: npm install --global @github/copilot
+
+      - name: Implement exact ticket candidate
+        working-directory: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+          COPILOT_MCP_TOOL_CACHE: 'false'
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/prompt.txt" <<'PROMPT'
+          Execute Polaris `$implement-ticket` implementation work for ticket #317 only, stopping before commit/push/tracker mutation/closure certification. The ticket baseline is exact `36f06cf396e50409e432b99fa00941053fe83f02` on branch `spec-279`.
+
+          Mandatory authority/read set before editing:
+          - `AGENTS.md`
+          - `.agents/skills/implement-ticket/SKILL.md`
+          - `.agents/skills/coding-standards/SKILL.md`
+          - ticket #317: Attach omitted renewal lineage to existing Decisions
+          - parent Spec #279 and Spec Review #310 remediation state as needed
+          - `docs/proposed/application-use-cases-investment-decision-lifecycle.md` §11, §§13-14, §17
+          - `docs/proposed/investment-decisions-decision-relationship-model.md` §2.1, §5, §§6.8-6.11
+          - `docs/proposed/durable-persistence-investment-decision-history.md` §§8-10
+          - current `src/polaris/application/decisions/relationships.py`, the existing Decisions domain relationship reducer, package exports, and relevant relationship tests.
+
+          Perform the prescribed `$implement-ticket` Attention checkpoint before first substantive mutation. If there is a material unresolved public/product/domain/architecture/persistence choice that the current authority does not settle, print `DESIGN GAP:` with the exact question and do not implement that choice. Otherwise proceed.
+
+          Frozen contract to realize (`ARCHSRC-2`):
+          1. Add a purpose-specific privileged application command/path for later attributable assertion of genuinely omitted `RENEWED_FROM` lineage against an already-established source Decision/Need. This is historical relationship attachment, not ordinary new-identity renewal.
+          2. Require explicit `RenewedFromRelationshipBasis` for each asserted predecessor plus the normal attributable command envelope: known Actor Attribution, Trigger Provenance, optional Technical Provenance, relationship effective time, OperationId, and expected versions.
+          3. Reuse the existing authoritative Decisions relationship reducer/admission predicate. Do not duplicate historical admission logic in the application layer. The reducer already owns source/target existence, distinct source Need, predecessor substantive/external resolution at both source episode start and relationship claim effective instant, no pre-episode relationship, graph safety, relationship interpretation/versioning, and protection requirements.
+          4. The path must append `RENEWED_FROM` fact(s) to the existing source Decision/Need without allocating a new DecisionNeed/Decision, reopening a resolved source, changing predecessor/source lifecycle facts/work history, or rewriting immutable history.
+          5. Treat all directly touched source/predecessor Decisions as pre-existing endpoints: require expected-version guards for exactly those endpoints and preserve complete transactional revalidation requirements through the existing store commit contract.
+          6. Preserve both-endpoint support/basis-sensitive `DecisionVersion` effects and never advance `DecisionLifecycleSequence` merely for relationship attachment.
+          7. Exact same OperationId + same semantic request must replay with no append/version change; same OperationId + changed source/predecessor set/basis/effective time/expected-version semantic request must conflict.
+          8. Later endpoint lifecycle correction must not silently rewrite the admitted relationship; relationship-semantic change remains explicit relationship correction.
+          9. Ordinary renewal remains unchanged: it still creates a new Need/Decision through normal continuity arbitration and establishes renewal lineage atomically with that new identity.
+          10. Do not add `PRIOR_DECISION_CONTEXT`, a generic graph framework, concrete persistence/schema machinery, or unrelated cleanup.
+
+          Material-choice classification:
+          - Authorized contract: purpose-specific privileged late attachment; one-or-more independently supported renewal predecessors where the ticket says “each predecessor”; explicit typed basis; existing source identity/Need; existing domain reducer; exact touched-endpoint expected versions; ordinary relationship transaction/replay/failure semantics.
+          - Semantically equivalent implementation mechanics: exact class/method/helper names and lean private decomposition that does not change the above contract.
+          - Design gap: any choice that would change public identity/cardinality, lifecycle meaning, basis/provenance semantics, temporal admission, concurrency/idempotency, or persistence-visible behavior beyond the authority above.
+
+          Keep the implementation local and minimal. Prefer reusing existing `RenewalPredecessor`, command envelope, semantic request/receipt, relationship store, `relationship_fact`, `apply_relationship_command`, and existing application error translation instead of adding parallel domain rules. Preserve the privileged/internal nature of this historical attachment; do not accidentally turn it into a generic public set-state/relationship API.
+
+          Deterministic tests must cover the ticket acceptance domain, including at minimum:
+          - valid late attachment to an already-established source with no new Decision/Need identity allocation and unchanged lifecycle histories;
+          - explicit basis + actor/trigger/technical provenance/effective-time/OperationId preservation;
+          - predecessor must be substantively/externally resolved at source episode start AND relationship effective instant;
+          - relationship effective time cannot predate the source episode;
+          - one-or-more predecessor behavior with independent validation where applicable;
+          - invalid/contested/incomplete historical admission and cycle/possible-cycle failures commit nothing through existing semantic errors;
+          - exact expected versions for every directly touched endpoint, stale endpoint rejection, and store-side revalidation conflict with no partial commit;
+          - both-endpoint relationship version effects with lifecycle sequence/history unchanged;
+          - exact replay versus changed-request OperationId conflict;
+          - persistence-unavailable no partial result;
+          - later lifecycle change does not mutate/delete the admitted relationship record;
+          - ordinary `renew()` behavior remains new-identity renewal and is not routed through the late-attachment path;
+          - privileged exposure boundary remains deliberate and no speculative context fields/framework are introduced.
+
+          Apply `$coding-standards`. Inspect the exact selected pytest scopes and fixtures before every pytest invocation and classify them service-free or service-backed per `AGENTS.md`; do not use pytest as the readiness probe. This repository's prior Decisions application/domain/architecture suites have been service-free, but revalidate current selected scopes rather than assuming.
+
+          Verification before freezing the candidate:
+          - `git diff --check` against the ticket baseline;
+          - changed Python files Ruff format/lint and Mypy;
+          - targeted relationship application tests covering #317;
+          - relevant Decisions domain relationship tests if the implementation relies on preserved domain admission behavior;
+          - full locked pytest only if the broad preservation obligations make it materially necessary after service preflight; otherwise explain why targeted coverage is sufficient;
+          - architecture guard suite if changed imports/public boundaries make it applicable.
+
+          Perform the second prescribed `$implement-ticket` Attention checkpoint before freezing closure evidence. Remove any unnecessary machinery introduced by the change. Do not commit, push, post issue comments, change labels, or close anything.
+
+          End stdout with exactly one of:
+          `IMPLEMENTATION COMPLETE`
+          or `DESIGN GAP: <concise blocker>`
+          followed by concise changed-file, test/check, and acceptance-domain evidence sufficient for the parent to build Proposed Closure Evidence.
+          PROMPT
+          copilot -s --allow-all-tools --no-custom-instructions --disable-builtin-mcps --no-ask-user --no-remote --no-remote-export < "$RUNNER_TEMP/prompt.txt" | tee "$RUNNER_TEMP/copilot-output.txt"
+          ! grep -q '^DESIGN GAP:' "$RUNNER_TEMP/copilot-output.txt"
+          grep -q '^IMPLEMENTATION COMPLETE$' "$RUNNER_TEMP/copilot-output.txt"
+
+      - name: Candidate verification and freeze
+        working-directory: candidate
+        env:
+          TICKET_BASELINE: 36f06cf396e50409e432b99fa00941053fe83f02
+        run: |
+          set -euo pipefail
+          git diff --check "$TICKET_BASELINE"
+          mapfile -t pyfiles < <(git diff --no-renames --name-only "$TICKET_BASELINE" -- '*.py')
+          test ${#pyfiles[@]} -gt 0
+          uv run --locked ruff check --fix "${pyfiles[@]}"
+          uv run --locked ruff format "${pyfiles[@]}"
+          uv run --locked ruff check "${pyfiles[@]}"
+          uv run --locked ruff format --check "${pyfiles[@]}"
+          uv run --locked mypy --explicit-package-bases "${pyfiles[@]}"
+          uv run --locked pytest -q tests/application/decisions/test_relationships.py
+          POLARIS_BROAD_VERIFY_AUTHORIZED=ticket-317-architecture uv run --locked pytest -q tests/test_architecture_guard.py tests/test_architecture_guard_identity_aliases.py tests/test_architecture_guard_legacy_loaders.py
+          git diff --check "$TICKET_BASELINE"
+
+          root="$RUNNER_TEMP/ticket-317-candidate"; mkdir -p "$root"
+          git diff --no-renames --binary "$TICKET_BASELINE" -- > "$root/candidate.patch"
+          git diff --no-renames --name-only "$TICKET_BASELINE" -- > "$root/changed-files.txt"
+          git diff --stat "$TICKET_BASELINE" -- > "$root/diff-stat.txt"
+          cp "$RUNNER_TEMP/copilot-output.txt" "$root/copilot-output.txt"
+          python - <<'PY' > "$root/candidate-state.txt"
+          import hashlib, os, stat, subprocess
+          baseline=os.environ['TICKET_BASELINE']
+          def zpaths(*args):
+              out=subprocess.run(['git',*args],check=True,stdout=subprocess.PIPE).stdout
+              return [p for p in out.split(b'\0') if p]
+          paths=set(zpaths('diff','--no-renames','--name-only','-z',baseline,'--'))
+          paths.update(zpaths('ls-files','--others','--exclude-standard','-z'))
+          d=hashlib.sha256()
+          for raw in sorted(paths):
+              path=os.fsdecode(raw); d.update(b'path\0'+raw+b'\0')
+              try: meta=os.lstat(path)
+              except FileNotFoundError:
+                  d.update(b'state\0DELETED\0'); continue
+              if stat.S_ISLNK(meta.st_mode):
+                  mode=b'120000'; content=hashlib.sha256(os.fsencode(os.readlink(path))).hexdigest()
+              elif stat.S_ISREG(meta.st_mode):
+                  mode=b'100755' if meta.st_mode & stat.S_IXUSR else b'100644'; h=hashlib.sha256()
+                  with open(path,'rb') as f:
+                      for chunk in iter(lambda: f.read(1024*1024),b''): h.update(chunk)
+                  content=h.hexdigest()
+              else: raise SystemExit(path)
+              d.update(b'mode\0'+mode+b'\0sha256\0'+content.encode()+b'\0')
+          print(d.hexdigest())
+          PY
+          echo "CANDIDATE_STATE=$(cat "$root/candidate-state.txt")"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ticket-317-candidate
+          path: ${{ runner.temp }}/ticket-317-candidate
+          retention-days: 7

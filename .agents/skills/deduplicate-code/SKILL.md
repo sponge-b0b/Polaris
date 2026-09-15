@@ -1,10 +1,10 @@
 ---
 name: deduplicate-code
-description: Enforces zero unsuppressed duplicate-code findings across the repository by consolidating real duplicate implementation or narrowly suppressing independently justified repetition with tool-native directives.
+description: Enforces repository-wide duplicate-code discipline, with zero unsuppressed findings by default and baseline-differential causality when delegated by $verify-spec.
 license: MIT
 compatibility: product=codex product=claude-code system=arid system=jscpd network=none
 metadata:
-  version: 2.1.0
+  version: 2.1.1
 ---
 
 # Code Duplication Checks
@@ -13,11 +13,13 @@ metadata:
 
 Prevent codebase bloat and split-brain logic by requiring every duplicate-code finding to reach a durable repository disposition.
 
-The terminal invariant is:
+The standalone/default terminal invariant is:
 
 > **Zero unsuppressed duplicate findings.**
 
-Physical repetition may remain only when consolidation would be the wrong design and that decision is encoded as a narrow, justified tool-native suppression. A finding is never complete merely because an agent inspected it and called it harmless.
+When delegated by `$verify-spec` in `spec-differential` mode, the terminal invariant is instead zero candidate-introduced/expanded duplication and zero unresolved causality; machine-correlated `baseline-identical` findings may remain as inherited debt. This changes repair attribution, never whole-repository scan scope.
+
+Physical repetition may remain only when consolidation would be the wrong design and that decision is encoded as a narrow, justified tool-native suppression, or when `spec-differential` proves the finding is baseline-identical and therefore outside the active Spec repair loop. A finding is never complete merely because an agent inspected it and called it harmless.
 
 ## Core Invariants
 
@@ -101,7 +103,7 @@ Suppressions without meaningful justification: 0
 Actionable competing implementations remaining: 0
 ```
 
-A non-zero finding count starts or continues the repair loop. It is not a successful disposition.
+In standalone/default mode, a non-zero finding count starts or continues the repair loop. In `spec-differential` mode, only candidate-introduced, candidate-expanded, unresolved, operational, or candidate-attributable stale/invalid-suppression results continue the repair loop; baseline-identical findings are already dispositioned.
 
 ## Finding Repair Loop
 
@@ -190,13 +192,13 @@ Use the smallest necessary Arid suppression region:
 
 Arid permits a disabled region through EOF, but prefer a bounded region whenever later source is not part of the same justification.
 
-After suppression changes, audit suppression health. The final Arid gate is:
+After suppression changes, audit suppression health with the whole-repository Arid command:
 
 ```bash
 uv run --locked arid . --fail-on-stale --suppression-summary
 ```
 
-It must exit successfully with zero reportable duplicate groups and zero stale suppressions.
+In standalone/default mode it must exit successfully with zero reportable duplicate groups and zero stale suppressions. In `spec-differential` mode, retain the native output/exit status for classification: a finding-caused non-zero result may remain only for machine-correlated `baseline-identical` groups, while operational/source-processing failures and candidate-attributable stale/invalid suppressions remain blocking.
 
 ### JSCPD
 
@@ -284,10 +286,13 @@ Two small visitor/checking sequences inside one central architecture guard may h
 
 ## Terminal Result
 
-Report PASS only after the final scans actually satisfy the terminal invariant:
+Report PASS only after the active mode's terminal invariant is satisfied.
+
+Standalone/default mode:
 
 ```text
 DEDUPLICATION: PASS
+Mode: default
 
 Whole-project scope:
 - Arid: .
@@ -310,4 +315,35 @@ Finding disposition:
 - Actionable competing implementations remaining: 0
 ```
 
-If the tool cannot run, a finding cannot be safely classified/repaired, a required consolidation needs unresolved architecture, or another concrete external/tooling constraint prevents completion, report the exact blocker. Do not report PASS with a non-zero finding count.
+`$verify-spec` `spec-differential` mode:
+
+```text
+DEDUPLICATION: PASS
+Mode: spec-differential
+Baseline: <BASELINE_COMMIT>
+Candidate: <HEAD>
+
+Whole-project scope:
+- Arid candidate scan: .
+- Arid baseline scan: .
+- JSCPD candidate scan: .
+- JSCPD baseline scan: .
+
+Causality:
+- Candidate-introduced: 0
+- Candidate-expanded: 0
+- Baseline-identical: <n>
+- Unresolved: 0
+
+Health:
+- Candidate-attributable stale/invalid suppressions: 0
+- Arid operational/source-processing errors: 0
+- JSCPD operational errors: 0
+- Actionable competing implementations introduced/expanded by candidate: 0
+
+Repairs:
+- Consolidated/refactored: <n>
+- Justified and suppressed: <n>
+```
+
+If the tool cannot run, causality cannot be safely classified, a candidate-caused finding cannot be safely repaired, a required consolidation needs unresolved architecture, or another concrete external/tooling constraint prevents completion, report the exact blocker. In default mode, do not report PASS with a non-zero unsuppressed finding count. In `spec-differential` mode, do not fail merely because classified baseline-identical findings remain; do fail for any candidate-introduced, candidate-expanded, unresolved, stale/invalid-suppression, or operational count above zero.

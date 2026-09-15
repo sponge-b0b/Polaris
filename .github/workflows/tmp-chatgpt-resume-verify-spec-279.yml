@@ -1,0 +1,243 @@
+name: Temporary ChatGPT resume Spec 279 certification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/tmp-chatgpt-resume-verify-spec-279.yml
+
+permissions:
+  actions: read
+  contents: read
+  issues: read
+  pull-requests: read
+  copilot-requests: write
+
+jobs:
+  build-contract:
+    runs-on: ubuntu-24.04
+    env:
+      REPO: sponge-b0b/Polaris
+      SPEC_NUMBER: '279'
+      BASELINE: 4daed9034891600597a47c01b6c39d5ebd9914ca
+      CANDIDATE_HEAD: e2d59797ebcaf4b87b3c2c941fb08bffc2213dd7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e2d59797ebcaf4b87b3c2c941fb08bffc2213dd7
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install Copilot CLI
+        run: npm install --global @github/copilot
+
+      - name: Revalidate immutable builder inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          test "$(gh api repos/$REPO/git/ref/heads/spec-279 --jq .object.sha)" = "$CANDIDATE_HEAD"
+          test "$(git status --porcelain | wc -l)" = "0"
+          test "$(gh api repos/$REPO/issues/$SPEC_NUMBER --jq .state)" = "open"
+          test "$(gh api repos/$REPO/issues/278 --jq .state)" = "closed"
+          test ! -e "$RUNNER_TEMP/spec279-contract/contract.json"
+
+      - name: Fresh isolated Spec contract build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+          COPILOT_MCP_TOOL_CACHE: 'false'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/spec279-contract"
+          HANDOFF="$RUNNER_TEMP/spec279-contract/contract.json"
+          OUTPUT="$RUNNER_TEMP/spec279-contract/builder-output.txt"
+          test ! -e "$HANDOFF"
+          cat > "$RUNNER_TEMP/spec279-builder-prompt.txt" <<PROMPT
+          Execute Polaris `$spec-contract` as a genuinely fresh non-mutating build-mode helper.
+
+          Allowed build inputs only:
+          - Originating Spec: https://github.com/sponge-b0b/Polaris/issues/279
+          - Fixed BASELINE_COMMIT: 4daed9034891600597a47c01b6c39d5ebd9914ca
+          - Spec branch: spec-279
+          - Exact HEAD: e2d59797ebcaf4b87b3c2c941fb08bffc2213dd7
+          - Mode: build
+          - handoff-output: $HANDOFF
+
+          Read current AGENTS.md and .agents/skills/spec-contract/SKILL.md from this checkout and execute that skill completely. This process is fresh: do not search for, enumerate, inspect, infer, request, or compare any prior Spec contract hash, prior manifest, prior handoff/digest, prior verification receipt, proof-reuse material, scratch contract artifact, or historical contract representation. Do not inspect workflow logs from earlier verification attempts. Construct the contract only from the allowed durable Spec/repository inputs under the skill.
+
+          You must not edit tracked repository state, Git state, issues, comments, branches, or commits. Write only the permitted ephemeral handoff-output path after all contract gates pass.
+
+          Return a terminal result beginning exactly with either:
+          SPEC CONTRACT: VALID
+          or
+          SPEC CONTRACT: INVALID
+
+          For VALID include full SPEC_BODY_HASH, full SPEC_CONTRACT_HASH, full CONTRACT_HANDOFF_DIGEST, source counts, manifest cell count, and the complete Build-Mode Isolation attestation required by the skill. Do not abbreviate hashes.
+          PROMPT
+          copilot --model=auto -s --allow-all-tools --no-custom-instructions --disable-builtin-mcps --no-ask-user --no-remote --no-remote-export < "$RUNNER_TEMP/spec279-builder-prompt.txt" | tee "$OUTPUT"
+          grep -q '^SPEC CONTRACT: VALID$' "$OUTPUT"
+          test -s "$HANDOFF"
+          python - "$HANDOFF" "$OUTPUT" <<'PY'
+          import hashlib, json, sys
+          handoff, output = sys.argv[1:]
+          raw = open(handoff, 'rb').read()
+          obj = json.loads(raw)
+          text = open(output, encoding='utf-8').read()
+          digest = hashlib.sha256(raw).hexdigest()
+          if obj['spec_issue'] != 279: raise SystemExit('wrong spec')
+          if obj['baseline'] != '4daed9034891600597a47c01b6c39d5ebd9914ca': raise SystemExit('wrong baseline')
+          if obj['branch'] != 'spec-279': raise SystemExit('wrong branch')
+          if obj['head'] != 'e2d59797ebcaf4b87b3c2c941fb08bffc2213dd7': raise SystemExit('wrong head')
+          for value in (obj['spec_body_hash'], obj['spec_contract_hash'], digest):
+              if value not in text: raise SystemExit(f'missing exact hash in builder output: {value}')
+          if 'Build isolation: PASS' not in text: raise SystemExit('missing isolation PASS')
+          if 'Prior contract representations supplied or inspected: 0' not in text: raise SystemExit('missing prior-contract attestation')
+          if 'Pre-existing scratch contract artifacts inspected: 0' not in text: raise SystemExit('missing scratch attestation')
+          if 'Handoff path existed before build: no' not in text: raise SystemExit('missing handoff-path attestation')
+          open('/tmp/contract-digest.txt','w').write(digest+'\n')
+          open('/tmp/contract-hash.txt','w').write(obj['spec_contract_hash']+'\n')
+          open('/tmp/spec-body-hash.txt','w').write(obj['spec_body_hash']+'\n')
+          print('CONTRACT_DIGEST='+digest)
+          print('SPEC_CONTRACT_HASH='+obj['spec_contract_hash'])
+          print('SPEC_BODY_HASH='+obj['spec_body_hash'])
+          print('MANIFEST_CELLS='+str(len(obj['manifest'])))
+          PY
+          cp /tmp/contract-digest.txt "$RUNNER_TEMP/spec279-contract/contract-digest.txt"
+          cp /tmp/contract-hash.txt "$RUNNER_TEMP/spec279-contract/contract-hash.txt"
+          cp /tmp/spec-body-hash.txt "$RUNNER_TEMP/spec279-contract/spec-body-hash.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spec279-fresh-contract
+          path: ${{ runner.temp }}/spec279-contract
+          retention-days: 7
+
+  certify:
+    needs: build-contract
+    runs-on: ubuntu-24.04
+    env:
+      REPO: sponge-b0b/Polaris
+      SPEC_NUMBER: '279'
+      BASELINE: 4daed9034891600597a47c01b6c39d5ebd9914ca
+      CANDIDATE_HEAD: e2d59797ebcaf4b87b3c2c941fb08bffc2213dd7
+      PARENT_RUN_ID: '34957647224'
+      PARENT_JOB_ID: '104343444109'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e2d59797ebcaf4b87b3c2c941fb08bffc2213dd7
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install Copilot CLI
+        run: npm install --global @github/copilot
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: spec279-fresh-contract
+          path: ${{ runner.temp }}/spec279-contract
+
+      - name: Bind exact certification candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          test "$(gh api repos/$REPO/git/ref/heads/spec-279 --jq .object.sha)" = "$CANDIDATE_HEAD"
+          test "$(git status --porcelain | wc -l)" = "0"
+          python - <<'PY'
+          import hashlib, json, pathlib
+          root=pathlib.Path('${{ runner.temp }}/spec279-contract')
+          raw=(root/'contract.json').read_bytes()
+          obj=json.loads(raw)
+          digest=hashlib.sha256(raw).hexdigest()
+          expected=(root/'contract-digest.txt').read_text().strip()
+          if digest != expected: raise SystemExit('handoff digest mismatch')
+          if obj['head'] != 'e2d59797ebcaf4b87b3c2c941fb08bffc2213dd7': raise SystemExit('head mismatch')
+          if obj['baseline'] != '4daed9034891600597a47c01b6c39d5ebd9914ca': raise SystemExit('baseline mismatch')
+          print('BOUND_CONTRACT_DIGEST='+digest)
+          print('BOUND_CONTRACT_HASH='+obj['spec_contract_hash'])
+          print('BOUND_MANIFEST_CELLS='+str(len(obj['manifest'])))
+          PY
+
+      - name: Fresh independent semantic certification
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+          COPILOT_MCP_TOOL_CACHE: 'false'
+        run: |
+          set -euo pipefail
+          CONTRACT="$RUNNER_TEMP/spec279-contract/contract.json"
+          DIGEST=$(cat "$RUNNER_TEMP/spec279-contract/contract-digest.txt")
+          CONTRACT_HASH=$(cat "$RUNNER_TEMP/spec279-contract/contract-hash.txt")
+          BODY_HASH=$(cat "$RUNNER_TEMP/spec279-contract/spec-body-hash.txt")
+          OUTDIR="$RUNNER_TEMP/spec279-certification"
+          mkdir -p "$OUTDIR"
+          BEFORE_TREE=$(git rev-parse HEAD^{tree})
+          BEFORE_STATUS=$(git status --porcelain=v1)
+          cat > "$RUNNER_TEMP/spec279-certifier-prompt.txt" <<PROMPT
+          You are the genuinely fresh, non-mutating semantic-certifier leaf for Polaris `$verify-spec-closure`.
+
+          Exact immutable certification candidate:
+          - Spec: https://github.com/sponge-b0b/Polaris/issues/279
+          - Baseline: 4daed9034891600597a47c01b6c39d5ebd9914ca
+          - Branch: spec-279
+          - HEAD: e2d59797ebcaf4b87b3c2c941fb08bffc2213dd7
+          - Spec body hash: $BODY_HASH
+          - Spec contract hash: $CONTRACT_HASH
+          - Exact CONTRACT_HANDOFF file: $CONTRACT
+          - Exact CONTRACT_HANDOFF_DIGEST: $DIGEST
+
+          Parent-owned durable evidence pointers, not semantic conclusions:
+          - Parent bounded `$verify-spec` run: https://github.com/sponge-b0b/Polaris/actions/runs/34957647224 ; job 104343444109. The parent stabilized this exact HEAD after a delegated global dedup repair and reran invalidated deterministic/delegated gates. You may inspect the native run/job logs as gate/test evidence only; do not accept the parent's semantic statements as proof.
+          - Parent Spec Ticket Coverage / Architecture-Design Obligation Manifest: issue #279 comment 5630203405.
+          - Spec Review #310 Finding Continuity Ledger: comment 5662220111.
+          - Spec Review #310 Decomposition Defects: comment 5663250943.
+          - All implementation/remediation tickets represented by those durable records are closed; validate the exact durable bindings needed by the current semantic proof without reconstructing every ticket from scratch.
+
+          Execute current .agents/skills/verify-spec-closure/SKILL.md completely. Read current AGENTS.md and that exact skill before proof. Treat the supplied contract JSON as the immutable outer acceptance universe and the parent evidence pointers as evidence only. Independently challenge architecture/design decomposition completeness, semantic entailment for every manifest cell, required production composition, negative/fail-closed claims, finite/discoverable nested-domain membership, assumptions, and failure saturation. Use current authoritative repository/design sources as needed.
+
+          You did not implement, repair, gate-select, or build this candidate. You MUST NOT edit repository files, Git state, tracker state, branches, commits, comments, workflows, or the contract handoff. Do not delegate certification. Run only narrow non-mutating checks needed for semantic entailment/domain closure; do not repeat broad parent Ruff/Mypy/pytest/dedup/architecture gates merely for duplication.
+
+          The verdict is consumable only after the skill's complete saturation witness reconciles. Return exactly one terminal verdict beginning on its own line with:
+          SPEC CLOSURE: PASS
+          or
+          SPEC CLOSURE: FAIL
+
+          Echo the exact full contract digest $DIGEST. Include every mandatory binding/accounting/saturation field required by the skill, every manifest-cell disposition/coverage grouping necessary for deterministic finalization, architecture/design decomposition accounting, nested-domain closure accounting, domain-membership accounting, actionable findings, and concise evidence pointers. If construction/saturation is incomplete, do NOT emit PASS/FAIL; emit an explicit invalid/incomplete certification result instead.
+
+          Also write your complete terminal certification text verbatim to $OUTDIR/certification.txt. This path is runner-temporary evidence only and is not repository state.
+          PROMPT
+          copilot --model=auto -s --allow-all-tools --no-custom-instructions --disable-builtin-mcps --no-ask-user --no-remote --no-remote-export < "$RUNNER_TEMP/spec279-certifier-prompt.txt" | tee "$OUTDIR/stdout.txt"
+          test -s "$OUTDIR/certification.txt"
+          cmp -s "$OUTDIR/certification.txt" "$OUTDIR/stdout.txt" || cp "$OUTDIR/stdout.txt" "$OUTDIR/certification.txt"
+          grep -Eq '^SPEC CLOSURE: (PASS|FAIL)$' "$OUTDIR/certification.txt"
+          grep -Fq "$DIGEST" "$OUTDIR/certification.txt"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          test "$(git rev-parse HEAD^{tree})" = "$BEFORE_TREE"
+          test "$(git status --porcelain=v1)" = "$BEFORE_STATUS"
+          cp "$CONTRACT" "$OUTDIR/contract.json"
+          cp "$RUNNER_TEMP/spec279-contract/contract-digest.txt" "$OUTDIR/contract-digest.txt"
+          cp "$RUNNER_TEMP/spec279-contract/contract-hash.txt" "$OUTDIR/contract-hash.txt"
+          cp "$RUNNER_TEMP/spec279-contract/spec-body-hash.txt" "$OUTDIR/spec-body-hash.txt"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: spec279-semantic-certification
+          path: ${{ runner.temp }}/spec279-certification
+          retention-days: 7

@@ -421,6 +421,9 @@ def test_relationship_correction_is_privileged_not_package_exported() -> None:
     assert "DecisionRelationshipCorrectionService" not in decisions_api.__all__
 
 
+# duplicate-code: these independent correction proofs keep their local setup and
+# assertions explicit; sharing them would couple distinct failure semantics.
+# arid: disable
 def test_atomic_correction_set_resolves_same_command_ancestry_without_ordering() -> (
     None
 ):
@@ -896,6 +899,9 @@ def test_atomic_correction_set_equivalent_parents_preserve_ancestry_identity() -
     assert (
         child_fact.metadata.relationship_fact_id in first_result.relationship_fact_ids
     )
+
+
+# arid: enable
 
 
 @pytest.mark.parametrize(
@@ -1732,6 +1738,9 @@ def test_disjoint_parallel_commands_fail_closed_on_history_change() -> None:
 def test_relationship_state_reads_translate_unavailability_without_commit(
     read_failure: str,
 ) -> None:
+    # duplicate-code: these independent correction proofs keep their local setup and
+    # assertions explicit; sharing them would couple distinct failure semantics.
+    # arid: disable
     source = _decision()
     target = _decision()
     store = FakeRelationshipStore((source, target), read_failure=read_failure)
@@ -1796,9 +1805,13 @@ def test_renewal_relationship_constructor_failure_is_translated() -> None:
 
     assert store.history == ()
     assert store.receipts == {}
+    # arid: enable
 
 
 def test_supersession_relationship_constructor_cycle_is_translated() -> None:
+    # duplicate-code: these independent correction proofs keep their local setup and
+    # assertions explicit; sharing them would couple distinct failure semantics.
+    # arid: disable
     source = _decision()
     store = FakeRelationshipStore((source,))
     command = EstablishSupersessionCommand(
@@ -1818,6 +1831,7 @@ def test_supersession_relationship_constructor_cycle_is_translated() -> None:
 
     assert store.history == ()
     assert store.receipts == {}
+    # arid: enable
 
 
 def test_relationship_correction_constructor_history_failure_is_translated() -> None:

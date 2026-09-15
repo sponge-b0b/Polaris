@@ -45,6 +45,7 @@ from polaris.domain.decisions import (
     renew_decision,
 )
 
+from ._continuity import read_continuity_candidates
 from .contracts import (
     ConcurrencyConflict,
     ContinuityAmbiguous,
@@ -464,7 +465,7 @@ class DecisionRelationshipService:
             return _replay(prior, request, command.envelope.operation_id)
         recorded_at = _recording_time(self._now())
         state = await _read_relationship_state(self._store, recorded_at)
-        candidate_ids = await _read_continuity_candidates(self._reader, recorded_at)
+        candidate_ids = await read_continuity_candidates(self._reader, recorded_at)
         candidate_basis = ContinuityCandidateBasis(candidate_ids, recorded_at)
         continuity = _renewal_continuity(command.continuity, candidate_ids, recorded_at)
         predecessor_ids = {item.decision_id for item in command.predecessors}
@@ -546,66 +547,20 @@ class DecisionRelationshipService:
     async def attach_omitted_renewal_lineage(
         self, command: AttachOmittedRenewalLineageCommand
     ) -> DecisionRelationshipResult:
-        request = _request(command)
-        prior = await _read_relationship_receipt(
-            self._store, command.envelope.operation_id
-        )
-        if prior is not None:
-            return _replay(prior, request, command.envelope.operation_id)
-        recorded_at = _recording_time(self._now())
-        state = await _read_relationship_state(self._store, recorded_at)
-        predecessor_ids = {item.decision_id for item in command.predecessors}
-        endpoint_ids = {command.source_decision_id, *predecessor_ids}
-        decisions = _required_decisions(state, endpoint_ids)
-        expected = _expected_versions(command.envelope)
-        _require_versions(decisions, expected)
-        try:
-            facts = tuple(
-                relationship_fact(
-                    source_decision_id=command.source_decision_id,
-                    target_decision_id=item.decision_id,
-                    relationship_type=DecisionRelationshipType.RENEWED_FROM,
-                    relationship_effective_at=command.envelope.effective_at,
-                    relationship_basis=item.basis,
-                    mutation=_relationship_mutation(
-                        command.envelope, recorded_at, self._new_uuid
-                    ),
-                )
-                for item in command.predecessors
-            )
-            applied = apply_relationship_command(
-                state.history,
-                facts,
-                decisions=decisions,
-                expected_versions=expected,
-                recording_boundary=recorded_at,
-            )
-        except _RELATIONSHIP_ERRORS as error:
-            _raise_relationship_error(error)
-        result = DecisionRelationshipResult(
-            tuple(fact.metadata.relationship_fact_id for fact in facts),
-            applied.versioned_decision_ids,
-        )
-        return await _commit_relationship(
-            self._store,
-            command.envelope.operation_id,
-            request,
-            state,
-            expected,
-            None,
-            applied.history,
-            applied.updated_decisions,
-            result,
+        return await self._establish_existing_relationships(
+            command=command,
+            items=command.predecessors,
+            relationship_type=DecisionRelationshipType.RENEWED_FROM,
+            effective_at=lambda item: command.envelope.effective_at,
         )
 
-    # arid: enable
-
-    # duplicate-code: Supersession shares transaction mechanics already centralized in
-    # _commit_relationship, while its remaining multi-target topology must stay
-    # explicit.
-    # arid: disable
-    async def establish_supersession(
-        self, command: EstablishSupersessionCommand
+    async def _establish_existing_relationships(
+        self,
+        *,
+        command: AttachOmittedRenewalLineageCommand | EstablishSupersessionCommand,
+        items: tuple[RenewalPredecessor, ...] | tuple[SupersessionTarget, ...],
+        relationship_type: DecisionRelationshipType,
+        effective_at: Callable[[RenewalPredecessor | SupersessionTarget], datetime],
     ) -> DecisionRelationshipResult:
         request = _request(command)
         prior = await _read_relationship_receipt(
@@ -615,11 +570,11 @@ class DecisionRelationshipService:
             return _replay(prior, request, command.envelope.operation_id)
         recorded_at = _recording_time(self._now())
         state = await _read_relationship_state(self._store, recorded_at)
-        ids = {
+        endpoint_ids = {
             command.source_decision_id,
-            *(item.decision_id for item in command.targets),
+            *(item.decision_id for item in items),
         }
-        decisions = _required_decisions(state, ids)
+        decisions = _required_decisions(state, endpoint_ids)
         expected = _expected_versions(command.envelope)
         _require_versions(decisions, expected)
         try:
@@ -627,14 +582,14 @@ class DecisionRelationshipService:
                 relationship_fact(
                     source_decision_id=command.source_decision_id,
                     target_decision_id=item.decision_id,
-                    relationship_type=DecisionRelationshipType.SUPERSEDES,
-                    relationship_effective_at=item.effective_at,
+                    relationship_type=relationship_type,
+                    relationship_effective_at=effective_at(item),
                     relationship_basis=item.basis,
                     mutation=_relationship_mutation(
                         command.envelope, recorded_at, self._new_uuid
                     ),
                 )
-                for item in command.targets
+                for item in items
             )
             applied = apply_relationship_command(
                 state.history,
@@ -661,7 +616,19 @@ class DecisionRelationshipService:
             result,
         )
 
-    # arid: enable
+    async def establish_supersession(
+        self, command: EstablishSupersessionCommand
+    ) -> DecisionRelationshipResult:
+        return await self._establish_existing_relationships(
+            command=command,
+            items=command.targets,
+            relationship_type=DecisionRelationshipType.SUPERSEDES,
+            effective_at=lambda item: (
+                item.effective_at
+                if isinstance(item, SupersessionTarget)
+                else command.envelope.effective_at
+            ),
+        )
 
 
 # duplicate-code: privileged relationship correction shares the store protocol but not
@@ -856,18 +823,6 @@ async def _read_relationship_state(
 ) -> DecisionRelationshipState:
     try:
         return await store.load_relationship_state(known_at=known_at)
-    except DecisionCommandReadUnavailable as error:
-        raise PersistenceUnavailable(str(error)) from error
-
-
-async def _read_continuity_candidates(
-    reader: DecisionMemoryReader,
-    known_at: datetime,
-) -> frozenset[InvestmentDecisionId]:
-    try:
-        return frozenset(
-            await reader.find_unresolved_continuity_candidates(known_at=known_at)
-        )
     except DecisionCommandReadUnavailable as error:
         raise PersistenceUnavailable(str(error)) from error
 

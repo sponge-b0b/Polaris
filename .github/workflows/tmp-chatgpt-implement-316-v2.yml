@@ -1,0 +1,129 @@
+name: Temporary ChatGPT ticket 316 candidate refinement
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-chatgpt-implement-316-v2.yml'
+
+permissions:
+  contents: read
+  copilot-requests: write
+  issues: read
+
+jobs:
+  implement:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout transport authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: transport
+          fetch-depth: 1
+
+      - name: Checkout exact ticket baseline
+        uses: actions/checkout@v4
+        with:
+          ref: e243c2c50b0d2a2ed4ee539f040fed53597a402f
+          path: candidate
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@v6
+      - run: npm install --global @github/copilot
+
+      - name: Implement refined candidate
+        working-directory: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+          COPILOT_MCP_TOOL_CACHE: 'false'
+        run: |
+          cat > "$RUNNER_TEMP/prompt.txt" <<'PROMPT'
+          Implement Polaris ticket #316 from exact baseline e243c2c50b0d2a2ed4ee539f040fed53597a402f. Modify this checkout only; do not commit, push, or mutate GitHub. Read AGENTS.md and the frozen architecture sources for ARCHSRC-1 before editing.
+
+          Ticket contract: privileged relationship correction must accept one complete non-empty correction SET; domain final-history interpretation/temporal mixed-lineage graph validation must evaluate the whole set atomically; commit all corrections/version effects/receipt or none; expected versions must protect every directly touched pre-existing endpoint and existing commit revalidation must continue protecting material non-endpoint/future/path/absence dependencies; idempotency binds the semantic correction SET; one-element behavior remains compatible; no request-list/insertion/UUID/timestamp/tentative serialization order may gain semantic precedence.
+
+          A prior disposable draft found the right broad seam but had a material defect: it fingerprinted the correction tuple in caller order, so the same semantic set in reversed order could become a different idempotency request. DO NOT repeat that. Canonicalize the semantic correction set for request identity and any observable result ordering where necessary, using stable semantic fields rather than generated correction UUIDs. Reject duplicate correction members/targets when ambiguity would make a set ill-defined. The same OperationId plus the exact same semantic set in different request order must replay; the same OperationId with a materially changed set must conflict.
+
+          Also verify, from existing domain/application/store contracts rather than assumption, that expected-version coverage is complete for all directly touched endpoints in the correction set. If the current service does not enforce that, add the narrow application validation required by existing architecture. Preserve existing transaction revalidation for non-endpoint/future/path/absence dependencies; do not invent duplicate graph logic in the application layer.
+
+          Preserve the existing single-correction call surface as the one-element compatibility case if that can be done cleanly. Keep the implementation lean. No broad exception catches. No docs/policy/workflow edits.
+
+          Add deterministic focused tests proving at minimum:
+          1. multi-correction success commits together;
+          2. invalid member rolls back all;
+          3. reversed request order with the same OperationId and same semantic set is an exact replay, not conflict;
+          4. changed set under same OperationId conflicts;
+          5. expected-version coverage for all directly touched endpoints is enforced;
+          6. each existing Decision is versioned at most once for the atomic command and lifecycle sequence does not change;
+          7. preserved existing recursive restoration/contest, definite/possible cycle, persistence/revalidation, and one-element behavior remain green through existing tests.
+
+          If authority genuinely leaves a material design choice unresolved, print DESIGN GAP and stop without edits. Otherwise implement and run `uv run pytest -q`, Ruff, and mypy. End with IMPLEMENTATION COMPLETE plus changed files/tests.
+          PROMPT
+          copilot -s --allow-all-tools --no-custom-instructions --disable-builtin-mcps --no-ask-user --no-remote --no-remote-export < "$RUNNER_TEMP/prompt.txt" | tee "$RUNNER_TEMP/copilot-output.txt"
+          ! grep -q '^DESIGN GAP' "$RUNNER_TEMP/copilot-output.txt"
+
+      - name: Final mechanical verification
+        working-directory: candidate
+        env:
+          UV_CACHE_DIR: /tmp/uv-cache
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = e243c2c50b0d2a2ed4ee539f040fed53597a402f
+          test -z "$(git ls-files --others --exclude-standard)"
+          git diff --check e243c2c50b0d2a2ed4ee539f040fed53597a402f
+          mapfile -t pyfiles < <(git diff --name-only e243c2c50b0d2a2ed4ee539f040fed53597a402f -- '*.py')
+          test ${#pyfiles[@]} -gt 0
+          uv run --locked ruff check --fix "${pyfiles[@]}"
+          uv run --locked ruff format "${pyfiles[@]}"
+          uv run --locked ruff check "${pyfiles[@]}"
+          uv run --locked ruff format --check "${pyfiles[@]}"
+          uv run --locked mypy --explicit-package-bases "${pyfiles[@]}"
+          uv run --locked pytest -q
+          POLARIS_BROAD_VERIFY_AUTHORIZED=verify-architecture uv run --locked pytest -q tests/test_architecture_guard.py tests/test_architecture_guard_identity_aliases.py tests/test_architecture_guard_legacy_loaders.py
+
+      - name: Freeze candidate
+        working-directory: candidate
+        env:
+          TICKET_BASELINE: e243c2c50b0d2a2ed4ee539f040fed53597a402f
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/ticket-316-candidate-v2"; mkdir -p "$root"
+          git diff --no-renames --binary "$TICKET_BASELINE" -- > "$root/candidate.patch"
+          git diff --no-renames --name-only "$TICKET_BASELINE" -- > "$root/changed-files.txt"
+          git diff --stat "$TICKET_BASELINE" -- > "$root/diff-stat.txt"
+          cp "$RUNNER_TEMP/copilot-output.txt" "$root/copilot-output.txt"
+          python - <<'PY' > "$root/candidate-state.txt"
+          import hashlib, os, stat, subprocess
+          baseline=os.environ['TICKET_BASELINE']
+          def zpaths(*args):
+              out=subprocess.run(['git',*args],check=True,stdout=subprocess.PIPE).stdout
+              return [p for p in out.split(b'\0') if p]
+          paths=set(zpaths('diff','--no-renames','--name-only','-z',baseline,'--'))
+          paths.update(zpaths('ls-files','--others','--exclude-standard','-z'))
+          digest=hashlib.sha256()
+          for raw in sorted(paths):
+              path=os.fsdecode(raw); digest.update(b'path\0'+raw+b'\0')
+              try: meta=os.lstat(path)
+              except FileNotFoundError: digest.update(b'state\0DELETED\0'); continue
+              if stat.S_ISLNK(meta.st_mode): mode=b'120000'; content=hashlib.sha256(os.fsencode(os.readlink(path))).hexdigest()
+              elif stat.S_ISREG(meta.st_mode):
+                  mode=b'100755' if meta.st_mode & stat.S_IXUSR else b'100644'; h=hashlib.sha256()
+                  with open(path,'rb') as f:
+                      for chunk in iter(lambda: f.read(1024*1024),b''): h.update(chunk)
+                  content=h.hexdigest()
+              else: raise SystemExit(path)
+              digest.update(b'mode\0'+mode+b'\0sha256\0'+content.encode()+b'\0')
+          print(digest.hexdigest())
+          PY
+          echo "CANDIDATE_STATE=$(cat "$root/candidate-state.txt")"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ticket-316-candidate-v2
+          path: ${{ runner.temp }}/ticket-316-candidate-v2
+          retention-days: 7

@@ -1,0 +1,144 @@
+name: Temporary ChatGPT ticket 316 cardinality correction
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-chatgpt-implement-316-v7.yml'
+
+permissions:
+  contents: read
+  actions: read
+  copilot-requests: write
+  issues: read
+
+jobs:
+  implement:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: transport
+          fetch-depth: 1
+
+      - uses: actions/checkout@v4
+        with:
+          ref: e243c2c50b0d2a2ed4ee539f040fed53597a402f
+          path: candidate
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - uses: astral-sh/setup-uv@v6
+
+      - run: npm install --global @github/copilot
+
+      - name: Restore failed immutable candidate
+        working-directory: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/sponge-b0b/Polaris/actions/artifacts/10384438709/zip > "$RUNNER_TEMP/candidate.zip"
+          unzip -q "$RUNNER_TEMP/candidate.zip" -d "$RUNNER_TEMP/ticket316"
+          git apply "$RUNNER_TEMP/ticket316/candidate.patch"
+          test "$(cat "$RUNNER_TEMP/ticket316/candidate-state.txt")" = 4d9ce668a620ece4ad687ebea9fac2a53f1dcfc6f38128cdd080216cd9afc454
+
+      - name: Correct verifier finding
+        working-directory: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+          COPILOT_MCP_TOOL_CACHE: 'false'
+        run: |
+          cat > "$RUNNER_TEMP/prompt.txt" <<'PROMPT'
+          Resume Polaris `$implement-ticket` for #316 from the exact failed Attempt-1 candidate already applied to this checkout. Baseline is `e243c2c50b0d2a2ed4ee539f040fed53597a402f`. Do not commit, push, comment, close issues, or mutate GitHub. Read `AGENTS.md`, ticket #316, ARCHSRC-1 authority, and current implementation/tests before editing.
+
+          A genuinely fresh `$verify-ticket-closure` verifier rejected Attempt 1 with ONE implementation finding. Treat the verifier result as mandatory:
+
+          - `_correction_set_request()` rejects two members when their canonical descriptors are identical with `InvalidDecisionCommand("correction set contains indistinguishable semantic members")`.
+          - This is semantically wrong. The governing relationship model says every distinct valid attributable relationship assertion/correction appends a fresh immutable fact even when equivalent. Two sibling corrections may legitimately target the same fact with identical effect, timing, correction basis, and replacement semantics while remaining two distinct acts/facts.
+          - The semantic request must therefore preserve the atomic correction **multiset cardinality**. It must still normalize away request tuple order, request-local handle names, and generated durable correction IDs. Same semantic multiset/graph + same OperationId replays; a cardinality change or material graph/content change conflicts.
+          - Passing Attempt-1 tests covered distinguishable siblings only and are insufficient.
+
+          Fix this without weakening any Attempt-1 behavior the verifier passed:
+          1. Admit multiple semantically equivalent sibling correction members and construct/persist a fresh durable fact for each.
+          2. Preserve duplicate multiplicity in the canonical set request. Do not collapse equivalent descriptors into a mathematical set and do not reject them.
+          3. Keep local member names non-semantic, caller tuple order non-semantic, and generated durable fact IDs non-semantic.
+          4. Preserve the full directed same-command ancestry graph. Symmetric/equivalent nodes must be handled by semantic graph equivalence rather than by leaking local names/order into request identity. If two equivalent parent nodes are semantically interchangeable, targeting either must not create false request inequality merely because the local handle changed; if downstream structure makes nodes materially distinguishable, that structure must remain represented.
+          5. Preserve set cardinality: same graph/content but 1 versus 2 equivalent acts is a different semantic request and must conflict under the same OperationId.
+          6. Preserve all prior PASS surfaces: one whole-set `apply_relationship_command` call; preallocated durable IDs before construction; valid child ancestry; sibling independence/contest; exact endpoint guards; domain/store non-endpoint/future/path/absence revalidation; atomic commit/no intermediate public state; once-only DecisionVersion; unchanged lifecycle sequence; singular `CorrectDecisionRelationshipCommand` uses historical `RelationshipCorrectionPayload` request/receipt identity; renewal/Supersession unchanged.
+
+          Keep the solution local and lean. A recursive canonical multiset/graph representation is acceptable; a generic graph-canonicalization framework is not. Do not introduce business meaning into request-local handles. Do not solve this by assigning semantic precedence from caller order or generated UUIDs.
+
+          Add deterministic tests that specifically falsify the verifier finding:
+          - two fully equivalent sibling corrections to the same existing target are accepted and append TWO distinct fresh correction fact IDs;
+          - the same duplicate-equivalent semantic multiset with tuple order changed and all local handles renamed replays exactly for the same OperationId with no append/version change;
+          - changing only cardinality (e.g. two equivalent acts -> one, or two -> three) under the same OperationId conflicts;
+          - if same-command ancestry can involve otherwise equivalent parent members, prove canonical identity remains order/rename independent while preserving the ancestry structure; add the smallest needed test;
+          - existing distinguishable-sibling/child/rollback/version/singular compatibility tests remain green.
+
+          Critically inspect whether any other code assumes uniqueness of semantic descriptors and repair only what this finding requires. Run changed-file Ruff format/lint, changed-file mypy, targeted relationship tests, full `uv run --locked pytest -q`, and architecture guards. End with `IMPLEMENTATION COMPLETE` plus the exact correction and proof counts. If a genuine new design gap is discovered, print `DESIGN GAP:` and explain it without editing further; otherwise complete the fix.
+          PROMPT
+          copilot -s --allow-all-tools --no-custom-instructions --disable-builtin-mcps --no-ask-user --no-remote --no-remote-export < "$RUNNER_TEMP/prompt.txt" | tee "$RUNNER_TEMP/copilot-output.txt"
+          ! grep -q '^DESIGN GAP:' "$RUNNER_TEMP/copilot-output.txt"
+
+      - name: Verify corrected candidate
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          git diff --check e243c2c50b0d2a2ed4ee539f040fed53597a402f
+          mapfile -t pyfiles < <(git diff --name-only e243c2c50b0d2a2ed4ee539f040fed53597a402f -- '*.py')
+          test ${#pyfiles[@]} -gt 0
+          uv run --locked ruff check --fix "${pyfiles[@]}"
+          uv run --locked ruff format "${pyfiles[@]}"
+          uv run --locked ruff check "${pyfiles[@]}"
+          uv run --locked ruff format --check "${pyfiles[@]}"
+          uv run --locked mypy --explicit-package-bases "${pyfiles[@]}"
+          uv run --locked pytest -q
+          POLARIS_BROAD_VERIFY_AUTHORIZED=verify-architecture uv run --locked pytest -q tests/test_architecture_guard.py tests/test_architecture_guard_identity_aliases.py tests/test_architecture_guard_legacy_loaders.py
+
+      - name: Freeze corrected candidate
+        working-directory: candidate
+        env:
+          TICKET_BASELINE: e243c2c50b0d2a2ed4ee539f040fed53597a402f
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/ticket-316-attempt-2"; mkdir -p "$root"
+          git diff --no-renames --binary "$TICKET_BASELINE" -- > "$root/candidate.patch"
+          git diff --no-renames --name-only "$TICKET_BASELINE" -- > "$root/changed-files.txt"
+          git diff --stat "$TICKET_BASELINE" -- > "$root/diff-stat.txt"
+          cp "$RUNNER_TEMP/copilot-output.txt" "$root/copilot-output.txt"
+          python - <<'PY' > "$root/candidate-state.txt"
+          import hashlib, os, stat, subprocess
+          baseline=os.environ['TICKET_BASELINE']
+          def zpaths(*args):
+              out=subprocess.run(['git',*args],check=True,stdout=subprocess.PIPE).stdout
+              return [p for p in out.split(b'\0') if p]
+          paths=set(zpaths('diff','--no-renames','--name-only','-z',baseline,'--')); paths.update(zpaths('ls-files','--others','--exclude-standard','-z'))
+          d=hashlib.sha256()
+          for raw in sorted(paths):
+              path=os.fsdecode(raw); d.update(b'path\0'+raw+b'\0')
+              try: meta=os.lstat(path)
+              except FileNotFoundError: d.update(b'state\0DELETED\0'); continue
+              if stat.S_ISLNK(meta.st_mode): mode=b'120000'; content=hashlib.sha256(os.fsencode(os.readlink(path))).hexdigest()
+              elif stat.S_ISREG(meta.st_mode):
+                  mode=b'100755' if meta.st_mode & stat.S_IXUSR else b'100644'; h=hashlib.sha256()
+                  with open(path,'rb') as f:
+                      for chunk in iter(lambda: f.read(1024*1024),b''): h.update(chunk)
+                  content=h.hexdigest()
+              else: raise SystemExit(path)
+              d.update(b'mode\0'+mode+b'\0sha256\0'+content.encode()+b'\0')
+          print(d.hexdigest())
+          PY
+          echo "CANDIDATE_STATE=$(cat "$root/candidate-state.txt")"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ticket-316-attempt-2
+          path: ${{ runner.temp }}/ticket-316-attempt-2
+          retention-days: 7

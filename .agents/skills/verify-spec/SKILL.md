@@ -80,6 +80,85 @@ Historical hash comparison performed before builder terminal result: no
 Parent-side substitute contract construction: 0
 ```
 
+## Bounded Execution, Mutation, and Durable Evidence Reuse
+
+This section is authoritative for execution order, repository mutation, and evidence recovery. It supersedes later wording that can be read as authorizing broad repository rediscovery before the candidate is stable.
+
+`$verify-spec` is a **bounded integration verification-and-repair workflow for one exact Spec candidate**, not a general repository audit or cleanup campaign. Spend work only on evidence that can change whether the active Spec candidate deserves PASS.
+
+### Execution order
+
+Follow these phases sequentially:
+
+1. **Minimal preflight** — resolve the Spec, fixed baseline, Spec branch, exact current HEAD, clean/dirty state, direct native blockers/prerequisites, durable governance classification, current Ticket Coverage Manifest, and current remediation/closure state. Do not begin repository-wide audits here.
+2. **Repair-capable deterministic/delegated gates** — build the working Verification Scope Manifest from the Spec body, durable coverage state, change provenance, and directly affected consumers. Run applicable Python quality checks, acceptance tests, global deduplication, architecture invariants, and other explicitly applicable gates. Repair only failures authorized below.
+3. **Candidate stabilization** — rerun every invalidated gate after repair, commit/push verification-owned mutations through the normal branch workflow, and require one clean stable exact HEAD.
+4. **Fresh final contract build** — only after the repair-capable candidate is stable, dispatch one genuinely fresh `$spec-contract` builder for the exact final HEAD and wait for its terminal result. Do not run broad parent-side exploration in parallel with the builder.
+5. **Fresh semantic certification** — dispatch one fresh non-mutating `$verify-spec-closure` certifier against that exact final HEAD and exact final contract handoff.
+6. **Finalization** — persist the receipt only if all exact-HEAD bindings still match.
+
+Do **not** launch the fresh certification/finalization contract build before repair-capable gates merely to get an early handoff. An early exploratory build may be used only when an exact unresolved scope question cannot be answered from durable Spec/coverage authority; it is disposable and never substitutes for the mandatory final stable-HEAD build.
+
+Any repository mutation after the final contract build invalidates that handoff for certification. Return to candidate stabilization, rerun invalidated gates, and perform a new fresh final build.
+
+### Parent mutation authority
+
+`$verify-spec` itself is intentionally mutating when repair is warranted. Read-only behavior applies to the fresh `$verify-spec-closure` certifier, not to the parent workflow.
+
+The parent must repair a required-gate failure when it is either:
+
+* `spec-relevant` under **Failure causality and repair authority**; or
+* explicitly repairable under an applicable delegated repository-wide gate such as architecture or deduplication.
+
+Repairs may touch unchanged/non-Spec files when the leanest correct fix must consume or establish an existing shared owner across a boundary. Path ownership does not override causal repair authority.
+
+After every repair:
+
+* rerun all checks invalidated by that repair;
+* preserve the original failure/disposition evidence;
+* require a clean worktree and one exact candidate HEAD before final contract construction;
+* treat all earlier exact-HEAD semantic certification as stale.
+
+### Durable evidence reuse
+
+Reuse durable lifecycle records instead of reconstructing already-closed work from scratch.
+
+Prefer, in order:
+
+* the parent Spec `Ticket Coverage Manifest` and Architecture/Design Obligation mappings;
+* passing ticket/spec closure checkpoints and receipts bound to exact candidate identities;
+* Finding Continuity and Decomposition Defect records;
+* native issue state/parent/dependency metadata;
+* current Workspace Metadata / explicit governance classification.
+
+For a closed implementation/remediation ticket, normally validate only the ticket identity/state, required parent/dependency relation, closure-record identity, and exact persisted commit/candidate binding. Do **not** reread every ticket body, every ticket comment, or reconstruct the ticket's full proof unless a durable record is missing, stale, internally inconsistent, or the integrated certifier needs an exact unresolved acceptance detail.
+
+Closed ticket certification is evidence input, not a substitute for integrated Spec certification. `$verify-spec-closure` still proves composition and entailment against the exact final Spec HEAD; it should consume concise closure evidence pointers rather than force the parent to reproduce each ticket investigation.
+
+### Governance discovery bound
+
+Resolve governance from durable local lifecycle evidence first.
+
+* If current Workspace Metadata or another authoritative current Spec record explicitly classifies the Spec as `Independent`, and no current `wayfinder-source`, `wayfinder-remediation`, native parent, or conflicting governance marker invalidates that classification, accept it. Do not enumerate every Wayfinder or scan unrelated Wayfinder comment histories merely to prove absence.
+* Enumerate/reconcile governing Wayfinders only when the Spec is positively Wayfinder-managed or durable governance evidence is missing, stale, or conflicting.
+
+### Wiki applicability bound
+
+Living Entity Wiki verification is applicable only when the active Spec changes wiki knowledge/source authority, changes a source that the current wiki is required to synchronize, or carries an explicit wiki obligation under the routing rules.
+
+Do not run a repository-wide wiki audit merely to discover whether wiki routing applies. Determine applicability from the Spec/change-impact universe and durable routing authority first. Incidental baseline-identical wiki drift observed by another check is `non-spec` for this invocation unless the active Spec causally owns it.
+
+### Evidence-driven expansion
+
+Broad discovery is a fallback for unresolved evidence, not the default proof strategy. In particular, do not by default:
+
+* fetch every closed ticket body/comment history when durable closure records already bind the implementation;
+* enumerate every Wayfinder to reconfirm an explicit Independent classification;
+* reconstruct accepted architecture prose already represented by exact current architecture authority/manifest mappings;
+* audit unrelated artifact classes solely because a tool exists for them.
+
+Expand only the unresolved evidence domain, record why expansion was required, and return to the bounded phase sequence above.
+
 ## Authorized Verification Scope and Repair Attribution
 
 This section is authoritative and supersedes preserved wording that treats Git-derived `Spec-owned/Mixed` labels as semantic ownership, uses repository-wide Ruff/Mypy scope by default, or allows a gate failure to authorize repair merely because the affected file changed on the Spec branch.
@@ -149,18 +228,44 @@ After a `non-spec` failure is causally dispositioned, rerun the authorized targe
 
 ### Delegated repository-wide deduplication exception
 
-`$deduplicate-code` is an explicit repository-wide delegated quality gate when this workflow classifies it applicable.
+Deduplication detection remains **whole-repository** whenever this gate is applicable. Duplication is relational: new Spec code can duplicate unchanged code anywhere else in the repository, so changed-file or Spec-only scanning is forbidden.
 
-When invoked:
+Invoke `$deduplicate-code` in its `spec-differential` integration mode with the fixed `BASELINE_COMMIT` and exact candidate HEAD.
 
-* the child skill owns its whole-repository Arid/JSCPD scan scope and terminal zero-unsuppressed-findings contract;
-* the child skill may perform only the narrowly bounded consolidation or justified source-suppression repairs its own contract requires, including on files outside the active Spec's semantic ownership;
-* those child-owned repairs are authorized by the delegated deduplication gate itself and are **not** prohibited by the ordinary `non-spec = report-only` rule above;
-* child-internal duplicate findings that are fully resolved inside `$deduplicate-code` do not each become parent `Observed Failure Disposition` rows; the parent consumes the child's terminal result and records repository mutation/evidence normally;
-* any unresolved child result remains a required delegated-gate failure and blocks PASS;
-* repository-wide deduplication repair does not broaden Ruff, Mypy, Pytest, acceptance-test, or unrelated cleanup authority.
+The child must scan the normal configured repository scope globally for both Arid and JSCPD, then classify candidate findings against the fixed Spec baseline as exactly one of:
 
-If `$deduplicate-code` mutates the repository, treat those mutations as verification-owned changes for branch/candidate/commit handling. Any prior exact-HEAD semantic certification becomes stale under the normal Exact-HEAD Invalidation rule.
+```text
+candidate-introduced
+candidate-expanded
+baseline-identical
+unresolved
+```
+
+Rules:
+
+* `candidate-introduced` includes a new duplicate relation between changed/new Spec code and unchanged code elsewhere in the repository. Cross-boundary duplication is still candidate-caused.
+* `candidate-expanded` means pre-existing duplicate debt gained a new occurrence, larger matching region, new semantic coupling, or newly invalid suppression because of the candidate.
+* `baseline-identical` means the same duplicate relation and material occurrence set existed at the fixed baseline and was not expanded or made newly actionable by the candidate. It is durable inherited debt for this Spec invocation, not opportunistic cleanup authority.
+* `unresolved` blocks PASS.
+
+Candidate-introduced and candidate-expanded findings must be consolidated or narrowly/justifiably suppressed under `$deduplicate-code` rules. The correct repair may touch unchanged or otherwise non-Spec files when that is necessary to consume or establish the real shared owner.
+
+Baseline-identical findings remain visible in the dedup evidence summary but do not enter the `$verify-spec` repair loop merely to make historical repository debt disappear. Do not semantically re-investigate every baseline-identical group once machine correlation has established unchanged identity unless the candidate changes detector configuration, suppression state, or another fact that invalidates the comparison.
+
+The final Spec dedup gate requires:
+
+```text
+candidate-introduced findings: 0
+candidate-expanded findings: 0
+unresolved causality: 0
+stale/newly-invalid suppressions attributable to candidate: 0
+scanner operational/source-processing errors: 0
+```
+
+This changes **repair attribution**, not scan scope. Both scanners still run globally after every dedup repair. Repository-wide deduplication repair does not broaden Ruff, Mypy, Pytest, acceptance-test, or unrelated cleanup authority.
+
+If deduplication mutates the repository, treat those mutations as verification-owned changes for branch/candidate/commit handling. Any prior exact-HEAD semantic certification or final contract handoff becomes stale.
+
 
 ### Delegated repository-wide architecture invariant exception
 
@@ -553,6 +658,8 @@ Do not independently refresh or reinterpret default-branch ownership.
 
 Capture Architecture Impact. Unresolved material architecture blocks verification and routes to `$architecture-remediation`.
 
+Resolve whether the Spec is Wayfinder-managed from durable current governance evidence before performing discovery. An explicit current `Independent` classification is sufficient unless contradicted by a current governance marker or native relationship; absence of a contradiction does not require an all-Wayfinder scan.
+
 For a Wayfinder-managed Spec, before substantive verification:
 
 1. require the Spec open and all direct native blockers closed;
@@ -606,7 +713,7 @@ Run the deterministic verifier self-test when this workflow utility is in scope:
 python "$ARTIFACT_TOOL" self-test
 ```
 
-Invoke the `$wiki-lint` skill when Living Entity Wiki routing applies. Invoke the `$deduplicate-code` skill only when Spec-owned/Mixed work creates a real duplicate-implementation risk; when invoked, both Arid and JSCPD must be visible.
+Invoke the `$wiki-lint` skill only after the bounded Wiki applicability rule above proves Living Entity Wiki routing applies; do not run a whole-wiki discovery audit merely to decide applicability. Invoke the `$deduplicate-code` skill only when Spec-owned/Mixed work creates a real duplicate-implementation risk; when invoked, use its `spec-differential` integration mode and keep both Arid and JSCPD whole-repository scans visible.
 
 Invoke `$verify-architecture` when the integrated Spec can affect mechanically enforced architecture under the applicability rule above. Its complete architecture suite is intentionally repository-wide even when ordinary Python quality targets are narrower. Do not substitute an individual architecture test or direct guard call for the child skill.
 

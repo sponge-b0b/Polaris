@@ -4,7 +4,7 @@ description: Enforces zero unsuppressed duplicate-code findings across the repos
 license: MIT
 compatibility: product=codex product=claude-code system=arid system=jscpd network=none
 metadata:
-  version: 2.0.0
+  version: 2.1.0
 ---
 
 # Code Duplication Checks
@@ -42,11 +42,53 @@ jscpd .
 
 Do not narrow scanner scope merely because a parent workflow is ticket- or Spec-scoped. Repository-local Arid/JSCPD configuration and ordinary discovery/exclusion policy still apply.
 
-When this skill is delegated by another lifecycle or verification skill, **this skill owns the repository-wide duplication gate and the narrowly bounded repository repairs required to make that gate pass**, even when a finding is outside the parent's semantic change scope. This authority is limited to duplicate-code consolidation or justified suppression under this skill; it does not authorize unrelated cleanup.
+When this skill is delegated by another lifecycle or verification skill, the parent-supplied integration mode controls **repair attribution**, never scanner scope. Default mode retains the repository-wide zero-finding invariant. `$verify-spec` uses the `spec-differential` mode below so candidate-caused duplication is repaired globally without turning Spec verification into unrelated historical cleanup. Repair authority remains limited to duplicate-code consolidation or justified suppression under this skill; it does not authorize unrelated cleanup.
+
+## Verification Integration Mode: `spec-differential`
+
+When `$verify-spec` delegates this skill, it must supply the fixed Spec `BASELINE_COMMIT` and exact candidate HEAD and invoke `spec-differential` mode.
+
+This mode preserves **Whole-Repository Scope**. Both Arid and JSCPD still scan their normal configured repository scope for the candidate. The baseline is used only to determine whether a reported relation is caused or expanded by the active Spec candidate.
+
+Use an isolated read-only baseline worktree/ref and correlate machine-readable scanner results before performing semantic source inspection. Classify each candidate finding as exactly one of:
+
+```text
+candidate-introduced
+candidate-expanded
+baseline-identical
+unresolved
+```
+
+Classification rules:
+
+* **candidate-introduced** — the duplicate relation is absent at baseline. This includes changed/new candidate code duplicating an unchanged implementation elsewhere.
+* **candidate-expanded** — the relation existed at baseline but the candidate adds an occurrence, materially enlarges the duplicated region, creates new shared-authority coupling, or makes an existing suppression stale/invalid.
+* **baseline-identical** — the material occurrence set and duplicate relation are unchanged from baseline and the candidate does not alter their detector/suppression semantics.
+* **unresolved** — causality cannot be established safely; blocks PASS.
+
+If Arid/JSCPD configuration or suppression policy changed between baseline and candidate, that delta is candidate-caused and must be inspected explicitly. Do not classify a visibility change as `baseline-identical` merely because the source block itself predates the candidate.
+
+Only `candidate-introduced` and `candidate-expanded` findings enter the repair loop. Repair them using the normal consolidation/suppression rules, even when the correct repair touches an unchanged/non-Spec file to establish the real shared owner.
+
+`baseline-identical` findings remain in the evidence summary as inherited repository debt and do not authorize opportunistic cleanup during `$verify-spec`. Once exact baseline correlation establishes unchanged identity, do not repeatedly perform semantic source analysis for every inherited group unless another candidate change invalidates that correlation.
+
+The `spec-differential` terminal invariant is:
+
+```text
+Candidate-introduced duplicate findings: 0
+Candidate-expanded duplicate findings: 0
+Unresolved causality classifications: 0
+Candidate-attributable stale/invalid suppressions: 0
+Arid operational/source-processing errors: 0
+JSCPD operational errors: 0
+Actionable competing implementations introduced/expanded by candidate: 0
+```
+
+Baseline-identical findings may remain nonzero in this mode. That is not a narrowed scan; it is a bounded repair disposition for this parent lifecycle.
 
 ### Zero-Finding Invariant
 
-A successful run requires all of the following:
+In standalone/default mode, a successful run requires all of the following:
 
 ```text
 Arid reportable duplicate groups: 0
@@ -63,7 +105,9 @@ A non-zero finding count starts or continues the repair loop. It is not a succes
 
 ## Finding Repair Loop
 
-Run the whole-repository scans, inspect the actual matching source, and disposition every reported finding as exactly one of:
+Run the whole-repository scans and inspect actual matching source where repair/classification requires it.
+
+In standalone/default mode, disposition every reported finding as exactly one of:
 
 ```text
 consolidate
@@ -71,9 +115,11 @@ suppress
 unresolved
 ```
 
-Then apply all safe repairs, rerun invalidated verification when executable behavior changed, and rerun both repository-wide scanners. Repeat until both scanners are clean or a concrete blocker makes further safe repair impossible.
+In `spec-differential` mode, perform baseline causality classification first. Only `candidate-introduced` and `candidate-expanded` findings then receive `consolidate | suppress | unresolved`; `baseline-identical` is a terminal inherited disposition for this invocation and does not enter the repair loop.
 
-`unresolved` blocks PASS.
+Apply all authorized repairs, rerun invalidated verification when executable behavior changed, and rerun both repository-wide candidate scanners. Repeat until the active mode's terminal invariant is satisfied or a concrete blocker makes further safe repair impossible.
+
+`unresolved` blocks PASS in every mode.
 
 Do not stop after producing a prose explanation for surviving findings.
 
@@ -202,8 +248,8 @@ After every repair cycle:
 1. if executable Python source/tests changed through consolidation, invoke `$verify-code` for the affected change and consumer set;
 2. rerun Arid across the repository with stale-suppression enforcement;
 3. rerun JSCPD across the repository;
-4. inspect any remaining findings against actual source rather than assuming they share the previous disposition;
-5. continue until the Zero-Finding Invariant is satisfied.
+4. in default mode, inspect remaining findings normally; in `spec-differential` mode, reuse exact baseline-identical correlations unless a repair/configuration/suppression change invalidated them;
+5. continue until the active mode's terminal invariant is satisfied.
 
 Use:
 
@@ -212,7 +258,7 @@ uv run --locked arid . --fail-on-stale --suppression-summary
 jscpd .
 ```
 
-The final successful native exit status for both tools must be zero.
+In standalone/default mode, the final successful native exit status for both tools must be zero. In `spec-differential` mode, a scanner may still report only machine-correlated `baseline-identical` findings; the differential wrapper/classification must prove candidate-introduced `0`, candidate-expanded `0`, unresolved `0`, candidate-attributable stale/invalid suppressions `0`, and operational errors `0`.
 
 This skill does not commit independently when invoked as a child workflow. The owning lifecycle includes deduplication repairs in its normal candidate verification and commit/persistence process.
 

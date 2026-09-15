@@ -1,0 +1,59 @@
+name: Temporary ChatGPT ticket 315 closure certifier
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-chatgpt-ticket-315-closure-certifier.yml'
+      - '.github/tmp/ticket_315_closure_certifier.py'
+
+permissions:
+  contents: read
+  issues: read
+  copilot-requests: write
+
+jobs:
+  certify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout transport authority
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: transport
+          fetch-depth: 1
+
+      - name: Checkout exact ticket baseline
+        uses: actions/checkout@v4
+        with:
+          ref: 41bab9971d380b861cb7bbacd59ad2bdf5d9370f
+          path: candidate
+          fetch-depth: 0
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install current Copilot CLI
+        run: npm install --global @github/copilot
+
+      - name: Run fresh non-mutating ticket-closure certifier
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+          COPILOT_MCP_TOOL_CACHE: 'false'
+        run: python transport/.github/tmp/ticket_315_closure_certifier.py
+
+      - name: Upload certifier verdict
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ticket-315-closure-certifier
+          path: ${{ env.CERT_ROOT }}
+          if-no-files-found: warn
+          retention-days: 7

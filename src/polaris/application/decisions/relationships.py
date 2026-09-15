@@ -387,20 +387,20 @@ class DecisionRelationshipService:
             recorded_at=recorded_at,
             technical_provenance=command.envelope.technical_provenance,
         )
-        facts = tuple(
-            relationship_fact(
-                source_decision_id=decision_id,
-                target_decision_id=item.decision_id,
-                relationship_type=DecisionRelationshipType.RENEWED_FROM,
-                relationship_effective_at=command.envelope.effective_at,
-                relationship_basis=item.basis,
-                mutation=_relationship_mutation(
-                    command.envelope, recorded_at, self._new_uuid
-                ),
-            )
-            for item in command.predecessors
-        )
         try:
+            facts = tuple(
+                relationship_fact(
+                    source_decision_id=decision_id,
+                    target_decision_id=item.decision_id,
+                    relationship_type=DecisionRelationshipType.RENEWED_FROM,
+                    relationship_effective_at=command.envelope.effective_at,
+                    relationship_basis=item.basis,
+                    mutation=_relationship_mutation(
+                        command.envelope, recorded_at, self._new_uuid
+                    ),
+                )
+                for item in command.predecessors
+            )
             renewal = renew_decision(
                 existing_relationship_history=state.history,
                 renewal_facts=facts,
@@ -457,20 +457,20 @@ class DecisionRelationshipService:
         decisions = _required_decisions(state, ids)
         expected = _expected_versions(command.envelope)
         _require_versions(decisions, expected)
-        facts = tuple(
-            relationship_fact(
-                source_decision_id=command.source_decision_id,
-                target_decision_id=item.decision_id,
-                relationship_type=DecisionRelationshipType.SUPERSEDES,
-                relationship_effective_at=item.effective_at,
-                relationship_basis=item.basis,
-                mutation=_relationship_mutation(
-                    command.envelope, recorded_at, self._new_uuid
-                ),
-            )
-            for item in command.targets
-        )
         try:
+            facts = tuple(
+                relationship_fact(
+                    source_decision_id=command.source_decision_id,
+                    target_decision_id=item.decision_id,
+                    relationship_type=DecisionRelationshipType.SUPERSEDES,
+                    relationship_effective_at=item.effective_at,
+                    relationship_basis=item.basis,
+                    mutation=_relationship_mutation(
+                        command.envelope, recorded_at, self._new_uuid
+                    ),
+                )
+                for item in command.targets
+            )
             applied = apply_relationship_command(
                 state.history,
                 facts,
@@ -529,20 +529,20 @@ class DecisionRelationshipCorrectionService:
         recorded_at = _recording_time(self._now())
         state = await _read_relationship_state(self._store, recorded_at)
         expected = _expected_versions(command.envelope)
-        correction = relationship_correction(
-            target_relationship_fact_id=command.target_relationship_fact_id,
-            effect=command.effect,
-            correction_effective_at=command.correction_effective_at,
-            correction_basis=command.correction_basis,
-            replacement_relationship_effective_at=(
-                command.replacement_relationship_effective_at
-            ),
-            replacement_relationship_basis=command.replacement_relationship_basis,
-            mutation=_relationship_mutation(
-                command.envelope, recorded_at, self._new_uuid
-            ),
-        )
         try:
+            correction = relationship_correction(
+                target_relationship_fact_id=command.target_relationship_fact_id,
+                effect=command.effect,
+                correction_effective_at=command.correction_effective_at,
+                correction_basis=command.correction_basis,
+                replacement_relationship_effective_at=(
+                    command.replacement_relationship_effective_at
+                ),
+                replacement_relationship_basis=command.replacement_relationship_basis,
+                mutation=_relationship_mutation(
+                    command.envelope, recorded_at, self._new_uuid
+                ),
+            )
             applied = apply_relationship_command(
                 state.history,
                 (correction,),

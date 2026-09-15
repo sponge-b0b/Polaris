@@ -1011,3 +1011,77 @@ def test_renewal_candidate_read_translates_unavailability_without_commit() -> No
     assert isinstance(exc_info.value.__cause__, DecisionCommandReadUnavailable)
     assert store.history == ()
     assert store.receipts == {}
+
+
+def test_renewal_relationship_constructor_failure_is_translated() -> None:
+    predecessor = _decision(resolved=True)
+    store = FakeRelationshipStore((predecessor,))
+    predecessor_spec = RenewalPredecessor(
+        predecessor.decision_id,
+        RenewedFromRelationshipBasis(("renewal",)),
+    )
+    object.__setattr__(
+        predecessor_spec,
+        "basis",
+        SupersedesRelationshipBasis(("wrong-purpose-basis",)),
+    )
+    command = RenewDecisionCommand(
+        envelope=_envelope((predecessor,)),
+        need_statement="Revisit portfolio exposure",
+        subject=DecisionSubject("Portfolio exposure"),
+        scope=DecisionScope.unresolved(),
+        predecessors=(predecessor_spec,),
+    )
+
+    with pytest.raises(RelationshipConflict):
+        asyncio.run(_service(store).renew(command))
+
+    assert store.history == ()
+    assert store.receipts == {}
+
+
+def test_supersession_relationship_constructor_cycle_is_translated() -> None:
+    source = _decision()
+    store = FakeRelationshipStore((source,))
+    command = EstablishSupersessionCommand(
+        _envelope((source,)),
+        source.decision_id,
+        (
+            SupersessionTarget(
+                source.decision_id,
+                SupersedesRelationshipBasis(("self-supersession",)),
+                NOW,
+            ),
+        ),
+    )
+
+    with pytest.raises(RelationshipCycle):
+        asyncio.run(_service(store).establish_supersession(command))
+
+    assert store.history == ()
+    assert store.receipts == {}
+
+
+def test_relationship_correction_constructor_history_failure_is_translated() -> None:
+    source = _decision()
+    target = _decision()
+    store = FakeRelationshipStore((source, target))
+    command = CorrectDecisionRelationshipCommand(
+        envelope=_envelope((source, target)),
+        target_relationship_fact_id=DecisionRelationshipFactId(uuid4()),
+        effect=DecisionRelationshipCorrectionEffect.QUALIFY,
+        correction_effective_at=NOW,
+        correction_basis=DecisionRelationshipCorrectionBasis(("qualification",)),
+    )
+
+    with pytest.raises(RelationshipHistoryInvalidOrIncomplete):
+        asyncio.run(
+            DecisionRelationshipCorrectionService(
+                store=store,
+                now=lambda: NOW,
+                new_uuid=uuid4,
+            ).correct(command)
+        )
+
+    assert store.history == ()
+    assert store.receipts == {}

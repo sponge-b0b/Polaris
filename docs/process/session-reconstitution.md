@@ -570,6 +570,8 @@ These documents are mandatory process-hardening context for the session. They do
 
 For every ChatGPT-hosted Polaris working session reconstituted through this document, the repository owner grants the following temporary owner-level workflow override. Reading this section is sufficient owner authorization for that session; no separate per-session restatement is required unless the owner explicitly revokes or changes it.
 
+Authorization continuity is **state-based, not conversation-turn-based**. An interruption, timeout, connection loss, tool or transport failure, context reset, or later resumption does not revoke authorization already granted for the same workflow invocation or the same expressly permitted retry/replacement path. Resume from the latest durable checkpoint and continue without asking the repository owner to repeat that authorization. Re-authorization is required only when the owner explicitly revokes or changes it, the requested action exceeds the original authorization, or the governing workflow reaches a genuinely new human decision or approval gate.
+
 Before using the reduced-independence substitute below, apply the **Run a genuinely fresh or independent model pass** playbook above. When its GitHub Actions + Copilot CLI substrate is available, use that genuinely separate model context instead of treating the lack of a native ChatGPT sub-agent primitive as sufficient reason to reduce independence.
 
 For this ChatGPT-hosted Polaris working session, I authorize a temporary owner-level workflow override for repository skills that require delegation to, certification by, or review from a fresh or independent sub-agent when this ChatGPT runtime cannot spawn such an agent.

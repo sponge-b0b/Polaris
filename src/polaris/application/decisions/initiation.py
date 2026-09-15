@@ -23,6 +23,7 @@ from .contracts import (
     ContinuityConflict,
     ContinuityDetermination,
     ContinuityDeterminationKind,
+    DecisionCommandReadUnavailable,
     DecisionCommandStore,
     DecisionMemoryReader,
     DecisionNeedGroundingConflict,
@@ -72,16 +73,14 @@ class DecisionInitiationService:
                 "versions"
             )
 
-        prior = await self._store.get_initiation_receipt(command.envelope.operation_id)
+        prior = await _read_initiation_receipt(
+            self._store, command.envelope.operation_id
+        )
         if prior is not None:
             return _replay(prior, request, command.envelope.operation_id)
 
         recorded_at = _recording_time(self._now())
-        candidate_ids = frozenset(
-            await self._reader.find_unresolved_continuity_candidates(
-                known_at=recorded_at
-            )
-        )
+        candidate_ids = await _read_continuity_candidates(self._reader, recorded_at)
         basis = ContinuityCandidateBasis(candidate_ids, recorded_at)
         determination = _resolve_determination(command.continuity, basis)
 
@@ -158,6 +157,28 @@ class DecisionInitiationService:
         if isinstance(outcome, InitiationUnavailable):
             raise PersistenceUnavailable(outcome.reason)
         raise AssertionError("DecisionCommandStore returned an unsupported outcome")
+
+
+async def _read_initiation_receipt(
+    store: DecisionCommandStore,
+    operation_id: OperationId,
+) -> InitiationReceipt | None:
+    try:
+        return await store.get_initiation_receipt(operation_id)
+    except DecisionCommandReadUnavailable as error:
+        raise PersistenceUnavailable(str(error)) from error
+
+
+async def _read_continuity_candidates(
+    reader: DecisionMemoryReader,
+    known_at: datetime,
+) -> frozenset[InvestmentDecisionId]:
+    try:
+        return frozenset(
+            await reader.find_unresolved_continuity_candidates(known_at=known_at)
+        )
+    except DecisionCommandReadUnavailable as error:
+        raise PersistenceUnavailable(str(error)) from error
 
 
 def _recording_time(value: datetime) -> datetime:

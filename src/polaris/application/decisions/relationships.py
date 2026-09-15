@@ -52,6 +52,7 @@ from .contracts import (
     ContinuityDetermination,
     ContinuityDeterminationKind,
     DecisionCommandEnvelope,
+    DecisionCommandReadUnavailable,
     DecisionMemoryReader,
     IdempotencyConflict,
     InvalidDecisionCommand,
@@ -311,11 +312,15 @@ DecisionRelationshipCommitOutcome = (
 class DecisionRelationshipStore(Protocol):
     async def get_relationship_receipt(
         self, operation_id: OperationId
-    ) -> DecisionRelationshipReceipt | None: ...
+    ) -> DecisionRelationshipReceipt | None:
+        """Return a receipt or raise DecisionCommandReadUnavailable."""
+        ...
 
     async def load_relationship_state(
         self, *, known_at: datetime
-    ) -> DecisionRelationshipState: ...
+    ) -> DecisionRelationshipState:
+        """Return relationship state or raise DecisionCommandReadUnavailable."""
+        ...
 
     async def commit_relationship(
         self, commit: DecisionRelationshipCommit
@@ -342,18 +347,14 @@ class DecisionRelationshipService:
 
     async def renew(self, command: RenewDecisionCommand) -> DecisionRelationshipResult:
         request = _request(command)
-        prior = await self._store.get_relationship_receipt(
-            command.envelope.operation_id
+        prior = await _read_relationship_receipt(
+            self._store, command.envelope.operation_id
         )
         if prior is not None:
             return _replay(prior, request, command.envelope.operation_id)
         recorded_at = _recording_time(self._now())
-        state = await self._store.load_relationship_state(known_at=recorded_at)
-        candidate_ids = frozenset(
-            await self._reader.find_unresolved_continuity_candidates(
-                known_at=recorded_at
-            )
-        )
+        state = await _read_relationship_state(self._store, recorded_at)
+        candidate_ids = await _read_continuity_candidates(self._reader, recorded_at)
         candidate_basis = ContinuityCandidateBasis(candidate_ids, recorded_at)
         continuity = _renewal_continuity(command.continuity, candidate_ids, recorded_at)
         predecessor_ids = {item.decision_id for item in command.predecessors}
@@ -442,13 +443,13 @@ class DecisionRelationshipService:
         self, command: EstablishSupersessionCommand
     ) -> DecisionRelationshipResult:
         request = _request(command)
-        prior = await self._store.get_relationship_receipt(
-            command.envelope.operation_id
+        prior = await _read_relationship_receipt(
+            self._store, command.envelope.operation_id
         )
         if prior is not None:
             return _replay(prior, request, command.envelope.operation_id)
         recorded_at = _recording_time(self._now())
-        state = await self._store.load_relationship_state(known_at=recorded_at)
+        state = await _read_relationship_state(self._store, recorded_at)
         ids = {
             command.source_decision_id,
             *(item.decision_id for item in command.targets),
@@ -520,13 +521,13 @@ class DecisionRelationshipCorrectionService:
         self, command: CorrectDecisionRelationshipCommand
     ) -> DecisionRelationshipResult:
         request = _request(command)
-        prior = await self._store.get_relationship_receipt(
-            command.envelope.operation_id
+        prior = await _read_relationship_receipt(
+            self._store, command.envelope.operation_id
         )
         if prior is not None:
             return _replay(prior, request, command.envelope.operation_id)
         recorded_at = _recording_time(self._now())
-        state = await self._store.load_relationship_state(known_at=recorded_at)
+        state = await _read_relationship_state(self._store, recorded_at)
         expected = _expected_versions(command.envelope)
         correction = relationship_correction(
             target_relationship_fact_id=command.target_relationship_fact_id,
@@ -569,6 +570,38 @@ class DecisionRelationshipCorrectionService:
 
 
 # arid: enable
+
+
+async def _read_relationship_receipt(
+    store: DecisionRelationshipStore,
+    operation_id: OperationId,
+) -> DecisionRelationshipReceipt | None:
+    try:
+        return await store.get_relationship_receipt(operation_id)
+    except DecisionCommandReadUnavailable as error:
+        raise PersistenceUnavailable(str(error)) from error
+
+
+async def _read_relationship_state(
+    store: DecisionRelationshipStore,
+    known_at: datetime,
+) -> DecisionRelationshipState:
+    try:
+        return await store.load_relationship_state(known_at=known_at)
+    except DecisionCommandReadUnavailable as error:
+        raise PersistenceUnavailable(str(error)) from error
+
+
+async def _read_continuity_candidates(
+    reader: DecisionMemoryReader,
+    known_at: datetime,
+) -> frozenset[InvestmentDecisionId]:
+    try:
+        return frozenset(
+            await reader.find_unresolved_continuity_candidates(known_at=known_at)
+        )
+    except DecisionCommandReadUnavailable as error:
+        raise PersistenceUnavailable(str(error)) from error
 
 
 async def _commit_relationship(

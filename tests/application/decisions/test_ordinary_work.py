@@ -13,6 +13,7 @@ from polaris.application.decisions import (
     ConcurrencyConflict,
     ContinuityRequired,
     DecisionCommandEnvelope,
+    DecisionCommandReadUnavailable,
     DecisionCommandState,
     DecisionMutationCommit,
     DecisionMutationCommitOutcome,
@@ -94,12 +95,14 @@ class FakeDecisionStore:
         applicability: DecisionApplicability = DecisionApplicability.OPERATIVE,
         unavailable: bool = False,
         conflict_on_commit: bool = False,
+        read_failure: str | None = None,
     ) -> None:
         self._lock = threading.Lock()
         self._state = DecisionCommandState(decision, applicability)
         self._receipts: dict[OperationId, DecisionMutationReceipt] = {}
         self._unavailable = unavailable
         self._conflict_on_commit = conflict_on_commit
+        self._read_failure = read_failure
 
     async def get_initiation_receipt(
         self, operation_id: OperationId
@@ -114,6 +117,8 @@ class FakeDecisionStore:
     async def get_mutation_receipt(
         self, operation_id: OperationId
     ) -> DecisionMutationReceipt | None:
+        if self._read_failure == "receipt":
+            raise DecisionCommandReadUnavailable("fake receipt read unavailable")
         with self._lock:
             return self._receipts.get(operation_id)
 
@@ -123,6 +128,8 @@ class FakeDecisionStore:
         *,
         known_at: datetime,
     ) -> DecisionCommandState | None:
+        if self._read_failure == "state":
+            raise DecisionCommandReadUnavailable("fake state read unavailable")
         assert known_at.tzinfo is not None
         with self._lock:
             if self._state.decision.decision_id != decision_id:
@@ -1021,3 +1028,24 @@ def test_missing_decision_is_typed() -> None:
 
 
 # arid: enable
+
+
+@pytest.mark.parametrize("read_failure", ("receipt", "state"))
+def test_command_read_unavailability_translates_without_mutation(
+    read_failure: str,
+) -> None:
+    decision = _decision()
+    store = FakeDecisionStore(decision, read_failure=read_failure)
+    command = ReviseDecisionSubjectCommand(
+        envelope=_envelope(decision),
+        decision_id=decision.decision_id,
+        subject=DecisionSubject("Changed subject"),
+        continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+    )
+
+    with pytest.raises(PersistenceUnavailable) as exc_info:
+        asyncio.run(_service(store).revise_subject(command))
+
+    assert isinstance(exc_info.value.__cause__, DecisionCommandReadUnavailable)
+    assert store.decision == decision
+    assert store.receipts == ()

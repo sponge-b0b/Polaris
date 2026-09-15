@@ -15,6 +15,7 @@ from polaris.application.decisions import (
     ContinuityDetermination,
     DecisionApplicationError,
     DecisionCommandEnvelope,
+    DecisionCommandReadUnavailable,
     DecisionInitiationService,
     DecisionNeedGroundingConflict,
     IdempotencyConflict,
@@ -78,6 +79,7 @@ class FakeDecisionStore:
         read_barrier: threading.Barrier | None = None,
         add_after_read: InvestmentDecisionId | None = None,
         unavailable: bool = False,
+        read_failure: str | None = None,
     ) -> None:
         self._lock = threading.Lock()
         self._candidate_ids = set(candidates)
@@ -87,10 +89,13 @@ class FakeDecisionStore:
         self._read_barrier = read_barrier
         self._add_after_read = add_after_read
         self._unavailable = unavailable
+        self._read_failure = read_failure
 
     async def find_unresolved_continuity_candidates(
         self, *, known_at: datetime
     ) -> tuple[InvestmentDecisionId, ...]:
+        if self._read_failure == "candidates":
+            raise DecisionCommandReadUnavailable("fake candidate read unavailable")
         assert known_at.tzinfo is not None
         with self._lock:
             snapshot = tuple(self._candidate_ids)
@@ -105,6 +110,8 @@ class FakeDecisionStore:
     async def get_initiation_receipt(
         self, operation_id: OperationId
     ) -> InitiationReceipt | None:
+        if self._read_failure == "receipt":
+            raise DecisionCommandReadUnavailable("fake receipt read unavailable")
         with self._lock:
             return self._receipts.get(operation_id)
 
@@ -505,3 +512,35 @@ def test_different_operation_race_cannot_silently_create_duplicates() -> None:
     assert len(conflicts) == 1
     assert len(store.decisions) == 1
     assert len(store.receipts) == 1
+
+
+@pytest.mark.parametrize("read_failure", ("receipt", "candidates"))
+def test_command_read_unavailability_translates_without_commit(
+    read_failure: str,
+) -> None:
+    store = FakeDecisionStore(read_failure=read_failure)
+    service = _service(store, uuid4(), uuid4(), uuid4())
+
+    with pytest.raises(PersistenceUnavailable) as exc_info:
+        asyncio.run(service.initiate(_command()))
+
+    assert isinstance(exc_info.value.__cause__, DecisionCommandReadUnavailable)
+    assert store.decisions == ()
+    assert store.receipts == ()
+
+
+def test_unrelated_read_failure_is_not_swallowed() -> None:
+    class RawFailureStore(FakeDecisionStore):
+        async def get_initiation_receipt(
+            self, operation_id: OperationId
+        ) -> InitiationReceipt | None:
+            raise RuntimeError("unrelated read failure")
+
+    store = RawFailureStore()
+    service = _service(store, uuid4(), uuid4(), uuid4())
+
+    with pytest.raises(RuntimeError, match="unrelated read failure"):
+        asyncio.run(service.initiate(_command()))
+
+    assert store.decisions == ()
+    assert store.receipts == ()

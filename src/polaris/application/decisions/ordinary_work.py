@@ -48,6 +48,7 @@ from .contracts import (
     ConcurrencyConflict,
     DecisionApplicationError,
     DecisionCommandEnvelope,
+    DecisionCommandReadUnavailable,
     DecisionCommandStore,
     ExpectedDecisionVersion,
     IdempotencyConflict,
@@ -409,14 +410,18 @@ DecisionMutationCommitOutcome = (
 class DecisionMutationStore(DecisionCommandStore, Protocol):
     async def get_mutation_receipt(
         self, operation_id: OperationId
-    ) -> DecisionMutationReceipt | None: ...
+    ) -> DecisionMutationReceipt | None:
+        """Return a receipt or raise DecisionCommandReadUnavailable."""
+        ...
 
     async def load_decision_for_command(
         self,
         decision_id: InvestmentDecisionId,
         *,
         known_at: datetime,
-    ) -> DecisionCommandState | None: ...
+    ) -> DecisionCommandState | None:
+        """Return command state or raise DecisionCommandReadUnavailable."""
+        ...
 
     async def commit_mutation(
         self, commit: DecisionMutationCommit
@@ -689,6 +694,27 @@ def _translate_commit_outcome(
     raise AssertionError("Decision store returned an unsupported mutation outcome")
 
 
+async def _read_mutation_receipt(
+    store: DecisionMutationStore,
+    operation_id: OperationId,
+) -> DecisionMutationReceipt | None:
+    try:
+        return await store.get_mutation_receipt(operation_id)
+    except DecisionCommandReadUnavailable as error:
+        raise PersistenceUnavailable(str(error)) from error
+
+
+async def _read_decision_state(
+    store: DecisionMutationStore,
+    decision_id: InvestmentDecisionId,
+    known_at: datetime,
+) -> DecisionCommandState | None:
+    try:
+        return await store.load_decision_for_command(decision_id, known_at=known_at)
+    except DecisionCommandReadUnavailable as error:
+        raise PersistenceUnavailable(str(error)) from error
+
+
 async def _execute_mutation(
     *,
     store: DecisionMutationStore,
@@ -704,15 +730,12 @@ async def _execute_mutation(
 ) -> DecisionMutationResult:
     """Execute the one-Decision mutation transaction shared by all command families."""
     operation_id = command.envelope.operation_id
-    prior = await store.get_mutation_receipt(operation_id)
+    prior = await _read_mutation_receipt(store, operation_id)
     if prior is not None:
         return _replay(prior, request, operation_id)
 
     recorded_at = _recording_time(now())
-    state = await store.load_decision_for_command(
-        command.decision_id,
-        known_at=recorded_at,
-    )
+    state = await _read_decision_state(store, command.decision_id, recorded_at)
     if state is None:
         raise DecisionNotFound(command.decision_id)
     if state.decision.version != request.expected_version:

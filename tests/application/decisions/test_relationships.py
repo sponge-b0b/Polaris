@@ -14,6 +14,7 @@ from polaris.application.decisions import (
     ContinuityConflict,
     ContinuityDetermination,
     DecisionCommandEnvelope,
+    DecisionCommandReadUnavailable,
     DecisionRelationshipCommit,
     DecisionRelationshipCommitOutcome,
     DecisionRelationshipCommitted,
@@ -98,6 +99,8 @@ class FakeReader:
     async def find_unresolved_continuity_candidates(
         self, *, known_at: datetime
     ) -> tuple[InvestmentDecisionId, ...]:
+        if self._store.candidate_read_unavailable:
+            raise DecisionCommandReadUnavailable("fake candidate read unavailable")
         assert known_at.tzinfo is not None
         with self._store.lock:
             return tuple(self._store.continuity_candidates)
@@ -112,6 +115,8 @@ class FakeRelationshipStore:
         continuity_candidates: frozenset[InvestmentDecisionId] = frozenset(),
         unavailable: bool = False,
         barrier: threading.Barrier | None = None,
+        read_failure: str | None = None,
+        candidate_read_unavailable: bool = False,
     ) -> None:
         self.lock = threading.Lock()
         self.history = history
@@ -120,18 +125,24 @@ class FakeRelationshipStore:
         self.receipts: dict[OperationId, DecisionRelationshipReceipt] = {}
         self.unavailable = unavailable
         self.barrier = barrier
+        self.read_failure = read_failure
+        self.candidate_read_unavailable = candidate_read_unavailable
         self.candidate_change_on_commit: frozenset[InvestmentDecisionId] | None = None
         self.decision_change_on_commit: InvestmentDecision | None = None
 
     async def get_relationship_receipt(
         self, operation_id: OperationId
     ) -> DecisionRelationshipReceipt | None:
+        if self.read_failure == "receipt":
+            raise DecisionCommandReadUnavailable("fake receipt read unavailable")
         with self.lock:
             return self.receipts.get(operation_id)
 
     async def load_relationship_state(
         self, *, known_at: datetime
     ) -> DecisionRelationshipState:
+        if self.read_failure == "state":
+            raise DecisionCommandReadUnavailable("fake state read unavailable")
         assert known_at.tzinfo is not None
         with self.lock:
             return DecisionRelationshipState(self.history, dict(self.decisions))
@@ -957,3 +968,46 @@ def test_disjoint_parallel_commands_fail_closed_on_history_change() -> None:
     assert len(errors) == 1
     assert isinstance(errors[0], RelationshipConflict)
     assert len(store.history) == 1
+
+
+@pytest.mark.parametrize("read_failure", ("receipt", "state"))
+def test_relationship_state_reads_translate_unavailability_without_commit(
+    read_failure: str,
+) -> None:
+    source = _decision()
+    target = _decision()
+    store = FakeRelationshipStore((source, target), read_failure=read_failure)
+
+    with pytest.raises(PersistenceUnavailable) as exc_info:
+        _supersede(store, source, target)
+
+    assert isinstance(exc_info.value.__cause__, DecisionCommandReadUnavailable)
+    assert store.history == ()
+    assert store.receipts == {}
+
+
+def test_renewal_candidate_read_translates_unavailability_without_commit() -> None:
+    predecessor = _decision(resolved=True)
+    store = FakeRelationshipStore(
+        (predecessor,),
+        candidate_read_unavailable=True,
+    )
+    command = RenewDecisionCommand(
+        envelope=_envelope((predecessor,)),
+        need_statement="Revisit portfolio exposure",
+        subject=DecisionSubject("Portfolio exposure"),
+        scope=DecisionScope.unresolved(),
+        predecessors=(
+            RenewalPredecessor(
+                predecessor.decision_id,
+                RenewedFromRelationshipBasis(("renewal",)),
+            ),
+        ),
+    )
+
+    with pytest.raises(PersistenceUnavailable) as exc_info:
+        asyncio.run(_service(store).renew(command))
+
+    assert isinstance(exc_info.value.__cause__, DecisionCommandReadUnavailable)
+    assert store.history == ()
+    assert store.receipts == {}

@@ -71,6 +71,10 @@ class RelationshipHistoryInvalidOrIncomplete(RelationshipConflict):
     pass
 
 
+class DecisionCommandReadUnavailable(Exception):
+    """Technology-neutral failure contract for command-side persistence reads."""
+
+
 class PersistenceUnavailable(DecisionApplicationError):
     pass
 
@@ -328,13 +332,17 @@ InitiationCommitOutcome = (
 class DecisionMemoryReader(Protocol):
     async def find_unresolved_continuity_candidates(
         self, *, known_at: datetime
-    ) -> tuple[InvestmentDecisionId, ...]: ...
+    ) -> tuple[InvestmentDecisionId, ...]:
+        """Return candidates or raise DecisionCommandReadUnavailable."""
+        ...
 
 
 class DecisionCommandStore(Protocol):
     async def get_initiation_receipt(
         self, operation_id: OperationId
-    ) -> InitiationReceipt | None: ...
+    ) -> InitiationReceipt | None:
+        """Return a receipt or raise DecisionCommandReadUnavailable."""
+        ...
 
     async def commit_initiation(
         self, commit: InitiationCommit

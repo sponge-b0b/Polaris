@@ -1,0 +1,148 @@
+name: Temporary ChatGPT correct ticket 317 attempt 2
+
+'on':
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/tmp-chatgpt-implement-317-v2.yml'
+
+permissions:
+  contents: read
+  actions: read
+  issues: read
+  copilot-requests: write
+
+jobs:
+  correct:
+    runs-on: ubuntu-24.04
+    env:
+      TICKET_BASELINE: 36f06cf396e50409e432b99fa00941053fe83f02
+      FAILED_STATE: f75e44aa00a611bccd836ccb83041446a29aa1483d1424dc4cd4d651253955a2
+      IMPLEMENT_ARTIFACT_ID: '10386915438'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: transport
+          fetch-depth: 1
+
+      - uses: actions/checkout@v4
+        with:
+          ref: 36f06cf396e50409e432b99fa00941053fe83f02
+          path: candidate
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - uses: astral-sh/setup-uv@v6
+
+      - run: npm install --global @github/copilot
+
+      - name: Restore failed immutable candidate
+        working-directory: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/sponge-b0b/Polaris/actions/artifacts/$IMPLEMENT_ARTIFACT_ID/zip > "$RUNNER_TEMP/candidate.zip"
+          unzip -q "$RUNNER_TEMP/candidate.zip" -d "$RUNNER_TEMP/ticket317"
+          test "$(cat "$RUNNER_TEMP/ticket317/candidate-state.txt")" = "$FAILED_STATE"
+          git apply "$RUNNER_TEMP/ticket317/candidate.patch"
+
+      - name: Correct verifier finding only
+        working-directory: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+          COPILOT_MCP_TOOL_CACHE: 'false'
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/prompt.txt" <<'PROMPT'
+          Resume Polaris `$implement-ticket` for ticket #317 from the exact failed Attempt-1 candidate already applied to this checkout. Baseline: `36f06cf396e50409e432b99fa00941053fe83f02`. Candidate Attempt-1 state: `f75e44aa00a611bccd836ccb83041446a29aa1483d1424dc4cd4d651253955a2`.
+
+          Do not commit, push, post comments, mutate issues/labels/branches, or certify closure. Read `AGENTS.md`, `.agents/skills/implement-ticket/SKILL.md`, `.agents/skills/coding-standards/SKILL.md`, ticket #317, and the current changed files before editing.
+
+          A genuinely fresh `$verify-ticket-closure` verifier (run 34944719067 / job 104301279874) returned exactly ONE implementation defect. All other independently constructed acceptance claims were proven; architecture/decomposition integrity had no missing or ambiguous obligation. Correct this finding without redesigning or broadening the candidate:
+
+          Finding V1-1 — privileged command leaked into ordinary public package API.
+          - Authority: `docs/current/platform-architecture-0.2.0.md` says interfaces/workers use the same application use cases and receive no privileged alternate business-truth path; governing lifecycle design and existing privileged lifecycle/relationship correction patterns keep correction-like privileged commands internal.
+          - Falsifier: Attempt 1 exports `AttachOmittedRenewalLineageCommand` from `polaris.application.decisions.__all__` and top-level package import.
+          - Required invariant: late omitted-renewal-lineage attachment remains a purpose-specific privileged/internal relationship command, analogous to existing privileged relationship correction. It may be imported from `polaris.application.decisions.relationships` for internal/test use, but must NOT be part of the ordinary `polaris.application.decisions` public package API.
+
+          Required correction:
+          1. Remove `AttachOmittedRenewalLineageCommand` from the ordinary package import/export surface in `src/polaris/application/decisions/__init__.py`, restoring that file to baseline unless some independently necessary candidate change remains (none is expected).
+          2. Update tests to import this privileged command directly from `polaris.application.decisions.relationships`, consistent with `CorrectDecisionRelationshipCommand` / correction service.
+          3. Add or extend the explicit privileged-boundary regression test so it asserts `AttachOmittedRenewalLineageCommand` is NOT in `decisions_api.__all__` (and preserve the existing correction non-export assertions).
+          4. Preserve all Attempt-1 late-lineage semantics unchanged: existing-source identity, explicit basis/provenance, historical admission at both boundaries, no pre-episode claim, exact endpoint guards + reducer/store revalidation, atomicity, both-endpoint versioning/no lifecycle sequence mutation, replay/conflict, ordinary renewal preservation, and no speculative/generic machinery.
+          5. Do not make unrelated changes.
+
+          Run the prescribed Attention checkpoint for this correction. This is an implementation defect with clear existing authority, not a design gap. If you discover a genuinely different material design gap, output `DESIGN GAP:` and stop; otherwise correct it.
+
+          Before pytest, perform exact-scope service preflight per `AGENTS.md`. Run changed-file Ruff format/lint, changed-file Mypy, `tests/application/decisions/test_relationships.py`, and the architecture guard suite if applicable. Perform the final Attention checkpoint and remove unnecessary delta.
+
+          End stdout with a line exactly `IMPLEMENTATION COMPLETE`, followed by concise evidence. Do not self-certify.
+          PROMPT
+          copilot -s --allow-all-tools --no-custom-instructions --disable-builtin-mcps --no-ask-user --no-remote --no-remote-export < "$RUNNER_TEMP/prompt.txt" | tee "$RUNNER_TEMP/copilot-output.txt"
+          ! grep -q '^DESIGN GAP:' "$RUNNER_TEMP/copilot-output.txt"
+          grep -q '^IMPLEMENTATION COMPLETE$' "$RUNNER_TEMP/copilot-output.txt"
+
+      - name: Verify and freeze Attempt 2
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          git diff --check "$TICKET_BASELINE"
+          mapfile -t pyfiles < <(git diff --no-renames --name-only "$TICKET_BASELINE" -- '*.py')
+          test ${#pyfiles[@]} -gt 0
+          uv run --locked ruff check --fix "${pyfiles[@]}"
+          uv run --locked ruff format "${pyfiles[@]}"
+          uv run --locked ruff check "${pyfiles[@]}"
+          uv run --locked ruff format --check "${pyfiles[@]}"
+          uv run --locked mypy --explicit-package-bases "${pyfiles[@]}"
+          uv run --locked pytest -q tests/application/decisions/test_relationships.py
+          POLARIS_BROAD_VERIFY_AUTHORIZED=ticket-317-attempt-2-architecture uv run --locked pytest -q tests/test_architecture_guard.py tests/test_architecture_guard_identity_aliases.py tests/test_architecture_guard_legacy_loaders.py
+          uv run --locked python - <<'PY'
+          from polaris.application import decisions as decisions_api
+          from polaris.application.decisions.relationships import AttachOmittedRenewalLineageCommand
+          assert 'AttachOmittedRenewalLineageCommand' not in decisions_api.__all__
+          assert AttachOmittedRenewalLineageCommand.__name__ == 'AttachOmittedRenewalLineageCommand'
+          PY
+          git diff --check "$TICKET_BASELINE"
+
+          root="$RUNNER_TEMP/ticket-317-attempt-2"; mkdir -p "$root"
+          git diff --no-renames --binary "$TICKET_BASELINE" -- > "$root/candidate.patch"
+          git diff --no-renames --name-only "$TICKET_BASELINE" -- > "$root/changed-files.txt"
+          git diff --stat "$TICKET_BASELINE" -- > "$root/diff-stat.txt"
+          cp "$RUNNER_TEMP/copilot-output.txt" "$root/copilot-output.txt"
+          python - <<'PY' > "$root/candidate-state.txt"
+          import hashlib, os, stat, subprocess
+          baseline=os.environ['TICKET_BASELINE']
+          def zpaths(*args):
+              out=subprocess.run(['git',*args],check=True,stdout=subprocess.PIPE).stdout
+              return [p for p in out.split(b'\0') if p]
+          paths=set(zpaths('diff','--no-renames','--name-only','-z',baseline,'--'))
+          paths.update(zpaths('ls-files','--others','--exclude-standard','-z'))
+          d=hashlib.sha256()
+          for raw in sorted(paths):
+              path=os.fsdecode(raw); d.update(b'path\0'+raw+b'\0')
+              try: meta=os.lstat(path)
+              except FileNotFoundError: d.update(b'state\0DELETED\0'); continue
+              if stat.S_ISLNK(meta.st_mode): mode=b'120000'; content=hashlib.sha256(os.fsencode(os.readlink(path))).hexdigest()
+              elif stat.S_ISREG(meta.st_mode):
+                  mode=b'100755' if meta.st_mode & stat.S_IXUSR else b'100644'; h=hashlib.sha256()
+                  with open(path,'rb') as f:
+                      for chunk in iter(lambda: f.read(1024*1024),b''): h.update(chunk)
+                  content=h.hexdigest()
+              else: raise SystemExit(path)
+              d.update(b'mode\0'+mode+b'\0sha256\0'+content.encode()+b'\0')
+          print(d.hexdigest())
+          PY
+          echo "CANDIDATE_STATE=$(cat "$root/candidate-state.txt")"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ticket-317-attempt-2
+          path: ${{ runner.temp }}/ticket-317-attempt-2
+          retention-days: 7

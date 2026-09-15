@@ -1,0 +1,25 @@
+name: Temporary ChatGPT ticket 314 frontier recovery
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/tmp-chatgpt-ticket-314-frontier.yml
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  frontier:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout main authority
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Recover deterministic post-closure frontier
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python .github/tmp/ticket_314_frontier.py

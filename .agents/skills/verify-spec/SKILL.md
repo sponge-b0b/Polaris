@@ -148,6 +148,36 @@ Living Entity Wiki verification is applicable only when the active Spec changes 
 
 Do not run a repository-wide wiki audit merely to discover whether wiki routing applies. Determine applicability from the Spec/change-impact universe and durable routing authority first. Incidental baseline-identical wiki drift observed by another check is `non-spec` for this invocation unless the active Spec causally owns it.
 
+### Runtime qualification applicability bound
+
+Cross-runtime or interpreter qualification is **not** implied merely because the repository supports multiple runtimes, free-threaded Python, or runtime qualification tooling.
+
+Run a runtime matrix only when at least one of the following is true:
+
+* the active Spec contract explicitly requires behavior across those runtimes/interpreter modes;
+* the candidate changes runtime policy, runtime selection/configuration, concurrency/runtime infrastructure, or code whose acceptance claim materially depends on interpreter/runtime variation; or
+* another authoritative gate contract explicitly requires that exact runtime matrix for this candidate.
+
+When applicable, run only the smallest authoritative matrix that proves the active claim. Reuse an already-installed qualifying runtime/environment when possible. Do not install additional interpreters or construct extra environments merely because they are available or potentially interesting.
+
+If cross-runtime qualification is not applicable, record it as excluded in the Verification Scope Manifest with the exact authority/reason; do not silently omit it and do not execute it speculatively.
+
+### Resumability and execution-budget bound
+
+Do not start a new broad evidence domain, fresh builder/certifier, runtime installation, or repository-wide delegated gate when the execution environment has signaled that the remaining context/usage budget is unlikely to carry that phase through its required terminal result.
+
+This is not permission to stop for ordinary partial progress. Continue normally while the authorized lifecycle can still complete. But an actual platform usage/context limit that prevents safe completion is a Hard Blocker and must preserve a durable recovery point instead of consuming the remainder of the invocation on work that cannot reach a legal terminal state.
+
+Before an unavoidable limit is reached:
+
+1. finish the current atomic mutation/check when safe;
+2. do not begin another unrelated discovery or repair domain;
+3. persist/reuse the compact verification checkpoint supported by this workflow, bound to exact baseline/branch/HEAD and current gate/repair state;
+4. record completed gates, outstanding gates, observed-failure dispositions, verification-owned repairs, whether a fresh final contract build is still required, and whether semantic certification has started;
+5. on resumption, consume that checkpoint plus durable lifecycle evidence and continue from the first invalidated/uncompleted phase rather than reconstructing completed work.
+
+A checkpoint created because the execution environment is exhausted is **not PASS** and is not a semantic receipt. It exists only to prevent repeated repository archaeology and repeated deterministic work after a real external limit interruption.
+
 ### Evidence-driven expansion
 
 Broad discovery is a fallback for unresolved evidence, not the default proof strategy. In particular, do not by default:

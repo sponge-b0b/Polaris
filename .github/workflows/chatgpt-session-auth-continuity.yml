@@ -1,13 +1,22 @@
-name: ChatGPT session authorization continuity probe
+name: ChatGPT session authorization continuity edit
 
 on:
   push:
     branches:
       - main
+    paths:
+      - '.github/workflows/chatgpt-session-auth-continuity.yml'
+
+permissions:
+  contents: write
 
 jobs:
-  probe:
+  edit:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe runner
-        run: echo "session authorization continuity transport ready"
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply deterministic edit
+        run: python .github/scripts/chatgpt_session_auth_continuity.py

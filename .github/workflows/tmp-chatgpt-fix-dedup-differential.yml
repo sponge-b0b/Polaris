@@ -1,0 +1,210 @@
+name: Temporary ChatGPT finalize dedup differential mode
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/tmp-chatgpt-fix-dedup-differential.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    env:
+      MAIN_BASELINE: ae1fa7bc0a0ce280309ef3a07270c7acd1a9eab0
+      SPEC_BASELINE: 569b122e6b157f03cf4a181d363d864a3f636cc5
+      EXPECTED_BLOB: 3bda42a7a8964bb369d136edb3172ce0cb5710cc
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Revalidate synchronized source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main spec-279
+          test "$(git rev-parse origin/main^)" = "$MAIN_BASELINE"
+          test "$(git rev-parse origin/spec-279)" = "$SPEC_BASELINE"
+          test "$(git rev-parse origin/main:.agents/skills/deduplicate-code/SKILL.md)" = "$EXPECTED_BLOB"
+          test "$(git rev-parse origin/spec-279:.agents/skills/deduplicate-code/SKILL.md)" = "$EXPECTED_BLOB"
+
+      - name: Remove differential-mode contradictions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('.agents/skills/deduplicate-code/SKILL.md')
+          s = p.read_text()
+
+          s = s.replace(
+              'description: Enforces zero unsuppressed duplicate-code findings across the repository by consolidating real duplicate implementation or narrowly suppressing independently justified repetition with tool-native directives.',
+              'description: Enforces repository-wide duplicate-code discipline, with zero unsuppressed findings by default and baseline-differential causality when delegated by $verify-spec.',
+              1,
+          )
+          s = s.replace('  version: 2.1.0', '  version: 2.1.1', 1)
+
+          old_objective = '''The terminal invariant is:
+
+          > **Zero unsuppressed duplicate findings.**
+
+          Physical repetition may remain only when consolidation would be the wrong design and that decision is encoded as a narrow, justified tool-native suppression. A finding is never complete merely because an agent inspected it and called it harmless.
+          '''
+          new_objective = '''The standalone/default terminal invariant is:
+
+          > **Zero unsuppressed duplicate findings.**
+
+          When delegated by `$verify-spec` in `spec-differential` mode, the terminal invariant is instead zero candidate-introduced/expanded duplication and zero unresolved causality; machine-correlated `baseline-identical` findings may remain as inherited debt. This changes repair attribution, never whole-repository scan scope.
+
+          Physical repetition may remain only when consolidation would be the wrong design and that decision is encoded as a narrow, justified tool-native suppression, or when `spec-differential` proves the finding is baseline-identical and therefore outside the active Spec repair loop. A finding is never complete merely because an agent inspected it and called it harmless.
+          '''
+          assert s.count(old_objective) == 1
+          s = s.replace(old_objective, new_objective)
+
+          old_nonzero = 'A non-zero finding count starts or continues the repair loop. It is not a successful disposition.\n'
+          new_nonzero = 'In standalone/default mode, a non-zero finding count starts or continues the repair loop. In `spec-differential` mode, only candidate-introduced, candidate-expanded, unresolved, operational, or candidate-attributable stale/invalid-suppression results continue the repair loop; baseline-identical findings are already dispositioned.\n'
+          assert s.count(old_nonzero) == 1
+          s = s.replace(old_nonzero, new_nonzero)
+
+          old_arid = '''After suppression changes, audit suppression health. The final Arid gate is:
+
+          ```bash
+          uv run --locked arid . --fail-on-stale --suppression-summary
+          ```
+
+          It must exit successfully with zero reportable duplicate groups and zero stale suppressions.
+          '''
+          new_arid = '''After suppression changes, audit suppression health with the whole-repository Arid command:
+
+          ```bash
+          uv run --locked arid . --fail-on-stale --suppression-summary
+          ```
+
+          In standalone/default mode it must exit successfully with zero reportable duplicate groups and zero stale suppressions. In `spec-differential` mode, retain the native output/exit status for classification: a finding-caused non-zero result may remain only for machine-correlated `baseline-identical` groups, while operational/source-processing failures and candidate-attributable stale/invalid suppressions remain blocking.
+          '''
+          assert s.count(old_arid) == 1
+          s = s.replace(old_arid, new_arid)
+
+          start = s.index('## Terminal Result\n')
+          terminal = '''## Terminal Result
+
+          Report PASS only after the active mode's terminal invariant is satisfied.
+
+          Standalone/default mode:
+
+          ```text
+          DEDUPLICATION: PASS
+          Mode: default
+
+          Whole-project scope:
+          - Arid: .
+          - JSCPD: .
+
+          Arid:
+          - Reportable duplicate groups: 0
+          - Stale suppressions: 0
+          - Operational/source-processing errors: 0
+
+          JSCPD:
+          - Reportable clones: 0
+          - Operational errors: 0
+
+          Finding disposition:
+          - Consolidated/refactored: <n>
+          - Justified and suppressed: <n>
+          - Unresolved: 0
+          - Suppressions without meaningful justification: 0
+          - Actionable competing implementations remaining: 0
+          ```
+
+          `$verify-spec` `spec-differential` mode:
+
+          ```text
+          DEDUPLICATION: PASS
+          Mode: spec-differential
+          Baseline: <BASELINE_COMMIT>
+          Candidate: <HEAD>
+
+          Whole-project scope:
+          - Arid candidate scan: .
+          - Arid baseline scan: .
+          - JSCPD candidate scan: .
+          - JSCPD baseline scan: .
+
+          Causality:
+          - Candidate-introduced: 0
+          - Candidate-expanded: 0
+          - Baseline-identical: <n>
+          - Unresolved: 0
+
+          Health:
+          - Candidate-attributable stale/invalid suppressions: 0
+          - Arid operational/source-processing errors: 0
+          - JSCPD operational errors: 0
+          - Actionable competing implementations introduced/expanded by candidate: 0
+
+          Repairs:
+          - Consolidated/refactored: <n>
+          - Justified and suppressed: <n>
+          ```
+
+          If the tool cannot run, causality cannot be safely classified, a candidate-caused finding cannot be safely repaired, a required consolidation needs unresolved architecture, or another concrete external/tooling constraint prevents completion, report the exact blocker. In default mode, do not report PASS with a non-zero unsuppressed finding count. In `spec-differential` mode, do not fail merely because classified baseline-identical findings remain; do fail for any candidate-introduced, candidate-expanded, unresolved, stale/invalid-suppression, or operational count above zero.
+          '''
+          s = s[:start] + terminal
+
+          p.write_text(s)
+          PY
+          git diff --check
+          grep -Fq 'version: 2.1.1' .agents/skills/deduplicate-code/SKILL.md
+          grep -Fq 'Mode: spec-differential' .agents/skills/deduplicate-code/SKILL.md
+          grep -Fq 'Baseline-identical: <n>' .agents/skills/deduplicate-code/SKILL.md
+
+      - name: Commit main-owned correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Bob Taylor'
+          git config user.email 'bobltaylorjr@gmail.com'
+          git add .agents/skills/deduplicate-code/SKILL.md
+          git commit -m 'fix(skills): finalize differential dedup contract'
+          git push origin HEAD:main
+          echo "AUTHORITY_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Sync correction to active Spec branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main spec-279
+          git checkout -B spec-279 origin/spec-279
+          test "$(git rev-parse HEAD)" = "$SPEC_BASELINE"
+          git checkout "$AUTHORITY_COMMIT" -- .agents/skills/deduplicate-code/SKILL.md
+          git diff --check
+          git add .agents/skills/deduplicate-code/SKILL.md
+          git commit -m 'chore(skills): sync differential dedup contract'
+          git push origin HEAD:spec-279
+          echo "SPEC_SYNC_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Cleanup transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout -B main origin/main
+          git rm .github/workflows/tmp-chatgpt-fix-dedup-differential.yml
+          git commit -m 'chore(workflow): remove dedup differential transport'
+          git push origin HEAD:main
+          echo "CLEANUP_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Final readback
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main spec-279
+          test "$(git rev-parse origin/main)" = "$CLEANUP_COMMIT"
+          test "$(git rev-parse origin/spec-279)" = "$SPEC_SYNC_COMMIT"
+          test "$(git rev-parse origin/main:.agents/skills/deduplicate-code/SKILL.md)" = "$(git rev-parse origin/spec-279:.agents/skills/deduplicate-code/SKILL.md)"
+          test "$(git rev-parse origin/main:.agents/skills/verify-spec/SKILL.md)" = "$(git rev-parse origin/spec-279:.agents/skills/verify-spec/SKILL.md)"
+          printf 'AUTHORITY_COMMIT=%s\nSPEC_SYNC_COMMIT=%s\nCLEANUP_COMMIT=%s\n' "$AUTHORITY_COMMIT" "$SPEC_SYNC_COMMIT" "$CLEANUP_COMMIT"

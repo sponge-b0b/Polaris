@@ -47,8 +47,19 @@ jobs:
           test "$(git -C candidate rev-parse HEAD)" = "$TICKET_BASELINE"
           test -z "$(git -C candidate status --porcelain)"
           test "$(gh api repos/sponge-b0b/Polaris/issues/314/parent --jq .number)" = "310"
-          test "$(gh issue view 314 --repo sponge-b0b/Polaris --json body --jq .body | sed -n '/## Ticket branch/{n;p;}' | tr -d '`\r')" = "spec-279"
-          test "$(gh issue view 314 --repo sponge-b0b/Polaris --json body --jq .body | sed -n '/## Ticket baseline/{n;p;}' | tr -d '`\r')" = "$TICKET_BASELINE"
+          gh issue view 314 --repo sponge-b0b/Polaris --json body > "$RUNNER_TEMP/ticket-314.json"
+          python - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          body = json.loads(Path(os.environ['RUNNER_TEMP'], 'ticket-314.json').read_text())['body']
+          branch = re.search(r'## Ticket branch\s+`([^`]+)`', body)
+          baseline = re.search(r'## Ticket baseline\s+`([^`]+)`', body)
+          if branch is None or branch.group(1) != 'spec-279':
+              raise SystemExit(f'ticket branch mismatch: {branch.group(1) if branch else None}')
+          expected = os.environ['TICKET_BASELINE']
+          if baseline is None or baseline.group(1) != expected:
+              raise SystemExit(f'ticket baseline mismatch: {baseline.group(1) if baseline else None}')
+          PY
 
           python transport/.github/tmp/implement_314_candidate.py
           python transport/.github/tmp/implement_314_refactor.py

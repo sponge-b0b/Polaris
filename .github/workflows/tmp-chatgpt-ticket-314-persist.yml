@@ -63,25 +63,27 @@ jobs:
             tests/application/decisions/test_ordinary_work.py \
             tests/application/decisions/test_relationships.py
 
-          expected_files=$(cat <<'EOF'
-src/polaris/application/decisions/__init__.py
-src/polaris/application/decisions/contracts.py
-src/polaris/application/decisions/initiation.py
-src/polaris/application/decisions/ordinary_work.py
-src/polaris/application/decisions/relationships.py
-tests/application/decisions/test_initiation.py
-tests/application/decisions/test_ordinary_work.py
-tests/application/decisions/test_relationships.py
-EOF
-          )
-          actual_files="$(git diff --name-only "$TICKET_BASELINE" -- | sort)"
-          test "$actual_files" = "$(printf '%s\n' "$expected_files" | sort)"
-          git diff --check "$TICKET_BASELINE" --
-
           python - <<'PY'
           import hashlib, os, stat, subprocess
           baseline = os.environ['TICKET_BASELINE']
           expected = os.environ['EXPECTED_STATE']
+          expected_files = sorted([
+              'src/polaris/application/decisions/__init__.py',
+              'src/polaris/application/decisions/contracts.py',
+              'src/polaris/application/decisions/initiation.py',
+              'src/polaris/application/decisions/ordinary_work.py',
+              'src/polaris/application/decisions/relationships.py',
+              'tests/application/decisions/test_initiation.py',
+              'tests/application/decisions/test_ordinary_work.py',
+              'tests/application/decisions/test_relationships.py',
+          ])
+          changed = subprocess.run(
+              ['git', 'diff', '--name-only', baseline, '--'],
+              check=True, text=True, capture_output=True,
+          ).stdout.splitlines()
+          if sorted(changed) != expected_files:
+              raise SystemExit(f'unexpected changed files: {changed}')
+          subprocess.run(['git', 'diff', '--check', baseline, '--'], check=True)
           def zpaths(*args):
               out = subprocess.run(['git', *args], check=True, stdout=subprocess.PIPE).stdout
               return [p for p in out.split(b'\0') if p]

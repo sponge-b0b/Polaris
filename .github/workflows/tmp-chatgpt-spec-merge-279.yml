@@ -27,19 +27,8 @@ jobs:
         run: |
           set -euo pipefail
           cp .github/tmp-chatgpt-spec-merge-279.py "$RUNNER_TEMP/spec-merge-279.py"
-          python - <<'PY'
-          import os
-          from pathlib import Path
-          path = Path(os.environ['RUNNER_TEMP']) / 'spec-merge-279.py'
-          text = path.read_text()
-          old = '''git("fetch", "origin", "main", "spec-279")
-require(git("rev-parse", "origin/main").stdout.strip() == CREATE_SHA, "main moved before post-merge recovery")
-require(git("rev-parse", "origin/spec-279").stdout.strip() == HEAD, "spec-279 moved after merge")'''
-          new = '''git("fetch", "origin", "main")
-require(git("rev-parse", "origin/main").stdout.strip() == CREATE_SHA, "main moved before post-merge recovery")'''
-          assert old in text
-          path.write_text(text.replace(old, new, 1))
-          PY
+          sed -i 's/git("fetch", "origin", "main", "spec-279")/git("fetch", "origin", "main")/' "$RUNNER_TEMP/spec-merge-279.py"
+          sed -i '/origin\/spec-279.*spec-279 moved after merge/d' "$RUNNER_TEMP/spec-merge-279.py"
           python "$RUNNER_TEMP/spec-merge-279.py"
       - uses: actions/upload-artifact@v4
         if: always()

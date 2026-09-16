@@ -15,7 +15,7 @@ The pre-greenfield registry remains historical donor/reference material under `l
 | [Governance & Authority](entities/governance-authority.md) | Domain | pending | — | Policy, admissibility, power-specific authority acts, human investment judgment, contestability, and residual-risk acceptance. |
 | [Action Continuity](entities/action-continuity.md) | Domain | pending | — | Post-human Action Intent and reconciliation between intended consequence and authoritative external activity. |
 | [Learning](entities/learning.md) | Domain | pending | — | Outcome, Decision Evaluation, Lesson, and hindsight-faithful retrospective learning semantics. |
-| [Application Use Cases](entities/application-use-cases.md) | Application | pending | — | Commands, queries, use-case coordination, transaction/idempotency semantics, and inward-owned capability ports. |
+| [Application Use Cases](entities/application-use-cases.md) | Application | present | `src/polaris/application/decisions/` | Commands, queries, use-case coordination, transaction/idempotency semantics, and inward-owned capability ports. |
 | [Durable Persistence](entities/durable-persistence.md) | Infrastructure | pending | — | Durable transactional business persistence, immutable history, concurrency, recovery, and replaceable storage adapters. |
 | [Model Access](entities/model-access.md) | Infrastructure | pending | — | Replaceable model/provider access, structured draft responses, deterministic validation, retries, and technical provenance. |
 | [External Facts](entities/external-facts.md) | Infrastructure | pending | — | Observation adapters for Evidence, authoritative Portfolio State, execution activity, and other externally owned facts. |

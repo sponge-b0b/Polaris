@@ -16,38 +16,21 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-      - name: Run lifecycle transport
+      - name: Run post-merge recovery
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: sponge-b0b/Polaris
           EXPECTED_PRE_MAIN: ae5f3a2d7f5c2f2cdeb6c8df0d6299d92dbf72eb
           EXPECTED_HEAD: e2d59797ebcaf4b87b3c2c941fb08bffc2213dd7
-          EXPECTED_BASELINE: 4daed9034891600597a47c01b6c39d5ebd9914ca
-          EXPECTED_BODY_HASH: 5f59ee666c65e9e93fe3b69403dbf4bc5328332d14d6339fc55b067755e4eb17
-          EXPECTED_CONTRACT_HASH: ab243bb1e38159aef9de1a87dd6ad4de43773c093f2149dc83e2ca81087411f2
-          EXPECTED_LEDGER_HASH: efb77d7faafd0d0641b4f874bece20cea875db6f6f3b9f60e2c24c1ea710d839
-          VERIFY_COMMENT: '5688872157'
-          LEDGER_COMMENT: '5662220111'
-          EXIT_COMMENT: '5689504777'
+          EXPECTED_MERGE_SHA: e44ae859d1dec3652aa0c9096231d51106ef086a
         shell: bash
         run: |
           set -euo pipefail
-          cp .github/tmp-chatgpt-spec-merge-279.py "$RUNNER_TEMP/spec-merge-279.py"
-          python - <<'PY'
-          import os
-          from pathlib import Path
-          path = Path(os.environ['RUNNER_TEMP']) / 'spec-merge-279.py'
-          text = path.read_text()
-          old = 'hashlib.sha256(spec_body.encode()).hexdigest()'
-          new = "hashlib.sha256((spec_body + '\\n').encode()).hexdigest()"
-          assert old in text
-          path.write_text(text.replace(old, new, 1))
-          PY
-          python "$RUNNER_TEMP/spec-merge-279.py"
+          python .github/tmp-chatgpt-spec-merge-279.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: spec-279-merge-cleanup
+          name: spec-279-merge-cleanup-recovery
           path: |
             completion-metadata.json
             project-reconstruction.txt

@@ -16,7 +16,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-      - name: Run post-merge recovery
+      - name: Run final post-merge cleanup
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: sponge-b0b/Polaris
@@ -26,11 +26,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python .github/tmp-chatgpt-spec-merge-279.py
+          cp .github/tmp-chatgpt-spec-merge-279.py "$RUNNER_TEMP/spec-merge-279.py"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          path = Path(os.environ['RUNNER_TEMP']) / 'spec-merge-279.py'
+          text = path.read_text()
+          old = '''git("fetch", "origin", "main", "spec-279")
+require(git("rev-parse", "origin/main").stdout.strip() == CREATE_SHA, "main moved before post-merge recovery")
+require(git("rev-parse", "origin/spec-279").stdout.strip() == HEAD, "spec-279 moved after merge")'''
+          new = '''git("fetch", "origin", "main")
+require(git("rev-parse", "origin/main").stdout.strip() == CREATE_SHA, "main moved before post-merge recovery")'''
+          assert old in text
+          path.write_text(text.replace(old, new, 1))
+          PY
+          python "$RUNNER_TEMP/spec-merge-279.py"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: spec-279-merge-cleanup-recovery
+          name: spec-279-merge-cleanup-final
           path: |
             completion-metadata.json
             project-reconstruction.txt

@@ -10,7 +10,7 @@ permissions:
   pull-requests: write
 jobs:
   complete:
-    if: github.event.head_commit.message == 'chore(workflow): complete Spec 279 lifecycle'
+    if: startsWith(github.event.head_commit.message, 'fix(workflow): repair Spec 279 lifecycle transport')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,13 +18,10 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Revalidate durable completion authority
+      - name: Complete exact reviewed Spec lifecycle
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: sponge-b0b/Polaris
-          SPEC: '279'
-          REVIEW: '310'
-          PR: '320'
           EXPECTED_PRE_MAIN: ae5f3a2d7f5c2f2cdeb6c8df0d6299d92dbf72eb
           EXPECTED_HEAD: e2d59797ebcaf4b87b3c2c941fb08bffc2213dd7
           EXPECTED_BASELINE: 4daed9034891600597a47c01b6c39d5ebd9914ca
@@ -37,516 +34,446 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "$(git rev-parse HEAD^)" = "$EXPECTED_PRE_MAIN"
-          CHANGED=$(git diff --name-only "$EXPECTED_PRE_MAIN" "$GITHUB_SHA")
-          test "$CHANGED" = ".github/workflows/tmp-chatgpt-spec-merge-279.yml"
-
-          git fetch origin main spec-279
-          test "$(git rev-parse origin/main)" = "$GITHUB_SHA"
-          test "$(git rev-parse origin/spec-279)" = "$EXPECTED_HEAD"
-
-          gh api "repos/$REPO/issues/$SPEC" > "$RUNNER_TEMP/spec.json"
-          gh api "repos/$REPO/issues/$REVIEW" > "$RUNNER_TEMP/review.json"
-          test "$(jq -r .state "$RUNNER_TEMP/spec.json")" = open
-          test "$(jq -r .state "$RUNNER_TEMP/review.json")" = open
-          jq -j .body "$RUNNER_TEMP/spec.json" > "$RUNNER_TEMP/spec-body.md"
-          test "$(sha256sum "$RUNNER_TEMP/spec-body.md" | awk '{print $1}')" = "$EXPECTED_BODY_HASH"
-
-          SPEC_COMMENTS=$(mktemp)
-          REVIEW_COMMENTS=$(mktemp)
-          gh api --paginate --slurp "repos/$REPO/issues/$SPEC/comments?per_page=100" > "$SPEC_COMMENTS"
-          gh api --paginate --slurp "repos/$REPO/issues/$REVIEW/comments?per_page=100" > "$REVIEW_COMMENTS"
-
           python - <<'PY'
-          import hashlib, json, os, re
+          import hashlib
+          import json
+          import os
+          import re
+          import subprocess
+          import sys
+          import time
           from pathlib import Path
 
-          def flatten(path: str):
-              pages = json.loads(Path(path).read_text())
-              return [item for page in pages for item in page]
+          REPO = os.environ['REPO']
+          OWNER = REPO.split('/', 1)[0]
+          WS = Path(os.environ['GITHUB_WORKSPACE'])
+          RT = Path(os.environ['RUNNER_TEMP'])
+          WORKFLOW = '.github/workflows/tmp-chatgpt-spec-merge-279.yml'
+          PRE_MAIN = os.environ['EXPECTED_PRE_MAIN']
+          HEAD = os.environ['EXPECTED_HEAD']
+          BASELINE = os.environ['EXPECTED_BASELINE']
+          BODY_HASH = os.environ['EXPECTED_BODY_HASH']
+          CONTRACT_HASH = os.environ['EXPECTED_CONTRACT_HASH']
+          LEDGER_HASH = os.environ['EXPECTED_LEDGER_HASH']
+          CREATE_SHA = os.environ['GITHUB_SHA']
 
-          spec_comments = flatten(os.environ['SPEC_COMMENTS'])
-          review_comments = flatten(os.environ['REVIEW_COMMENTS'])
-          head = os.environ['EXPECTED_HEAD']
-          baseline = os.environ['EXPECTED_BASELINE']
-          body_hash = os.environ['EXPECTED_BODY_HASH']
-          contract_hash = os.environ['EXPECTED_CONTRACT_HASH']
-
-          workspace = [c for c in spec_comments if '## Workspace Metadata' in (c.get('body') or '')]
-          assert len(workspace) == 1, len(workspace)
-          wb = workspace[0]['body']
-          assert f'**Baseline Commit Hash:** {baseline}' in wb
-          assert '**Branch:** spec-279' in wb
-
-          receipts = [c for c in spec_comments
-                      if '## Spec Verification Receipt' in (c.get('body') or '')
-                      and '**Status:** passed' in c['body']
-                      and f'**Verified HEAD:** {head}' in c['body']]
-          assert receipts, 'matching Spec Verification Receipt missing'
-          receipts.sort(key=lambda c: (c.get('created_at') or '', c['id']))
-          vr = receipts[-1]
-          assert str(vr['id']) == os.environ['VERIFY_COMMENT'], vr['id']
-          vb = vr['body']
-          for required in (
-              f'**Verified Baseline:** {baseline}',
-              '**Branch:** spec-279',
-              f'**Spec Body Hash:** {body_hash}',
-              f'**Spec Contract Hash:** {contract_hash}',
-          ):
-              assert required in vb, required
-
-          ledgers = [c for c in review_comments if '<!-- review-spec-finding-ledger:v1 -->' in (c.get('body') or '')]
-          assert len(ledgers) == 1, len(ledgers)
-          ledger = ledgers[0]
-          assert str(ledger['id']) == os.environ['LEDGER_COMMENT']
-          lb = ledger['body']
-          assert f'**Reviewed HEAD:** {head}' in lb
-          assert f'**Spec Body Hash:** {body_hash}' in lb
-          assert f'**Spec Contract Hash:** {contract_hash}' in lb
-          digest = hashlib.sha256(lb.encode()).hexdigest()
-          assert digest == os.environ['EXPECTED_LEDGER_HASH'], digest
-
-          exits = [c for c in review_comments if '## Spec Review Exit Receipt' in (c.get('body') or '')]
-          assert exits, 'Spec Review Exit Receipt missing'
-          exits.sort(key=lambda c: (c.get('created_at') or '', c['id']))
-          er = exits[-1]
-          assert str(er['id']) == os.environ['EXIT_COMMENT'], er['id']
-          eb = er['body']
-          exact = {
-              'Status': 'passed',
-              'Spec Review': '#310',
-              'Reviewed HEAD': head,
-              'Reviewed Baseline': baseline,
-              'Branch': 'spec-279',
-              'Spec Body Hash': body_hash,
-              'Spec Contract Hash': contract_hash,
-              'Finding Ledger Hash': digest,
-              'Blocking findings': '0',
-              'Open blocking findings': '0',
-              'Unaccounted prior findings': '0',
-              'Unresolved continuity cells': '0',
-              'Unresolved decomposition defects': '0',
-              'Root blockers': 'satisfied/owner-overridden/scope-retired',
-              'Candidate new roots': '0',
-              'Review coverage': 'complete',
-              'Unchecked coverage cells': '0',
-          }
-          for label, value in exact.items():
-              assert f'**{label}:** {value}' in eb, (label, value)
-
-          # Direct reverse provenance on the Spec itself must be absent.
-          provenance_text = Path(os.environ['RUNNER_TEMP'], 'spec-body.md').read_text() + '\n' + '\n'.join(
-              c.get('body') or '' for c in spec_comments
-          )
-          assert 'wayfinder-source' not in provenance_text
-          assert 'wayfinder-remediation' not in provenance_text
-          PY
-        env:
-          SPEC_COMMENTS: ${{ runner.temp }}/spec-comments.json
-          REVIEW_COMMENTS: ${{ runner.temp }}/review-comments.json
-
-      - name: Revalidate independent governance and exact PR
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: sponge-b0b/Polaris
-          EXPECTED_HEAD: e2d59797ebcaf4b87b3c2c941fb08bffc2213dd7
-          PR: '320'
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Recreate paginated comment files used by this step without relying on shell state.
-          gh api --paginate --slurp "repos/$REPO/issues/279/comments?per_page=100" > "$RUNNER_TEMP/spec279-comments.json"
-          gh api --paginate --slurp "repos/$REPO/issues/280/comments?per_page=100" > "$RUNNER_TEMP/spec280-comments.json"
-          gh api "repos/$REPO/issues/279" > "$RUNNER_TEMP/spec279.json"
-          gh api "repos/$REPO/issues/280" > "$RUNNER_TEMP/spec280.json"
-          gh api --paginate --slurp "repos/$REPO/issues?state=all&labels=wayfinder%3Amap&per_page=100" > "$RUNNER_TEMP/wayfinders.json"
-
-          python - <<'PY'
-          import json, re, os
-          from pathlib import Path
-
-          def flatten(path):
-              pages = json.loads(Path(path).read_text())
-              return [x for p in pages for x in p]
-
-          specs = {}
-          for n in (279, 280):
-              issue = json.loads(Path(os.environ['RUNNER_TEMP'], f'spec{n}.json').read_text())
-              comments = flatten(Path(os.environ['RUNNER_TEMP'], f'spec{n}-comments.json'))
-              text = (issue.get('body') or '') + '\n' + '\n'.join(c.get('body') or '' for c in comments)
-              assert 'wayfinder-source' not in text, f'#{n} has wayfinder-source'
-              assert 'wayfinder-remediation' not in text, f'#{n} has wayfinder-remediation'
-              specs[n] = text
-
-          maps = flatten(Path(os.environ['RUNNER_TEMP'], 'wayfinders.json'))
-          for wf in maps:
-              number = wf['number']
-              body = wf.get('body') or ''
-              # Fetch comments lazily through gh in shell was intentionally avoided; canonical
-              # forward handoffs are required in map body for this bounded governance recovery.
-              for specn in (279, 280):
-                  patterns = [
-                      rf'(?im)^.*Spec Handoff.*#\s*{specn}\b',
-                      rf'(?im)^.*Derived Spec.*#\s*{specn}\b',
-                      rf'(?im)^.*Remediation Spec.*#\s*{specn}\b',
-                  ]
-                  assert not any(re.search(p, body) for p in patterns), (number, specn)
-          PY
-
-          gh api "repos/$REPO/pulls/$PR" > "$RUNNER_TEMP/pr.json"
-          test "$(jq -r .state "$RUNNER_TEMP/pr.json")" = open
-          test "$(jq -r .base.ref "$RUNNER_TEMP/pr.json")" = main
-          test "$(jq -r .head.ref "$RUNNER_TEMP/pr.json")" = spec-279
-          test "$(jq -r .head.sha "$RUNNER_TEMP/pr.json")" = "$EXPECTED_HEAD"
-          test "$(jq -r .mergeable "$RUNNER_TEMP/pr.json")" = true
-          test "$(jq -r .mergeable_state "$RUNNER_TEMP/pr.json")" = clean
-
-      - name: Merge exact reviewed head and verify Spec completion
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: sponge-b0b/Polaris
-          PR: '320'
-          EXPECTED_HEAD: e2d59797ebcaf4b87b3c2c941fb08bffc2213dd7
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh api --method PUT "repos/$REPO/pulls/$PR/merge" \
-            -f merge_method=merge \
-            -f sha="$EXPECTED_HEAD" > "$RUNNER_TEMP/merge.json"
-          test "$(jq -r .merged "$RUNNER_TEMP/merge.json")" = true
-          MERGE_SHA=$(jq -r .sha "$RUNNER_TEMP/merge.json")
-          test -n "$MERGE_SHA" && test "$MERGE_SHA" != null
-
-          gh api "repos/$REPO/pulls/$PR" > "$RUNNER_TEMP/pr-merged.json"
-          test "$(jq -r .merged "$RUNNER_TEMP/pr-merged.json")" = true
-          test "$(jq -r .head.sha "$RUNNER_TEMP/pr-merged.json")" = "$EXPECTED_HEAD"
-          test "$(jq -r .merge_commit_sha "$RUNNER_TEMP/pr-merged.json")" = "$MERGE_SHA"
-          MERGED_AT=$(jq -r .merged_at "$RUNNER_TEMP/pr-merged.json")
-          test -n "$MERGED_AT" && test "$MERGED_AT" != null
-
-          git fetch origin main spec-279
-          test "$(git rev-parse origin/main)" = "$MERGE_SHA"
-          git merge-base --is-ancestor "$EXPECTED_HEAD" origin/main
-          test "$(git rev-parse "$MERGE_SHA^1")" = "$GITHUB_SHA"
-          test "$(git rev-parse "$MERGE_SHA^2")" = "$EXPECTED_HEAD"
-
-          gh api "repos/$REPO/issues/279" > "$RUNNER_TEMP/spec-after-merge.json"
-          test "$(jq -r .state "$RUNNER_TEMP/spec-after-merge.json")" = closed
-
-          jq -n --arg merge_sha "$MERGE_SHA" --arg merged_at "$MERGED_AT" \
-            '{merge_sha:$merge_sha,merged_at:$merged_at}' > "$GITHUB_WORKSPACE/spec-279-merge.json"
-
-      - name: Safely remove reviewed Spec branch and close Spec Review
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: sponge-b0b/Polaris
-          EXPECTED_HEAD: e2d59797ebcaf4b87b3c2c941fb08bffc2213dd7
-          REVIEW: '310'
-          PR: '320'
-        shell: bash
-        run: |
-          set -euo pipefail
-          REMOTE_SPEC_HEAD=$(git ls-remote --heads origin refs/heads/spec-279 | awk '{print $1}')
-          if [ -n "$REMOTE_SPEC_HEAD" ]; then
-            test "$REMOTE_SPEC_HEAD" = "$EXPECTED_HEAD"
-            git push origin --delete spec-279
-          fi
-          test -z "$(git ls-remote --heads origin refs/heads/spec-279 | awk '{print $1}')"
-
-          COMMENT_BODY="Spec merged (PR #$PR) and branch cleaned up. Zero blocking findings on final review."
-          jq -n --arg body "$COMMENT_BODY" '{body:$body}' > "$RUNNER_TEMP/review-close-comment.json"
-          gh api --method POST "repos/$REPO/issues/$REVIEW/comments" \
-            --input "$RUNNER_TEMP/review-close-comment.json" > "$RUNNER_TEMP/review-close-comment-response.json"
-          REVIEW_COMPLETED_AT=$(jq -r .created_at "$RUNNER_TEMP/review-close-comment-response.json")
-          test -n "$REVIEW_COMPLETED_AT" && test "$REVIEW_COMPLETED_AT" != null
-          gh api --method PATCH "repos/$REPO/issues/$REVIEW" -f state=closed -f state_reason=completed > "$RUNNER_TEMP/review-closed.json"
-          test "$(jq -r .state "$RUNNER_TEMP/review-closed.json")" = closed
-          jq -n --arg completed_at "$REVIEW_COMPLETED_AT" '{completed_at:$completed_at}' > "$GITHUB_WORKSPACE/spec-review-310-close.json"
-
-      - name: Reconstruct completed Spec lineage and dependency frontier
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: sponge-b0b/Polaris
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh api --paginate --slurp "repos/$REPO/issues/279/sub_issues?per_page=100" > "$RUNNER_TEMP/spec-children.json"
-          gh api --paginate --slurp "repos/$REPO/issues/310/sub_issues?per_page=100" > "$RUNNER_TEMP/review-children.json"
-
-          python - <<'PY'
-          import json, os
-          from pathlib import Path
-          def flatten(name):
-              pages=json.loads(Path(os.environ['RUNNER_TEMP'],name).read_text())
-              return [x for p in pages for x in p]
-          spec=flatten('spec-children.json')
-          review=flatten('review-children.json')
-          assert {x['number'] for x in spec} == {301,302,303,304,305,306}, {x['number'] for x in spec}
-          assert all(x['state']=='closed' for x in spec)
-          assert {x['number'] for x in review} == {311,314,315,316,317}, {x['number'] for x in review}
-          assert all(x['state']=='closed' for x in review)
-          PY
-
-          # Read the dependent Spec's full native blocker set after #279 completion.
-          if gh api --paginate --slurp "repos/$REPO/issues/280/dependencies/blocked_by?per_page=100" > "$RUNNER_TEMP/280-blockers.json" 2>"$RUNNER_TEMP/280-blockers.err"; then
-            python - <<'PY'
-          import json, os
-          from pathlib import Path
-          pages=json.loads(Path(os.environ['RUNNER_TEMP'],'280-blockers.json').read_text())
-          blockers=[x for p in pages for x in p]
-          assert any(x['number']==279 for x in blockers), blockers
-          assert all(x['state']=='closed' for x in blockers), blockers
-          Path(os.environ['GITHUB_WORKSPACE'],'dependency-reconstruction.txt').write_text('DEPENDENCY RECONSTRUCTION: COMPLETE\nDependent Spec: #280\nOpen blockers: 0\n')
-          PY
-          else
-            printf '%s\n' 'DEPENDENCY RECONSTRUCTION: DRIFT' 'Dependent Spec: #280' 'Cause: native blocked-by set unreadable after authoritative #279 completion' > "$GITHUB_WORKSPACE/dependency-reconstruction.txt"
-          fi
-
-          cat > "$GITHUB_WORKSPACE/project-reconstruction.txt" <<'EOF'
-          Project reconstruction source: Spec #279
-          Spec: 1
-          Implementation Tickets: 6/6
-          Spec Review: 1
-          Review Remediation Tickets: 5/5
-          Governing Wayfinders: 0/0
-          Wayfinder Decisions: 0/0
-          Direct dependent Specs considered: 1
-          Other required formal artifacts: 0
-          Unresolved lifecycle projections: 0
-          PROJECT DELIVERY: OUTSIDE OWNER
-          Governance: Independent Spec lineage
-          EOF
-
-      - name: Attempt mandatory Project reconstruction sync once
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: sponge-b0b/Polaris
-          OWNER: sponge-b0b
-        shell: bash
-        run: |
-          set -euo pipefail
-          cat > "$RUNNER_TEMP/project_sync.py" <<'PY'
-          import json, os, re, subprocess, sys
-          from pathlib import Path
-
-          REPO=os.environ['REPO']; OWNER=os.environ['OWNER']; RT=Path(os.environ['RUNNER_TEMP']); WS=Path(os.environ['GITHUB_WORKSPACE'])
-          STATUS=WS/'project-tracking-status.txt'
-
-          def run(args, check=True):
-              p=subprocess.run(args, text=True, capture_output=True)
+          def cmd(args, *, check=True, input_text=None):
+              p = subprocess.run(args, text=True, input=input_text, capture_output=True)
               if check and p.returncode:
-                  raise RuntimeError((p.stderr or p.stdout).strip() or f'command failed: {args}')
+                  raise RuntimeError(f"command failed ({p.returncode}): {' '.join(args)}\n{p.stderr or p.stdout}")
               return p
 
-          def drift(reason):
-              STATUS.write_text('PROJECT TRACKING: DRIFT\n'+reason.strip()+'\n')
-              print(STATUS.read_text(), end='')
-              return 0
+          def git(*args, check=True):
+              return cmd(['git', *args], check=check)
 
-          def gh_json(args):
-              p=run(['gh',*args])
-              return json.loads(p.stdout)
+          def gh(*args, check=True):
+              return cmd(['gh', *args], check=check)
 
-          # Completion dates must come from durable lifecycle comments, not closed_at.
-          def issue_comments(n):
-              data=gh_json(['api','--paginate','--slurp',f'repos/{REPO}/issues/{n}/comments?per_page=100'])
-              return [x for page in data for x in page]
+          def gh_json(*args):
+              return json.loads(gh(*args).stdout)
+
+          def paged(endpoint):
+              pages = gh_json('api', '--paginate', '--slurp', endpoint)
+              return [item for page in pages for item in page]
+
+          def require(cond, message):
+              if not cond:
+                  raise RuntimeError(message)
+
+          def issue(n):
+              return gh_json('api', f'repos/{REPO}/issues/{n}')
+
+          def comments(n):
+              return paged(f'repos/{REPO}/issues/{n}/comments?per_page=100')
+
+          def field(body, label):
+              m = re.search(rf'^\*\*{re.escape(label)}:\*\* (.+)$', body, re.M)
+              require(m is not None, f'missing field {label}')
+              return m.group(1).strip()
+
+          # ----- exact pre-completion authority -----
+          require(git('rev-parse', 'HEAD').stdout.strip() == CREATE_SHA, 'checkout is not transport commit')
+          changed = [x for x in git('diff', '--name-only', PRE_MAIN, CREATE_SHA).stdout.splitlines() if x]
+          require(changed == [WORKFLOW], f'transport delta is not workflow-only: {changed}')
+          git('fetch', 'origin', 'main', 'spec-279')
+          require(git('rev-parse', 'origin/main').stdout.strip() == CREATE_SHA, 'main moved before completion')
+          require(git('rev-parse', 'origin/spec-279').stdout.strip() == HEAD, 'spec-279 moved after review')
+
+          spec = issue(279)
+          review = issue(310)
+          require(spec['state'] == 'open', '#279 is not open at pre-completion gate')
+          require(review['state'] == 'open', '#310 is not open at pre-completion gate')
+          spec_body = spec.get('body') or ''
+          require(hashlib.sha256(spec_body.encode()).hexdigest() == BODY_HASH, 'Spec body hash changed')
+
+          sc = comments(279)
+          rc = comments(310)
+          workspace = [c for c in sc if '## Workspace Metadata' in (c.get('body') or '')]
+          require(len(workspace) == 1, f'Workspace Metadata count {len(workspace)}')
+          wb = workspace[0]['body']
+          require(f'**Baseline Commit Hash:** {BASELINE}' in wb, 'Workspace baseline mismatch')
+          require('**Branch:** spec-279' in wb, 'Workspace branch mismatch')
+
+          vr = [c for c in sc if '## Spec Verification Receipt' in (c.get('body') or '')
+                and '**Status:** passed' in c['body'] and f'**Verified HEAD:** {HEAD}' in c['body']]
+          require(vr, 'matching passing Spec Verification Receipt missing')
+          vr.sort(key=lambda c: (c.get('created_at') or '', c['id']))
+          vr = vr[-1]
+          require(str(vr['id']) == os.environ['VERIFY_COMMENT'], f'latest matching verification receipt is {vr["id"]}')
+          vb = vr['body']
+          require(field(vb, 'Verified Baseline') == BASELINE, 'verification baseline mismatch')
+          require(field(vb, 'Branch') == 'spec-279', 'verification branch mismatch')
+          require(field(vb, 'Spec Body Hash') == BODY_HASH, 'verification body hash mismatch')
+          require(field(vb, 'Spec Contract Hash') == CONTRACT_HASH, 'verification contract hash mismatch')
+
+          ledgers = [c for c in rc if '<!-- review-spec-finding-ledger:v1 -->' in (c.get('body') or '')]
+          require(len(ledgers) == 1, f'finding ledger count {len(ledgers)}')
+          ledger = ledgers[0]
+          require(str(ledger['id']) == os.environ['LEDGER_COMMENT'], 'finding ledger identity mismatch')
+          lb = ledger['body']
+          live_ledger_hash = hashlib.sha256(lb.encode()).hexdigest()
+          require(live_ledger_hash == LEDGER_HASH, f'finding ledger hash mismatch {live_ledger_hash}')
+          require(field(lb, 'Reviewed HEAD') == HEAD, 'finding ledger HEAD mismatch')
+          require(field(lb, 'Spec Body Hash') == BODY_HASH, 'finding ledger body hash mismatch')
+          require(field(lb, 'Spec Contract Hash') == CONTRACT_HASH, 'finding ledger contract hash mismatch')
+
+          exits = [c for c in rc if '## Spec Review Exit Receipt' in (c.get('body') or '')]
+          require(exits, 'Spec Review Exit Receipt missing')
+          exits.sort(key=lambda c: (c.get('created_at') or '', c['id']))
+          er = exits[-1]
+          require(str(er['id']) == os.environ['EXIT_COMMENT'], f'latest Exit Receipt is {er["id"]}')
+          eb = er['body']
+          expected_exit = {
+              'Status': 'passed', 'Spec Review': '#310', 'Reviewed HEAD': HEAD,
+              'Reviewed Baseline': BASELINE, 'Branch': 'spec-279',
+              'Spec Body Hash': BODY_HASH, 'Spec Contract Hash': CONTRACT_HASH,
+              'Finding Ledger Hash': live_ledger_hash, 'Blocking findings': '0',
+              'Open blocking findings': '0', 'Unaccounted prior findings': '0',
+              'Unresolved continuity cells': '0', 'Unresolved decomposition defects': '0',
+              'Root blockers': 'satisfied/owner-overridden/scope-retired',
+              'Candidate new roots': '0', 'Review coverage': 'complete',
+              'Unchecked coverage cells': '0',
+          }
+          for k, v in expected_exit.items():
+              require(field(eb, k) == v, f'Exit Receipt mismatch {k}')
+
+          # ----- exhaustive Independent governance recovery for #279 and dependent #280 -----
+          for n in (279, 280):
+              i = issue(n)
+              text = (i.get('body') or '') + '\n' + '\n'.join(c.get('body') or '' for c in comments(n))
+              require('wayfinder-source' not in text, f'#{n} has wayfinder-source provenance')
+              require('wayfinder-remediation' not in text, f'#{n} has wayfinder-remediation provenance')
+
+          maps = paged(f'repos/{REPO}/issues?state=all&labels=wayfinder%3Amap&per_page=100')
+          for wf in maps:
+              text = (wf.get('body') or '') + '\n' + '\n'.join(c.get('body') or '' for c in comments(wf['number']))
+              for n in (279, 280):
+                  pats = (
+                      rf'(?im)^.*Spec Handoff.*#\s*{n}\b',
+                      rf'(?im)^.*Derived Spec.*#\s*{n}\b',
+                      rf'(?im)^.*Remediation Spec.*#\s*{n}\b',
+                  )
+                  require(not any(re.search(p, text) for p in pats), f'Wayfinder #{wf["number"]} governs Spec #{n}')
+
+          # ----- exact PR gate -----
+          pr = None
+          for _ in range(6):
+              pr = gh_json('api', f'repos/{REPO}/pulls/320')
+              if pr.get('mergeable') is not None:
+                  break
+              time.sleep(2)
+          require(pr['state'] == 'open', 'PR #320 is not open')
+          require(pr['base']['ref'] == 'main', 'PR #320 base mismatch')
+          require(pr['head']['ref'] == 'spec-279', 'PR #320 head branch mismatch')
+          require(pr['head']['sha'] == HEAD, 'PR #320 head SHA mismatch')
+          require(pr.get('mergeable') is True and pr.get('mergeable_state') == 'clean',
+                  f'PR #320 not cleanly mergeable: {pr.get("mergeable")}/{pr.get("mergeable_state")}')
+
+          # ----- merge exact reviewed state -----
+          merged = gh_json('api', '--method', 'PUT', f'repos/{REPO}/pulls/320/merge',
+                           '-f', 'merge_method=merge', '-f', f'sha={HEAD}')
+          require(merged.get('merged') is True, f'PR merge failed: {merged}')
+          merge_sha = merged['sha']
+          pr = gh_json('api', f'repos/{REPO}/pulls/320')
+          require(pr.get('merged') is True, 'PR #320 did not persist merged state')
+          require(pr['head']['sha'] == HEAD, 'merged PR head differs from reviewed head')
+          require(pr['merge_commit_sha'] == merge_sha, 'merge SHA mismatch')
+          merged_at = pr.get('merged_at')
+          require(bool(merged_at), 'merged_at missing')
+          git('fetch', 'origin', 'main', 'spec-279')
+          require(git('rev-parse', 'origin/main').stdout.strip() == merge_sha, 'main is not merge commit')
+          require(git('merge-base', '--is-ancestor', HEAD, 'origin/main', check=False).returncode == 0,
+                  'reviewed HEAD is not merged into main')
+          require(git('rev-parse', f'{merge_sha}^1').stdout.strip() == CREATE_SHA, 'unexpected merge first parent')
+          require(git('rev-parse', f'{merge_sha}^2').stdout.strip() == HEAD, 'unexpected merge second parent')
+          require(issue(279)['state'] == 'closed', 'Closes #279 did not close Spec')
+
+          # ----- safe branch cleanup -----
+          remote = git('ls-remote', '--heads', 'origin', 'refs/heads/spec-279').stdout.strip()
+          if remote:
+              remote_head = remote.split()[0]
+              require(remote_head == HEAD, f'spec-279 moved before deletion: {remote_head}')
+              git('push', 'origin', '--delete', 'spec-279')
+          require(not git('ls-remote', '--heads', 'origin', 'refs/heads/spec-279').stdout.strip(),
+                  'remote spec-279 still exists')
+
+          # ----- close conventional Spec Review with authoritative completion comment -----
+          close_text = 'Spec merged (PR #320) and branch cleaned up. Zero blocking findings on final review.'
+          close_comment = gh_json('api', '--method', 'POST', f'repos/{REPO}/issues/310/comments',
+                                  '--input', '-', input_text=json.dumps({'body': close_text}))
+          review_completed_at = close_comment.get('created_at')
+          require(bool(review_completed_at), 'Spec Review completion comment timestamp missing')
+          closed_review = gh_json('api', '--method', 'PATCH', f'repos/{REPO}/issues/310',
+                                  '-f', 'state=closed', '-f', 'state_reason=completed')
+          require(closed_review['state'] == 'closed', 'Spec Review #310 failed to close')
+
+          # ----- reconstruct complete completed-Spec lineage -----
+          spec_children = paged(f'repos/{REPO}/issues/279/sub_issues?per_page=100')
+          review_children = paged(f'repos/{REPO}/issues/310/sub_issues?per_page=100')
+          require({x['number'] for x in spec_children} == {301,302,303,304,305,306},
+                  f'unexpected Spec children {[x["number"] for x in spec_children]}')
+          require(all(x['state'] == 'closed' for x in spec_children), 'an implementation ticket is open')
+          require({x['number'] for x in review_children} == {311,314,315,316,317},
+                  f'unexpected review children {[x["number"] for x in review_children]}')
+          require(all(x['state'] == 'closed' for x in review_children), 'a review-remediation ticket is open')
+
+          dep = issue(280)
+          summary = dep.get('issue_dependencies_summary') or {}
+          dep_body = dep.get('body') or ''
+          require(re.search(r'(?m)^#279\b', dep_body.split('## Blocked by',1)[-1]) is not None,
+                  '#280 no longer declares #279 as its blocker')
+          dependency_complete = summary.get('total_blocked_by') == 1 and summary.get('blocked_by') == 0
+          dependency_status = ('DEPENDENCY RECONSTRUCTION: COMPLETE\nDependent Spec: #280\nOpen blockers: 0\n'
+                               if dependency_complete else
+                               f'DEPENDENCY RECONSTRUCTION: DRIFT\nDependent Spec: #280\nSummary: {json.dumps(summary, sort_keys=True)}\n')
+          (WS/'dependency-reconstruction.txt').write_text(dependency_status)
+
+          (WS/'project-reconstruction.txt').write_text(
+              'Project reconstruction source: Spec #279\n'
+              'Spec: 1\nImplementation Tickets: 6/6\nSpec Review: 1\n'
+              'Review Remediation Tickets: 5/5\nGoverning Wayfinders: 0/0\n'
+              'Wayfinder Decisions: 0/0\nDirect dependent Specs considered: 1\n'
+              'Other required formal artifacts: 0\nUnresolved lifecycle projections: 0\n'
+              'PROJECT DELIVERY: OUTSIDE OWNER\nGovernance: Independent Spec lineage\n'
+          )
+
+          # ----- mandatory Project projection attempt (failure is downstream drift) -----
+          def project_drift(reason):
+              text = 'PROJECT TRACKING: DRIFT\n' + reason.strip() + '\n'
+              (WS/'project-tracking-status.txt').write_text(text)
+              print(text, end='')
+              return text
 
           def completion_date(n):
-              comments=issue_comments(n)
-              pats=('implement-ticket-closure-checkpoint:v2','TICKET CLOSURE: PASS','Root Closure Evidence','closure evidence')
-              candidates=[c for c in comments if any(p.lower() in (c.get('body') or '').lower() for p in pats)]
-              if not candidates:
-                  raise RuntimeError(f'#{n} lacks durable ticket closure evidence')
+              cs = comments(n)
+              needles = ('implement-ticket-closure-checkpoint:v2', 'TICKET CLOSURE: PASS',
+                         'Root Closure Evidence', 'closure evidence')
+              candidates = [c for c in cs if any(x.lower() in (c.get('body') or '').lower() for x in needles)]
+              require(candidates, f'#{n} lacks durable ticket closure evidence')
               candidates.sort(key=lambda c: (c.get('updated_at') or c.get('created_at') or '', c['id']))
-              stamp=candidates[-1].get('updated_at') or candidates[-1].get('created_at')
-              if not stamp:
-                  raise RuntimeError(f'#{n} closure evidence lacks timestamp')
+              stamp = candidates[-1].get('updated_at') or candidates[-1].get('created_at')
+              require(bool(stamp), f'#{n} closure evidence lacks timestamp')
               return stamp[:10]
 
-          try:
-              merge=json.loads((WS/'spec-279-merge.json').read_text())
-              review_close=json.loads((WS/'spec-review-310-close.json').read_text())
-              projections=[]
-              projections.append(dict(number=279, artifact='Spec', workflow='Complete', next='None', work='Done', root='None', completed=merge['merged_at'][:10], delivery=None))
-              for n in range(301,307):
-                  projections.append(dict(number=n, artifact='Implementation Ticket', workflow='Complete', next='None', work='Done', root='None', completed=completion_date(n), delivery=None))
-              projections.append(dict(number=310, artifact='Spec Review', workflow='Complete', next='None', work='Done', root='None', completed=review_close['completed_at'][:10], delivery=None))
-              roots={311:'RB-1',314:'RB-2',315:'RB-3',316:'None',317:'None'}
-              for n,root in roots.items():
-                  projections.append(dict(number=n, artifact='Review Remediation Ticket', workflow='Complete', next='None', work='Done', root=root, completed=completion_date(n), delivery=None))
-              dep=(WS/'dependency-reconstruction.txt').read_text()
-              if 'COMPLETE' not in dep:
-                  return_code=drift('Artifact: #280\nCause: dependent blocker reconstruction is unresolved; authoritative #279 completion remains valid')
-                  sys.exit(return_code)
-              projections.append(dict(number=280, artifact='Spec', workflow='Ready to Ticket', next='$to-tickets', work='Ready', root='None', completed=None, delivery='independent'))
+          def attempt_project_sync():
+              if not dependency_complete:
+                  return project_drift('Artifact: #280\nCause: dependent blocker reconstruction is unresolved; authoritative #279 completion remains valid')
 
-              # Resolve the existing Project exactly once.
-              p=run(['gh','project','list','--owner',OWNER,'--format','json'],check=False)
-              if p.returncode:
-                  sys.exit(drift('Cause: prescribed `gh project list` is unavailable with lifecycle credentials: '+(p.stderr or p.stdout).strip()))
-              data=json.loads(p.stdout)
-              projects=data.get('projects', data if isinstance(data,list) else [])
-              matches=[x for x in projects if x.get('title')=='Polaris' and not x.get('closed',False)]
-              if len(matches)!=1:
-                  sys.exit(drift(f'Cause: expected exactly one open Polaris Project, found {len(matches)}'))
-              project=matches[0]; pnum=str(project['number']); pid=project['id']
+              projections = [
+                  dict(number=279, artifact='Spec', workflow='Complete', next='None', work='Done', root='None', completed=merged_at[:10]),
+                  *[dict(number=n, artifact='Implementation Ticket', workflow='Complete', next='None', work='Done', root='None', completed=completion_date(n)) for n in range(301,307)],
+                  dict(number=310, artifact='Spec Review', workflow='Complete', next='None', work='Done', root='None', completed=review_completed_at[:10]),
+              ]
+              roots = {311:'RB-1',314:'RB-2',315:'RB-3',316:'None',317:'None'}
+              projections += [dict(number=n, artifact='Review Remediation Ticket', workflow='Complete', next='None', work='Done', root=root, completed=completion_date(n)) for n, root in roots.items()]
+              projections.append(dict(number=280, artifact='Spec', workflow='Ready to Ticket', next='$to-tickets', work='Ready', root='None', completed=None))
 
-              # Read schema once.
-              p=run(['gh','project','field-list',pnum,'--owner',OWNER,'--limit','100','--format','json'],check=False)
+              p = gh('project', 'list', '--owner', OWNER, '--format', 'json', check=False)
               if p.returncode:
-                  sys.exit(drift('Cause: Project field schema unreadable: '+(p.stderr or p.stdout).strip()))
-              fdata=json.loads(p.stdout); fields=fdata.get('fields', fdata if isinstance(fdata,list) else [])
-              byname={f['name']:f for f in fields}
-              required=['Artifact Type','Workflow State','Next Skill','Work Status','Intake State','Priority','Area','Root Blocker','Completed On','Delivery State']
-              missing=[x for x in required if x not in byname]
+                  return project_drift('Cause: prescribed `gh project list` is unavailable with lifecycle credentials: ' + (p.stderr or p.stdout).strip())
+              data = json.loads(p.stdout)
+              projects = data.get('projects', data if isinstance(data, list) else [])
+              matches = [x for x in projects if x.get('title') == 'Polaris' and not x.get('closed', False)]
+              if len(matches) != 1:
+                  return project_drift(f'Cause: expected exactly one open Polaris Project, found {len(matches)}')
+              project = matches[0]
+              pnum, pid = str(project['number']), project['id']
+
+              p = gh('project', 'field-list', pnum, '--owner', OWNER, '--limit', '100', '--format', 'json', check=False)
+              if p.returncode:
+                  return project_drift('Cause: Project field schema unreadable: ' + (p.stderr or p.stdout).strip())
+              fdata = json.loads(p.stdout)
+              fields = fdata.get('fields', fdata if isinstance(fdata, list) else [])
+              byname = {f['name']: f for f in fields}
+              required = ['Artifact Type','Workflow State','Next Skill','Work Status','Intake State','Priority','Area','Root Blocker','Completed On','Delivery State']
+              missing = [x for x in required if x not in byname]
               if missing:
-                  sys.exit(drift('Cause: missing Project schema fields: '+', '.join(missing)))
-              options={name:{o['name']:o['id'] for o in byname[name].get('options',[])} for name in ('Artifact Type','Workflow State','Next Skill','Work Status','Intake State','Priority','Area','Delivery State')}
+                  return project_drift('Cause: missing Project schema fields: ' + ', '.join(missing))
+              select_fields = ('Artifact Type','Workflow State','Next Skill','Work Status','Intake State','Priority','Area','Delivery State')
+              options = {n:{o['name']:o['id'] for o in byname[n].get('options', [])} for n in select_fields}
+              requested = ['Artifact Type','Workflow State','Delivery State','Next Skill','Work Status','Intake State','Priority','Area','Root Blocker','Completed On']
 
-              requested_fields=['Artifact Type','Workflow State','Delivery State','Next Skill','Work Status','Intake State','Priority','Area','Root Blocker','Completed On']
               def read_rows():
-                  cmd=['gh','project','item-list',pnum,'--owner',OWNER,'--limit','1000']
-                  for f in requested_fields: cmd += ['--field',f]
-                  q=run(cmd,check=False)
-                  if q.returncode: raise RuntimeError('Project affected-row read failed: '+(q.stderr or q.stdout).strip())
-                  rows={}
+                  args = ['project','item-list',pnum,'--owner',OWNER,'--limit','1000']
+                  for f in requested:
+                      args += ['--field', f]
+                  q = gh(*args, check=False)
+                  if q.returncode:
+                      raise RuntimeError('Project affected-row read failed: ' + (q.stderr or q.stdout).strip())
+                  rows = {}
                   for line in q.stdout.splitlines():
-                      parts=line.split('\t')
-                      idx=next((i for i,v in enumerate(parts) if v.startswith('PVTI_')),None)
-                      if idx is None: continue
-                      repo_idx=next((i for i,v in enumerate(parts) if v==REPO),None)
-                      num_idx=next((i for i,v in enumerate(parts) if re.fullmatch(r'#?\d+',v or '')),None)
-                      if repo_idx is None or num_idx is None: continue
-                      n=int(parts[num_idx].lstrip('#'))
-                      tail=parts[idx+1:]
-                      if len(tail)!=len(requested_fields):
-                          raise RuntimeError(f'unreadable Project row shape for #{n}: expected {len(requested_fields)} custom fields after item id, got {len(tail)}')
-                      rows[n]={'id':parts[idx],'values':dict(zip(requested_fields,tail))}
+                      parts = line.split('\t')
+                      idx = next((i for i,v in enumerate(parts) if v.startswith('PVTI_')), None)
+                      repo_idx = next((i for i,v in enumerate(parts) if v == REPO), None)
+                      num_idx = next((i for i,v in enumerate(parts) if re.fullmatch(r'#?\d+', v or '')), None)
+                      if idx is None or repo_idx is None or num_idx is None:
+                          continue
+                      n = int(parts[num_idx].lstrip('#'))
+                      tail = parts[idx+1:]
+                      if len(tail) != len(requested):
+                          raise RuntimeError(f'unreadable Project row shape for #{n}: expected {len(requested)} custom fields after item id, got {len(tail)}')
+                      rows[n] = {'id':parts[idx], 'values':dict(zip(requested, tail))}
                   return rows
 
               try:
-                  rows=read_rows()
-              except RuntimeError as e:
-                  sys.exit(drift('Cause: '+str(e)))
+                  rows = read_rows()
+              except Exception as exc:
+                  return project_drift('Cause: ' + str(exc))
 
-              targets={p['number'] for p in projections}
-              missing_members=[p for p in projections if p['number'] not in rows]
+              missing_members = [x for x in projections if x['number'] not in rows]
               for proj in missing_members:
-                  url=f'https://github.com/{REPO}/issues/{proj["number"]}'
-                  a=run(['gh','project','item-add',pnum,'--owner',OWNER,'--url',url,'--format','json'],check=False)
+                  url = f'https://github.com/{REPO}/issues/{proj["number"]}'
+                  a = gh('project','item-add',pnum,'--owner',OWNER,'--url',url,'--format','json', check=False)
                   if a.returncode:
-                      sys.exit(drift(f'Artifact: #{proj["number"]}\nCause: Project membership add failed: '+(a.stderr or a.stdout).strip()))
+                      return project_drift(f'Artifact: #{proj["number"]}\nCause: Project membership add failed: ' + (a.stderr or a.stdout).strip())
               if missing_members:
-                  try: rows=read_rows()
-                  except RuntimeError as e: sys.exit(drift('Cause: '+str(e)))
-              if any(n not in rows for n in targets):
-                  sys.exit(drift('Cause: one or more reconstructed artifacts remain absent from Project after membership reconciliation'))
+                  try:
+                      rows = read_rows()
+                  except Exception as exc:
+                      return project_drift('Cause: ' + str(exc))
+              if any(x['number'] not in rows for x in projections):
+                  return project_drift('Cause: reconstructed artifacts remain absent after membership reconciliation')
 
-              # Validate requested single-select options before mutation.
               for proj in projections:
-                  needed={'Artifact Type':proj['artifact'],'Workflow State':proj['workflow'],'Next Skill':proj['next'],'Work Status':proj['work']}
-                  if proj['workflow']=='Complete': needed['Delivery State']='Released'
-                  else: needed['Delivery State']='Independent'
-                  for field,val in needed.items():
-                      if val not in options[field]:
-                          sys.exit(drift(f'Artifact: #{proj["number"]}\nCause: missing option {field}={val}'))
+                  wanted = {'Artifact Type':proj['artifact'], 'Workflow State':proj['workflow'],
+                            'Next Skill':proj['next'], 'Work Status':proj['work'],
+                            'Delivery State':'Released' if proj['workflow']=='Complete' else 'Independent'}
+                  for f, val in wanted.items():
+                      if val not in options[f]:
+                          return project_drift(f'Artifact: #{proj["number"]}\nCause: missing option {f}={val}')
 
-              deltas=[]
-              def set_select(proj, field, value):
-                  if rows[proj['number']]['values'].get(field,'') != value:
-                      deltas.append(('select',proj['number'],field,options[field][value]))
-              def set_text(proj, field, value):
-                  cur=rows[proj['number']]['values'].get(field,'')
-                  if value=='None':
-                      if cur: deltas.append(('clear',proj['number'],field,None))
-                  elif cur!=value: deltas.append(('text',proj['number'],field,value))
-              def set_date(proj, field, value):
-                  cur=rows[proj['number']]['values'].get(field,'')
+              deltas = []
+              def sel(proj, f, value):
+                  if rows[proj['number']]['values'].get(f,'') != value:
+                      deltas.append(('select', proj['number'], f, options[f][value]))
+              def txt(proj, f, value):
+                  cur = rows[proj['number']]['values'].get(f,'')
+                  if value == 'None':
+                      if cur: deltas.append(('clear', proj['number'], f, None))
+                  elif cur != value:
+                      deltas.append(('text', proj['number'], f, value))
+              def date(proj, f, value):
+                  cur = rows[proj['number']]['values'].get(f,'')
                   if value is None:
-                      if cur: deltas.append(('clear',proj['number'],field,None))
-                  elif cur!=value: deltas.append(('date',proj['number'],field,value))
+                      if cur: deltas.append(('clear', proj['number'], f, None))
+                  elif cur != value:
+                      deltas.append(('date', proj['number'], f, value))
 
               for proj in projections:
-                  set_select(proj,'Artifact Type',proj['artifact'])
-                  set_select(proj,'Workflow State',proj['workflow'])
-                  set_select(proj,'Next Skill',proj['next'])
-                  set_select(proj,'Work Status',proj['work'])
-                  set_select(proj,'Delivery State','Released' if proj['workflow']=='Complete' else 'Independent')
-                  set_text(proj,'Root Blocker',proj['root'])
-                  set_date(proj,'Completed On',proj['completed'])
+                  sel(proj,'Artifact Type',proj['artifact'])
+                  sel(proj,'Workflow State',proj['workflow'])
+                  sel(proj,'Next Skill',proj['next'])
+                  sel(proj,'Work Status',proj['work'])
+                  sel(proj,'Delivery State','Released' if proj['workflow']=='Complete' else 'Independent')
+                  txt(proj,'Root Blocker',proj['root'])
+                  date(proj,'Completed On',proj['completed'])
                   if rows[proj['number']]['values'].get('Intake State',''):
                       deltas.append(('clear',proj['number'],'Intake State',None))
 
               if deltas:
-                  fields_by_name={n:byname[n]['id'] for n in required}
-                  aliases=[]
-                  for i,(kind,n,field,val) in enumerate(deltas,1):
-                      item=rows[n]['id']; fid=fields_by_name[field]; alias=f'u{i}'
-                      if kind=='clear':
+                  ids = {n:byname[n]['id'] for n in required}
+                  aliases = []
+                  for i,(kind,n,f,val) in enumerate(deltas,1):
+                      alias=f'u{i}'; item=rows[n]['id']; fid=ids[f]
+                      if kind == 'clear':
                           aliases.append(f'{alias}: clearProjectV2ItemFieldValue(input:{{projectId:{json.dumps(pid)},itemId:{json.dumps(item)},fieldId:{json.dumps(fid)}}}){{projectV2Item{{id}}}}')
                       else:
                           key={'select':'singleSelectOptionId','text':'text','date':'date'}[kind]
                           aliases.append(f'{alias}: updateProjectV2ItemFieldValue(input:{{projectId:{json.dumps(pid)},itemId:{json.dumps(item)},fieldId:{json.dumps(fid)},value:{{{key}:{json.dumps(val)}}}}}){{projectV2Item{{id}}}}')
                   mutation='mutation {\n'+'\n'.join(aliases)+'\n}'
-                  m=run(['gh','api','graphql','-f','query='+mutation],check=False)
+                  m=gh('api','graphql','-f','query='+mutation, check=False)
                   if m.returncode:
-                      sys.exit(drift('Cause: batched Project field mutation failed: '+(m.stderr or m.stdout).strip()))
+                      return project_drift('Cause: batched Project mutation failed: ' + (m.stderr or m.stdout).strip())
                   response=json.loads(m.stdout)
                   if response.get('errors'):
-                      sys.exit(drift('Cause: GraphQL errors: '+json.dumps(response['errors'])))
+                      return project_drift('Cause: GraphQL errors: ' + json.dumps(response['errors']))
                   for i in range(1,len(deltas)+1):
-                      if not (((response.get('data') or {}).get(f'u{i}') or {}).get('projectV2Item') or {}).get('id'):
-                          sys.exit(drift(f'Cause: Project mutation alias u{i} returned no item id'))
+                      rid=((((response.get('data') or {}).get(f'u{i}') or {}).get('projectV2Item') or {}).get('id'))
+                      if not rid:
+                          return project_drift(f'Cause: mutation alias u{i} returned no item id')
 
-              try: final=read_rows()
-              except RuntimeError as e: sys.exit(drift('Cause: final Project verification read failed: '+str(e)))
+              try:
+                  final = read_rows()
+              except Exception as exc:
+                  return project_drift('Cause: final Project verification read failed: ' + str(exc))
               problems=[]
               for proj in projections:
                   v=final.get(proj['number'],{}).get('values',{})
-                  expected={'Artifact Type':proj['artifact'],'Workflow State':proj['workflow'],'Next Skill':proj['next'],'Work Status':proj['work'],'Delivery State':'Released' if proj['workflow']=='Complete' else 'Independent','Root Blocker':'' if proj['root']=='None' else proj['root'],'Completed On':proj['completed'] or '','Intake State':''}
+                  expected={'Artifact Type':proj['artifact'],'Workflow State':proj['workflow'],
+                            'Next Skill':proj['next'],'Work Status':proj['work'],
+                            'Delivery State':'Released' if proj['workflow']=='Complete' else 'Independent',
+                            'Root Blocker':'' if proj['root']=='None' else proj['root'],
+                            'Completed On':proj['completed'] or '', 'Intake State':''}
                   for f,e in expected.items():
-                      if v.get(f,'')!=e: problems.append(f'#{proj["number"]} {f}: {v.get(f,"")!r} != {e!r}')
+                      if v.get(f,'') != e:
+                          problems.append(f'#{proj["number"]} {f}: {v.get(f,"")!r} != {e!r}')
               if problems:
-                  sys.exit(drift('Unreconciled:\n'+'\n'.join(problems)))
-              STATUS.write_text('PROJECT TRACKING: SYNCED\nArtifacts: #279, #301-#306, #310, #311, #314-#317, #280\n')
-              print(STATUS.read_text(),end='')
-          except Exception as exc:
-              sys.exit(drift('Cause: '+str(exc)))
+                  return project_drift('Unreconciled:\n'+'\n'.join(problems))
+              text='PROJECT TRACKING: SYNCED\nArtifacts: #279, #301-#306, #310, #311, #314-#317, #280\n'
+              (WS/'project-tracking-status.txt').write_text(text)
+              print(text,end='')
+              return text
+
+          project_status = attempt_project_sync()
+
+          # ----- remove transport and prove final product tree equals clean merge -----
+          git('fetch', 'origin', 'main')
+          require(git('rev-parse', 'origin/main').stdout.strip() == merge_sha, 'main moved before transport cleanup')
+          git('checkout', '-B', 'main', 'origin/main')
+          git('config', 'user.name', 'github-actions[bot]')
+          git('config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com')
+          git('rm', WORKFLOW)
+          git('commit', '-m', 'chore(workflow): clean Spec 279 merge transport')
+          mt = git('merge-tree', '--write-tree', PRE_MAIN, HEAD).stdout.splitlines()
+          require(mt, 'synthetic clean merge produced no tree')
+          synth_tree = mt[0].strip()
+          final_tree = git('rev-parse', 'HEAD^{tree}').stdout.strip()
+          require(final_tree == synth_tree, f'transport cleanup tree mismatch {final_tree} != {synth_tree}')
+          git('push', 'origin', 'main')
+          final_main = git('rev-parse', 'HEAD').stdout.strip()
+
+          metadata = {
+              'spec': 279, 'review': 310, 'pr': 320,
+              'reviewed_head': HEAD, 'baseline': BASELINE,
+              'merge_sha': merge_sha, 'merged_at': merged_at,
+              'review_close_comment_id': close_comment['id'],
+              'review_completed_at': review_completed_at,
+              'final_main': final_main,
+              'spec_branch_deleted': True,
+              'governance': 'Independent',
+              'project_delivery': 'OUTSIDE OWNER',
+              'dependency_reconstruction': dependency_status.strip(),
+              'project_tracking': project_status.strip(),
+          }
+          (WS/'completion-metadata.json').write_text(json.dumps(metadata, indent=2, sort_keys=True)+'\n')
+          print(json.dumps(metadata, indent=2, sort_keys=True))
           PY
-          python "$RUNNER_TEMP/project_sync.py"
-
-      - name: Remove transport and prove clean product merge tree
-        env:
-          GH_TOKEN: ${{ github.token }}
-          EXPECTED_PRE_MAIN: ae5f3a2d7f5c2f2cdeb6c8df0d6299d92dbf72eb
-          EXPECTED_HEAD: e2d59797ebcaf4b87b3c2c941fb08bffc2213dd7
-        shell: bash
-        run: |
-          set -euo pipefail
-          MERGE_SHA=$(jq -r .merge_sha "$GITHUB_WORKSPACE/spec-279-merge.json")
-          git fetch origin main
-          test "$(git rev-parse origin/main)" = "$MERGE_SHA"
-          git checkout -B main origin/main
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm .github/workflows/tmp-chatgpt-spec-merge-279.yml
-          git commit -m "chore(workflow): clean Spec 279 merge transport"
-
-          SYNTH_TREE=$(git merge-tree --write-tree "$EXPECTED_PRE_MAIN" "$EXPECTED_HEAD" | head -n1)
-          FINAL_TREE=$(git rev-parse HEAD^{tree})
-          test "$FINAL_TREE" = "$SYNTH_TREE"
-          git push origin main
-          printf '%s\n' "$(git rev-parse HEAD)" > "$GITHUB_WORKSPACE/final-main-head.txt"
 
       - uses: actions/upload-artifact@v4
         with:
           name: spec-279-merge-cleanup
           path: |
-            spec-279-merge.json
-            spec-review-310-close.json
+            completion-metadata.json
             project-reconstruction.txt
             dependency-reconstruction.txt
             project-tracking-status.txt
-            final-main-head.txt

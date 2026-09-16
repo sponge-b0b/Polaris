@@ -32,7 +32,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python .github/tmp-chatgpt-spec-merge-279.py
+          cp .github/tmp-chatgpt-spec-merge-279.py "$RUNNER_TEMP/spec-merge-279.py"
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          path = Path(os.environ['RUNNER_TEMP']) / 'spec-merge-279.py'
+          text = path.read_text()
+          old = 'hashlib.sha256(spec_body.encode()).hexdigest()'
+          new = "hashlib.sha256((spec_body + '\\n').encode()).hexdigest()"
+          assert old in text
+          path.write_text(text.replace(old, new, 1))
+          PY
+          python "$RUNNER_TEMP/spec-merge-279.py"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

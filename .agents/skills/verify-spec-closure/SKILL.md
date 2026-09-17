@@ -72,6 +72,78 @@ Candidate mutation or verifier mutation invalidates the run. Do not emit PASS/FA
 
 `CONTRACT_HANDOFF_DIGEST` is SHA-256 of the exact ephemeral handoff bytes supplied by `$verify-spec` for this certification transaction. It is transport binding only: it is not semantic identity, is not persisted as contract authority, and must never be compared across independent `$spec-contract` builds.
 
+## Cumulative Retry Semantics
+
+This section is authoritative for Attempt 2 or later after a valid saturated `SPEC CLOSURE: FAIL`. It supersedes later wording that can be read as requiring a fresh verifier to rebuild an unchanged semantic universe, or as permitting reuse of an old verdict instead of obtaining a fresh one.
+
+A genuinely fresh verifier is independent from candidate authorship, parent repair, and prior verifier execution; it is **not** a blank-slate verifier.
+
+Every retry still requires a fresh isolated `$spec-contract` build for the exact current stable HEAD before this verifier is dispatched. Never reuse a prior `CONTRACT_HANDOFF`, `CONTRACT_HANDOFF_DIGEST`, or prior verdict across a candidate mutation. The parent may supply prior retry state only **after** the fresh current contract build has returned validly; prior retry state must never be exposed to or used by the fresh contract builder.
+
+For Attempt 2 or later, recover the exact prior saturated verifier result and its `Cumulative Spec Retry State` before reconstructing semantic state. Compare the current fresh structural contract identity and current mutable authority with the prior retry bindings. When the governing Spec body/structural contract and relevant authority remain unchanged, reuse rather than rediscover:
+
+* stable manifest-cell identities and authoritative obligation mappings;
+* architecture/design decomposition construction already saturated by an independent prior verifier;
+* domain-construction manifests, membership predicates, authoritative source sets, member inventories, and independently recoverable closure criteria;
+* prior out-of-domain boundary observations;
+* every prior finding and exact falsifier;
+* explicit proof-dependency mappings sufficient to determine which prior dispositions a repair invalidated.
+
+Freshness does not invalidate those authority-derived artifacts merely because a different verifier actor is running.
+
+A prior cell, nested-member, decomposition, or domain-membership **disposition** is reusable only when all material inputs to that proof remain unchanged, including:
+
+* governing authority and current structural contract identity;
+* candidate-dependent evidence inputs;
+* implementation/composition surface on which the proof depends;
+* relevant runtime, tracker, configuration, dependency, and conditional-trigger state.
+
+Determine invalidation from the actual candidate delta plus the proof dependencies preserved in the prior retry state. Re-prove every cell/domain/member whose predicate could materially be affected by the repair or its blast radius. When uncertainty remains, invalidate and re-prove the smallest semantic surface that resolves the uncertainty.
+
+Every prior finding is a mandatory regression target. Attempt N+1 must explicitly classify each earlier unresolved finding as:
+
+```text
+closed | still-open | superseded-by-explicit-authority-change
+```
+
+Candidate mutation alone can never make a prior finding disappear. `closed` requires direct current evidence against the exact prior falsifier plus any materially adjacent state exposed by the repair. `superseded-by-explicit-authority-change` requires exact durable authority identifying the change; a different implementation or verifier opinion is not supersession.
+
+After reconciling prior findings, independently sweep the repair blast radius and every acceptance/decomposition obligation whose proof was invalidated. The final verdict remains a verdict over the **whole current Spec candidate**. Reusing unchanged semantic construction is evidence economy, not partial certification.
+
+If prior durable retry state lacks enough authority, construction, inventory, or proof-dependency detail for safe reuse, reconstruct only the missing or ambiguous state. Do not rebuild an unchanged universe merely because the verifier actor is fresh, and do not pretend reuse is valid when the durable state is insufficient.
+
+On Attempt 2 or later, the Section 4 saturation witness additionally requires:
+
+```text
+Prior-attempt findings: <n>
+closed: <n>
+still-open: <n>
+superseded-by-explicit-authority-change: <n>
+Reused prior dispositions with unresolved invalidation: 0
+```
+
+A PASS requires `still-open: 0`. A FAIL may retain prior findings as `still-open`, but must carry them forward together with every new independently actionable finding.
+
+Every valid saturated FAIL that can lead to another attempt must also return this compact durable state:
+
+```text
+Cumulative Spec Retry State:
+Prior candidate HEAD: <sha>
+Prior Spec body hash: <hash>
+Prior Spec contract hash: <hash>
+Authority identity: <durable authority/source identities proving the acceptance/decomposition boundary>
+Manifest identity: <stable cell/source-unit identities sufficient to reconcile a fresh current contract>
+Architecture/decomposition state: <stable obligation/manifest identities and closure state sufficient for reuse>
+Domain construction state: <stable ND identities plus authority, membership predicate, generation/closure mechanism, and recoverable member inventory/criterion>
+Candidate-dependent proof dependencies: <cell/ND/member groups -> implementation/evidence/runtime/tracker/configuration dependencies>
+Reusable prior dispositions: <cell/ND/member groups whose dependencies were unchanged at the end of this attempt>
+Mandatory falsifiers for next attempt: <finding IDs / exact falsifiers>
+```
+
+Counts alone are insufficient. When reuse depends on a finite member inventory, preserve that inventory itself or an independently recoverable deterministic identity/manifest for it.
+
+> **Spec verifier attempts are cumulative in integrated evidence and adversarial knowledge, but independent in verdict. Rebuild the current contract binding; do not rediscover an unchanged semantic universe. Re-certify the candidate.**
+
 ## 1. Recover and Bind the Spec Contract
 
 Require exact:

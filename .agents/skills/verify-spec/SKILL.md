@@ -80,6 +80,57 @@ Historical hash comparison performed before builder terminal result: no
 Parent-side substitute contract construction: 0
 ```
 
+## Cumulative Spec Certification Retry State
+
+This section is authoritative for semantic retries after a valid saturated `SPEC CLOSURE: FAIL`. It supersedes later wording that can be read as wiping all reusable semantic construction when a repair changes `HEAD`, or as allowing proof reuse to skip the mandatory fresh semantic certifier.
+
+A changed candidate always requires:
+
+1. a fresh isolated `$spec-contract` build for the exact new stable `HEAD` under **Fresh Contract Builder Isolation**;
+2. a genuinely fresh non-mutating `$verify-spec-closure` certifier for the current candidate;
+3. a fresh whole-candidate verdict.
+
+The prior verdict and prior `CONTRACT_HANDOFF` / `CONTRACT_HANDOFF_DIGEST` are stale after candidate mutation and are never reused as current certification. That does **not** imply that independently saturated semantic construction, evidence, domain inventories, or adversarial knowledge must be discarded.
+
+After every valid saturated FAIL that may lead to another attempt, preserve the exact FAIL result, including its `Cumulative Spec Retry State`, in the workflow's compact verification checkpoint **before** repository/tracker mutation. Bind that state to the prior exact baseline, branch, candidate `HEAD`, Spec body hash, Spec contract hash, and attempt number. Preserve every returned finding/falsifier.
+
+On the next attempt:
+
+1. complete parent-owned repairs and rerun only invalidated deterministic/delegated gates, tests, preflight, and failure dispositions;
+2. stabilize one clean exact `HEAD`;
+3. dispatch the fresh `$spec-contract` builder without exposing any prior retry state, prior contract representation, or proof-reuse material to it;
+4. only after `SPEC CONTRACT: VALID` returns, mechanically compare the new `SPEC_BODY_HASH`, `SPEC_CONTRACT_HASH`, deterministic structural identity rows, and relevant mutable authority identities with the prior retry bindings;
+5. dispatch one fresh `$verify-spec-closure` certifier and, for Attempt 2+, additionally supply the prior saturated FAIL/retry state, exact prior→current candidate delta or equivalent repair/change summary, and the current fresh contract handoff/digest;
+6. let the fresh certifier own semantic invalidation, reuse, re-proof, prior-finding reconciliation, and the new whole-candidate verdict.
+
+The parent may decide only mechanical eligibility facts such as identity equality, changed surfaces, and whether durable retry state exists. It must not decide that a prior semantic disposition remains valid, reinterpret a prior FAIL, or mark a finding closed. Those judgments belong to the fresh certifier.
+
+If the structural Spec contract changed, still pass the prior findings/retry state as historical adversarial knowledge, but mark the structural mismatch explicitly. The fresh certifier must reconstruct changed or ambiguous construction and may reuse only substate whose governing authority and proof dependencies remain independently valid.
+
+Every prior finding remains mandatory until the fresh certifier classifies it:
+
+```text
+closed | still-open | superseded-by-explicit-authority-change
+```
+
+Candidate mutation alone never clears a prior finding.
+
+For Attempt 2 or later, require the certifier's saturation witness to include:
+
+```text
+Prior-attempt findings: <n>
+closed: <n>
+still-open: <n>
+superseded-by-explicit-authority-change: <n>
+Reused prior dispositions with unresolved invalidation: 0
+```
+
+A PASS requires `still-open: 0`. A FAIL must carry forward all `still-open` prior findings plus every newly discovered independently actionable finding.
+
+The compact verification checkpoint for a saturated FAIL must preserve enough of the returned `Cumulative Spec Retry State` to recover unchanged semantic construction after total session/context loss. Counts alone are insufficient when safe reuse depends on stable manifest/domain/member identities or proof dependencies.
+
+> **Fresh builder, fresh certifier, fresh verdict; cumulative integrated evidence and adversarial knowledge.**
+
 ## Bounded Execution, Mutation, and Durable Evidence Reuse
 
 This section is authoritative for execution order, repository mutation, and evidence recovery. It supersedes later wording that can be read as authorizing broad repository rediscovery before the candidate is stable.

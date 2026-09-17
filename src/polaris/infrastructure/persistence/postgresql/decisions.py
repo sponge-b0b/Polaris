@@ -49,6 +49,7 @@ from polaris.domain.decisions import (
     InvestmentDecisionId,
     NotYetEffectiveDecisionLifecycleInterpretation,
     OperationId,
+    derive_relationship_applicability,
     reconstruct_decision,
 )
 from polaris.domain.decisions.facts import DecisionLifecycleFact
@@ -377,19 +378,29 @@ class PostgresDecisionStore:
                 )
                 async with connection.begin():
                     projection = (
-                        await connection.execute(
-                            select(investment_decisions.c.decision_version).where(
-                                investment_decisions.c.decision_id == decision_id.value
+                        (
+                            await connection.execute(
+                                select(investment_decisions).where(
+                                    investment_decisions.c.decision_id
+                                    == decision_id.value
+                                )
                             )
                         )
-                    ).one_or_none()
+                        .mappings()
+                        .one_or_none()
+                    )
                     if projection is None:
                         return None
                     history = await _load_decision_history(connection, decision_id)
                     relationships = await _load_empty_relationship_history(connection)
+                    _validate_lifecycle_projection(
+                        projection,
+                        history,
+                        relationships,
+                    )
                     return DecisionMemoryCurrentState(
                         lifecycle_facts=history,
-                        version=_decision_version(projection.decision_version),
+                        version=_decision_version(projection["decision_version"]),
                         relationship_history=relationships,
                     )
         except (SQLAlchemyError, ValueError, TypeError) as error:
@@ -802,6 +813,71 @@ async def _load_empty_relationship_history(
             "relationship reconstruction belongs to the relationship persistence stage"
         )
     return ()
+
+
+def _validate_lifecycle_projection(
+    projection: RowMapping,
+    history: tuple[DecisionLifecycleFact, ...],
+    relationships: tuple[DecisionRelationshipHistoryFact, ...],
+) -> None:
+    if not history:
+        raise ValueError("Decision projection requires lifecycle history")
+    authoritative_version = history[-1].metadata.decision_version
+    decision_id = InvestmentDecisionId(_domain_uuid(projection["decision_id"]))
+    observation_boundary = projection["lifecycle_known_at"]
+    applicability = derive_relationship_applicability(
+        decision_id,
+        relationships,
+        effective_at=observation_boundary,
+        known_at=observation_boundary,
+    )
+    rebuilt = reconstruct_decision(
+        history,
+        observed_at=observation_boundary,
+        applicability=applicability,
+        decision_version=authoritative_version,
+    )
+    expected = _projection_values(rebuilt)
+    expected["applicability"] = applicability.value
+    scalar_fields = (
+        "lifecycle_interpretation_kind",
+        "lifecycle_disposition",
+        "lifecycle_effective_at",
+        "lifecycle_known_at",
+        "work_posture",
+        "applicability",
+        "decision_version",
+        "created_at",
+        "rebuild_required",
+    )
+    scalar_drift = any(projection[field] != expected[field] for field in scalar_fields)
+    identity_drift = (
+        _domain_uuid(projection["decision_id"]) != rebuilt.decision_id.value
+        or _domain_uuid(projection["need_id"]) != rebuilt.need_id.value
+    )
+    state_drift = (
+        observation_boundary != history[-1].metadata.recorded_at
+        or projection["subject_statement"] != rebuilt.subject.statement
+        or projection["scope_completeness"] != rebuilt.scope.completeness.value
+        or _uuid_values(projection["scope_portfolio_ids"])
+        != frozenset(identity.value for identity in rebuilt.scope.portfolio_ids)
+        or _uuid_values(projection["lifecycle_support_fact_ids"])
+        != frozenset(
+            identity.value
+            for identity in rebuilt.lifecycle_interpretation.support_fact_ids
+        )
+    )
+    if scalar_drift or identity_drift or state_drift:
+        raise ValueError("stored Decision projection does not match lifecycle history")
+
+
+def _uuid_values(value: object) -> frozenset[UUID]:
+    if not isinstance(value, (list, tuple)):
+        raise ValueError("database UUID collection is invalid")
+    identities = frozenset(_domain_uuid(item) for item in value)
+    if len(identities) != len(value):
+        raise ValueError("database UUID collection contains duplicates")
+    return identities
 
 
 def _decision_version(value: object) -> DecisionVersion:

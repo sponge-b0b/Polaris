@@ -25,6 +25,7 @@ from polaris.application.decisions import (
     DecisionMemoryService,
     DecisionMutationResult,
     DecisionMutationResultKind,
+    DecisionNotFound,
     DecisionOrdinaryWorkService,
     EstablishOrReviseDecisionScopeCommand,
     ExpectedDecisionVersion,
@@ -50,6 +51,7 @@ from polaris.application.decisions.lifecycle_correction import (
 )
 from polaris.domain.actors import ActorId, KnownActorAttribution
 from polaris.domain.decisions import (
+    ContestedDecisionLifecycleInterpretation,
     DecisionContinuity,
     DecisionDeferred,
     DecisionExternallyResolved,
@@ -72,12 +74,14 @@ from polaris.domain.decisions import (
     DecisionSubstantivelyResolved,
     DecisionVersion,
     DecisionWorkControlBasis,
+    DecisionWorkPosture,
     DecisionWorkResumed,
     DecisionWorkWithdrawn,
     DeterminateDecisionLifecycleInterpretation,
     ExternalResolutionBasis,
     HumanInvestmentDecisionEffect,
     InvestmentDecisionId,
+    NotYetEffectiveDecisionLifecycleInterpretation,
     OperationId,
     PortfolioId,
     TechnicalProvenance,
@@ -1426,6 +1430,456 @@ def test_unsupported_need_retraction_and_disconfirmation_round_trip(
     asyncio.run(scenario())
 
 
+def test_decision_memory_distinguishes_knowledge_and_effective_boundaries(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        store = PostgresDecisionStore(engine)
+        identities = _uuids(DECISION_ID, NEED_ID, FACT_ID)
+        future_effective_at = RECORDED_AT + timedelta(hours=2)
+        command = _command(DecisionScope.unresolved())
+        command = replace(
+            command,
+            envelope=replace(command.envelope, effective_at=future_effective_at),
+        )
+        await DecisionInitiationService(
+            reader=store,
+            store=store,
+            now=lambda: RECORDED_AT,
+            new_uuid=lambda: next(identities),
+        ).initiate(command)
+        await engine.dispose()
+
+        restarted_engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        memory = DecisionMemoryService(
+            reader=PostgresDecisionStore(restarted_engine),
+            now=lambda: future_effective_at + timedelta(hours=1),
+        )
+        decision_id = InvestmentDecisionId(DECISION_ID)
+        before_recording = RECORDED_AT - timedelta(minutes=1)
+        before_effective = RECORDED_AT + timedelta(hours=1)
+        try:
+            with pytest.raises(DecisionNotFound):
+                await memory.as_known_at(decision_id, before_recording)
+
+            not_yet_effective = await memory.as_known_at(
+                decision_id,
+                before_effective,
+            )
+            assert isinstance(
+                not_yet_effective.lifecycle_interpretation,
+                NotYetEffectiveDecisionLifecycleInterpretation,
+            )
+            assert not_yet_effective.lifecycle_interpretation.effective_at == (
+                before_effective
+            )
+            assert not_yet_effective.lifecycle_interpretation.known_at == (
+                before_effective
+            )
+            assert not_yet_effective.work_posture is None
+
+            known_future = await memory.effective_at(
+                decision_id,
+                future_effective_at,
+                known_at=before_effective,
+            )
+            assert isinstance(
+                known_future.lifecycle_interpretation,
+                DeterminateDecisionLifecycleInterpretation,
+            )
+            assert known_future.lifecycle_interpretation.disposition is (
+                DecisionLifecycleDisposition.UNRESOLVED
+            )
+            assert known_future.lifecycle_interpretation.support_fact_ids == frozenset(
+                {DecisionLifecycleFactId(FACT_ID)}
+            )
+
+            as_known = await memory.as_known_at(decision_id, future_effective_at)
+            effective = await memory.effective_at(
+                decision_id,
+                future_effective_at,
+                known_at=future_effective_at,
+            )
+            assert as_known == effective
+        finally:
+            await restarted_engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_decision_memory_reconstructs_late_sibling_corrections_after_restart(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        decision_id = InvestmentDecisionId(DECISION_ID)
+        resolution_fact_id = DecisionLifecycleFactId(MUTATION_FACT_ID)
+        await DecisionOrdinaryWorkService(
+            store=store,
+            now=lambda: MUTATION_RECORDED_AT,
+            new_uuid=lambda: MUTATION_FACT_ID,
+        ).apply_substantive_resolution(
+            ApplySubstantiveResolutionCommand(
+                DecisionCommandEnvelope(
+                    operation_id=OperationId(MUTATION_OPERATION_ID),
+                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                    trigger=TriggerProvenance(
+                        TriggerKind.HUMAN_REQUEST,
+                        "initial-resolution",
+                    ),
+                    effective_at=MUTATION_RECORDED_AT,
+                    technical_provenance=TechnicalProvenance(),
+                    expected_versions=frozenset(
+                        {ExpectedDecisionVersion(decision_id, DecisionVersion(1))}
+                    ),
+                ),
+                decision_id,
+                TrustedHumanInvestmentDecisionBasis(
+                    "initial-resolution",
+                    HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING,
+                ),
+            )
+        )
+
+        tied_recording_at = RECORDED_AT + timedelta(hours=3)
+        restoration_recorded_at = tied_recording_at + timedelta(hours=1)
+        external_operation = UUID("00000000-0000-4000-8000-00000000000c")
+        external_fact = UUID("00000000-0000-4000-8000-00000000000d")
+        equivalent_operation = UUID("00000000-0000-4000-8000-00000000000e")
+        equivalent_fact = UUID("00000000-0000-4000-8000-00000000000f")
+        restoration_operation = UUID("00000000-0000-4000-8000-000000000010")
+        restoration_fact = UUID("00000000-0000-4000-8000-000000000011")
+
+        external = await DecisionLifecycleCorrectionService(
+            store=store,
+            now=lambda: tied_recording_at,
+            new_uuid=lambda: external_fact,
+        ).record_lifecycle_correction(
+            RecordDecisionLifecycleCorrectionCommand(
+                envelope=DecisionCommandEnvelope(
+                    operation_id=OperationId(external_operation),
+                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                    trigger=TriggerProvenance(
+                        TriggerKind.HUMAN_REQUEST,
+                        "late-external-qualification",
+                    ),
+                    effective_at=RECORDED_AT + timedelta(minutes=30),
+                    technical_provenance=TechnicalProvenance(),
+                    expected_versions=frozenset(
+                        {ExpectedDecisionVersion(decision_id, DecisionVersion(2))}
+                    ),
+                ),
+                decision_id=decision_id,
+                target_fact_id=resolution_fact_id,
+                effect=DecisionLifecycleCorrectionEffect.QUALIFY,
+                correction_basis=DecisionLifecycleCorrectionBasis(
+                    "late-external-qualification"
+                ),
+                replacement_disposition=(
+                    DecisionLifecycleDisposition.EXTERNALLY_RESOLVED
+                ),
+                replacement_basis=ExternalResolutionBasis("late-external-resolution"),
+            )
+        )
+        assert external.version == DecisionVersion(3)
+
+        equivalent = await DecisionLifecycleCorrectionService(
+            store=store,
+            now=lambda: tied_recording_at,
+            new_uuid=lambda: equivalent_fact,
+        ).record_lifecycle_correction(
+            RecordDecisionLifecycleCorrectionCommand(
+                envelope=DecisionCommandEnvelope(
+                    operation_id=OperationId(equivalent_operation),
+                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                    trigger=TriggerProvenance(
+                        TriggerKind.HUMAN_REQUEST,
+                        "equivalent-substantive-qualification",
+                    ),
+                    effective_at=MUTATION_RECORDED_AT,
+                    technical_provenance=TechnicalProvenance(),
+                    expected_versions=frozenset(
+                        {ExpectedDecisionVersion(decision_id, external.version)}
+                    ),
+                ),
+                decision_id=decision_id,
+                target_fact_id=resolution_fact_id,
+                effect=DecisionLifecycleCorrectionEffect.QUALIFY,
+                correction_basis=DecisionLifecycleCorrectionBasis(
+                    "equivalent-substantive-qualification"
+                ),
+                replacement_disposition=(
+                    DecisionLifecycleDisposition.SUBSTANTIVELY_RESOLVED
+                ),
+                replacement_basis=TrustedHumanInvestmentDecisionBasis(
+                    "equivalent-substantive-resolution",
+                    HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING,
+                ),
+            )
+        )
+        assert equivalent.version == DecisionVersion(4)
+
+        restored = await DecisionLifecycleCorrectionService(
+            store=store,
+            now=lambda: restoration_recorded_at,
+            new_uuid=lambda: restoration_fact,
+        ).record_lifecycle_correction(
+            RecordDecisionLifecycleCorrectionCommand(
+                envelope=DecisionCommandEnvelope(
+                    operation_id=OperationId(restoration_operation),
+                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                    trigger=TriggerProvenance(
+                        TriggerKind.HUMAN_REQUEST,
+                        "restore-external-branch",
+                    ),
+                    effective_at=restoration_recorded_at,
+                    technical_provenance=TechnicalProvenance(),
+                    expected_versions=frozenset(
+                        {ExpectedDecisionVersion(decision_id, equivalent.version)}
+                    ),
+                ),
+                decision_id=decision_id,
+                target_fact_id=DecisionLifecycleFactId(external_fact),
+                effect=DecisionLifecycleCorrectionEffect.DISCONFIRM,
+                correction_basis=DecisionLifecycleCorrectionBasis(
+                    "restore-external-branch"
+                ),
+            )
+        )
+        assert restored.version == DecisionVersion(5)
+        await store._engine.dispose()
+
+        restarted_engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        memory = DecisionMemoryService(
+            reader=PostgresDecisionStore(restarted_engine),
+            now=lambda: restoration_recorded_at,
+        )
+        try:
+            before_corrections = await memory.as_known_at(
+                decision_id,
+                MUTATION_RECORDED_AT,
+            )
+            assert isinstance(
+                before_corrections.lifecycle_interpretation,
+                DeterminateDecisionLifecycleInterpretation,
+            )
+            assert before_corrections.lifecycle_interpretation.disposition is (
+                DecisionLifecycleDisposition.SUBSTANTIVELY_RESOLVED
+            )
+
+            late_effective = await memory.effective_at(
+                decision_id,
+                RECORDED_AT + timedelta(minutes=45),
+                known_at=tied_recording_at,
+            )
+            assert isinstance(
+                late_effective.lifecycle_interpretation,
+                DeterminateDecisionLifecycleInterpretation,
+            )
+            assert late_effective.lifecycle_interpretation.disposition is (
+                DecisionLifecycleDisposition.EXTERNALLY_RESOLVED
+            )
+            assert late_effective.lifecycle_interpretation.support_fact_ids == (
+                frozenset({DecisionLifecycleFactId(external_fact)})
+            )
+
+            contested = await memory.effective_at(
+                decision_id,
+                tied_recording_at,
+                known_at=tied_recording_at,
+            )
+            assert isinstance(
+                contested.lifecycle_interpretation,
+                ContestedDecisionLifecycleInterpretation,
+            )
+            assert contested.lifecycle_interpretation.support_fact_ids == frozenset(
+                {
+                    DecisionLifecycleFactId(external_fact),
+                    DecisionLifecycleFactId(equivalent_fact),
+                }
+            )
+
+            current = await memory.current(decision_id)
+            assert current.version == DecisionVersion(5)
+            assert isinstance(
+                current.lifecycle_interpretation,
+                DeterminateDecisionLifecycleInterpretation,
+            )
+            assert current.lifecycle_interpretation.disposition is (
+                DecisionLifecycleDisposition.SUBSTANTIVELY_RESOLVED
+            )
+            assert current.lifecycle_interpretation.support_fact_ids == frozenset(
+                {
+                    resolution_fact_id,
+                    DecisionLifecycleFactId(equivalent_fact),
+                    DecisionLifecycleFactId(restoration_fact),
+                }
+            )
+            assert DecisionLifecycleFactId(external_fact) not in (
+                current.lifecycle_interpretation.support_fact_ids
+            )
+
+            history = await memory.history(decision_id)
+            assert [
+                fact.metadata.sequence.value for fact in history.lifecycle_facts
+            ] == [1, 2, 3, 4, 5]
+            assert history.lifecycle_facts[1].metadata.recorded_at < (
+                history.lifecycle_facts[2].metadata.recorded_at
+            )
+            assert history.lifecycle_facts[2].metadata.recorded_at == (
+                history.lifecycle_facts[3].metadata.recorded_at
+            )
+            assert (
+                history.lifecycle_facts[1]
+                == (
+                    await PostgresDecisionStore(restarted_engine).load_decision_history(
+                        decision_id
+                    )
+                )[1]
+            )
+        finally:
+            await restarted_engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_decision_memory_restores_deferred_posture_after_disconfirmation(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        decision_id = InvestmentDecisionId(DECISION_ID)
+        deferred_at = RECORDED_AT + timedelta(minutes=30)
+        deferral_operation = UUID("00000000-0000-4000-8000-000000000012")
+        deferral_fact = UUID("00000000-0000-4000-8000-000000000013")
+        resolution_operation = UUID("00000000-0000-4000-8000-000000000014")
+        resolution_fact = UUID("00000000-0000-4000-8000-000000000015")
+        correction_operation = UUID("00000000-0000-4000-8000-000000000016")
+        correction_fact = UUID("00000000-0000-4000-8000-000000000017")
+
+        deferred = await DecisionOrdinaryWorkService(
+            store=store,
+            now=lambda: deferred_at,
+            new_uuid=lambda: deferral_fact,
+        ).apply_human_deferral(
+            ApplyHumanDeferralCommand(
+                DecisionCommandEnvelope(
+                    operation_id=OperationId(deferral_operation),
+                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                    trigger=TriggerProvenance(
+                        TriggerKind.HUMAN_REQUEST,
+                        "defer-before-resolution",
+                    ),
+                    effective_at=deferred_at,
+                    technical_provenance=TechnicalProvenance(),
+                    expected_versions=frozenset(
+                        {ExpectedDecisionVersion(decision_id, DecisionVersion(1))}
+                    ),
+                ),
+                decision_id,
+                TrustedHumanInvestmentDecisionBasis(
+                    "defer-before-resolution",
+                    HumanInvestmentDecisionEffect.DEFERRING,
+                ),
+            )
+        )
+        resolved_at = deferred_at + timedelta(minutes=30)
+        resolved = await DecisionOrdinaryWorkService(
+            store=store,
+            now=lambda: resolved_at,
+            new_uuid=lambda: resolution_fact,
+        ).apply_substantive_resolution(
+            ApplySubstantiveResolutionCommand(
+                DecisionCommandEnvelope(
+                    operation_id=OperationId(resolution_operation),
+                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                    trigger=TriggerProvenance(
+                        TriggerKind.HUMAN_REQUEST,
+                        "resolve-after-deferral",
+                    ),
+                    effective_at=resolved_at,
+                    technical_provenance=TechnicalProvenance(),
+                    expected_versions=frozenset(
+                        {ExpectedDecisionVersion(decision_id, deferred.version)}
+                    ),
+                ),
+                decision_id,
+                TrustedHumanInvestmentDecisionBasis(
+                    "resolve-after-deferral",
+                    HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING,
+                ),
+            )
+        )
+        corrected_at = resolved_at + timedelta(minutes=30)
+        corrected = await DecisionLifecycleCorrectionService(
+            store=store,
+            now=lambda: corrected_at,
+            new_uuid=lambda: correction_fact,
+        ).record_lifecycle_correction(
+            RecordDecisionLifecycleCorrectionCommand(
+                envelope=DecisionCommandEnvelope(
+                    operation_id=OperationId(correction_operation),
+                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                    trigger=TriggerProvenance(
+                        TriggerKind.HUMAN_REQUEST,
+                        "disconfirm-resolution",
+                    ),
+                    effective_at=corrected_at,
+                    technical_provenance=TechnicalProvenance(),
+                    expected_versions=frozenset(
+                        {ExpectedDecisionVersion(decision_id, resolved.version)}
+                    ),
+                ),
+                decision_id=decision_id,
+                target_fact_id=DecisionLifecycleFactId(resolution_fact),
+                effect=DecisionLifecycleCorrectionEffect.DISCONFIRM,
+                correction_basis=DecisionLifecycleCorrectionBasis(
+                    "disconfirm-resolution"
+                ),
+            )
+        )
+        assert corrected.version == DecisionVersion(4)
+        await store._engine.dispose()
+
+        restarted_engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        try:
+            current = await DecisionMemoryService(
+                reader=PostgresDecisionStore(restarted_engine),
+                now=lambda: corrected_at,
+            ).current(decision_id)
+            assert isinstance(
+                current.lifecycle_interpretation,
+                DeterminateDecisionLifecycleInterpretation,
+            )
+            assert current.lifecycle_interpretation.disposition is (
+                DecisionLifecycleDisposition.UNRESOLVED
+            )
+            assert current.work_posture is DecisionWorkPosture.DEFERRED
+            assert current.lifecycle_interpretation.support_fact_ids == frozenset(
+                {
+                    DecisionLifecycleFactId(FACT_ID),
+                    DecisionLifecycleFactId(correction_fact),
+                }
+            )
+        finally:
+            await restarted_engine.dispose()
+
+    asyncio.run(scenario())
+
+
 def test_initiation_receipt_rejects_changed_request_reuse(
     postgres_target: PostgresTestTarget,
 ) -> None:
@@ -1459,7 +1913,7 @@ def test_initiation_receipt_rejects_changed_request_reuse(
     asyncio.run(scenario())
 
 
-def test_restart_reconstructs_semantics_from_history_not_projection(
+def test_restart_detects_projection_drift_without_trusting_projection(
     postgres_target: PostgresTestTarget,
 ) -> None:
     async def scenario() -> None:
@@ -1483,12 +1937,54 @@ def test_restart_reconstructs_semantics_from_history_not_projection(
         )
         restarted = PostgresDecisionStore(restarted_engine)
         try:
-            view = await DecisionMemoryService(
-                reader=restarted,
-                now=lambda: RECORDED_AT,
-            ).current(InvestmentDecisionId(DECISION_ID))
-            assert view.subject == DecisionSubject("Whether to establish the position")
-            assert view.scope == DecisionScope.unresolved(PortfolioId(PORTFOLIO_A))
+            with pytest.raises(PersistenceUnavailable):
+                await DecisionMemoryService(
+                    reader=restarted,
+                    now=lambda: RECORDED_AT,
+                ).current(InvestmentDecisionId(DECISION_ID))
+            history = await restarted.load_decision_history(
+                InvestmentDecisionId(DECISION_ID)
+            )
+            assert history is not None
+            assert history[0].subject == DecisionSubject(
+                "Whether to establish the position"
+            )
+            assert history[0].scope == DecisionScope.unresolved(
+                PortfolioId(PORTFOLIO_A)
+            )
+        finally:
+            await restarted_engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_restart_detects_version_only_projection_drift(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        async with store._engine.begin() as connection:
+            await connection.execute(
+                investment_decisions.update().values(decision_version=2)
+            )
+        await store._engine.dispose()
+
+        restarted_engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        restarted = PostgresDecisionStore(restarted_engine)
+        try:
+            with pytest.raises(PersistenceUnavailable):
+                await DecisionMemoryService(
+                    reader=restarted,
+                    now=lambda: RECORDED_AT,
+                ).current(InvestmentDecisionId(DECISION_ID))
+            history = await restarted.load_decision_history(
+                InvestmentDecisionId(DECISION_ID)
+            )
+            assert history is not None
+            assert history[-1].metadata.decision_version == DecisionVersion(1)
         finally:
             await restarted_engine.dispose()
 

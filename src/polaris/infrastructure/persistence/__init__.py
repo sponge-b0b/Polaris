@@ -1,0 +1,1 @@
+"""Durable persistence adapters."""

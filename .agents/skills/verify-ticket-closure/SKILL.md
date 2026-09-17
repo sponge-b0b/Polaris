@@ -122,6 +122,46 @@ The supplied checkpoint, Proposed Closure Evidence, changed-surface/check summar
 
 The `$implement-ticket` main agent remains the orchestration owner. The fresh verifier returns one complete verdict to that parent; it does not repair, persist lifecycle state, close the ticket, or spawn another semantic verifier.
 
+### Retry attempts — cumulative knowledge, fresh verdict
+
+A genuinely fresh verifier is independent from candidate authorship and prior verifier execution; it is **not** a blank-slate verifier.
+
+For Attempt 2 or later after a valid, saturated `TICKET CLOSURE: FAIL`, recover the exact prior verifier result and Attempt history from the durable checkpoint before reconstructing semantic state. The previous verifier's authority-derived construction is cumulative evidence and must be reused when its governing inputs remain valid.
+
+When governing authority is unchanged, reuse rather than rediscover:
+
+* bounded authority-source identities and dispositions;
+* acceptance-cell identities and authoritative obligation mappings;
+* frozen authority-first proof-plan identities;
+* domain-construction manifests, membership predicates, authoritative source sets, member inventories or independently recoverable closure criteria;
+* prior out-of-domain boundary observations;
+* every prior finding and falsifier.
+
+Freshness does not invalidate those authority-derived artifacts merely because a different verifier actor is running.
+
+Prior cell, nested-member, or adversarial-candidate **dispositions** are reusable only when all of the following remain unchanged for that proof:
+
+* governing authority;
+* candidate-dependent evidence inputs;
+* implementation surface on which the proof depends;
+* relevant runtime/tracker/configuration/dependency inputs.
+
+Determine invalidation from the actual candidate delta and the proof dependencies preserved in the prior retry state. Re-prove every cell/domain/member whose predicate could materially be affected by the repair or its blast radius. When uncertainty remains about whether a prior disposition is still valid, invalidate and re-prove the smallest semantic surface that resolves the uncertainty.
+
+Every prior finding is a mandatory regression target. Attempt N+1 must explicitly classify each earlier unresolved finding as:
+
+```text
+closed | still-open | superseded-by-explicit-authority-change
+```
+
+Candidate mutation alone can never make a prior finding disappear. A finding classified `closed` requires direct evidence against the exact prior falsifier plus any materially adjacent state exposed by the repair.
+
+After closing prior findings, perform the independent adversarial sweep over the repair blast radius and every acceptance obligation whose proof was invalidated. The final verdict remains a verdict over the **whole current candidate**, not merely over the repaired finding.
+
+If the prior durable verifier result lacks enough authority, construction, inventory, or proof-dependency state to support safe reuse, reconstruct only the missing or ambiguous state. Do not rebuild an unchanged universe merely because a new verifier actor started, and do not pretend reuse is valid when the durable record is insufficient.
+
+> **Verifier attempts are cumulative in evidence and adversarial knowledge, but independent in verdict. Do not rediscover the universe; re-certify the candidate.**
+
 ### Direct / recovery invocation
 
 A human may still invoke `$verify-ticket-closure - <ticket>` directly for recovery, manual recertification entry, or after complete conversational/session context loss. That command is **not** required in the normal `$implement-ticket` lifecycle and does not authorize the top-level agent to certify the candidate itself.
@@ -167,6 +207,8 @@ Read:
 * the current parent-Spec `Ticket Coverage Manifest`, including Architecture/Design Obligation Disposition Manifest rows, and the ticket's exact `Architecture obligations` IDs;
 * current architecture/Standards/policy authority materially required by the ticket's acceptance cells or candidate;
 * Proposed Closure Evidence as claims and evidence pointers to challenge, never authority.
+
+For Attempt 2 or later, also recover the prior valid verifier result and its cumulative retry state from the checkpoint before rebuilding any authority/source, acceptance, proof-plan, or domain-construction artifact already proven reusable under **Retry attempts — cumulative knowledge, fresh verdict**.
 
 For large paginated tracker payloads or comment histories, fetch/filter by marker, ID, section, or another deterministic selector before exposing content for semantic inspection when that bounded reduction preserves the required authority. Expand to the larger source when the bounded result cannot establish the required universe or resolve contradictory state.
 
@@ -230,9 +272,13 @@ Deferred units without durable existing owner: 0
 
 Any non-zero value leaves the affected ticket acceptance universe unproven and prohibits PASS.
 
+On a retry, an unchanged, durably recoverable prior Authority Source Coverage Manifest satisfies this construction gate. Revalidate its authority identities and only reconstruct rows whose governing source changed or whose durable prior state is insufficient.
+
 ## 2. Build the Authoritative Acceptance Universe
 
 Build the universe independently from durable authority, not from changed files, existing tests, implementation notes, Proposed Closure Evidence, or known defect patterns.
+
+On Attempt 2 or later, “build” includes reusing the prior saturated verifier's unchanged authority-derived acceptance universe. Do not regenerate acceptance cells solely because the verifier actor is fresh; revalidate the governing authority identities and reconstruct only changed or insufficiently durable portions.
 
 ### Ordinary cells
 
@@ -274,6 +320,8 @@ If the universe cannot be closed, affected cells are `unproven`.
 ### Authority-first proof-plan freeze
 
 Before inspecting candidate implementation/tests or using Proposed Closure Evidence as proof, construct the semantic proof plan for every material acceptance cell from durable authority alone. The dispatch/checkpoint retrieval map may identify where authority lives, but implementation shape, existing tests, proposed evidence, and known defect patterns may not determine what the verifier decides to test.
+
+A retry may reuse a prior frozen proof plan when its governing authority, cell identity, membership predicate, dimensions, and material conditions remain unchanged. The prior implementation finding may guide which already-authorized falsifier to re-attack, but it may not redefine the proof plan around the repair.
 
 Freeze this compact transition state before evidence disposition begins:
 
@@ -330,6 +378,8 @@ Generated members: <n>
 
 For finite domains, `Generated members` must equal the independently recoverable `Expected members` before the domain can be closed. For discoverable/open-world domains, the generation mechanism must establish the stated closure criterion. A later finding may change member dispositions; it may not retroactively shrink the construction manifest.
 
+On a retry, reuse an unchanged prior Domain Construction Manifest and its member inventory/closure criterion rather than regenerating it. Reconstruct only when governing authority, membership predicate, source set, or generation mechanism changed, or when the prior durable record is insufficient to recover the exact domain.
+
 If the authoritative domain is semantically open-world rather than finitely enumerable, define the inclusion rule and the exhaustive/discovery mechanism that can establish closure to the practical boundary required by the claim. If membership of a material candidate cannot be resolved from current authority, the candidate is `ambiguous` and the affected cell/domain remains `unproven`; do not silently widen or narrow the authoritative claim.
 
 ## 3. Per-Cell Proof Contract
@@ -367,6 +417,8 @@ Ask:
 > Could every cited check pass while this exact claim is still false?
 
 If yes, it is not proven.
+
+On Attempt 2 or later, a prior `proven` cell/member disposition may remain proven without re-execution only when the retry invalidation rule establishes that its authority, candidate-dependent evidence inputs, implementation surface, and relevant dependencies are unchanged. Preserve the reuse decision explicitly; “passed last attempt” alone is insufficient.
 
 ### Nested Universe Closure
 
@@ -465,6 +517,8 @@ For remediation this is the Root Invariant Sweep and also re-proves applicable c
 
 Do not broaden into unrelated review.
 
+For Attempt 2 or later, the independent sweep starts from the prior saturated universe plus the current invalidation map. Explicitly re-attack every prior falsifier, sweep the repair blast radius for regressions/new bypasses, and revisit every previously dispositioned candidate whose proof dependencies changed. Unaffected, safely reusable prior dispositions need not be rediscovered solely to demonstrate freshness.
+
 ## 6. Completeness and Failure Saturation
 
 After verifier integrity is established, do not fail fast on implementation/proof defects. Record each and complete the bounded universe so one run returns all independently observable closure failures.
@@ -508,6 +562,18 @@ Missing domain records: 0
 Unresolved domain identities: 0
 ```
 
+For Attempt 2 or later, additionally track:
+
+```text
+Prior-attempt findings: <n>
+closed: <n>
+still-open: <n>
+superseded-by-explicit-authority-change: <n>
+Reused prior dispositions with unresolved invalidation: 0
+```
+
+A PASS requires `still-open: 0`. A FAIL may retain prior findings as still-open, but must carry them forward together with every new independently actionable finding.
+
 For a finite domain, generated/inspected/dispositioned counts must reconcile to the authoritative expected member count. For a discoverable/open-world domain, the declared exhaustive mechanism must satisfy its closure criterion before either PASS or FAIL is legal.
 
 Every independently actionable defect discovered during the saturated sweep must appear as a finding even when several findings violate the same acceptance cell. Derivative acceptance failures may reference the same root defect rather than duplicating it, but they do not replace independently actionable findings.
@@ -533,6 +599,9 @@ Nested domains: <n>; closed <n>; open 0
 Domain construction: <n>/<n> complete; remaining authoritative members 0
 Domain membership: <n>; in-domain <n>; out-of-domain <n>; ambiguous 0
 Certified closure domains: <n>; frozen <n>; unresolved 0
+Prior-attempt findings: <n>; closed <n>; still-open 0; superseded-by-explicit-authority-change <n>
+Reused semantic state: <None | compact AC/ND/member summary>
+Re-proven invalidated state: <compact AC/ND/member summary>
 Production-path obligations: <summary>
 Negative/fail-closed obligations: <summary>
 Remediation root: <None | RB-n — invariant>
@@ -558,12 +627,24 @@ Nested domains: <n>; closed <n>; open <n>
 Domain construction: <n>/<n> complete; remaining authoritative members 0
 Domain membership: <n>; in-domain <n>; out-of-domain <n>; ambiguous <n>
 Failure saturation: complete; independent actionable findings <n>; unexplored authoritative siblings 0
+Prior-attempt findings: <n>; closed <n>; still-open <n>; superseded-by-explicit-authority-change <n>
+
+Cumulative Retry State:
+Authority identity: <durable authority/source identities proving the universe boundary>
+Acceptance/proof-plan identity: <stable AC IDs plus source/claim/proof-plan identities sufficient for reuse>
+Domain construction state: <stable ND IDs plus authority, membership predicate, generation/closure mechanism, and recoverable member inventory/criterion>
+Candidate-dependent proof dependencies: <AC/ND/member groups -> implementation/evidence/runtime/tracker/configuration dependencies>
+Reusable prior dispositions: <AC/ND/member groups whose dependencies remain unchanged>
+Mandatory falsifiers for next attempt: <finding IDs / exact falsifiers>
+
 Findings:
 1. <AC-n / source / falsifier or missing proof / concrete evidence / required correction>
 ...
 Remediation root: <None | RB-n — invariant>
 Protected-root regressions: <None | findings>
 ```
+
+On every valid saturated FAIL that can lead to another implementation attempt, `Cumulative Retry State` is mandatory. It must preserve enough compact durable state for a fresh later verifier to reuse the unchanged authority-derived universe and determine semantic invalidation without relying on conversational memory. Counts alone are insufficient. When reuse depends on a finite member inventory, preserve that inventory itself or an independently recoverable deterministic identity/manifest for it.
 
 Do not repair. Return the complete saturated verdict to `$implement-ticket`.
 

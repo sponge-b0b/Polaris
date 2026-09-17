@@ -110,7 +110,7 @@ Return exactly one complete verdict to the `$to-tickets` parent.
 PASS:
 
 ```text
-TICKET DECOMPOSITION VERIFICATION: PASS
+TICKET DECOMPOSITION: PASS
 Source: <identity>
 Mode: fresh | remediation
 Source state identity: <identity/hash>
@@ -126,7 +126,7 @@ Findings: 0
 FAIL:
 
 ```text
-TICKET DECOMPOSITION VERIFICATION: FAIL
+TICKET DECOMPOSITION: FAIL
 Source: <identity>
 Mode: fresh | remediation
 Source state identity: <identity/hash>

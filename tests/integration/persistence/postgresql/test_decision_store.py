@@ -3,22 +3,37 @@ from __future__ import annotations
 import asyncio
 import inspect
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from polaris.application.decisions import (
+    ApplyExternalResolutionCommand,
+    ApplyHumanDeferralCommand,
+    ApplySubstantiveResolutionCommand,
+    ConcurrencyConflict,
     ContinuityConflict,
     ContinuityDetermination,
     DecisionCommandEnvelope,
+    DecisionCommandState,
     DecisionInitiationService,
     DecisionMemoryService,
+    DecisionMutationResult,
+    DecisionMutationResultKind,
+    DecisionOrdinaryWorkService,
+    EstablishOrReviseDecisionScopeCommand,
+    ExpectedDecisionVersion,
     IdempotencyConflict,
     InitiateDecisionCommand,
     PersistenceUnavailable,
+    ResumeDecisionWorkCommand,
+    ReviseDecisionSubjectCommand,
+    WithdrawDecisionWorkCommand,
 )
 from polaris.application.decisions.contracts import (
     ContinuityCandidateBasis,
@@ -28,16 +43,40 @@ from polaris.application.decisions.contracts import (
     InitiationResultKind,
     InitiationSemanticRequest,
 )
+from polaris.application.decisions.lifecycle_correction import (
+    DecisionLifecycleCorrectionService,
+    RecordDecisionLifecycleCorrectionCommand,
+    RetractUnsupportedDecisionNeedCommand,
+)
 from polaris.domain.actors import ActorId, KnownActorAttribution
 from polaris.domain.decisions import (
+    DecisionContinuity,
+    DecisionDeferred,
+    DecisionExternallyResolved,
+    DecisionInitiated,
     DecisionInitiationContinuity,
     DecisionInitiationDetermination,
+    DecisionLifecycleCorrected,
+    DecisionLifecycleCorrectionBasis,
+    DecisionLifecycleCorrectionEffect,
+    DecisionLifecycleDisposition,
     DecisionLifecycleFactId,
     DecisionMutationContext,
     DecisionNeed,
     DecisionNeedId,
     DecisionScope,
+    DecisionScopeEstablished,
+    DecisionScopeRevised,
     DecisionSubject,
+    DecisionSubjectRevised,
+    DecisionSubstantivelyResolved,
+    DecisionVersion,
+    DecisionWorkControlBasis,
+    DecisionWorkResumed,
+    DecisionWorkWithdrawn,
+    DeterminateDecisionLifecycleInterpretation,
+    ExternalResolutionBasis,
+    HumanInvestmentDecisionEffect,
     InvestmentDecisionId,
     OperationId,
     PortfolioId,
@@ -46,6 +85,8 @@ from polaris.domain.decisions import (
     TechnicalReferenceKind,
     TriggerKind,
     TriggerProvenance,
+    TrustedHumanInvestmentDecisionBasis,
+    UnsupportedDecisionNeedBasis,
     initiate_decision,
 )
 from polaris.infrastructure.persistence.postgresql import (
@@ -69,6 +110,11 @@ OPERATION_ID = UUID("00000000-0000-4000-8000-000000000004")
 DECISION_ID = UUID("00000000-0000-4000-8000-000000000005")
 NEED_ID = UUID("00000000-0000-4000-8000-000000000006")
 FACT_ID = UUID("00000000-0000-4000-8000-000000000007")
+MUTATION_OPERATION_ID = UUID("00000000-0000-4000-8000-000000000008")
+MUTATION_FACT_ID = UUID("00000000-0000-4000-8000-000000000009")
+MUTATION_RECORDED_AT = datetime(2026, 9, 17, 6, 0, tzinfo=UTC)
+CONCURRENT_OPERATION_ID = UUID("00000000-0000-4000-8000-00000000000a")
+CONCURRENT_FACT_ID = UUID("00000000-0000-4000-8000-00000000000b")
 
 
 def _uuids(*values: UUID) -> Iterator[UUID]:
@@ -169,13 +215,19 @@ def test_no_candidate_initiation_round_trips_after_restart(
             assert view.subject == DecisionSubject("Whether to establish the position")
             assert view.scope == scope
             assert view.version.value == 1
+            assert isinstance(
+                view.lifecycle_interpretation,
+                DeterminateDecisionLifecycleInterpretation,
+            )
             initiated = view.lifecycle_interpretation.support_fact_ids
             assert initiated == frozenset({DecisionLifecycleFactId(FACT_ID)})
             history = await restarted.load_decision_history(
                 InvestmentDecisionId(DECISION_ID)
             )
             assert history is not None
-            continuity = history[0].continuity
+            initiation = history[0]
+            assert isinstance(initiation, DecisionInitiated)
+            continuity = initiation.continuity
             assert continuity.determination is (
                 DecisionInitiationDetermination.NO_CANDIDATES
             )
@@ -231,6 +283,1145 @@ def test_initiation_receipt_replays_after_restart(
             )
         finally:
             await restarted._engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_subject_revision_commits_fact_projection_and_receipt_before_restart(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        service = DecisionOrdinaryWorkService(
+            store=store,
+            now=lambda: MUTATION_RECORDED_AT,
+            new_uuid=lambda: MUTATION_FACT_ID,
+        )
+        command = ReviseDecisionSubjectCommand(
+            envelope=DecisionCommandEnvelope(
+                operation_id=OperationId(MUTATION_OPERATION_ID),
+                actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "request-322"),
+                effective_at=MUTATION_RECORDED_AT,
+                technical_provenance=TechnicalProvenance(),
+                expected_versions=frozenset(
+                    {
+                        ExpectedDecisionVersion(
+                            InvestmentDecisionId(DECISION_ID),
+                            DecisionVersion(1),
+                        )
+                    }
+                ),
+            ),
+            decision_id=InvestmentDecisionId(DECISION_ID),
+            subject=DecisionSubject("Whether to increase the position"),
+            continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+        )
+        result = await service.revise_subject(command)
+        assert result.kind is DecisionMutationResultKind.APPLIED
+        assert result.version == DecisionVersion(2)
+        await store._engine.dispose()
+
+        restarted_engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        restarted = PostgresDecisionStore(restarted_engine)
+        try:
+            receipt = await restarted.get_mutation_receipt(
+                OperationId(MUTATION_OPERATION_ID)
+            )
+            assert receipt is not None
+            assert receipt.result == result
+            current = await restarted.load_decision_for_command(
+                InvestmentDecisionId(DECISION_ID),
+                known_at=MUTATION_RECORDED_AT,
+            )
+            assert current is not None
+            assert current.decision.subject == DecisionSubject(
+                "Whether to increase the position"
+            )
+            assert current.decision.version == DecisionVersion(2)
+            assert len(current.decision.history) == 2
+            assert current.decision.history[-1].metadata.fact_id == (
+                DecisionLifecycleFactId(MUTATION_FACT_ID)
+            )
+        finally:
+            await restarted_engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_subject_revision_replays_and_rejects_changed_request_after_restart(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        envelope = DecisionCommandEnvelope(
+            operation_id=OperationId(MUTATION_OPERATION_ID),
+            actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+            trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "request-322"),
+            effective_at=MUTATION_RECORDED_AT,
+            technical_provenance=TechnicalProvenance(),
+            expected_versions=frozenset(
+                {
+                    ExpectedDecisionVersion(
+                        InvestmentDecisionId(DECISION_ID),
+                        DecisionVersion(1),
+                    )
+                }
+            ),
+        )
+        command = ReviseDecisionSubjectCommand(
+            envelope=envelope,
+            decision_id=InvestmentDecisionId(DECISION_ID),
+            subject=DecisionSubject("Whether to increase the position"),
+            continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+        )
+        applied = await DecisionOrdinaryWorkService(
+            store=store,
+            now=lambda: MUTATION_RECORDED_AT,
+            new_uuid=lambda: MUTATION_FACT_ID,
+        ).revise_subject(command)
+        await store._engine.dispose()
+
+        restarted_engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        restarted_service = DecisionOrdinaryWorkService(
+            store=PostgresDecisionStore(restarted_engine),
+            now=lambda: MUTATION_RECORDED_AT,
+        )
+        try:
+            replayed = await restarted_service.revise_subject(command)
+            assert replayed == replace(applied, replayed=True)
+            changed = ReviseDecisionSubjectCommand(
+                envelope=envelope,
+                decision_id=InvestmentDecisionId(DECISION_ID),
+                subject=DecisionSubject("A different semantic request"),
+                continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+            )
+            with pytest.raises(IdempotencyConflict):
+                await restarted_service.revise_subject(changed)
+        finally:
+            await restarted_engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_subject_and_scope_no_ops_persist_receipts_without_changing_decision(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        decision_id = InvestmentDecisionId(DECISION_ID)
+
+        def envelope(operation_id: UUID) -> DecisionCommandEnvelope:
+            return DecisionCommandEnvelope(
+                operation_id=OperationId(operation_id),
+                actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "no-op"),
+                effective_at=MUTATION_RECORDED_AT,
+                technical_provenance=TechnicalProvenance(),
+                expected_versions=frozenset(
+                    {ExpectedDecisionVersion(decision_id, DecisionVersion(1))}
+                ),
+            )
+
+        subject_command = ReviseDecisionSubjectCommand(
+            envelope(MUTATION_OPERATION_ID),
+            decision_id,
+            DecisionSubject("Whether to establish the position"),
+            DecisionContinuity.SAME_COHERENT_CHOICE,
+        )
+        scope_operation_id = UUID("00000000-0000-4000-8000-00000000000c")
+        scope_command = EstablishOrReviseDecisionScopeCommand(
+            envelope(scope_operation_id),
+            decision_id,
+            DecisionScope.unresolved(),
+            DecisionContinuity.SAME_COHERENT_CHOICE,
+        )
+        service = DecisionOrdinaryWorkService(
+            store=store,
+            now=lambda: MUTATION_RECORDED_AT,
+        )
+        subject_result = await service.revise_subject(subject_command)
+        scope_result = await service.establish_or_revise_scope(scope_command)
+        assert subject_result.kind is DecisionMutationResultKind.NO_OP
+        assert scope_result.kind is DecisionMutationResultKind.NO_OP
+        assert subject_result.version == scope_result.version == DecisionVersion(1)
+        await store._engine.dispose()
+
+        restarted_engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        restarted_store = PostgresDecisionStore(restarted_engine)
+        restarted_service = DecisionOrdinaryWorkService(
+            store=restarted_store,
+            now=lambda: MUTATION_RECORDED_AT,
+        )
+        try:
+            replayed = await restarted_service.revise_subject(subject_command)
+            assert replayed == replace(subject_result, replayed=True)
+            with pytest.raises(IdempotencyConflict):
+                await restarted_service.revise_subject(
+                    replace(
+                        subject_command,
+                        subject=DecisionSubject("A changed semantic request"),
+                    )
+                )
+            state = await restarted_store.load_decision_for_command(
+                decision_id,
+                known_at=MUTATION_RECORDED_AT,
+            )
+            assert state is not None
+            assert state.decision.version == DecisionVersion(1)
+            assert len(state.decision.history) == 1
+            assert (
+                await restarted_store.get_mutation_receipt(
+                    OperationId(scope_operation_id)
+                )
+                is not None
+            )
+        finally:
+            await restarted_engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_mutation_rejects_operation_id_already_used_by_initiation(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        service = DecisionOrdinaryWorkService(
+            store=store,
+            now=lambda: MUTATION_RECORDED_AT,
+            new_uuid=lambda: MUTATION_FACT_ID,
+        )
+        command = ReviseDecisionSubjectCommand(
+            envelope=DecisionCommandEnvelope(
+                operation_id=OperationId(OPERATION_ID),
+                actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "request-322"),
+                effective_at=MUTATION_RECORDED_AT,
+                technical_provenance=TechnicalProvenance(),
+                expected_versions=frozenset(
+                    {
+                        ExpectedDecisionVersion(
+                            InvestmentDecisionId(DECISION_ID),
+                            DecisionVersion(1),
+                        )
+                    }
+                ),
+            ),
+            decision_id=InvestmentDecisionId(DECISION_ID),
+            subject=DecisionSubject("Whether to increase the position"),
+            continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+        )
+        try:
+            with pytest.raises(IdempotencyConflict):
+                await service.revise_subject(command)
+            state = await store.load_decision_for_command(
+                InvestmentDecisionId(DECISION_ID),
+                known_at=MUTATION_RECORDED_AT,
+            )
+            assert state is not None
+            assert len(state.decision.history) == 1
+        finally:
+            await store._engine.dispose()
+
+    asyncio.run(scenario())
+
+
+class _FailAfterMutationLifecycleFactStore(PostgresDecisionStore):
+    def _write_completed(self, step: str) -> None:
+        if step == "lifecycle_fact":
+            raise RuntimeError("injected transaction failure")
+
+
+class _FailAfterMutationProjectionStore(PostgresDecisionStore):
+    def _write_completed(self, step: str) -> None:
+        if step == "projection":
+            raise RuntimeError("injected transaction failure")
+
+
+class _FailAfterMutationReceiptStore(PostgresDecisionStore):
+    def __init__(self, engine: AsyncEngine) -> None:
+        super().__init__(engine)
+        self.receipt_write_completed = False
+
+    def _write_completed(self, step: str) -> None:
+        if step == "receipt":
+            self.receipt_write_completed = True
+            raise RuntimeError("injected transaction failure")
+
+
+@pytest.mark.parametrize(
+    "store_type",
+    [
+        _FailAfterMutationLifecycleFactStore,
+        _FailAfterMutationProjectionStore,
+        _FailAfterMutationReceiptStore,
+    ],
+)
+def test_mutation_failure_between_semantic_writes_rolls_back_every_change(
+    postgres_target: PostgresTestTarget,
+    store_type: type[PostgresDecisionStore],
+) -> None:
+    async def scenario() -> None:
+        store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        await store._engine.dispose()
+        engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        failing = store_type(engine)
+        service = DecisionOrdinaryWorkService(
+            store=failing,
+            now=lambda: MUTATION_RECORDED_AT,
+            new_uuid=lambda: MUTATION_FACT_ID,
+        )
+        command = ReviseDecisionSubjectCommand(
+            envelope=DecisionCommandEnvelope(
+                operation_id=OperationId(MUTATION_OPERATION_ID),
+                actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "request-322"),
+                effective_at=MUTATION_RECORDED_AT,
+                technical_provenance=TechnicalProvenance(),
+                expected_versions=frozenset(
+                    {
+                        ExpectedDecisionVersion(
+                            InvestmentDecisionId(DECISION_ID),
+                            DecisionVersion(1),
+                        )
+                    }
+                ),
+            ),
+            decision_id=InvestmentDecisionId(DECISION_ID),
+            subject=DecisionSubject("Whether to increase the position"),
+            continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+        )
+        try:
+            with pytest.raises(PersistenceUnavailable):
+                await service.revise_subject(command)
+            state = await failing.load_decision_for_command(
+                InvestmentDecisionId(DECISION_ID),
+                known_at=MUTATION_RECORDED_AT,
+            )
+            assert state is not None
+            assert state.decision.subject == DecisionSubject(
+                "Whether to establish the position"
+            )
+            assert state.decision.version == DecisionVersion(1)
+            assert len(state.decision.history) == 1
+            assert (
+                await failing.get_mutation_receipt(OperationId(MUTATION_OPERATION_ID))
+                is None
+            )
+        finally:
+            await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_no_op_receipt_failure_rolls_back_receipt_only_transaction(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        await store._engine.dispose()
+        engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        failing = _FailAfterMutationReceiptStore(engine)
+        decision_id = InvestmentDecisionId(DECISION_ID)
+        command = ReviseDecisionSubjectCommand(
+            DecisionCommandEnvelope(
+                operation_id=OperationId(MUTATION_OPERATION_ID),
+                actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "no-op"),
+                effective_at=MUTATION_RECORDED_AT,
+                technical_provenance=TechnicalProvenance(),
+                expected_versions=frozenset(
+                    {ExpectedDecisionVersion(decision_id, DecisionVersion(1))}
+                ),
+            ),
+            decision_id,
+            DecisionSubject("Whether to establish the position"),
+            DecisionContinuity.SAME_COHERENT_CHOICE,
+        )
+        try:
+            with pytest.raises(PersistenceUnavailable):
+                await DecisionOrdinaryWorkService(
+                    store=failing,
+                    now=lambda: MUTATION_RECORDED_AT,
+                ).revise_subject(command)
+            assert failing.receipt_write_completed is True
+            assert (
+                await failing.get_mutation_receipt(OperationId(MUTATION_OPERATION_ID))
+                is None
+            )
+            state = await failing.load_decision_for_command(
+                decision_id,
+                known_at=MUTATION_RECORDED_AT,
+            )
+            assert state is not None
+            assert state.decision.version == DecisionVersion(1)
+            assert len(state.decision.history) == 1
+        finally:
+            await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+class _ConcurrentLoadStore(PostgresDecisionStore):
+    def __init__(self, engine: AsyncEngine, barrier: asyncio.Barrier) -> None:
+        super().__init__(engine)
+        self._barrier = barrier
+
+    async def load_decision_for_command(
+        self,
+        decision_id: InvestmentDecisionId,
+        *,
+        known_at: datetime,
+    ) -> DecisionCommandState | None:
+        state = await super().load_decision_for_command(
+            decision_id,
+            known_at=known_at,
+        )
+        await self._barrier.wait()
+        return state
+
+
+def test_concurrent_expected_version_mutations_commit_exactly_once(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        await store._engine.dispose()
+        engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        concurrent_store = _ConcurrentLoadStore(engine, asyncio.Barrier(2))
+
+        def command(operation_id: UUID, subject: str) -> ReviseDecisionSubjectCommand:
+            return ReviseDecisionSubjectCommand(
+                envelope=DecisionCommandEnvelope(
+                    operation_id=OperationId(operation_id),
+                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                    trigger=TriggerProvenance(
+                        TriggerKind.HUMAN_REQUEST,
+                        f"request-{operation_id}",
+                    ),
+                    effective_at=MUTATION_RECORDED_AT,
+                    technical_provenance=TechnicalProvenance(),
+                    expected_versions=frozenset(
+                        {
+                            ExpectedDecisionVersion(
+                                InvestmentDecisionId(DECISION_ID),
+                                DecisionVersion(1),
+                            )
+                        }
+                    ),
+                ),
+                decision_id=InvestmentDecisionId(DECISION_ID),
+                subject=DecisionSubject(subject),
+                continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+            )
+
+        first = DecisionOrdinaryWorkService(
+            store=concurrent_store,
+            now=lambda: MUTATION_RECORDED_AT,
+            new_uuid=lambda: MUTATION_FACT_ID,
+        ).revise_subject(
+            command(MUTATION_OPERATION_ID, "Whether to increase the position")
+        )
+        second = DecisionOrdinaryWorkService(
+            store=concurrent_store,
+            now=lambda: MUTATION_RECORDED_AT,
+            new_uuid=lambda: CONCURRENT_FACT_ID,
+        ).revise_subject(
+            command(CONCURRENT_OPERATION_ID, "Whether to decrease the position")
+        )
+        try:
+            outcomes = await asyncio.gather(first, second, return_exceptions=True)
+            assert sum(not isinstance(item, Exception) for item in outcomes) == 1
+            assert sum(isinstance(item, ConcurrencyConflict) for item in outcomes) == 1
+            state = await PostgresDecisionStore(engine).load_decision_for_command(
+                InvestmentDecisionId(DECISION_ID),
+                known_at=MUTATION_RECORDED_AT,
+            )
+            assert state is not None
+            assert state.decision.version == DecisionVersion(2)
+            assert len(state.decision.history) == 2
+            receipts = [
+                await concurrent_store.get_mutation_receipt(OperationId(operation_id))
+                for operation_id in (MUTATION_OPERATION_ID, CONCURRENT_OPERATION_ID)
+            ]
+            assert sum(receipt is not None for receipt in receipts) == 1
+        finally:
+            await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("same_request", [True, False])
+def test_concurrent_same_operation_replays_or_reports_idempotency_conflict(
+    postgres_target: PostgresTestTarget,
+    *,
+    same_request: bool,
+) -> None:
+    async def scenario() -> None:
+        store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        await store._engine.dispose()
+        engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        concurrent_store = _ConcurrentLoadStore(engine, asyncio.Barrier(2))
+        decision_id = InvestmentDecisionId(DECISION_ID)
+
+        def command(subject: str) -> ReviseDecisionSubjectCommand:
+            return ReviseDecisionSubjectCommand(
+                DecisionCommandEnvelope(
+                    operation_id=OperationId(MUTATION_OPERATION_ID),
+                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                    trigger=TriggerProvenance(
+                        TriggerKind.HUMAN_REQUEST,
+                        "same-operation-race",
+                    ),
+                    effective_at=MUTATION_RECORDED_AT,
+                    technical_provenance=TechnicalProvenance(),
+                    expected_versions=frozenset(
+                        {ExpectedDecisionVersion(decision_id, DecisionVersion(1))}
+                    ),
+                ),
+                decision_id,
+                DecisionSubject(subject),
+                DecisionContinuity.SAME_COHERENT_CHOICE,
+            )
+
+        first = DecisionOrdinaryWorkService(
+            store=concurrent_store,
+            now=lambda: MUTATION_RECORDED_AT,
+            new_uuid=lambda: MUTATION_FACT_ID,
+        ).revise_subject(command("Whether to increase the position"))
+        second_subject = (
+            "Whether to increase the position"
+            if same_request
+            else "Whether to decrease the position"
+        )
+        second = DecisionOrdinaryWorkService(
+            store=concurrent_store,
+            now=lambda: MUTATION_RECORDED_AT,
+            new_uuid=lambda: CONCURRENT_FACT_ID,
+        ).revise_subject(command(second_subject))
+        try:
+            outcomes = await asyncio.gather(first, second, return_exceptions=True)
+            if same_request:
+                assert all(not isinstance(item, Exception) for item in outcomes)
+                results = [
+                    item
+                    for item in outcomes
+                    if isinstance(item, DecisionMutationResult)
+                ]
+                assert sum(result.replayed for result in results) == 1
+            else:
+                assert sum(not isinstance(item, Exception) for item in outcomes) == 1
+                assert (
+                    sum(isinstance(item, IdempotencyConflict) for item in outcomes) == 1
+                )
+            state = await PostgresDecisionStore(engine).load_decision_for_command(
+                decision_id,
+                known_at=MUTATION_RECORDED_AT,
+            )
+            assert state is not None
+            assert state.decision.version == DecisionVersion(2)
+            assert len(state.decision.history) == 2
+        finally:
+            await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_all_ordinary_lifecycle_mutations_round_trip_with_distinct_redeferral(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        mutation_times = iter(
+            MUTATION_RECORDED_AT + timedelta(hours=offset) for offset in range(9)
+        )
+        fact_ids = iter(
+            UUID(f"00000000-0000-4000-8000-{value:012x}") for value in range(9, 18)
+        )
+        operation_ids = iter(
+            UUID(f"00000000-0000-4000-8000-{value:012x}") for value in range(18, 27)
+        )
+        service = DecisionOrdinaryWorkService(
+            store=store,
+            now=lambda: next(mutation_times),
+            new_uuid=lambda: next(fact_ids),
+        )
+        decision_id = InvestmentDecisionId(DECISION_ID)
+
+        def envelope(version: int, effective_at: datetime) -> DecisionCommandEnvelope:
+            return DecisionCommandEnvelope(
+                operation_id=OperationId(next(operation_ids)),
+                actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                trigger=TriggerProvenance(
+                    TriggerKind.HUMAN_REQUEST,
+                    f"ordinary-{version}",
+                ),
+                effective_at=effective_at,
+                technical_provenance=TechnicalProvenance(
+                    {
+                        TechnicalReference(
+                            TechnicalReferenceKind.TRACE,
+                            f"ordinary-trace-{version}",
+                        )
+                    }
+                ),
+                expected_versions=frozenset(
+                    {
+                        ExpectedDecisionVersion(
+                            decision_id,
+                            DecisionVersion(version),
+                        )
+                    }
+                ),
+            )
+
+        instants = [
+            MUTATION_RECORDED_AT + timedelta(hours=offset) for offset in range(9)
+        ]
+        await service.revise_subject(
+            ReviseDecisionSubjectCommand(
+                envelope(1, instants[0]),
+                decision_id,
+                DecisionSubject("Whether to increase the position"),
+                DecisionContinuity.SAME_COHERENT_CHOICE,
+            )
+        )
+        await service.establish_or_revise_scope(
+            EstablishOrReviseDecisionScopeCommand(
+                envelope(2, instants[1]),
+                decision_id,
+                DecisionScope.established(PortfolioId(PORTFOLIO_A)),
+                DecisionContinuity.SAME_COHERENT_CHOICE,
+            )
+        )
+        await service.establish_or_revise_scope(
+            EstablishOrReviseDecisionScopeCommand(
+                envelope(3, instants[2]),
+                decision_id,
+                DecisionScope.established(
+                    PortfolioId(PORTFOLIO_A),
+                    PortfolioId(PORTFOLIO_B),
+                ),
+                DecisionContinuity.SAME_COHERENT_CHOICE,
+            )
+        )
+        await service.apply_human_deferral(
+            ApplyHumanDeferralCommand(
+                envelope(4, instants[3]),
+                decision_id,
+                TrustedHumanInvestmentDecisionBasis(
+                    "human-deferral-1",
+                    HumanInvestmentDecisionEffect.DEFERRING,
+                ),
+            )
+        )
+        await service.apply_human_deferral(
+            ApplyHumanDeferralCommand(
+                envelope(5, instants[4]),
+                decision_id,
+                TrustedHumanInvestmentDecisionBasis(
+                    "human-deferral-2",
+                    HumanInvestmentDecisionEffect.DEFERRING,
+                ),
+            )
+        )
+        await service.resume_work(
+            ResumeDecisionWorkCommand(
+                envelope(6, instants[5]),
+                decision_id,
+                DecisionWorkControlBasis("resume-after-deferral"),
+                DecisionContinuity.SAME_COHERENT_CHOICE,
+            )
+        )
+        await service.withdraw_work(
+            WithdrawDecisionWorkCommand(
+                envelope(7, instants[6]),
+                decision_id,
+                DecisionWorkControlBasis("withdraw-work"),
+            )
+        )
+        await service.resume_work(
+            ResumeDecisionWorkCommand(
+                envelope(8, instants[7]),
+                decision_id,
+                DecisionWorkControlBasis("resume-withdrawn-work"),
+                DecisionContinuity.SAME_COHERENT_CHOICE,
+            )
+        )
+        result = await service.apply_external_resolution(
+            ApplyExternalResolutionCommand(
+                envelope(9, instants[8]),
+                decision_id,
+                ExternalResolutionBasis("external-resolution"),
+            )
+        )
+        assert result.version == DecisionVersion(10)
+        await store._engine.dispose()
+
+        restarted_engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        restarted = PostgresDecisionStore(restarted_engine)
+        try:
+            state = await restarted.load_decision_for_command(
+                decision_id,
+                known_at=instants[-1],
+            )
+            assert state is not None
+            history = state.decision.history
+            assert [fact.metadata.sequence.value for fact in history] == list(
+                range(1, 11)
+            )
+            assert [fact.metadata.decision_version.value for fact in history] == list(
+                range(1, 11)
+            )
+            assert [type(fact) for fact in history[1:]] == [
+                DecisionSubjectRevised,
+                DecisionScopeEstablished,
+                DecisionScopeRevised,
+                DecisionDeferred,
+                DecisionDeferred,
+                DecisionWorkResumed,
+                DecisionWorkWithdrawn,
+                DecisionWorkResumed,
+                DecisionExternallyResolved,
+            ]
+            deferrals = [fact for fact in history if isinstance(fact, DecisionDeferred)]
+            assert [fact.basis.decision_reference for fact in deferrals] == [
+                "human-deferral-1",
+                "human-deferral-2",
+            ]
+            assert state.decision.subject == DecisionSubject(
+                "Whether to increase the position"
+            )
+            assert state.decision.scope == DecisionScope.established(
+                PortfolioId(PORTFOLIO_A),
+                PortfolioId(PORTFOLIO_B),
+            )
+            assert state.decision.version == DecisionVersion(10)
+            for version, fact in enumerate(history[1:], start=1):
+                assert fact.metadata.actor_attribution == KnownActorAttribution(
+                    ActorId(ACTOR_ID)
+                )
+                assert fact.metadata.trigger.reference == f"ordinary-{version}"
+                assert fact.metadata.technical_provenance == TechnicalProvenance(
+                    {
+                        TechnicalReference(
+                            TechnicalReferenceKind.TRACE,
+                            f"ordinary-trace-{version}",
+                        )
+                    }
+                )
+        finally:
+            await restarted_engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_ordinary_mutation_uses_projection_version_ahead_of_lifecycle_tail(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        decision_id = InvestmentDecisionId(DECISION_ID)
+        async with store._engine.begin() as connection:
+            await connection.execute(
+                investment_decisions.update()
+                .where(investment_decisions.c.decision_id == DECISION_ID)
+                .values(decision_version=2)
+            )
+        result = await DecisionOrdinaryWorkService(
+            store=store,
+            now=lambda: MUTATION_RECORDED_AT,
+            new_uuid=lambda: MUTATION_FACT_ID,
+        ).revise_subject(
+            ReviseDecisionSubjectCommand(
+                DecisionCommandEnvelope(
+                    operation_id=OperationId(MUTATION_OPERATION_ID),
+                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                    trigger=TriggerProvenance(
+                        TriggerKind.HUMAN_REQUEST,
+                        "after-relationship-version",
+                    ),
+                    effective_at=MUTATION_RECORDED_AT,
+                    technical_provenance=TechnicalProvenance(),
+                    expected_versions=frozenset(
+                        {ExpectedDecisionVersion(decision_id, DecisionVersion(2))}
+                    ),
+                ),
+                decision_id,
+                DecisionSubject("Whether to increase the position"),
+                DecisionContinuity.SAME_COHERENT_CHOICE,
+            )
+        )
+        try:
+            assert result.version == DecisionVersion(3)
+            state = await store.load_decision_for_command(
+                decision_id,
+                known_at=MUTATION_RECORDED_AT,
+            )
+            assert state is not None
+            assert state.decision.version == DecisionVersion(3)
+            assert [
+                fact.metadata.sequence.value for fact in state.decision.history
+            ] == [1, 2]
+            assert [
+                fact.metadata.decision_version.value for fact in state.decision.history
+            ] == [1, 3]
+        finally:
+            await store._engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_concurrent_future_corrections_use_history_tail_when_version_does_not_advance(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        decision_id = InvestmentDecisionId(DECISION_ID)
+        resolution_fact_id = DecisionLifecycleFactId(MUTATION_FACT_ID)
+        resolution = TrustedHumanInvestmentDecisionBasis(
+            "human-resolution",
+            HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING,
+        )
+        resolution_service = DecisionOrdinaryWorkService(
+            store=store,
+            now=lambda: MUTATION_RECORDED_AT,
+            new_uuid=lambda: MUTATION_FACT_ID,
+        )
+        await resolution_service.apply_substantive_resolution(
+            ApplySubstantiveResolutionCommand(
+                DecisionCommandEnvelope(
+                    operation_id=OperationId(MUTATION_OPERATION_ID),
+                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                    trigger=TriggerProvenance(
+                        TriggerKind.HUMAN_REQUEST,
+                        "resolution",
+                    ),
+                    effective_at=MUTATION_RECORDED_AT,
+                    technical_provenance=TechnicalProvenance(),
+                    expected_versions=frozenset(
+                        {ExpectedDecisionVersion(decision_id, DecisionVersion(1))}
+                    ),
+                ),
+                decision_id,
+                resolution,
+            )
+        )
+        await store._engine.dispose()
+
+        engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        concurrent_store = _ConcurrentLoadStore(engine, asyncio.Barrier(2))
+        correction_recorded_at = MUTATION_RECORDED_AT + timedelta(hours=1)
+        correction_effective_at = correction_recorded_at + timedelta(hours=2)
+
+        def command(
+            operation: UUID, reference: str
+        ) -> RecordDecisionLifecycleCorrectionCommand:
+            return RecordDecisionLifecycleCorrectionCommand(
+                envelope=DecisionCommandEnvelope(
+                    operation_id=OperationId(operation),
+                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                    trigger=TriggerProvenance(
+                        TriggerKind.HUMAN_REQUEST,
+                        reference,
+                    ),
+                    effective_at=correction_effective_at,
+                    technical_provenance=TechnicalProvenance(),
+                    expected_versions=frozenset(
+                        {ExpectedDecisionVersion(decision_id, DecisionVersion(2))}
+                    ),
+                ),
+                decision_id=decision_id,
+                target_fact_id=resolution_fact_id,
+                effect=DecisionLifecycleCorrectionEffect.QUALIFY,
+                correction_basis=DecisionLifecycleCorrectionBasis(reference),
+                replacement_disposition=(
+                    DecisionLifecycleDisposition.SUBSTANTIVELY_RESOLVED
+                ),
+                replacement_basis=TrustedHumanInvestmentDecisionBasis(
+                    f"{reference}-replacement",
+                    HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING,
+                ),
+            )
+
+        first = DecisionLifecycleCorrectionService(
+            store=concurrent_store,
+            now=lambda: correction_recorded_at,
+            new_uuid=lambda: CONCURRENT_FACT_ID,
+        ).record_lifecycle_correction(command(CONCURRENT_OPERATION_ID, "correction-a"))
+        second_operation = UUID("00000000-0000-4000-8000-00000000000c")
+        second_fact = UUID("00000000-0000-4000-8000-00000000000d")
+        second = DecisionLifecycleCorrectionService(
+            store=concurrent_store,
+            now=lambda: correction_recorded_at,
+            new_uuid=lambda: second_fact,
+        ).record_lifecycle_correction(command(second_operation, "correction-b"))
+        try:
+            outcomes = await asyncio.gather(first, second, return_exceptions=True)
+            assert sum(not isinstance(item, Exception) for item in outcomes) == 1
+            assert sum(isinstance(item, ConcurrencyConflict) for item in outcomes) == 1
+            state = await PostgresDecisionStore(engine).load_decision_for_command(
+                decision_id,
+                known_at=correction_recorded_at,
+            )
+            assert state is not None
+            assert [
+                fact.metadata.sequence.value for fact in state.decision.history
+            ] == [
+                1,
+                2,
+                3,
+            ]
+            assert [
+                fact.metadata.decision_version.value for fact in state.decision.history
+            ] == [
+                1,
+                2,
+                2,
+            ]
+            assert isinstance(state.decision.history[-2], DecisionSubstantivelyResolved)
+            assert isinstance(state.decision.history[-1], DecisionLifecycleCorrected)
+            receipts = [
+                await concurrent_store.get_mutation_receipt(OperationId(operation))
+                for operation in (CONCURRENT_OPERATION_ID, second_operation)
+            ]
+            assert sum(receipt is not None for receipt in receipts) == 1
+        finally:
+            await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_concurrent_same_operation_future_correction_replays_after_tail_wait(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        decision_id = InvestmentDecisionId(DECISION_ID)
+        await DecisionOrdinaryWorkService(
+            store=store,
+            now=lambda: MUTATION_RECORDED_AT,
+            new_uuid=lambda: MUTATION_FACT_ID,
+        ).apply_substantive_resolution(
+            ApplySubstantiveResolutionCommand(
+                DecisionCommandEnvelope(
+                    operation_id=OperationId(MUTATION_OPERATION_ID),
+                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                    trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "resolution"),
+                    effective_at=MUTATION_RECORDED_AT,
+                    technical_provenance=TechnicalProvenance(),
+                    expected_versions=frozenset(
+                        {ExpectedDecisionVersion(decision_id, DecisionVersion(1))}
+                    ),
+                ),
+                decision_id,
+                TrustedHumanInvestmentDecisionBasis(
+                    "human-resolution",
+                    HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING,
+                ),
+            )
+        )
+        await store._engine.dispose()
+
+        engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        concurrent_store = _ConcurrentLoadStore(engine, asyncio.Barrier(2))
+        correction_operation_id = UUID("00000000-0000-4000-8000-00000000000c")
+        correction_recorded_at = MUTATION_RECORDED_AT + timedelta(hours=1)
+        correction_effective_at = correction_recorded_at + timedelta(hours=2)
+        command = RecordDecisionLifecycleCorrectionCommand(
+            envelope=DecisionCommandEnvelope(
+                operation_id=OperationId(correction_operation_id),
+                actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                trigger=TriggerProvenance(
+                    TriggerKind.HUMAN_REQUEST,
+                    "same-correction-race",
+                ),
+                effective_at=correction_effective_at,
+                technical_provenance=TechnicalProvenance(),
+                expected_versions=frozenset(
+                    {ExpectedDecisionVersion(decision_id, DecisionVersion(2))}
+                ),
+            ),
+            decision_id=decision_id,
+            target_fact_id=DecisionLifecycleFactId(MUTATION_FACT_ID),
+            effect=DecisionLifecycleCorrectionEffect.QUALIFY,
+            correction_basis=DecisionLifecycleCorrectionBasis("correction"),
+            replacement_disposition=DecisionLifecycleDisposition.SUBSTANTIVELY_RESOLVED,
+            replacement_basis=TrustedHumanInvestmentDecisionBasis(
+                "replacement",
+                HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING,
+            ),
+        )
+        first = DecisionLifecycleCorrectionService(
+            store=concurrent_store,
+            now=lambda: correction_recorded_at,
+            new_uuid=lambda: CONCURRENT_FACT_ID,
+        ).record_lifecycle_correction(command)
+        second = DecisionLifecycleCorrectionService(
+            store=concurrent_store,
+            now=lambda: correction_recorded_at,
+            new_uuid=lambda: UUID("00000000-0000-4000-8000-00000000000d"),
+        ).record_lifecycle_correction(command)
+        try:
+            outcomes = await asyncio.gather(first, second, return_exceptions=True)
+            assert all(not isinstance(item, Exception) for item in outcomes)
+            results = [
+                item for item in outcomes if isinstance(item, DecisionMutationResult)
+            ]
+            assert sum(result.replayed for result in results) == 1
+            assert all(result.version == DecisionVersion(2) for result in results)
+            state = await PostgresDecisionStore(engine).load_decision_for_command(
+                decision_id,
+                known_at=correction_recorded_at,
+            )
+            assert state is not None
+            assert len(state.decision.history) == 3
+            assert [
+                fact.metadata.decision_version.value for fact in state.decision.history
+            ] == [1, 2, 2]
+        finally:
+            await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_unsupported_need_retraction_and_disconfirmation_round_trip(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        decision_id = InvestmentDecisionId(DECISION_ID)
+        correction_service = DecisionLifecycleCorrectionService(
+            store=store,
+            now=lambda: MUTATION_RECORDED_AT,
+            new_uuid=lambda: MUTATION_FACT_ID,
+        )
+        retracted = await correction_service.retract_unsupported_decision_need(
+            RetractUnsupportedDecisionNeedCommand(
+                envelope=DecisionCommandEnvelope(
+                    operation_id=OperationId(MUTATION_OPERATION_ID),
+                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                    trigger=TriggerProvenance(
+                        TriggerKind.HUMAN_REQUEST,
+                        "unsupported-need",
+                    ),
+                    effective_at=MUTATION_RECORDED_AT,
+                    technical_provenance=TechnicalProvenance(),
+                    expected_versions=frozenset(
+                        {ExpectedDecisionVersion(decision_id, DecisionVersion(1))}
+                    ),
+                ),
+                decision_id=decision_id,
+                correction_basis=DecisionLifecycleCorrectionBasis("need-correction"),
+                unsupported_need_basis=UnsupportedDecisionNeedBasis(
+                    "need-was-unsupported"
+                ),
+            )
+        )
+        assert retracted.version == DecisionVersion(2)
+        restored_at = MUTATION_RECORDED_AT + timedelta(hours=1)
+        restored_fact_id = UUID("00000000-0000-4000-8000-00000000000a")
+        restored_operation_id = UUID("00000000-0000-4000-8000-00000000000b")
+        restored = await DecisionLifecycleCorrectionService(
+            store=store,
+            now=lambda: restored_at,
+            new_uuid=lambda: restored_fact_id,
+        ).record_lifecycle_correction(
+            RecordDecisionLifecycleCorrectionCommand(
+                envelope=DecisionCommandEnvelope(
+                    operation_id=OperationId(restored_operation_id),
+                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                    trigger=TriggerProvenance(
+                        TriggerKind.HUMAN_REQUEST,
+                        "restore-need",
+                    ),
+                    effective_at=restored_at,
+                    technical_provenance=TechnicalProvenance(),
+                    expected_versions=frozenset(
+                        {ExpectedDecisionVersion(decision_id, DecisionVersion(2))}
+                    ),
+                ),
+                decision_id=decision_id,
+                target_fact_id=DecisionLifecycleFactId(MUTATION_FACT_ID),
+                effect=DecisionLifecycleCorrectionEffect.DISCONFIRM,
+                correction_basis=DecisionLifecycleCorrectionBasis(
+                    "restore-need-correction"
+                ),
+            )
+        )
+        assert restored.version == DecisionVersion(3)
+        await store._engine.dispose()
+
+        restarted_engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        restarted = PostgresDecisionStore(restarted_engine)
+        try:
+            state = await restarted.load_decision_for_command(
+                decision_id,
+                known_at=restored_at,
+            )
+            assert state is not None
+            assert [
+                fact.metadata.sequence.value for fact in state.decision.history
+            ] == [
+                1,
+                2,
+                3,
+            ]
+            first_correction = state.decision.history[-2]
+            second_correction = state.decision.history[-1]
+            assert isinstance(first_correction, DecisionLifecycleCorrected)
+            assert first_correction.replacement_disposition is (
+                DecisionLifecycleDisposition.NEED_RETRACTED_UNSUPPORTED
+            )
+            assert first_correction.replacement_basis == UnsupportedDecisionNeedBasis(
+                "need-was-unsupported"
+            )
+            assert isinstance(second_correction, DecisionLifecycleCorrected)
+            assert second_correction.effect is (
+                DecisionLifecycleCorrectionEffect.DISCONFIRM
+            )
+            assert second_correction.replacement_basis is None
+            receipt = await restarted.get_mutation_receipt(
+                OperationId(restored_operation_id)
+            )
+            assert receipt is not None
+            assert receipt.result == restored
+        finally:
+            await restarted_engine.dispose()
 
     asyncio.run(scenario())
 
@@ -404,6 +1595,7 @@ def test_need_can_ground_only_one_decision(
                 recorded_at=RECORDED_AT,
             ),
         )
+        assert isinstance(need.actor_attribution, KnownActorAttribution)
         request = InitiationSemanticRequest(
             actor_attribution=need.actor_attribution,
             trigger=need.trigger,
@@ -492,9 +1684,12 @@ def test_need_and_lifecycle_facts_are_database_immutable(
 
 def test_inward_port_methods_expose_no_database_types() -> None:
     for name in (
+        "commit_mutation",
         "commit_initiation",
         "find_unresolved_continuity_candidates",
         "get_initiation_receipt",
+        "get_mutation_receipt",
+        "load_decision_for_command",
         "load_current_decision_state",
         "load_decision_history",
         "load_relationship_history",

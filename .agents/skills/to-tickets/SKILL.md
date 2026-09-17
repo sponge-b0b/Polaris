@@ -970,11 +970,28 @@ Present the proposed fresh breakdown or remediation delta.
 
 If the delta contains **only deterministic required ticket-metadata normalization** and does not change ticket scope, acceptance criteria, preservation obligations, blocking edges, dependencies, labels, or lifecycle state, skip user approval and continue directly to Step 5.
 
-For new tickets, show:
+For fresh Spec tickets, present a **publication-ready proposal**. The approval surface must show the exact semantic ticket bodies that were frozen, hashed, and validated—not a summary standing in for those bodies.
 
-* **Title**
-* **Blocked by**
-* **What it delivers**
+For each proposed fresh ticket show:
+
+* **Title**;
+* **Parent / native parent**;
+* **Spec obligations**;
+* **Architecture obligations**;
+* **Architecture context**;
+* **What to build**;
+* **Acceptance criteria**;
+* **Blocked by**;
+* **Ticket branch**;
+* **Ticket baseline**;
+* **Required label/status**;
+* any other semantic section that will actually be published for that ticket.
+
+A compact `What it delivers` or dependency summary may precede the ticket bodies for readability, but it never substitutes for the publication-ready bodies. Do not ask the user to approve a ticket contract whose acceptance criteria, routed provenance, or other material semantic wording is hidden from the approval surface.
+
+The fresh-ticket bodies shown for approval must be the same bodies bound to the proposal identity and Ticket Semantic Carry Matrix and must be the bodies published after approval. If any shown body, dependency, label/status, branch/baseline metadata, or publication action changes after presentation, the prior approval does not cover the change; freeze and validate the revised proposal and request approval again when required by this workflow.
+
+Keep validation machinery compact. Do not dump the complete Spec disposition table, Architecture / Design Source Inventory, normative source-unit rows, or Ticket Semantic Carry Matrix merely because the publication-ready ticket bodies must be visible. Show their required readiness/coverage summaries, while exposing the exact human-authorized ticket contracts in full.
 
 For Spec Review remediation tickets, present a **publication-ready proposal**. For each ticket show:
 

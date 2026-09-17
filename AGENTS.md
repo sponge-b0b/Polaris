@@ -155,20 +155,26 @@ Workflow consequences:
 
 ### Spec Governance Mode
 
-Spec governance is **orthogonal to Spec validity and lifecycle state**. Every Spec, and every downstream artifact whose delivery governance derives from that Spec, must resolve exactly one governance mode from durable tracker evidence before any Wayfinder- or project-delivery-dependent step:
+Spec governance is **orthogonal to Spec validity and lifecycle state**. Every Spec, and every downstream artifact whose delivery governance derives from that Spec, resolves exactly one governance mode from **one bounded read of the parent Spec itself** before any Wayfinder- or project-delivery-dependent step:
 
 ```text
 Wayfinder-managed
 Independent
 ```
 
-A Spec is **Wayfinder-managed** only when current durable evidence establishes one or more governing Wayfinders through canonical `wayfinder-source`, `wayfinder-remediation`, or reconciled `Spec Handoff` provenance.
+This section is a repository-wide workflow supersession rule. It replaces narrower skill wording that requires exhaustive governance recovery, reverse Wayfinder-map reconciliation, Project Delivery history inspection, global issue/comment search, or another absence-proof merely to classify a Spec.
 
-A Spec is **Independent** only when exhaustive governance recovery establishes no Wayfinder governor and no evidence suggests missing, contradictory, or ambiguous Wayfinder provenance. Missing expected provenance is governance drift, not proof of independence.
+Classification is mechanical:
 
-This section is a repository-wide workflow hardening rule and **supersedes any narrower skill wording that unconditionally assumes a Spec has a governing Wayfinder**. In particular:
+* if the Spec itself contains one or more valid `wayfinder-source` or `wayfinder-remediation` provenance markers, it is **Wayfinder-managed** and the governing Wayfinder set is the union of the Wayfinder IDs in those Spec-local markers;
+* if the Spec itself contains neither marker, it is **Independent**;
+* malformed, internally contradictory, or ambiguous Spec-local provenance fails closed as governance drift.
 
-* any instruction to recover a governing Wayfinder, invoke `$project-delivery-management` `guard`/`reconcile`, require Wayfinder focus, or reconcile/close governing Wayfinders for a Spec or Spec-derived artifact applies **only** after that artifact's parent Spec is proven Wayfinder-managed, even if the local skill later omits the qualifier;
+`$to-specs` and `$to-remediation-specs` own keeping the Spec-local `wayfinder-source` / `wayfinder-remediation` markers complete when they create or reconcile Wayfinder governance. Forward `Spec Handoff` metadata on Wayfinder maps remains useful to those producer/reconciliation workflows, but downstream lifecycle consumers must not reverse-search Wayfinder maps, Project Delivery records, unrelated issues, or comment histories to prove that an unmarked Spec is Independent.
+
+For the rest of the lifecycle:
+
+* any instruction to recover a governing Wayfinder, invoke `$project-delivery-management` `guard`/`reconcile`, require Wayfinder focus, or reconcile/close governing Wayfinders applies **only** after the parent Spec is classified Wayfinder-managed by the Spec-local read above;
 * an Independent Spec and its descendants never acquire, infer, or require a Wayfinder merely because they enter ticketing, implementation, verification, review, remediation, dependency handling, merge/cleanup, or Project reconciliation;
 * Independent Specs do not participate in Wayfinder focus. Their authoritative Project Delivery State is `independent` while open, subject to their ordinary lifecycle and native blockers;
 * if `$project-delivery-management` is invoked with an Independent Spec or a descendant whose only governing Spec is Independent, it must return `PROJECT DELIVERY: OUTSIDE OWNER` without mutation rather than treating the missing Wayfinder as ambiguous or creating one;
@@ -189,7 +195,74 @@ Spec dependency semantic ownership is:
 
 A Wayfinder-managed Spec blocked by an Independent Spec remains governed by its existing Wayfinder; the narrower open Spec blocker makes the Spec non-actionable without making the Wayfinder itself dependent on or governed by the Independent Spec. If the map otherwise remains frontier-eligible, it may remain focused-but-stalled.
 
-Governance mode is revalidated at every fresh human lifecycle entry and whenever durable provenance changes. It is never inferred from GitHub Project fields, labels other than canonical provenance mechanisms, issue age/order, branch names, conversation state, or the fact that a prior workflow happened to use or not use Wayfinder.
+Governance mode is revalidated at every fresh human lifecycle entry and whenever the Spec-local provenance markers change. Revalidation means rereading the parent Spec once; it is not permission to repeat repository archaeology.
+
+### Candidate-Bound Verification Evidence Reuse
+
+Deterministic and technical proof is reusable while its exact inputs remain valid. Workflow phase changes, helper boundaries, wording such as "final verification", or another skill listing the same check do **not** by themselves invalidate an already-passing result.
+
+This section is a repository-wide workflow supersession rule for lifecycle skills and their internal helpers.
+
+For each applicable check, retain enough working evidence to identify:
+
+```text
+Check: <ruff | mypy | pytest scope | migration lifecycle | architecture gate | other>
+Input/candidate identity: <exact repository candidate / affected path state>
+Scope/configuration: <command-relevant scope and configuration>
+External prerequisite state: <None | service/environment identity relevant to the check>
+Result: PASS | FAIL
+```
+
+Reuse a PASS when the candidate inputs, check scope/configuration, and material external prerequisites remain unchanged. Do not rerun a check solely because control moved from implementation to a helper, from a helper back to the parent, or from ordinary verification into a closure/finalization phase.
+
+After a mutation, invalidate and rerun only checks whose input universe can materially be affected by that mutation. Examples:
+
+* changing Python production code normally invalidates applicable Ruff/Mypy and behavior tests covering that code;
+* changing only Markdown does not by itself invalidate PostgreSQL integration tests or Python type checks;
+* adding or changing one test invalidates the affected test scope and applicable formatting/lint/type checks for that test, not unrelated architecture/runtime proof;
+* changing migration/schema/adapter code invalidates the applicable database/migration proof;
+* changing a workflow/policy file does not by itself invalidate product-code tests unless an authoritative gate explicitly includes that file in its input universe.
+
+When uncertain whether a mutation can affect a proof, rerun the smallest check that resolves the uncertainty. Independent semantic certification remains candidate-bound and is not replaced by technical evidence reuse.
+
+A helper that already produced a passing result for the exact still-current candidate must return that evidence to its parent. The parent records/reuses it rather than rerunning the same command merely to satisfy duplicate phase wording.
+
+### `$implement-ticket` Parent / Independent Verifier Boundary
+
+`$implement-ticket` implements and technically validates the candidate; `$verify-ticket-closure` independently owns semantic closure certification. The parent must not perform a second semantic-certification workflow before dispatching the independent verifier.
+
+This section is a repository-wide workflow supersession rule for `$implement-ticket` and `$verify-ticket-closure`. It supersedes narrower `$implement-ticket` wording that requires the implementation actor, solely as a prerequisite to verifier dispatch, to build the complete Ticket Acceptance Universe, create one semantic proof/falsifier row per material obligation, close nested semantic domains, or assign `proposed-proven | proposed-unproven` semantic verdicts across the full ticket/Spec/architecture contract.
+
+Before verifier dispatch, the `$implement-ticket` closure checkpoint carries a concise **Implementation Evidence Index** instead of a parent-owned semantic certification matrix:
+
+```text
+Candidate state: <TICKET_CLOSURE_STATE>
+Changed/implemented surfaces: <compact path or component groups>
+
+Evidence:
+- <ticket criterion / obligation group> → <implementation surface>; <applicable deterministic/test evidence or durable pointer>
+- ...
+
+Applicable technical checks:
+- <check> → PASS on <scope/candidate identity>
+- ...
+
+Known unresolved implementation failures: 0
+Known unresolved design/architecture blockers: 0
+```
+
+Rules:
+
+* group obligations when the same implementation surface/evidence serves them; one row per semantic predicate is not required;
+* evidence entries are retrieval pointers, not semantic PASS declarations;
+* the parent must fix known failing required checks and known in-scope implementation defects before dispatch, but it does not independently prove exhaustive semantic entailment of every Spec/`ARCHSRC-*` predicate;
+* deterministic impact/consumer checks remain required when applicable, but do not expand them into a duplicate semantic certification manifest solely for closure dispatch;
+* remediation tickets additionally carry their existing Root Blocker/root-contract/preservation references needed by the verifier, without turning the implementation actor into the independent root certifier;
+* the durable checkpoint, candidate hash, branch/baseline/lineage binding, attempt history, and dispatcher-only isolation remain required.
+
+The fresh `$verify-ticket-closure` verifier independently reconstructs the authoritative acceptance universe, semantic domains, falsifiers, decomposition integrity, and final PASS/FAIL from durable authority. It may use the Implementation Evidence Index as a compact retrieval map but never as semantic authority.
+
+An older active closure checkpoint that contains a larger Proposed Closure Evidence matrix remains valid if its candidate/bindings are still exact; do not rebuild it merely to shrink the evidence format. New or rebuilt attempts use the concise index above.
 
 ### Domain Vocabulary
 
@@ -253,9 +326,11 @@ Manage only services needed for the active task.
 
 ## Pytest Service Preflight
 
-No pytest command may launch until the exact selected test scope's external-service prerequisites have been identified and, when applicable, verified ready.
+No pytest command may launch until the selected test scope's external-service prerequisites have been identified and, when applicable, verified ready.
 
-Before every pytest invocation, identify the exact selected greenfield test scope and inspect its active root configuration, tests, and fixtures to classify the complete scope as service-free or requiring one or more external services. For multi-file or directory scopes, use the union of all prerequisites. Identify required environment/configuration prerequisites, and for service-backed tests verify required services are ready before pytest starts. The v0.1 testing guide under `legacy/v0_1/docs/process/` is historical reference only and must not be treated as current greenfield test authority.
+Identify the exact selected greenfield test scope and inspect its active root configuration, tests, and fixtures to classify the complete scope as service-free or requiring one or more external services. For multi-file or directory scopes, use the union of all prerequisites. Identify required environment/configuration prerequisites, and for service-backed tests verify required services are ready before pytest starts. The v0.1 testing guide under `legacy/v0_1/docs/process/` is historical reference only and must not be treated as current greenfield test authority.
+
+That prerequisite classification is reusable for later pytest invocations while the selected test scope, relevant configuration/fixtures, and service topology remain unchanged. Do **not** re-inspect the same fixtures/configuration before every pytest rerun solely because pytest is being invoked again. For service-backed tests, a lightweight readiness check may confirm that the same already-classified service target is still ready; reconstruct the prerequisite analysis only when the scope/configuration/service topology changed or readiness evidence became stale.
 
 Do not use pytest startup, a client timeout, a connection exception, or a skip as the readiness probe. If prerequisites cannot be verified, do not launch pytest; report the verification as unresolved.
 

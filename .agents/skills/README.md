@@ -43,6 +43,55 @@ Classify every cross-skill transition as one of these four cases:
 
 Do not create Human Handoffs merely because the target skill disables implicit invocation.
 
+## Workflow Stability and Change Control
+
+Polaris product delivery takes priority over continual workflow refinement.
+
+> **The existence of a workflow imperfection is not sufficient reason to change the workflow.**
+
+During active product delivery, the current skill workflow is **frozen by default**. Agents must execute the established lifecycle rather than continuously audit, optimize, harden, simplify, or redesign it.
+
+A workflow change may interrupt active delivery only for a concrete **STOP-FIX defect**. A STOP-FIX defect must be reproducible from durable current state and establish at least one of these conditions:
+
+* the authorized lifecycle cannot continue as written;
+* durable repository or tracker state may be corrupted, lost, or made contradictory;
+* work is routed to the wrong lifecycle owner or authorization boundary;
+* the workflow materially permits implementation or certification contrary to the authoritative product, Spec, architecture, or acceptance contract.
+
+The following are **not** STOP-FIX defects by themselves:
+
+* an instruction could be clearer, shorter, more elegant, or less repetitive;
+* a skill consumes more tokens or time than desired but still completes correctly;
+* another verifier, helper, artifact, abstraction, or rule might theoretically make the workflow safer;
+* an agent notices a possible future edge case that has not occurred;
+* a downstream verifier/reviewer catches a defect that the normal remediation lifecycle can correct;
+* a skill has adjacent cleanup, naming, formatting, or consistency opportunities;
+* a new agent would have structured the workflow differently.
+
+When a STOP-FIX defect is established:
+
+1. repair the reproduced failure with the **smallest sufficient delta**;
+2. preserve unrelated skill behavior and existing ownership boundaries;
+3. do not add adjacent hardening, generalized redesign, cleanup, or speculative prevention;
+4. return to product delivery immediately after the defect is closed;
+5. do not perform a follow-on audit looking for similar or neighboring workflow improvements.
+
+Downstream detection is not automatic evidence that an upstream skill must change. If `$verify-ticket-closure`, `$verify-spec`, `$review-spec`, or another established downstream boundary catches a defect and the normal lifecycle can remediate it, treat that as the workflow functioning as designed unless one of the STOP-FIX conditions above is independently proven.
+
+Workflow architecture changes require **explicit human authorization before mutation**, including:
+
+* adding or removing semantic subagents/verifiers;
+* changing lifecycle stages or Human Handoff boundaries;
+* changing lifecycle ownership or routing authority;
+* introducing a new mandatory durable governance artifact or ledger;
+* replacing an established verification model with a different one.
+
+An agent may report a demonstrated workflow problem and recommend such a change, but may not implement it merely because it appears safer, cleaner, faster, or more rigorous.
+
+Non-blocking workflow observations are deferred. Do not create mandatory workflow-maintenance work, debt ledgers, or follow-up tickets during active product delivery unless the human explicitly asks for them. At a natural delivery boundary, the human may choose to review repeated observations; no maintenance pass is automatic.
+
+Do not perform a proactive "one last" skill audit before continuing product work. The frozen workflow is allowed to be imperfect. Stability, predictability, and delivery progress are the governing goals.
+
 ## Invocation Semantics
 
 Polaris distinguishes **automatic skill selection** from **delegated workflow composition**.

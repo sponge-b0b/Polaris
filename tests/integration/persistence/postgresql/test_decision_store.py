@@ -1045,7 +1045,7 @@ def test_all_ordinary_lifecycle_mutations_round_trip_with_distinct_redeferral(
     asyncio.run(scenario())
 
 
-def test_ordinary_mutation_uses_projection_version_ahead_of_lifecycle_tail(
+def test_ordinary_mutation_rejects_unwitnessed_projection_version_ahead_of_history(
     postgres_target: PostgresTestTarget,
 ) -> None:
     async def scenario() -> None:
@@ -1057,44 +1057,36 @@ def test_ordinary_mutation_uses_projection_version_ahead_of_lifecycle_tail(
                 .where(investment_decisions.c.decision_id == DECISION_ID)
                 .values(decision_version=2)
             )
-        result = await DecisionOrdinaryWorkService(
-            store=store,
-            now=lambda: MUTATION_RECORDED_AT,
-            new_uuid=lambda: MUTATION_FACT_ID,
-        ).revise_subject(
-            ReviseDecisionSubjectCommand(
-                DecisionCommandEnvelope(
-                    operation_id=OperationId(MUTATION_OPERATION_ID),
-                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                    trigger=TriggerProvenance(
-                        TriggerKind.HUMAN_REQUEST,
-                        "after-relationship-version",
-                    ),
-                    effective_at=MUTATION_RECORDED_AT,
-                    technical_provenance=TechnicalProvenance(),
-                    expected_versions=frozenset(
-                        {ExpectedDecisionVersion(decision_id, DecisionVersion(2))}
-                    ),
-                ),
-                decision_id,
-                DecisionSubject("Whether to increase the position"),
-                DecisionContinuity.SAME_COHERENT_CHOICE,
-            )
-        )
         try:
-            assert result.version == DecisionVersion(3)
-            state = await store.load_decision_for_command(
-                decision_id,
-                known_at=MUTATION_RECORDED_AT,
-            )
-            assert state is not None
-            assert state.decision.version == DecisionVersion(3)
-            assert [
-                fact.metadata.sequence.value for fact in state.decision.history
-            ] == [1, 2]
-            assert [
-                fact.metadata.decision_version.value for fact in state.decision.history
-            ] == [1, 3]
+            with pytest.raises(ConcurrencyConflict):
+                await DecisionOrdinaryWorkService(
+                    store=store,
+                    now=lambda: MUTATION_RECORDED_AT,
+                    new_uuid=lambda: MUTATION_FACT_ID,
+                ).revise_subject(
+                    ReviseDecisionSubjectCommand(
+                        DecisionCommandEnvelope(
+                            operation_id=OperationId(MUTATION_OPERATION_ID),
+                            actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                            trigger=TriggerProvenance(
+                                TriggerKind.HUMAN_REQUEST,
+                                "after-unwitnessed-projection-version",
+                            ),
+                            effective_at=MUTATION_RECORDED_AT,
+                            technical_provenance=TechnicalProvenance(),
+                            expected_versions=frozenset(
+                                {
+                                    ExpectedDecisionVersion(
+                                        decision_id, DecisionVersion(2)
+                                    )
+                                }
+                            ),
+                        ),
+                        decision_id,
+                        DecisionSubject("Whether to increase the position"),
+                        DecisionContinuity.SAME_COHERENT_CHOICE,
+                    )
+                )
         finally:
             await store._engine.dispose()
 

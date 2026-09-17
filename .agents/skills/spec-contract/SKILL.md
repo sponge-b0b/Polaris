@@ -65,9 +65,9 @@ Recover all inputs from the explicit invocation, repository, and durable tracker
 
 ### Build-Mode Isolation Gate
 
-This section is authoritative for `build` mode. It supersedes any later preserved wording that permits an independent build attempt to reuse or overwrite a prior handoff path.
+This section is authoritative for `build` mode.
 
-A `build` result is admissible only when contract construction occurs in a **genuinely fresh agent/process context** that has not seen any prior representation of the same Spec contract. The caller supplies only:
+For builds consumed by semantic certification or finalization, contract construction must occur in a **genuinely fresh agent/process context** that has not seen any prior representation of the same Spec contract. The caller supplies only:
 
 * originating Spec issue/URL;
 * fixed `BASELINE_COMMIT`;
@@ -84,7 +84,7 @@ CONTRACT_HANDOFF="$CONTRACT_BUILD_DIR/contract.json"
 test ! -e "$CONTRACT_HANDOFF"
 ```
 
-Before returning terminal `SPEC CONTRACT: VALID`, the builder must **not** receive, search for, enumerate, read, compare against, or reconstruct from any of the following:
+Before returning terminal `SPEC CONTRACT: VALID`, that fresh builder must **not** receive, search for, enumerate, read, compare against, or reconstruct from any of the following:
 
 * a prior or expected `SPEC_CONTRACT_HASH`;
 * a prior Source Unit Inventory, manifest, structural identity row set, or source-to-cell mapping;
@@ -97,16 +97,16 @@ Durable repository/tracker state needed to resolve the originating Spec, fixed b
 
 The caller may retain a historical hash or receipt **outside the fresh builder context**, but it must not reveal or compare that state until after the fresh builder has returned its complete terminal result. Reproducibility is tested by post-build comparison; an expected value is never a construction target.
 
-If the builder becomes contaminated before completing construction—for example by inspecting a prior handoff, prior manifest, expected hash, or scratch contract artifact—the attempt is invalid. Return:
+If a fresh builder becomes contaminated before completing construction—for example by inspecting a prior handoff, prior manifest, expected hash, or scratch contract artifact—the attempt is invalid. Return:
 
 ```text
 SPEC CONTRACT: INVALID
 Reason: build isolation contaminated by prior contract state
 ```
 
-Discard that attempt's handoff. Do not continue in the same context by promising to ignore what was seen. A new build requires a new fresh context and a new nonexistent handoff path.
+Discard that attempt's handoff. Do not continue in the same context by promising to ignore what was seen. A new certification/finalization build requires a new fresh context and a new nonexistent handoff path.
 
-Every valid build terminal result must include:
+Every valid fresh certification/finalization build terminal result must include:
 
 ```text
 Build isolation: PASS
@@ -115,7 +115,15 @@ Pre-existing scratch contract artifacts inspected: 0
 Handoff path existed before build: no
 ```
 
-Missing or contradictory isolation evidence makes the build invalid even if its resulting hash matches a historical value.
+Missing or contradictory isolation evidence makes that certification/finalization build invalid even if its resulting hash matches a historical value.
+
+#### `$to-tickets` decomposition exception
+
+`$to-tickets` is an authorized decomposition caller, not a semantic certification boundary. When `$to-tickets` invokes `$spec-contract` solely to construct the current Spec obligation universe for ticket decomposition, it **must execute the build in the owning `$to-tickets` context and must not spawn a fresh model/subagent for contract construction**.
+
+This exception removes only the fresh-context/isolation requirement for that caller. All source-universe, classification, mapping, hashing, provenance, exact-input, and fail-closed integrity requirements in this skill remain unchanged. `$to-tickets` must build from the exact current durable Spec, baseline, branch, and `HEAD`; it must not treat a prior manifest, prior hash, scratch artifact, or conversational memory as contract authority.
+
+A decomposition-only build does not return or claim `Build isolation: PASS`, because no independent isolation boundary exists or is required. If `$verify-spec`, `$review-spec`, or another caller explicitly requires a fresh certification/finalization build, that caller's fresh-builder contract and the isolation requirements above remain fully applicable.
 
 ## Reproducible Contract Identity
 
@@ -258,7 +266,7 @@ SPEC_BODY_HASH=$(
 Resolve the repository default branch and the exact GitHub head used for ownership. Execute this block as one ordered unit. The silenced `git cat-file -e` inside the block is the only permitted pre-fetch local object probe. If the pinned object is absent, fetch immediately through the canonical HTTPS path before running any `git diff`, `git rev-list`, unsilenced object probe, or other ownership command against that SHA.
 
 ```bash
-REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
 
 DEFAULT_BRANCH=$(gh api "repos/$REPO" --jq .default_branch)
 DEFAULT_HEAD=$(gh api "repos/$REPO/commits/$DEFAULT_BRANCH" --jq .sha)

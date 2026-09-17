@@ -1,25 +1,51 @@
 ---
 name: to-tickets
-description: Break an explicit plan, Spec, review, or other invocation source into tracer-bullet tickets while proving exhaustive Spec-obligation disposition and independently certifying proposal readiness before human approval.
+description: Break an explicit plan, Spec, review, or other invocation source into tracer-bullet tickets while proving exhaustive obligation coverage and validating proposal readiness before human approval.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
 
 # To Tickets
 
-Create tracer-bullet tickets using the publication workflow below, with hard boundaries for exhaustive source coverage and independently certified proposal readiness before human approval.
+Create tracer-bullet tickets using the publication workflow below, with hard boundaries for exhaustive source coverage, deterministic proposal readiness, and human approval of the substantive decomposition before publication.
 
 This `SKILL.md` is the single authoritative procedure for `$to-tickets`. The preserved procedure later in this file remains normative for session recovery, project-delivery guards, codebase exploration, mode routing, `$to-remediation-tickets`, vertical slicing, user approval, Spec Branch Rule, tracker publication, native hierarchy/dependencies, ticket baseline/branch semantics, and handoff.
 
-The hardening sections immediately below add the fresh-Spec obligation-coverage gate, independently certified proposal readiness before human approval, exact Spec provenance on ordinary tickets, conditional/deferred obligation routing, and the design-delegation guard. On conflict with older wording later in this file, these hardening sections win.
+The hardening sections immediately below add the fresh-Spec obligation-coverage gate, parent-owned proposal readiness validation, exact Spec provenance on ordinary tickets, conditional/deferred obligation routing, architecture/design obligation coverage, and the design-delegation guard. On conflict with older wording later in this file, these hardening sections win.
 
 The remediation path remains owned by `$to-remediation-tickets`; do not replace its Root Blocker delta contract with the fresh-Spec mapping below.
+
+## Execution Budget and Independence Boundary
+
+`$to-tickets` is a decomposition workflow, not a semantic certification or adversarial-review boundary.
+
+Automatic semantic subagents for this skill: **0**.
+
+The owning `$to-tickets` agent must recover authority, construct the Spec contract, close the bounded architecture/design obligation universe, draft the ticket slices, validate proposal mechanics, run `$attention`, and present the resulting proposal itself. Do not dispatch a proposal-readiness certifier, challenger, shadow reviewer, or fresh `$spec-contract` model context.
+
+When `$to-tickets` invokes `$spec-contract` solely for decomposition, use the explicit `$to-tickets` decomposition exception in that skill and execute it in the owning context. Downstream `$implement-ticket`, `$verify-spec`, and `$review-spec` retain their own independent semantic verification/review boundaries.
+
+A second semantic reviewer/challenger for ticket decomposition requires **explicit human authorization in the current invocation**. It is never an automatic retry strategy.
+
+Efficiency is part of correctness here:
+
+1. recover lifecycle/governance state once and reuse it while its durable identities are unchanged;
+2. establish the Spec branch/baseline needed by the final contract before final decomposition;
+3. build the complete `$spec-contract` universe before final ticket prose;
+4. close the bounded architecture/design obligation universe before final ticket prose;
+5. freeze one structured routing model from Spec cells and `ARCHSRC-*` obligations to ticket aliases/destinations;
+6. render ticket bodies, dependency edges, and the parent coverage manifest from that closed routing model;
+7. run deterministic proposal checks before `$attention` and before showing the proposal to the user;
+8. do not expand exact requirement text into giant duplicate scratch artifacts when the canonical contract/manifest already carries that text; retain exact source text by stable ID/hash and render only the durable/human-facing forms required by this workflow;
+9. do not poll or emit status-noise loops for work that has no asynchronous semantic reviewer.
+
+A failed deterministic query is corrected against the actual schema. It does not justify broad alternate searches or repeated repository archaeology.
 
 ## Design Delegation Guard
 
 `$to-tickets` decomposes a frozen implementation-ready contract. It does not design the behavior that `$implement-ticket` will later choose.
 
-Before proposal-readiness certification for every software ticket set:
+Before proposal-readiness validation for every software ticket set:
 
 1. require the source Spec/remediation authority to be currently implementation-ready under its own durable readiness state;
 2. inspect every proposed ticket for material choices left to implementation;
@@ -38,7 +64,7 @@ Disposition: frozen-upstream | semantically-equivalent-mechanic | unresolved-des
 
 ### Architecture Readiness Saturation and Remediation Human Handoff
 
-For existing Implementation Tickets during ticket reconciliation, architecture/design readiness discovery is **saturation-based, not fail-fast**. Run this sweep before any empty-delta `$implement-ticket` handoff and before proposal-readiness certification or user approval.
+For existing Implementation Tickets during ticket reconciliation, architecture/design readiness discovery is **saturation-based, not fail-fast**. Run this sweep before any empty-delta `$implement-ticket` handoff and before proposal-readiness validation or user approval.
 
 Construct the complete applicable **existing-ticket reconciliation universe** from durable Spec/ticket lineage. Include every open existing Implementation Ticket whose contract belongs to the current Spec reconciliation, including tickets that currently have open native blockers. Native dependency/frontier state determines implementation actionability; it does not exempt a ticket from design-readiness evaluation. Closed or superseded tickets remain historical and are excluded unless current authority explicitly returns them to active reconciliation.
 
@@ -107,7 +133,7 @@ If both `architecture-blocked` and `upstream-readiness-deferred` tickets exist, 
 
 Do not invoke `$architecture-remediation` implicitly. For a fresh Spec with no existing Implementation Ticket, do not fabricate a ticket identity: persist any correctness-critical stopping context on the owning durable Spec/planning artifact as required by the cross-skill Fresh-Session Durability Gate, then use that owning workflow's handoff contract.
 
-Before certification require:
+Before readiness validation require:
 
 ```text
 Material design choices delegated to implementation: 0
@@ -115,7 +141,7 @@ Source implementation readiness: pass
 Attention design-gap findings unresolved: 0
 ```
 
-For existing-ticket reconciliation, certification additionally requires:
+For existing-ticket reconciliation, readiness validation additionally requires:
 
 ```text
 Architecture-blocked tickets: 0
@@ -175,7 +201,7 @@ Inactive conditional rows without durable destination: 0
 Active conditional rows misclassified as deferred: 0
 ```
 
-The independent proposal certifier must check these fields from the originating Spec and durable destination authority rather than trusting the drafting parent’s trigger classification.
+`$to-tickets` validates those fields directly against the originating Spec and durable destination authority. Do not trust the draft's trigger classification merely because it appears internally consistent.
 
 ## Human Approval Is Not Verification
 
@@ -199,15 +225,13 @@ Before the user ever sees a publication proposal, `$to-tickets` owns proving tha
 
 Do not ask the user to validate, repair, or reconstruct those mechanics.
 
-An unqualified `approve`, `approved`, `yes`, or equivalent after a certified proposal is presented authorizes publication of that exact proposal. The user does not need to restate its metadata, prove its coverage, or independently verify repository policy.
+An unqualified `approve`, `approved`, `yes`, or equivalent after a readiness-valid proposal is presented authorizes publication of that exact proposal. The user does not need to restate its metadata, prove its coverage, or independently verify repository policy.
 
 If a genuine unresolved product, domain, public-contract, architecture, or decomposition choice remains, surface that specific choice. Do not disguise an internal ticket-construction or policy-validation failure as a human design decision, and do not bury a real upstream design gap inside ticket acceptance wording.
 
-## Proposal Readiness Certification
+## Proposal Readiness Validation
 
-Before Step 4 approval for any non-metadata-only proposal, freeze the exact proposed ticket set and obtain one **fresh, non-mutating proposal-readiness certification**.
-
-The drafting parent may construct and revise the proposal, but it may not certify its own proposal readiness.
+Before Step 4 approval for any non-metadata-only proposal, freeze the exact proposed ticket set and complete this parent-owned readiness validation. **Do not dispatch a proposal-readiness subagent.**
 
 ### Freeze the candidate
 
@@ -222,35 +246,19 @@ Source contract/root state: <durable identity/hash where available>
 Proposal identity: <SHA-256 of the exact rendered proposal candidate>
 ```
 
-Any semantic or metadata change after certification invalidates the readiness result and requires certification of the new candidate before it is shown for approval.
-
-### Fresh certifier
-
-Dispatch exactly one genuinely fresh subagent that did not draft, reconcile, or transform the proposal.
-
-The certifier is:
-
-* non-mutating;
-* non-delegating for semantic proposal certification;
-* proposal-bound;
-* source-bound;
-* independent of the drafting parent's readiness conclusions.
-
-Give it the exact frozen proposal plus authoritative durable inputs. Do not give it a parent-authored claim that the proposal is complete as authority.
-
-The certifier independently validates the proposal against this complete `$to-tickets` procedure and the mode-specific authority below.
+Any semantic or metadata change after validation invalidates the readiness result and requires validation of the new candidate before it is shown for approval.
 
 ### Authoritative proposal universe
 
-For a **fresh Spec** proposal, independently validate against:
+For a **fresh Spec** proposal, validate against:
 
-* the exact deterministic `$spec-contract` manifest;
+* the exact current `$spec-contract` manifest;
 * the Spec Obligation Disposition Manifest;
 * the Architecture/Design Obligation Disposition Manifest when the Spec/tickets consume governing architecture/design sources;
-* the proposed ticket `Spec obligations` mappings;
+* the proposed ticket `Spec obligations` and `Architecture obligations` mappings;
 * the applicable parent Spec, branch, workspace metadata, and current implementation-readiness/design-completeness state.
 
-For a **Spec Review remediation** proposal, independently validate against:
+For a **Spec Review remediation** proposal, validate against:
 
 * the exact remediation parent Spec Review;
 * the parent Spec provenance;
@@ -260,11 +268,13 @@ For a **Spec Review remediation** proposal, independently validate against:
 * the Root Delta Coverage returned under `$to-remediation-tickets` authority;
 * the current parent/remediation design-readiness state where material public/domain contracts are affected.
 
-The certifier must not define completeness from what the proposal happened to mention.
+Completeness must be defined from those authoritative universes, never from what the draft happened to mention.
 
-### Required readiness checks
+### Deterministic-first validation
 
-A proposal may PASS only when all applicable checks are independently established:
+Before making another semantic pass over ticket slicing, mechanically validate every mechanically decidable property. Prefer scripts, exact parsing, set equality, counts, hashes, and tracker/native relationship reads over model re-reading.
+
+At minimum require:
 
 ```text
 Source implementation readiness: pass
@@ -280,7 +290,7 @@ Unclassified dispositions: 0
 Required remediation without ticket coverage: 0
 Required preservation omitted: 0
 Required verification omitted/misclassified: 0
-Template/required fields valid: yes
+Template/required headings and fields valid: yes
 Native parent/lineage valid: yes
 Ticket branch semantics valid: yes
 Ticket baseline semantics valid: yes
@@ -288,8 +298,13 @@ Label/status semantics valid: yes
 Dependencies/blocking edges internally valid: yes
 Closed tickets reopened/rewritten: 0
 Duplicate/conflicting active ticket coverage: 0
+Ticket Spec-obligation sets equal routing manifest: yes
+Ticket Architecture-obligation sets equal routing manifest: yes
+Parent Ticket Coverage Manifest render complete: yes
 Unresolved repository-policy conflicts: 0
 ```
+
+The owning agent then checks the substantive slice semantics against the already-closed source/routing universes. Do not reopen unrelated architecture or rediscover the repository merely to seek additional confidence.
 
 For new tickets, explicitly enforce the repository baseline distinction:
 
@@ -301,7 +316,7 @@ Do not treat `Pending` as proposal shorthand.
 
 ### Verdict
 
-Return exactly one result for the frozen proposal.
+Return exactly one internal readiness result for the frozen proposal.
 
 PASS:
 
@@ -310,6 +325,8 @@ TICKET PROPOSAL READINESS: PASS
 Source: <identity>
 Mode: fresh | remediation
 Proposal identity: <sha256>
+Validation owner: $to-tickets
+Automatic semantic subagents: 0
 Design delegation: 0
 Coverage: <n>/<n>; missing 0; ambiguous 0; unclassified 0
 Mechanics: template/lineage/branch/baseline/status/dependencies valid
@@ -329,20 +346,14 @@ Findings:
 ...
 ```
 
-The certifier does not repair the proposal.
+On FAIL, `$to-tickets` corrects every resolvable ticket-construction defect and reruns this validation before showing the proposal to the user. Do not expose intermediate invalid proposals merely to ask the user to act as the workflow verifier.
 
-### Parent handling
+Only surface a blocker when authoritative sources genuinely leave a substantive owner decision unresolved. Mechanical/template/lifecycle errors are `$to-tickets` responsibilities.
 
-On FAIL, the drafting parent corrects every resolvable ticket-construction defect and certifies the revised frozen proposal again **before showing it to the user**.
-
-Do not expose intermediate invalid proposals merely to ask the user to act as `$to-tickets` verifier.
-
-Only surface a blocker to the user when authoritative sources genuinely leave a substantive owner decision unresolved. Mechanical/template/lifecycle errors are `$to-tickets` responsibilities.
-
-After PASS, present the certified proposal and include one compact line:
+After PASS, present the proposal and include one compact line:
 
 ```text
-Proposal readiness: independently certified; repository-policy verification is complete.
+Proposal readiness: validated by $to-tickets; deterministic repository-policy checks are complete.
 ```
 
 Then request substantive approval. Prefer the minimal close:
@@ -351,7 +362,7 @@ Then request substantive approval. Prefer the minimal close:
 
 Do not require the user to answer separate questions about branch/baseline correctness, template compliance, root-cell accounting, labels/status, hierarchy, or dependency mechanics.
 
-If the user requests a substantive proposal change, freeze and certify the revised candidate before requesting approval again.
+If the user requests a substantive proposal change, freeze and validate the revised candidate before requesting approval again.
 
 If the user requests a purely mechanical change that conflicts with authoritative repository policy, preserve the authoritative repository semantics and explain the conflict. Do not ask the user to reconstruct the correct mechanical value. Request renewed approval only when the resulting proposal changes substantive ticket scope, acceptance obligations, preservation obligations, or blocking/dependency semantics.
 
@@ -363,7 +374,7 @@ Do not define ticket completeness from the obligations noticed during drafting.
 
 ### Recover the manifest
 
-Use `$spec-contract` with the exact Spec, branch/baseline/HEAD state required by that skill.
+Use `$spec-contract` with the exact Spec, branch/baseline/HEAD state required by that skill. Under its `$to-tickets` decomposition exception, execute this build in the owning `$to-tickets` context; do not spawn a fresh model/subagent.
 
 If the Spec Branch Rule has not yet established the durable branch/baseline needed to build the final contract, drafting may begin from the full Spec body, but **publication may not occur** until:
 
@@ -381,7 +392,7 @@ Create exactly one row for every Spec contract cell:
 ```text
 Spec obligation: <US-* | ID-* | TD-* | OOS-* | other stable ID>
 Requirement: <compact exact requirement>
-Disposition: implementation-ticket | verification-only | no-implementation-work | authoritative-exclusion
+Disposition: implementation-ticket | verification-only | no-implementation-work | authoritative-exclusion | deferred-conditional
 Tickets: <one or more proposed ticket IDs/titles | None>
 Reason/authority: <required for non-ticket dispositions>
 ```
@@ -392,6 +403,7 @@ Rules:
 * `verification-only` means no new implementation is promised, but later verification must explicitly prove the obligation; state why implementation is unnecessary;
 * `no-implementation-work` requires current evidence/authority that the Spec requirement is already realized or needs no repository/tracker mutation; convenience is insufficient;
 * `authoritative-exclusion` requires an explicit Spec exclusion/out-of-scope authority and does not mean the requirement was forgotten;
+* `deferred-conditional` follows **Conditional / Deferred Obligation Routing** above;
 * one Spec cell may map to multiple tickets when the contract genuinely spans slices;
 * a ticket may carry multiple Spec cells;
 * do not merge distinct Spec cells merely because one implementation change may satisfy them;
@@ -413,7 +425,7 @@ If reconciliation changes ticket scope, acceptance criteria, blocking edges, or 
 
 ## Architecture / Design Obligation Coverage
 
-Spec cells remain the primary decomposition universe, but they are not permission to drop an explicit architecture/design obligation that materially constrains the implementation slice and is not represented by its own Spec cell. For a fresh Spec proposal, close this second bounded source universe before proposal certification.
+Spec cells remain the primary decomposition universe, but they are not permission to drop an explicit architecture/design obligation that materially constrains the implementation slice and is not represented by its own Spec cell. For a fresh Spec proposal, close this second bounded source universe before final ticket wording and proposal readiness validation.
 
 ### Build the bounded source set
 
@@ -439,7 +451,7 @@ Rules:
 * when one obligation is already fully represented by a Spec cell, record the Spec-cell reference instead of duplicating implementation responsibility;
 * implementation shape, existing tests, and proposed ticket wording do not define the architecture-obligation universe.
 
-Before proposal-readiness certification require:
+Before proposal-readiness validation require:
 
 ```text
 Bounded architecture/design sources: <n>
@@ -451,7 +463,7 @@ Implementation architecture obligations without ticket coverage: 0
 Deferred obligations without durable existing owner: 0
 ```
 
-Call this the **Architecture/Design Obligation Disposition Manifest**. The fresh proposal certifier independently validates its source-unit completeness from the bounded authority sources; the drafting parent may not self-certify that every relevant architecture clause was noticed.
+Call this the **Architecture/Design Obligation Disposition Manifest**. `$to-tickets` owns closing this bounded source universe before proposal readiness. Later `$verify-ticket-closure`, `$verify-spec`, and `$review-spec` independently revalidate the applicable architecture/design semantics at their own downstream certification/review boundaries; that downstream independence does not justify an additional ticket-proposal certifier here.
 
 Extend the parent `## Ticket Coverage Manifest` with a compact `Architecture / Design Obligation Coverage` subsection containing each `ARCHSRC-*` source anchor, requirement, disposition, and ticket/destination. Preserve the exact current manifest body as durable decomposition authority and record enough stable source identity for downstream consumers to detect staleness. These rows are decomposition provenance, not new Spec Contract cells and not architecture decisions.
 
@@ -495,9 +507,9 @@ Reconciliation: <None | ARCHSRC-* + ticket/destination + manifest reference | re
 
 Stable `DD-*` identities are append/reconcile state; omission is not resolution.
 
-### Independent validation
+### Independent source validation
 
-The report is a falsifier candidate, not authority. For every unresolved `DD-*`, independently re-read the cited architecture/design source and the bounded surrounding authority needed to interpret it, then compare it with the current parent-Spec Architecture/Design Obligation Disposition Manifest and ticket mappings.
+The report is a falsifier candidate, not authority. For every unresolved `DD-*`, re-read the cited architecture/design source and the bounded surrounding authority needed to interpret it, then compare it with the current parent-Spec Architecture/Design Obligation Disposition Manifest and ticket mappings. “Independent” here means source-independent from the report itself; it does **not** require a separate model/subagent.
 
 Classify each report exactly once:
 
@@ -566,7 +578,7 @@ Spec Body Hash: <hash>
 Spec Contract Hash: <hash>
 Spec branch: <branch>
 
-<Cell ID> → <implementation ticket(s) | verification-only | no-implementation-work | authoritative-exclusion> — <reason when required>
+<Cell ID> → <implementation ticket(s) | verification-only | no-implementation-work | authoritative-exclusion | deferred-conditional> — <reason/trigger/destination when required>
 ...
 
 Spec contract cells: <n>
@@ -586,16 +598,16 @@ Immediately before Step 5 publication, require all of the following together:
 
 * source Spec/remediation authority is still implementation-ready;
 * exact approved ticket proposal still matches planned semantics;
-* the latest `TICKET PROPOSAL READINESS: PASS` binds to the exact approved proposal identity and current source state;
+* the latest `TICKET PROPOSAL READINESS: PASS` is the current parent-owned validation result and binds to the exact approved proposal identity and current source state;
 * Spec Branch Rule passed;
 * `$spec-contract` manifest still matches retained body/contract hashes when applicable;
 * Spec Obligation Disposition Manifest is complete when applicable;
 * Architecture/Design Obligation Disposition Manifest is complete when applicable, with missing/ambiguous obligations 0;
-* every ticket's `Spec obligations` set equals its approved mapping when applicable;
+* every ticket's `Spec obligations` and `Architecture obligations` sets equal their approved mappings when applicable;
 * material design choices delegated to implementation remain zero;
 * blocking edges/hierarchy still match the approved proposal.
 
-A changed proposal, source contract/root/readiness state, branch/baseline authority, or Spec body/contract invalidates readiness and returns to drafting/certification/approval as applicable.
+A changed proposal, source contract/root/readiness state, branch/baseline authority, or Spec body/contract invalidates readiness and returns to drafting/validation/approval as applicable.
 
 Do not publish tickets and promise to reconcile the coverage manifest or proposal correctness afterward.
 
@@ -610,20 +622,22 @@ Spec contract cell
     ↓
 Ticket Coverage Manifest
     ↓
-Implementation Ticket `Spec obligations`
+Implementation Ticket `Spec obligations` / `Architecture obligations`
     ↓
 $implement-ticket Proposed Closure Evidence
     ↓
 independent $verify-ticket-closure certification
     ↓
 $verify-spec integrated semantic certification
+    ↓
+$review-spec independent adversarial review
 ```
 
-Ticket certification does not prove the complete Spec; `$verify-spec` remains responsible for integrated closure.
+Ticket decomposition validation does not certify implementation. Ticket certification does not prove the complete Spec; `$verify-spec` remains responsible for integrated closure.
 
 ## Base Template Extension
 
-For ordinary Spec tickets, insert `## Spec obligations` after `## Parent` and before Architecture context / What to build.
+For ordinary Spec tickets, insert `## Spec obligations` and `## Architecture obligations` after `## Parent` and before Architecture context / What to build.
 
 For remediation tickets, preserve the remediation template and Root Blocker contract. When exact originating Spec cell IDs are available from the cumulative remediation state, they may be carried as provenance, but the Root Blocker acceptance universe remains authoritative for remediation.
 
@@ -779,7 +793,7 @@ Before proposal freeze, perform the **Design Delegation Guard** above and requir
 
 ### 4. Quiz the User
 
-Present only a proposal that has passed **Proposal Readiness Certification** above, except for deterministic metadata-only normalization allowed below.
+Present only a proposal that has passed **Proposal Readiness Validation** above, except for deterministic metadata-only normalization allowed below.
 
 Present the proposed fresh breakdown or remediation delta.
 
@@ -835,7 +849,7 @@ Iterate until approved.
 
 An unqualified `yes`, `approved`, or equivalent approves the proposal exactly as presented.
 
-After approval, do not add, remove, merge, split, reinterpret, or reclassify ticket semantics. If a semantic defect is discovered during publishing, return to drafting/readiness certification/Step 4 approval instead of silently repairing it.
+After approval, do not add, remove, merge, split, reinterpret, or reclassify ticket semantics. If a semantic defect is discovered during publishing, return to drafting/readiness validation/Step 4 approval instead of silently repairing it.
 
 ### Pre-Publication Spec Branch Guard
 
@@ -963,6 +977,12 @@ The first line identifies immediate decomposition ownership. `Parent Spec` on a 
 For an ordinary Implementation Ticket, list the exact stable Spec contract IDs mapped to this ticket by the approved Spec Obligation Disposition Manifest. Use `None` only for an intentionally supporting/mechanical ticket whose no-direct-cell role is explicitly justified by that manifest.
 
 For a Review Remediation Ticket, this section is optional provenance when exact originating Spec cell IDs are available; the Root Blocker acceptance universe remains authoritative.
+
+## Architecture obligations
+
+For an ordinary Implementation Ticket, list the exact `ARCHSRC-*` IDs mapped to this ticket by the current Architecture/Design Obligation Disposition Manifest, or `None` when that manifest proves this ticket carries no direct architecture/design implementation obligation.
+
+For a Review Remediation Ticket, preserve the architecture/design obligation mapping returned by the current remediation/decomposition authority when applicable.
 
 ## Root blocker
 
@@ -1254,14 +1274,14 @@ Do not invoke `$implement-ticket` implicitly.
 
 Ticket publication is authorized only after the complete source contract has been dispositioned into executable or explicitly non-executable work. A well-formed set of proposed tickets is not proof that the decomposition universe was complete or design-complete.
 
-For an originating Spec, use the current `$spec-contract` contract as the decomposition universe. If the current invocation does not already hold a valid contract for the exact Spec body/branch/baseline/HEAD, invoke `$spec-contract` in `build` mode after branch/baseline readiness and before approval. `$spec-contract` is source parsing/contract construction here; it does not verify implementation or cure a design-readiness gap.
+For an originating Spec, use the current `$spec-contract` contract as the decomposition universe. If the current invocation does not already hold a valid contract for the exact Spec body/branch/baseline/HEAD, invoke `$spec-contract` in `build` mode after branch/baseline readiness and before approval using its `$to-tickets` decomposition exception. `$spec-contract` is source parsing/contract construction here; it does not verify implementation or cure a design-readiness gap.
 
 Build one working **Decomposition Coverage** row per manifest cell:
 
 ```text
 Cell: <manifest ID>
 Requirement: <authoritative requirement>
-Disposition: <ticket | verification-only | no-implementation-work | out-of-scope>
+Disposition: <ticket | verification-only | no-implementation-work | out-of-scope | deferred-conditional>
 Ticket: <proposed/existing ticket identity | None>
 Reason/authority: <why this disposition completely carries the cell>
 ```
@@ -1272,6 +1292,7 @@ Rules:
 * `verification-only` is valid only when current implementation work is not required and the obligation still receives later proof;
 * `no-implementation-work` requires direct evidence that the Spec obligation is already realized or purely declarative while remaining part of later Spec verification;
 * `out-of-scope` requires the originating Spec itself to establish that disposition; do not invent scope retirement during ticketing;
+* `deferred-conditional` must satisfy **Conditional / Deferred Obligation Routing** and preserve its trigger/destination;
 * omission is never an escape disposition.
 
 Before presenting the approval proposal and again before publication require:

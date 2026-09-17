@@ -41,6 +41,177 @@ Efficiency is part of correctness here:
 
 A failed deterministic query is corrected against the actual schema. It does not justify broad alternate searches or repeated repository archaeology.
 
+## Architecture Source-Closure and Ticket Semantic-Carry Gate
+
+This section is authoritative for fresh-Spec architecture/design completeness and proposal semantic fidelity. It strengthens the later **Architecture / Design Obligation Coverage**, **Proposal Readiness Validation**, **Parent Coverage Artifact**, and **Publication Integrity** sections. Where later wording could permit the proposal, proposed ticket `Architecture context`, or already-noticed `ARCHSRC-*` rows to define their own completeness denominator, this section wins.
+
+The core rule is:
+
+> **Do not prove only that every obligation you happened to find was routed. Prove first that the complete bounded authoritative source universe was closed, then prove that every materially normative obligation in that universe was dispositioned, then prove that the rendered tickets faithfully carry every routed semantic predicate.**
+
+Ticket wording is an output of this gate. It is never an input for discovering the authoritative architecture/design universe.
+
+### 1. Close the Architecture / Design Source Inventory
+
+Before extracting final `ARCHSRC-*` obligations or writing final ticket prose, construct one working **Architecture / Design Source Inventory**.
+
+Seed the inventory from durable authority, not from the draft proposal. Include every current non-legacy architecture/design source that is materially reachable through at least one of these routes:
+
+1. explicitly named by the originating Spec's Architecture Impact, readiness state, normative body, accepted decision references, or governing architecture links;
+2. the current architecture source that owns a platform/domain boundary materially consumed by the Spec or by an already-included design source, when that ownership is established by current authority;
+3. explicitly referenced by an included architecture/design source where that reference is required to interpret or implement a material obligation for the Spec;
+4. cited by a current durable `decomposition-defects:v1` record applicable to this decomposition.
+
+Do **not** recursively crawl unrelated documentation or include a source merely because it exists. Follow only current authority relationships needed to interpret the affected boundary. Conversely, do not omit the current owning architecture source merely because a more specific design document or Spec cell already describes part of the behavior.
+
+For every candidate source record exactly one row:
+
+```text
+Architecture source: <durable path/ADR/doc/tracker identity>
+Discovery authority: <exact Spec/source/defect reference that makes it a candidate>
+Relevant anchors: <section(s)/anchor(s) | whole source when genuinely required>
+Source identity: <stable blob/hash/tracker identity at the current candidate state>
+Disposition: included | excluded
+Reason/authority: <why included, or exact authority proving exclusion>
+```
+
+Rules:
+
+* every discovered candidate appears exactly once;
+* `excluded` requires positive scope authority; "seems duplicated", "not mentioned by the draft", or "probably covered by the Spec" is not exclusion authority;
+* if an included source references another current source for the ownership, contract, runtime, dependency, persistence, transaction, testing, or other material boundary being implemented, evaluate that referenced source as a candidate before closing the inventory;
+* a source that is fully represented by Spec cells still remains in the inventory; duplication affects obligation disposition, not source discovery;
+* missing/unreadable candidate authority or ambiguous source ownership fails closed;
+* once the inventory is closed, do not broaden it merely to seek extra confidence unless a concrete source reference, conflict, or Attention finding falsifies the closure.
+
+Before obligation extraction require:
+
+```text
+Architecture/design source candidates: <n>
+Included architecture/design sources: <n>
+Excluded architecture/design sources: <n>
+Unclassified architecture/design sources: 0
+Included sources without stable identity: 0
+Excluded sources without reason/authority: 0
+```
+
+### 2. Close Normative Source-Unit Coverage
+
+For every **included** source, inspect the relevant anchors and create one working source-unit row per materially distinct normative obligation. Group clauses only when they establish the same semantic predicate/owner and grouping cannot hide a condition, negative rule, temporal boundary, failure state, or separate implementation destination.
+
+Use:
+
+```text
+Architecture source unit: ARCSU-<n>
+Source/anchor: <durable source + exact section/anchor>
+Requirement: <compact faithful normative requirement>
+Representation: spec-cell | ARCHSRC | not-applicable
+Mapping: <Spec cell(s) | ARCHSRC-* | None>
+Reason/authority: <required for not-applicable; explain complete Spec-cell representation when non-obvious>
+```
+
+Rules:
+
+* every materially normative source unit in every included anchor receives exactly one representation;
+* `spec-cell` is legal only when the referenced Spec cell(s), taken together, completely preserve the source unit's predicate, conditions, negative semantics, temporal meaning, and failure boundary;
+* if a source unit is only partially represented by Spec cells, create an `ARCHSRC-*` obligation for the uncovered material semantics rather than declaring duplication;
+* `not-applicable` requires exact source/scope authority, not implementation convenience;
+* implementation shape, current code, existing tests, and draft ticket prose do not define whether a source unit is normative or already covered;
+* omission is never a representation.
+
+Only after this source-unit universe is complete may the later **Architecture / Design Obligation Disposition Manifest** be finalized.
+
+Before final `ARCHSRC-*` routing require:
+
+```text
+Included normative architecture/design source units: <n>
+Represented completely by Spec cells: <n>
+Represented by ARCHSRC obligations: <n>
+Authoritatively not applicable: <n>
+Unclassified normative source units: 0
+Partially represented source units treated as complete: 0
+Not-applicable source units without authority: 0
+```
+
+The source inventory and source-unit coverage are the denominator proof. A result such as `Architecture obligations: 9/9` is not readiness evidence unless these preceding closure counts also pass.
+
+### 3. Prove Ticket Semantic Carry
+
+After Spec-cell and `ARCHSRC-*` routing is frozen and final ticket bodies are rendered, build one working **Ticket Semantic Carry Matrix** for every obligation with an `implementation-ticket` disposition.
+
+Use:
+
+```text
+Obligation: <Spec cell | ARCHSRC-*>
+Authoritative requirement: <source-bound requirement>
+Mapped ticket(s): <ticket aliases/identities>
+Carry evidence: <What to build / acceptance / preservation criterion references>
+Carry disposition: complete | incomplete | ambiguous
+```
+
+For `complete`, the rendered ticket contract must preserve every materially significant predicate required by the obligation. Check explicitly for, where applicable:
+
+* conjunctions, exhaustive sets, cardinality, identity, and uniqueness;
+* conditions, triggers, eligibility predicates, and deferred activation rules;
+* effective-time / known-at / recording-time boundaries and evaluation order;
+* positive versus negative field/claim semantics, including fields or meanings that **must not** be present;
+* attribution, provenance, basis-role, ownership, and authority distinctions;
+* atomicity, concurrency, expected-version, idempotency/replay, and conflict semantics;
+* typed failure states, fail-closed behavior, contested/ambiguous states, and forbidden fallback/recency rules;
+* correction/replacement ancestry and restoration semantics;
+* required preservation/non-regression behavior;
+* explicit exclusions and prohibited technologies/dependencies/representations;
+* required proof modality when authority specifically requires real-service, architecture, runtime, negative-path, or concurrency qualification.
+
+Compression and paraphrase are allowed only when semantic entailment is preserved. An obligation ID listed under `Spec obligations` or `Architecture obligations` is provenance, **not** proof that the ticket wording carries the obligation. A broad Architecture context citation is likewise insufficient.
+
+When an obligation intentionally spans multiple tickets, the approved mapping must make that split explicit and the union of those ticket contracts must preserve the whole obligation without leaving a material choice between tickets. If one mapped ticket is required to enforce the obligation independently, its own contract must say so.
+
+Before proposal readiness require:
+
+```text
+Implementation obligations requiring semantic carry: <n>
+Complete semantic-carry rows: <n>
+Incomplete semantic-carry rows: 0
+Ambiguous semantic-carry rows: 0
+Mapped implementation obligations with no carry evidence: 0
+```
+
+Any semantic or metadata edit to the rendered proposal invalidates affected carry rows and requires rechecking them before approval.
+
+### 4. Readiness, Durable Coverage, and Publication Consequences
+
+The parent-owned **Proposal Readiness Validation** must additionally require:
+
+```text
+Architecture/design source inventory complete: yes
+Unclassified architecture/design sources: 0
+Normative architecture/design source-unit coverage complete: yes
+Unclassified normative architecture/design source units: 0
+Ticket semantic carry complete: yes
+Incomplete semantic-carry rows: 0
+Ambiguous semantic-carry rows: 0
+```
+
+A readiness PASS must report the compact denominator proof, not only `ARCHSRC-*` routing counts:
+
+```text
+Architecture source closure: <included>/<candidates>; excluded <n>; unclassified 0
+Architecture normative source units: <accounted>/<total>; unclassified 0
+Ticket semantic carry: <complete>/<required>; incomplete 0; ambiguous 0
+```
+
+The durable parent `## Ticket Coverage Manifest` must include a compact **Architecture / Design Source Inventory** subsection containing every candidate source's durable identity, relevant anchors, and included/excluded disposition, plus the source/source-unit closure counts above. Do not persist duplicated raw source text merely to prove coverage.
+
+Immediately before publication, revalidate that:
+
+* the source identities used to close the Architecture / Design Source Inventory are still current for the approved proposal state;
+* no newly discovered authoritative reference or Attention finding invalidates source closure;
+* Spec/`ARCHSRC-*` routing still matches the approved ticket IDs;
+* all semantic-carry rows for the exact approved ticket bodies remain complete.
+
+If any of those checks fail, the prior readiness PASS is stale and the workflow returns to source closure, obligation routing, or proposal validation as applicable. Human approval never waives this gate.
+
 ## Design Delegation Guard
 
 `$to-tickets` decomposes a frozen implementation-ready contract. It does not design the behavior that `$implement-ticket` will later choose.

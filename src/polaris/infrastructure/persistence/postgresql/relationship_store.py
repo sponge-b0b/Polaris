@@ -63,6 +63,7 @@ from .decisions import (
     PostgresDecisionStore as _BasePostgresDecisionStore,
 )
 from .decisions import (
+    _acquire_initiation_lock,
     _domain_uuid,
     _get_operation_receipt,
     _load_decision_history,
@@ -314,6 +315,7 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
     ) -> DecisionRelationshipCommitOutcome:
         try:
             async with self._engine.begin() as connection:
+                await _acquire_initiation_lock(connection)
                 prior = await _relationship_operation_receipt(
                     connection, commit.operation_id, for_update=True
                 )
@@ -1101,6 +1103,8 @@ def _new_decision(commit: DecisionRelationshipCommit) -> InvestmentDecision | No
     identity = commit.result.new_decision_id
     if identity is None:
         return None
+    if commit.candidate_basis is None:
+        raise ValueError("renewal result requires a continuity candidate basis")
     matches = [
         item for item in commit.updated_decisions if item.decision_id == identity
     ]

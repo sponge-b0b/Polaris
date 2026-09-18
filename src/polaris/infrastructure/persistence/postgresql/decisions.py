@@ -80,6 +80,16 @@ from .schema import (
 
 _SCHEMA_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _INITIATION_LOCK_KEY = 5_620_113_451_159_393_619
+_INITIATION_COMMAND_KIND = "initiate_decision"
+_CONTINUITY_NEUTRAL_MUTATIONS = frozenset(
+    {
+        DecisionMutationKind.REVISE_SUBJECT,
+        DecisionMutationKind.ESTABLISH_OR_REVISE_SCOPE,
+        DecisionMutationKind.APPLY_HUMAN_DEFERRAL,
+        DecisionMutationKind.WITHDRAW_WORK,
+        DecisionMutationKind.RESUME_WORK,
+    }
+)
 
 
 def create_postgres_engine(
@@ -135,11 +145,8 @@ class PostgresDecisionStore:
     ) -> InitiationCommitOutcome:
         try:
             async with self._engine.begin() as connection:
-                await connection.execute(
-                    text("SELECT pg_advisory_xact_lock(:lock_key)"),
-                    {"lock_key": _INITIATION_LOCK_KEY},
-                )
-                prior = await _get_receipt(
+                await _acquire_initiation_lock(connection)
+                prior = await _get_initiation_operation_receipt(
                     connection,
                     commit.operation_id,
                     for_update=True,
@@ -165,7 +172,7 @@ class PostgresDecisionStore:
                 await connection.execute(
                     insert(investment_decision_command_receipts).values(
                         operation_id=commit.operation_id.value,
-                        command_kind="initiate_decision",
+                        command_kind=_INITIATION_COMMAND_KIND,
                         request_fingerprint=request_fingerprint(commit.request),
                         request_payload=initiation_request_payload(commit.request),
                         result_payload=initiation_result_payload(commit.result),
@@ -253,6 +260,10 @@ class PostgresDecisionStore:
     ) -> DecisionMutationCommitOutcome:
         try:
             async with self._engine.begin() as connection:
+                await _acquire_continuity_mutation_lock(
+                    connection,
+                    commit.request.kind,
+                )
                 prior_row = await _get_operation_receipt(
                     connection,
                     commit.operation_id,
@@ -514,7 +525,12 @@ class PostgresDecisionStore:
     ) -> InitiationCommitOutcome:
         del error
         try:
-            prior = await self.get_initiation_receipt(commit.operation_id)
+            async with self._engine.connect() as connection:
+                prior = await _get_initiation_operation_receipt(
+                    connection,
+                    commit.operation_id,
+                    for_update=False,
+                )
             if prior is not None:
                 return _receipt_outcome(prior, commit)
             if commit.decision is not None:
@@ -577,14 +593,54 @@ async def _get_receipt(
     *,
     for_update: bool = False,
 ) -> InitiationReceipt | None:
-    query = select(investment_decision_command_receipts).where(
-        investment_decision_command_receipts.c.operation_id == operation_id.value,
-        investment_decision_command_receipts.c.command_kind == "initiate_decision",
+    row = await _get_operation_receipt(
+        connection,
+        operation_id,
+        for_update=for_update,
     )
-    if for_update:
-        query = query.with_for_update()
-    row = (await connection.execute(query)).mappings().one_or_none()
-    return initiation_receipt_from_row(row) if row is not None else None
+    if row is None or row["command_kind"] != _INITIATION_COMMAND_KIND:
+        return None
+    return _initiation_receipt(row)
+
+
+async def _get_initiation_operation_receipt(
+    connection: AsyncConnection,
+    operation_id: OperationId,
+    *,
+    for_update: bool,
+) -> InitiationReceipt | InitiationIdempotencyConflict | None:
+    row = await _get_operation_receipt(
+        connection,
+        operation_id,
+        for_update=for_update,
+    )
+    if row is None:
+        return None
+    if row["command_kind"] != _INITIATION_COMMAND_KIND:
+        return InitiationIdempotencyConflict(operation_id)
+    return _initiation_receipt(row)
+
+
+def _initiation_receipt(row: RowMapping) -> InitiationReceipt:
+    receipt = initiation_receipt_from_row(row)
+    if row["request_fingerprint"] != request_fingerprint(receipt.request):
+        raise ValueError("stored initiation receipt fingerprint is invalid")
+    return receipt
+
+
+async def _acquire_initiation_lock(connection: AsyncConnection) -> None:
+    await connection.execute(
+        text("SELECT pg_advisory_xact_lock(:lock_key)"),
+        {"lock_key": _INITIATION_LOCK_KEY},
+    )
+
+
+async def _acquire_continuity_mutation_lock(
+    connection: AsyncConnection,
+    kind: DecisionMutationKind,
+) -> None:
+    if kind not in _CONTINUITY_NEUTRAL_MUTATIONS:
+        await _acquire_initiation_lock(connection)
 
 
 async def _get_mutation_receipt(
@@ -632,9 +688,11 @@ async def _current_continuity_candidates(
 
 
 def _receipt_outcome(
-    receipt: InitiationReceipt,
+    receipt: InitiationReceipt | InitiationIdempotencyConflict,
     commit: InitiationCommit,
 ) -> InitiationCommitOutcome:
+    if isinstance(receipt, InitiationIdempotencyConflict):
+        return receipt
     if receipt.request == commit.request:
         return InitiationReplayed(receipt)
     return InitiationIdempotencyConflict(commit.operation_id)

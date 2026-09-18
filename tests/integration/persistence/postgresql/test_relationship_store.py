@@ -6,10 +6,12 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from polaris.application.decisions import (
     ApplySubstantiveResolutionCommand,
+    ContinuityConflict,
     ContinuityDetermination,
     DecisionCommandEnvelope,
     DecisionCommandReadUnavailable,
@@ -19,6 +21,7 @@ from polaris.application.decisions import (
     ExpectedDecisionVersion,
     IdempotencyConflict,
     InitiateDecisionCommand,
+    PersistenceUnavailable,
     ReviseDecisionSubjectCommand,
 )
 from polaris.application.decisions.lifecycle_correction import (
@@ -68,6 +71,9 @@ from polaris.infrastructure.persistence.postgresql import (
     create_postgres_engine,
 )
 from polaris.infrastructure.persistence.postgresql.schema import (
+    decision_needs,
+    investment_decision_command_receipts,
+    investment_decision_lifecycle_facts,
     investment_decision_relationships,
     investment_decisions,
 )
@@ -132,6 +138,21 @@ async def _create_decision(
         )
     )
     return result.decision_id
+
+
+class _ConcurrentCandidateReadStore(PostgresDecisionStore):
+    def __init__(self, engine: AsyncEngine, barrier: asyncio.Barrier) -> None:
+        super().__init__(engine)
+        self._barrier = barrier
+
+    async def find_unresolved_continuity_candidates(
+        self, *, known_at: datetime
+    ) -> tuple[InvestmentDecisionId, ...]:
+        candidates = await super().find_unresolved_continuity_candidates(
+            known_at=known_at
+        )
+        await self._barrier.wait()
+        return candidates
 
 
 async def _version(
@@ -423,6 +444,77 @@ def test_replay_conflict_and_equivalent_support_are_distinct(
     asyncio.run(scenario())
 
 
+def test_initiation_rejects_relationship_operation_id_after_restart(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        engine = create_postgres_engine(
+            postgres_target.database_url, schema=postgres_target.schema
+        )
+        store = PostgresDecisionStore(engine)
+        try:
+            source = await _create_decision(store, recorded_at=BASE, label="source")
+            target = await _create_decision(
+                store,
+                recorded_at=BASE + timedelta(minutes=1),
+                label="target",
+            )
+            relationship_at = BASE + timedelta(hours=1)
+            operation_id = OperationId(uuid4())
+            await _supersede(
+                store,
+                source=source,
+                targets=(target,),
+                recorded_at=relationship_at,
+                operation_id=operation_id,
+            )
+        finally:
+            await engine.dispose()
+
+        restarted_engine = create_postgres_engine(
+            postgres_target.database_url, schema=postgres_target.schema
+        )
+        restarted = PostgresDecisionStore(restarted_engine)
+        initiation_at = relationship_at + timedelta(minutes=1)
+        identities = iter((uuid4(), uuid4(), uuid4()))
+        command = InitiateDecisionCommand(
+            envelope=_envelope(
+                operation_id=operation_id,
+                effective_at=initiation_at,
+                reference="reuse-relationship-operation",
+            ),
+            need_statement="Start a different unresolved choice",
+            subject=DecisionSubject("A different unresolved choice"),
+            scope=DecisionScope.unresolved(),
+            continuity=ContinuityDetermination.create_new(
+                "A distinct unresolved choice"
+            ),
+        )
+        try:
+            with pytest.raises(IdempotencyConflict):
+                await DecisionInitiationService(
+                    reader=restarted,
+                    store=restarted,
+                    now=lambda: initiation_at,
+                    new_uuid=lambda: next(identities),
+                ).initiate(command)
+            async with restarted_engine.connect() as connection:
+                decision_count = await connection.scalar(
+                    select(func.count()).select_from(investment_decisions)
+                )
+                receipt_count = await connection.scalar(
+                    select(func.count()).select_from(
+                        investment_decision_command_receipts
+                    )
+                )
+            assert decision_count == 2
+            assert receipt_count == 3
+        finally:
+            await restarted_engine.dispose()
+
+    asyncio.run(scenario())
+
+
 def test_qualification_gap_ages_without_synthetic_version_and_restores(
     postgres_target: PostgresTestTarget,
 ) -> None:
@@ -670,6 +762,184 @@ def test_renewal_persists_admission_evidence_and_survives_later_endpoint_change(
             ).lineage(source, known_at=correction_at)
             assert len(lineage) == 1
             assert lineage[0].state is DecisionRelationshipState.SUPPORTED
+        finally:
+            await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_ordinary_and_renewal_initiation_share_one_continuity_guard(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        engine = create_postgres_engine(
+            postgres_target.database_url, schema=postgres_target.schema
+        )
+        store = PostgresDecisionStore(engine)
+        try:
+            predecessor = await _create_decision(
+                store, recorded_at=BASE, label="predecessor"
+            )
+            initiation_at = BASE + timedelta(hours=1)
+            predecessor_version, _ = await _resolve(
+                store,
+                predecessor,
+                recorded_at=initiation_at - timedelta(minutes=30),
+            )
+            concurrent = _ConcurrentCandidateReadStore(engine, asyncio.Barrier(2))
+
+            ordinary_ids = iter((uuid4(), uuid4(), uuid4()))
+            ordinary = DecisionInitiationService(
+                reader=concurrent,
+                store=concurrent,
+                now=lambda: initiation_at,
+                new_uuid=lambda: next(ordinary_ids),
+            ).initiate(
+                InitiateDecisionCommand(
+                    envelope=_envelope(
+                        operation_id=OperationId(uuid4()),
+                        effective_at=initiation_at,
+                        reference="concurrent-ordinary-initiation",
+                    ),
+                    need_statement="Start a new ordinary choice",
+                    subject=DecisionSubject("Ordinary concurrent choice"),
+                    scope=DecisionScope.unresolved(),
+                )
+            )
+
+            renewal_ids = iter((uuid4(), uuid4(), uuid4(), uuid4()))
+            renewal = DecisionRelationshipService(
+                reader=concurrent,
+                store=concurrent,
+                now=lambda: initiation_at,
+                new_uuid=lambda: next(renewal_ids),
+            ).renew(
+                RenewDecisionCommand(
+                    envelope=_envelope(
+                        operation_id=OperationId(uuid4()),
+                        effective_at=initiation_at,
+                        versions={predecessor: predecessor_version},
+                        reference="concurrent-renewal-initiation",
+                    ),
+                    need_statement="Renew the resolved choice",
+                    subject=DecisionSubject("Renewal concurrent choice"),
+                    scope=DecisionScope.unresolved(),
+                    predecessors=(
+                        RenewalPredecessor(
+                            predecessor,
+                            RenewedFromRelationshipBasis(("renewal-basis",)),
+                        ),
+                    ),
+                )
+            )
+
+            outcomes = await asyncio.gather(
+                ordinary,
+                renewal,
+                return_exceptions=True,
+            )
+            assert sum(not isinstance(item, Exception) for item in outcomes) == 1
+            assert sum(isinstance(item, ContinuityConflict) for item in outcomes) == 1
+            async with engine.connect() as connection:
+                decision_count = await connection.scalar(
+                    select(func.count()).select_from(investment_decisions)
+                )
+            assert decision_count == 2
+        finally:
+            await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+class _FailAfterRenewalWriteStore(PostgresDecisionStore):
+    def __init__(self, engine: AsyncEngine, fail_step: str) -> None:
+        super().__init__(engine)
+        self._fail_step = fail_step
+
+    def _write_completed(self, step: str) -> None:
+        if step == self._fail_step:
+            raise RuntimeError(f"injected renewal failure after {step}")
+
+
+@pytest.mark.parametrize(
+    "fail_step",
+    ["relationship_fact", "relationship_projection", "receipt"],
+)
+def test_renewal_initial_lineage_failure_rolls_back_entire_creation(
+    postgres_target: PostgresTestTarget,
+    fail_step: str,
+) -> None:
+    async def scenario() -> None:
+        engine = create_postgres_engine(
+            postgres_target.database_url, schema=postgres_target.schema
+        )
+        setup = PostgresDecisionStore(engine)
+        try:
+            predecessor = await _create_decision(
+                setup, recorded_at=BASE, label=f"rollback-{fail_step}"
+            )
+            renewal_at = BASE + timedelta(hours=1)
+            predecessor_version, _ = await _resolve(
+                setup,
+                predecessor,
+                recorded_at=renewal_at - timedelta(minutes=30),
+            )
+
+            tables = (
+                decision_needs,
+                investment_decisions,
+                investment_decision_lifecycle_facts,
+                investment_decision_relationships,
+                investment_decision_command_receipts,
+            )
+            async with engine.connect() as connection:
+                before_counts = []
+                for table in tables:
+                    before_counts.append(
+                        await connection.scalar(select(func.count()).select_from(table))
+                    )
+            before_history = await setup.load_decision_history(predecessor)
+            before_relationships = await setup.load_relationship_history()
+
+            failing = _FailAfterRenewalWriteStore(engine, fail_step)
+            identities = iter((uuid4(), uuid4(), uuid4(), uuid4()))
+            with pytest.raises(PersistenceUnavailable):
+                await DecisionRelationshipService(
+                    reader=failing,
+                    store=failing,
+                    now=lambda: renewal_at,
+                    new_uuid=lambda: next(identities),
+                ).renew(
+                    RenewDecisionCommand(
+                        envelope=_envelope(
+                            operation_id=OperationId(uuid4()),
+                            effective_at=renewal_at,
+                            versions={predecessor: predecessor_version},
+                            reference=f"rollback-renewal-{fail_step}",
+                        ),
+                        need_statement="Renew after the resolved predecessor",
+                        subject=DecisionSubject("Renewed choice"),
+                        scope=DecisionScope.unresolved(),
+                        predecessors=(
+                            RenewalPredecessor(
+                                predecessor,
+                                RenewedFromRelationshipBasis(
+                                    (f"rollback-{fail_step}",)
+                                ),
+                            ),
+                        ),
+                    )
+                )
+
+            async with engine.connect() as connection:
+                after_counts = []
+                for table in tables:
+                    after_counts.append(
+                        await connection.scalar(select(func.count()).select_from(table))
+                    )
+            assert after_counts == before_counts
+            assert await setup.load_decision_history(predecessor) == before_history
+            assert await setup.load_relationship_history() == before_relationships
         finally:
             await engine.dispose()
 

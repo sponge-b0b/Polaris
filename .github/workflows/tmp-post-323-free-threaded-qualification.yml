@@ -76,6 +76,7 @@ jobs:
         id: native
         shell: bash
         run: |
+          set +e
           set -u
           failures=0
           for i in 1 2 3 4 5; do
@@ -95,6 +96,7 @@ jobs:
         id: tlbc
         shell: bash
         run: |
+          set +e
           set -u
           failures=0
           for i in 1 2 3 4 5; do

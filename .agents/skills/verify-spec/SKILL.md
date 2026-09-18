@@ -170,6 +170,23 @@ After every repair:
 * require a clean worktree and one exact candidate HEAD before final contract construction;
 * treat all earlier exact-HEAD semantic certification as stale.
 
+### Outstanding-owner blockers do not end repair-capable verification
+
+Discovering a valid blocker owned by another workflow does **not** by itself terminate `$verify-spec`.
+
+When a decomposition, manifest, architecture-authority, tracker, or other upstream defect prevents final certification:
+
+1. persist/route that blocker through its owning durable workflow record immediately;
+2. mark only the proofs/gates that actually depend on the unresolved authority as blocked;
+3. continue every independently actionable verification-owned repair whose correctness does not require inventing or assuming the unresolved authority;
+4. finish applicable delegated repair-capable gates such as `$deduplicate-code`, `$verify-architecture`, and bounded `$wiki-sync` work when their repair authority is independently established;
+5. rerun evidence invalidated by those repairs;
+6. stop at the required Human Handoff only when the upstream blocker is the remaining reason this invocation cannot legally reach certification, or when another genuine Human Handoff / Hard Blocker independently applies.
+
+Do not use an upstream manifest/decomposition defect as a reason to leave candidate-introduced duplication, stale wiki realization, or another independently owned repair known-but-unfixed.
+
+This continuation rule does not authorize guessing semantics from the defective manifest. Any repair whose correct behavior depends on the unresolved authority remains blocked.
+
 ### Durable evidence reuse
 
 Reuse durable lifecycle records instead of reconstructing already-closed work from scratch.
@@ -489,13 +506,14 @@ The `$verify-spec` parent must:
 2. resolve the current decomposition owner: active conventional Spec Review if one currently owns remediation, otherwise the parent Spec;
 3. create/update that owner's single `<!-- decomposition-defects:v1 -->` record with stable unresolved `DD-*` entries and exact source/manifest/ticket provenance;
 4. read the record back exactly;
-5. stop at Human Handoff to the current decomposition owner:
+5. register the required Human Handoff to the current decomposition owner, but do not terminate while independently actionable verification-owned repair remains;
+6. after those independent repairs/gates are exhausted, stop at Human Handoff if the decomposition defect still prevents certification:
 
 ```text
 $to-tickets - <Current Decomposition Owner Title> (<Current Decomposition Owner URL>)
 ```
 
-Use the parent Spec title/URL when the parent Spec is the current decomposition owner, or the conventional Spec Review title/URL when that Spec Review owns remediation.
+Use the parent Spec title/URL when the parent Spec is the current decomposition owner, or the conventional Spec Review title/URL when that Spec Review owns remediation. The handoff blocks certification, not unrelated repair-capable verification work.
 
 Historical ticket certification remains provenance and does not suppress the missing upstream obligation.
 
@@ -561,9 +579,10 @@ After a complete verifier FAIL returns:
 2. retain every returned independently actionable finding as current verification state;
 3. classify whether each finding is Spec-relevant repair, architecture/design decomposition defect, unresolved architecture, external/environmental blocker, or another deterministic contract defect requiring the owning workflow;
 4. route every architecture/design decomposition defect to the current `$to-tickets` source owner through the canonical `decomposition-defects:v1` record; repair every other actionable Spec-relevant finding through the normal procedure and required owner skills;
-5. rerun only invalidated gates/tests/failure dispositions;
-6. refresh exact-HEAD `$spec-contract` bindings;
-7. obtain another fresh semantic certification for the new stable candidate.
+5. if a routed decomposition/authority finding remains unresolved, continue every independent repair-capable gate/finding whose correctness does not depend on that unresolved authority; do not stop merely because the final receipt is already blocked;
+6. rerun only invalidated gates/tests/failure dispositions;
+7. refresh exact-HEAD `$spec-contract` bindings when the governing contract is valid enough to do so;
+8. obtain another fresh semantic certification for the new stable candidate only after all upstream blockers required for certification are resolved.
 
 Do not drop a prior semantic failure merely because a narrower rerun passes. It remains current until the exact falsifier/claim is re-proven or explicitly superseded by authoritative contract change.
 

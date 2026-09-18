@@ -211,8 +211,8 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "actor_attribution_kind IN ('known', 'unknown', 'contested')",
             name="ck_investment_decision_lifecycle_facts_actor_attribution_kind",
-        # duplicate-code: immutable migration DDL is an auditable historical snapshot; sharing mutable schema helpers would couple deployed migration history to current metadata.
-        # arid: disable
+            # duplicate-code: immutable migration DDL is an auditable historical snapshot; sharing mutable schema helpers would couple deployed migration history to current metadata.
+            # arid: disable
         ),
         sa.CheckConstraint(
             "(actor_attribution_kind = 'known' AND actor_id IS NOT NULL "
@@ -221,7 +221,7 @@ def upgrade() -> None:
             "AND actor_candidate_ids IS NULL) OR "
             "(actor_attribution_kind = 'contested' AND actor_id IS NULL "
             "AND cardinality(actor_candidate_ids) > 0)",
-        # arid: enable
+            # arid: enable
             name="ck_investment_decision_lifecycle_facts_actor_shape",
         ),
         sa.CheckConstraint(
@@ -339,8 +339,8 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "actor_attribution_kind IN ('known', 'unknown', 'contested')",
             name="ck_investment_decision_relationships_actor_kind",
-        # duplicate-code: immutable migration DDL is an auditable historical snapshot; sharing mutable schema helpers would couple deployed migration history to current metadata.
-        # arid: disable
+            # duplicate-code: immutable migration DDL is an auditable historical snapshot; sharing mutable schema helpers would couple deployed migration history to current metadata.
+            # arid: disable
         ),
         sa.CheckConstraint(
             "(actor_attribution_kind = 'known' AND actor_id IS NOT NULL "
@@ -349,7 +349,7 @@ def upgrade() -> None:
             "AND actor_candidate_ids IS NULL) OR "
             "(actor_attribution_kind = 'contested' AND actor_id IS NULL "
             "AND cardinality(actor_candidate_ids) > 0)",
-        # arid: enable
+            # arid: enable
             name="ck_investment_decision_relationships_actor_shape",
         ),
         sa.CheckConstraint(

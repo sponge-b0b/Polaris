@@ -55,7 +55,7 @@ async def _identity_column_types(
         async with engine.connect() as connection:
             rows = await connection.execute(
                 text(
-    # arid: enable
+                    # arid: enable
                     "SELECT table_name, column_name, udt_name "
                     "FROM information_schema.columns "
                     "WHERE table_schema = :schema "
@@ -77,7 +77,7 @@ async def _column_names(target: PostgresTestTarget, table_name: str) -> frozense
         async with engine.connect() as connection:
             rows = await connection.execute(
                 text(
-    # arid: enable
+                    # arid: enable
                     "SELECT column_name FROM information_schema.columns "
                     "WHERE table_schema = :schema AND table_name = :table_name"
                 ),

@@ -250,9 +250,7 @@ class PostgresDecisionStore:
                         select(
                             investment_decisions.c.applicability,
                             investment_decisions.c.decision_version,
-                        ).where(
-                            investment_decisions.c.decision_id == decision_id.value
-                        )
+                        ).where(investment_decisions.c.decision_id == decision_id.value)
                     )
                 ).one_or_none()
                 if projection is None:
@@ -264,9 +262,7 @@ class PostgresDecisionStore:
                         history,
                         observed_at=known_at,
                         applicability=applicability,
-                        decision_version=_decision_version(
-                            projection.decision_version
-                        ),
+                        decision_version=_decision_version(projection.decision_version),
                     ),
                     applicability=applicability,
                 )
@@ -378,7 +374,7 @@ class PostgresDecisionStore:
                 await connection.execute(
                     insert(investment_decision_command_receipts).values(
                         operation_id=commit.operation_id.value,
-                    # arid: enable
+                        # arid: enable
                         command_kind="decision_mutation",
                         request_fingerprint=mutation_request_fingerprint(
                             commit.request
@@ -410,9 +406,7 @@ class PostgresDecisionStore:
         del known_at
         try:
             async with _repeatable_read(self._engine) as connection:
-                projection = await _load_decision_projection(
-                    connection, decision_id
-                )
+                projection = await _load_decision_projection(connection, decision_id)
                 if projection is None:
                     return None
                 history = await _load_decision_history(connection, decision_id)
@@ -565,8 +559,8 @@ class PostgresDecisionStore:
                 prior_row = await _get_operation_receipt(
                     connection,
                     commit.operation_id,
-                # duplicate-code: Decision initiation, mutation, and read paths expose distinct persistence outcomes; sharing this local control shape would couple independent operations.
-                # arid: disable
+                    # duplicate-code: Decision initiation, mutation, and read paths expose distinct persistence outcomes; sharing this local control shape would couple independent operations.
+                    # arid: disable
                 )
             if prior_row is not None and (
                 prior_row["command_kind"] != "decision_mutation"

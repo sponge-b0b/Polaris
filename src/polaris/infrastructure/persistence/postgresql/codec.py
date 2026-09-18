@@ -382,7 +382,7 @@ def mutation_request_fingerprint(request: DecisionMutationSemanticRequest) -> st
         separators=(",", ":"),
     ).encode()
     return hashlib.sha256(encoded).hexdigest()
-        # arid: enable
+    # arid: enable
 
 
 def _mutation_payload(value: object) -> JsonObject:
@@ -830,7 +830,7 @@ def _actor_from_payload(value: object) -> ActorAttribution:
     if kind == "contested":
         return ContestedActorAttribution(
             frozenset(
-    # arid: enable
+                # arid: enable
                 ActorId(_uuid(item, "candidate actor ID"))
                 for item in _object_list(
                     payload.get("candidate_actor_ids"), "candidate_actor_ids"

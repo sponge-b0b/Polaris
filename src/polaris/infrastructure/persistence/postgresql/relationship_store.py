@@ -136,7 +136,7 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
             TypeError,
         ) as error:
             raise DecisionCommandReadUnavailable(
-        # arid: enable
+                # arid: enable
                 "Decision relationship state read is unavailable"
             ) from error
 
@@ -155,10 +155,10 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
             TypeError,
         ) as error:
             raise DecisionCommandReadUnavailable(
-        # arid: enable
+                # arid: enable
                 "Decision relationship history read is unavailable"
-            # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
-            # arid: disable
+                # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
+                # arid: disable
             ) from error
 
     async def load_decision_for_command(
@@ -170,7 +170,7 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
         _aware(known_at, "known_at")
         try:
             async with _repeatable_read(self._engine) as connection:
-            # arid: enable
+                # arid: enable
                 relationships = await _load_relationship_history(
                     connection, known_at=known_at
                 )
@@ -193,10 +193,10 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
             TypeError,
         ) as error:
             raise DecisionCommandReadUnavailable(
-        # arid: enable
+                # arid: enable
                 "Decision command-state read is unavailable"
-            # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
-            # arid: disable
+                # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
+                # arid: disable
             ) from error
 
     async def load_current_decision_state(
@@ -208,18 +208,14 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
         _aware(known_at, "known_at")
         try:
             async with _repeatable_read(self._engine) as connection:
-                projection = await _load_decision_projection(
-                    connection, decision_id
-                )
+                projection = await _load_decision_projection(connection, decision_id)
                 if projection is None:
                     return None
-            # arid: enable
+                # arid: enable
                 all_relationships = await _load_relationship_history(connection)
                 all_history = await _load_decision_history(connection, decision_id)
                 if not all_history:
-                    raise ValueError(
-                        "Decision projection requires lifecycle history"
-                    )
+                    raise ValueError("Decision projection requires lifecycle history")
                 projection_version = await _authoritative_decision_version(
                     connection, decision_id
                 )
@@ -249,8 +245,8 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
                     lifecycle_facts=history,
                     version=version,
                     relationship_history=relationships,
-                # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
-                # arid: disable
+                    # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
+                    # arid: disable
                 )
         except (
             SQLAlchemyError,
@@ -261,8 +257,8 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
             raise DecisionCommandReadUnavailable(
                 # arid: enable
                 "Decision current-state read is unavailable"
-            # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
-            # arid: disable
+                # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
+                # arid: disable
             ) from error
 
     async def find_unresolved_continuity_candidates(
@@ -274,7 +270,7 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
                 relationships = await _load_relationship_history(
                     connection, known_at=known_at
                 )
-            # arid: enable
+                # arid: enable
                 decisions = await _load_decisions(
                     connection,
                     known_at=known_at,
@@ -297,8 +293,8 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
                         ),
                         key=lambda identity: identity.value.int,
                     )
-                # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
-                # arid: disable
+                    # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
+                    # arid: disable
                 )
         except (
             SQLAlchemyError,
@@ -414,7 +410,7 @@ _RELATIONSHIP_REVALIDATION_ERRORS = (
     InvalidDecisionRelationshipHistory,
     InvalidDecisionTransition,
 )
-    # arid: enable
+# arid: enable
 
 
 async def _guard_relationship_commit(

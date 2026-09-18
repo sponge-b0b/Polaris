@@ -155,6 +155,8 @@ class _ConcurrentCandidateReadStore(PostgresDecisionStore):
         )
         await self._barrier.wait()
         return candidates
+
+
 # arid: enable
 
 
@@ -289,7 +291,10 @@ def test_many_to_many_supersession_round_trips_after_restart(
                 DecisionRelationshipState.SUPPORTED
             }
 
-        async with postgres_engine_store(postgres_target) as (restarted_engine, restarted):
+        async with postgres_engine_store(postgres_target) as (
+            restarted_engine,
+            restarted,
+        ):
             memory = DecisionMemoryService(reader=restarted, now=lambda: second_at)
             current = await memory.current(target_a)
             assert current.version == DecisionVersion(3)
@@ -438,7 +443,7 @@ def test_initiation_rejects_relationship_operation_id_after_restart(
         async with postgres_engine_store(postgres_target) as (engine, store):
             source = await _create_decision(store, recorded_at=BASE, label="source")
             target = await _create_decision(
-    # arid: enable
+                # arid: enable
                 store,
                 recorded_at=BASE + timedelta(minutes=1),
                 label="target",
@@ -452,7 +457,7 @@ def test_initiation_rejects_relationship_operation_id_after_restart(
                 source=source,
                 targets=(target,),
                 recorded_at=relationship_at,
-            # arid: enable
+                # arid: enable
                 operation_id=operation_id,
             )
 
@@ -490,7 +495,7 @@ def test_initiation_rejects_relationship_operation_id_after_restart(
                 investment_decisions,
                 investment_decision_command_receipts,
             )
-        # arid: enable
+            # arid: enable
             assert counts == (2, 3)
         finally:
             await restarted_engine.dispose()
@@ -509,7 +514,7 @@ def test_qualification_gap_ages_without_synthetic_version_and_restores(
             target = await _create_decision(
                 store, recorded_at=BASE + timedelta(minutes=1), label="target"
             )
-    # arid: enable
+            # arid: enable
             base_at = BASE + timedelta(hours=1)
             base_fact = uuid4()
             _, established = await _supersede(
@@ -601,13 +606,13 @@ def test_qualification_gap_ages_without_synthetic_version_and_restores(
                 store=store,
                 now=lambda: restore_at,
                 new_uuid=uuid4,
-            # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
-            # arid: disable
+                # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+                # arid: disable
             ).correct(
                 CorrectDecisionRelationshipCommand(
                     envelope=_envelope(
                         operation_id=OperationId(uuid4()),
-            # arid: enable
+                        # arid: enable
                         effective_at=restore_at,
                         versions={
                             source: await _version(store, source, restore_at),
@@ -755,7 +760,7 @@ def test_ordinary_and_renewal_initiation_share_one_continuity_guard(
             predecessor = await _create_decision(
                 store, recorded_at=BASE, label="predecessor"
             )
-    # arid: enable
+            # arid: enable
             initiation_at = BASE + timedelta(hours=1)
             predecessor_version, _ = await _resolve(
                 store,
@@ -770,13 +775,13 @@ def test_ordinary_and_renewal_initiation_share_one_continuity_guard(
                 store=concurrent,
                 now=lambda: initiation_at,
                 new_uuid=lambda: next(ordinary_ids),
-            # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
-            # arid: disable
+                # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+                # arid: disable
             ).initiate(
                 InitiateDecisionCommand(
                     envelope=_envelope(
                         operation_id=OperationId(uuid4()),
-            # arid: enable
+                        # arid: enable
                         effective_at=initiation_at,
                         reference="concurrent-ordinary-initiation",
                     ),
@@ -792,13 +797,13 @@ def test_ordinary_and_renewal_initiation_share_one_continuity_guard(
                 store=concurrent,
                 now=lambda: initiation_at,
                 new_uuid=lambda: next(renewal_ids),
-            # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
-            # arid: disable
+                # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+                # arid: disable
             ).renew(
                 RenewDecisionCommand(
                     envelope=_envelope(
                         operation_id=OperationId(uuid4()),
-            # arid: enable
+                        # arid: enable
                         effective_at=initiation_at,
                         versions={predecessor: predecessor_version},
                         reference="concurrent-renewal-initiation",
@@ -816,7 +821,7 @@ def test_ordinary_and_renewal_initiation_share_one_continuity_guard(
                     ),
                 )
             )
-                    # arid: enable
+            # arid: enable
 
             outcomes = await asyncio.gather(
                 ordinary,
@@ -890,7 +895,7 @@ def test_renewal_initial_lineage_failure_rolls_back_entire_creation(
                             operation_id=OperationId(uuid4()),
                             effective_at=renewal_at,
                             versions={predecessor: predecessor_version},
-                    # arid: enable
+                            # arid: enable
                             reference=f"rollback-renewal-{fail_step}",
                         ),
                         need_statement="Renew after the resolved predecessor",
@@ -901,7 +906,7 @@ def test_renewal_initial_lineage_failure_rolls_back_entire_creation(
                         predecessors=(
                             RenewalPredecessor(
                                 predecessor,
-                        # arid: enable
+                                # arid: enable
                                 RenewedFromRelationshipBasis(
                                     (f"rollback-{fail_step}",)
                                 ),
@@ -1003,7 +1008,7 @@ def test_four_state_relationship_history_round_trips(
             target = await _create_decision(
                 store, recorded_at=BASE + timedelta(minutes=1), label="target"
             )
-        # arid: enable
+            # arid: enable
             before = await store.load_relationship_history()
             assert before == ()
             with pytest.raises(DecisionRelationshipNotKnownAtCutoff):
@@ -1026,7 +1031,7 @@ def test_four_state_relationship_history_round_trips(
                 targets=(target,),
                 recorded_at=base_at,
                 fact_ids=(base_fact,),
-            # arid: enable
+                # arid: enable
                 relationship_effective_at=base_at,
             )
 
@@ -1036,13 +1041,13 @@ def test_four_state_relationship_history_round_trips(
                 store=store,
                 now=lambda: withdraw_at,
                 new_uuid=lambda: withdraw_fact,
-            # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
-            # arid: disable
+                # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+                # arid: disable
             ).correct(
                 CorrectDecisionRelationshipCommand(
                     envelope=_envelope(
                         operation_id=OperationId(uuid4()),
-            # arid: enable
+                        # arid: enable
                         effective_at=withdraw_at,
                         versions={
                             source: await _version(store, source, withdraw_at),
@@ -1072,7 +1077,7 @@ def test_four_state_relationship_history_round_trips(
                 store,
                 source=source,
                 targets=(target,),
-            # arid: enable
+                # arid: enable
                 recorded_at=second_recorded,
                 fact_ids=(second_fact,),
                 relationship_effective_at=second_effective,
@@ -1092,7 +1097,7 @@ def test_four_state_relationship_history_round_trips(
                 store,
                 source=source,
                 targets=(target,),
-            # arid: enable
+                # arid: enable
                 recorded_at=third_recorded,
                 fact_ids=(third_fact,),
                 relationship_effective_at=third_effective,
@@ -1118,8 +1123,8 @@ def test_four_state_relationship_history_round_trips(
             }
             assert DecisionRelationshipFactId(third_fact) not in (
                 before_late_claim[0].support_fact_ids
-            # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
-            # arid: disable
+                # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+                # arid: disable
             )
 
     asyncio.run(scenario())
@@ -1180,7 +1185,10 @@ def test_ordinary_mutation_advances_from_durable_relationship_version(
         ] == [1, 3]
         await engine.dispose()
 
-        async with postgres_engine_store(postgres_target) as (restarted_engine, restarted):
+        async with postgres_engine_store(postgres_target) as (
+            restarted_engine,
+            restarted,
+        ):
             restarted_state = await restarted.load_decision_for_command(
                 source, known_at=mutation_at
             )
@@ -1214,11 +1222,13 @@ def test_malformed_persisted_correction_lineage_fails_closed(
             target = await _create_decision(
                 store, recorded_at=BASE + timedelta(minutes=1), label="target"
             )
-    # arid: enable
+            # arid: enable
             unrelated = await _create_decision(
-                store, recorded_at=BASE + timedelta(minutes=2), label="unrelated"
-            # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
-            # arid: disable
+                store,
+                recorded_at=BASE + timedelta(minutes=2),
+                label="unrelated",
+                # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+                # arid: disable
             )
             base_at = BASE + timedelta(hours=1)
             base_fact = uuid4()
@@ -1237,15 +1247,15 @@ def test_malformed_persisted_correction_lineage_fails_closed(
                 store=store,
                 now=lambda: correction_at,
                 new_uuid=lambda: correction_fact,
-            # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
-            # arid: disable
+                # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+                # arid: disable
             ).correct(
                 CorrectDecisionRelationshipCommand(
                     envelope=_envelope(
                         operation_id=OperationId(uuid4()),
                         effective_at=correction_at,
                         versions={
-            # arid: enable
+                            # arid: enable
                             source: await _version(store, source, correction_at),
                             target: await _version(store, target, correction_at),
                         },

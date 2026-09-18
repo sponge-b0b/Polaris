@@ -75,7 +75,7 @@ def relationship_request_payload(
         },
         "effective_at": request.effective_at.isoformat(),
         "expected_versions": [
-        # arid: enable
+            # arid: enable
             {"decision_id": str(identity.value), "version": version.value}
             for identity, version in sorted(
                 request.expected_versions, key=lambda item: str(item[0].value)
@@ -174,8 +174,8 @@ def relationship_result_from_payload(value: object) -> DecisionRelationshipResul
             InvestmentDecisionId(_uuid(raw_new_decision_id, "new_decision_id"))
             if raw_new_decision_id is not None
             else None
-        # duplicate-code: relationship payload variants are independently versioned command/fact contracts; sharing this local shape would couple distinct wire semantics.
-        # arid: disable
+            # duplicate-code: relationship payload variants are independently versioned command/fact contracts; sharing this local shape would couple distinct wire semantics.
+            # arid: disable
         ),
         need_id=(
             DecisionNeedId(_uuid(raw_need_id, "need_id"))
@@ -252,8 +252,8 @@ def relationship_fact_from_row(row: RowMapping) -> DecisionRelationshipHistoryFa
     metadata = DecisionRelationshipFactMetadata(
         relationship_fact_id=DecisionRelationshipFactId(
             _uuid(row["relationship_fact_id"], "relationship_fact_id")
-        # duplicate-code: relationship payload variants are independently versioned command/fact contracts; sharing this local shape would couple distinct wire semantics.
-        # arid: disable
+            # duplicate-code: relationship payload variants are independently versioned command/fact contracts; sharing this local shape would couple distinct wire semantics.
+            # arid: disable
         ),
         operation_id=OperationId(_uuid(row["operation_id"], "operation_id")),
         actor_attribution=actor_from_columns(row),
@@ -615,8 +615,8 @@ def _continuity_from_payload(value: object) -> ContinuityDetermination | None:
     return ContinuityDetermination(
         kind=ContinuityDeterminationKind(
             _string(payload.get("kind"), "continuity kind")
-        # duplicate-code: relationship payload variants are independently versioned command/fact contracts; sharing this local shape would couple distinct wire semantics.
-        # arid: disable
+            # duplicate-code: relationship payload variants are independently versioned command/fact contracts; sharing this local shape would couple distinct wire semantics.
+            # arid: disable
         ),
         decision_id=(
             InvestmentDecisionId(_uuid(raw_decision_id, "continuity decision_id"))
@@ -653,7 +653,7 @@ def _object_list(value: object, field: str) -> list[object]:
     if not isinstance(value, list):
         raise ValueError(f"{field} must be a JSON list")
     return value
-        # arid: enable
+    # arid: enable
 
 
 def _uuid(value: object, field: str):
@@ -679,7 +679,7 @@ def _datetime(value: object, field: str) -> datetime:
     elif isinstance(value, str):
         result = datetime.fromisoformat(value)
     else:
-    # arid: enable
+        # arid: enable
         raise ValueError(f"{field} must be a datetime")
     # duplicate-code: relationship payload variants are independently versioned command/fact contracts; sharing this local shape would couple distinct wire semantics.
     # arid: disable

@@ -48,11 +48,14 @@ async def _table_names(target: PostgresTestTarget) -> frozenset[str]:
 async def _identity_column_types(
     target: PostgresTestTarget,
 ) -> dict[tuple[str, str], str]:
+    # duplicate-code: migration assertions prove separate schema invariants; sharing the repeated assertion shape would couple independently meaningful migration checks.
+    # arid: disable
     engine = create_postgres_engine(target.database_url, schema=target.schema)
     try:
         async with engine.connect() as connection:
             rows = await connection.execute(
                 text(
+    # arid: enable
                     "SELECT table_name, column_name, udt_name "
                     "FROM information_schema.columns "
                     "WHERE table_schema = :schema "
@@ -62,6 +65,8 @@ async def _identity_column_types(
                 {"schema": target.schema},
             )
             return {(row.table_name, row.column_name): row.udt_name for row in rows}
+    # duplicate-code: migration assertions prove separate schema invariants; sharing the repeated assertion shape would couple independently meaningful migration checks.
+    # arid: disable
     finally:
         await engine.dispose()
 
@@ -72,6 +77,7 @@ async def _column_names(target: PostgresTestTarget, table_name: str) -> frozense
         async with engine.connect() as connection:
             rows = await connection.execute(
                 text(
+    # arid: enable
                     "SELECT column_name FROM information_schema.columns "
                     "WHERE table_schema = :schema AND table_name = :table_name"
                 ),

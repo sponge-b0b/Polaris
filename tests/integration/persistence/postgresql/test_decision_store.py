@@ -157,6 +157,29 @@ def _test_envelope(
     )
 
 
+def _subject_revision_command(
+    *,
+    operation_id: UUID | OperationId = MUTATION_OPERATION_ID,
+    subject: str = "Whether to increase the position",
+    decision_id: InvestmentDecisionId = InvestmentDecisionId(DECISION_ID),
+    reference: str = "request-322",
+    effective_at: datetime = MUTATION_RECORDED_AT,
+    expected_version: DecisionVersion = DecisionVersion(1),
+) -> ReviseDecisionSubjectCommand:
+    return ReviseDecisionSubjectCommand(
+        envelope=_test_envelope(
+            operation_id,
+            reference=reference,
+            effective_at=effective_at,
+            decision_id=decision_id,
+            expected_version=expected_version,
+        ),
+        decision_id=decision_id,
+        subject=DecisionSubject(subject),
+        continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+    )
+
+
 def _command(scope: DecisionScope) -> InitiateDecisionCommand:
     return InitiateDecisionCommand(
         envelope=_test_envelope(
@@ -554,15 +577,7 @@ def test_subject_revision_commits_fact_projection_and_receipt_before_restart(
             now=lambda: MUTATION_RECORDED_AT,
             new_uuid=lambda: MUTATION_FACT_ID,
         )
-        command = ReviseDecisionSubjectCommand(
-            envelope=_test_envelope(
-                MUTATION_OPERATION_ID,
-                reference="request-322",
-            ),
-            decision_id=InvestmentDecisionId(DECISION_ID),
-            subject=DecisionSubject("Whether to increase the position"),
-            continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
-        )
+        command = _subject_revision_command()
         result = await service.revise_subject(command)
         assert result.kind is DecisionMutationResultKind.APPLIED
         assert result.version == DecisionVersion(2)
@@ -726,15 +741,7 @@ def test_mutation_rejects_operation_id_already_used_by_initiation(
             now=lambda: MUTATION_RECORDED_AT,
             new_uuid=lambda: MUTATION_FACT_ID,
         )
-        command = ReviseDecisionSubjectCommand(
-            envelope=_test_envelope(
-                OPERATION_ID,
-                reference="request-322",
-            ),
-            decision_id=InvestmentDecisionId(DECISION_ID),
-            subject=DecisionSubject("Whether to increase the position"),
-            continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
-        )
+        command = _subject_revision_command(operation_id=OPERATION_ID)
         try:
             with pytest.raises(IdempotencyConflict):
                 await service.revise_subject(command)
@@ -755,15 +762,7 @@ def test_initiation_rejects_mutation_operation_id_after_restart(
 ) -> None:
     async def scenario() -> None:
         store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
-        mutation = ReviseDecisionSubjectCommand(
-            envelope=_test_envelope(
-                MUTATION_OPERATION_ID,
-                reference="request-322",
-            ),
-            decision_id=InvestmentDecisionId(DECISION_ID),
-            subject=DecisionSubject("Whether to increase the position"),
-            continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
-        )
+        mutation = _subject_revision_command()
         await DecisionOrdinaryWorkService(
             store=store,
             now=lambda: MUTATION_RECORDED_AT,
@@ -858,15 +857,7 @@ def test_mutation_failure_between_semantic_writes_rolls_back_every_change(
             now=lambda: MUTATION_RECORDED_AT,
             new_uuid=lambda: MUTATION_FACT_ID,
         )
-        command = ReviseDecisionSubjectCommand(
-            envelope=_test_envelope(
-                MUTATION_OPERATION_ID,
-                reference="request-322",
-            ),
-            decision_id=InvestmentDecisionId(DECISION_ID),
-            subject=DecisionSubject("Whether to increase the position"),
-            continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
-        )
+        command = _subject_revision_command()
         try:
             with pytest.raises(PersistenceUnavailable):
                 await service.revise_subject(command)
@@ -902,15 +893,10 @@ def test_no_op_receipt_failure_rolls_back_receipt_only_transaction(
         )
         failing = _FailAfterMutationReceiptStore(engine)
         decision_id = InvestmentDecisionId(DECISION_ID)
-        command = ReviseDecisionSubjectCommand(
-            _test_envelope(
-                MUTATION_OPERATION_ID,
-                reference="no-op",
-                decision_id=decision_id,
-            ),
-            decision_id,
-            DecisionSubject("Whether to establish the position"),
-            DecisionContinuity.SAME_COHERENT_CHOICE,
+        command = _subject_revision_command(
+            subject="Whether to establish the position",
+            decision_id=decision_id,
+            reference="no-op",
         )
         try:
             with pytest.raises(PersistenceUnavailable):
@@ -968,14 +954,10 @@ def test_concurrent_expected_version_mutations_commit_exactly_once(
         concurrent_store = _ConcurrentLoadStore(engine, asyncio.Barrier(2))
 
         def command(operation_id: UUID, subject: str) -> ReviseDecisionSubjectCommand:
-            return ReviseDecisionSubjectCommand(
-                envelope=_test_envelope(
-                    operation_id,
-                    reference=f"request-{operation_id}",
-                ),
-                decision_id=InvestmentDecisionId(DECISION_ID),
-                subject=DecisionSubject(subject),
-                continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+            return _subject_revision_command(
+                operation_id=operation_id,
+                subject=subject,
+                reference=f"request-{operation_id}",
             )
 
         first = DecisionOrdinaryWorkService(
@@ -1031,17 +1013,10 @@ def test_concurrent_same_operation_replays_or_reports_idempotency_conflict(
         decision_id = InvestmentDecisionId(DECISION_ID)
 
         def command(subject: str) -> ReviseDecisionSubjectCommand:
-            return ReviseDecisionSubjectCommand(
-                _test_envelope(
-                    MUTATION_OPERATION_ID,
-                    reference="same-operation-race",
-                    effective_at=MUTATION_RECORDED_AT,
-                    decision_id=decision_id,
-                    expected_version=DecisionVersion(1),
-                ),
-                decision_id,
-                DecisionSubject(subject),
-                DecisionContinuity.SAME_COHERENT_CHOICE,
+            return _subject_revision_command(
+                subject=subject,
+                decision_id=decision_id,
+                reference="same-operation-race",
             )
 
         first = DecisionOrdinaryWorkService(
@@ -1281,16 +1256,10 @@ def test_ordinary_mutation_rejects_unwitnessed_projection_version_ahead_of_histo
                     now=lambda: MUTATION_RECORDED_AT,
                     new_uuid=lambda: MUTATION_FACT_ID,
                 ).revise_subject(
-                    ReviseDecisionSubjectCommand(
-                        _test_envelope(
-                            MUTATION_OPERATION_ID,
-                            reference="after-unwitnessed-projection-version",
-                            decision_id=decision_id,
-                            expected_version=DecisionVersion(2),
-                        ),
-                        decision_id,
-                        DecisionSubject("Whether to increase the position"),
-                        DecisionContinuity.SAME_COHERENT_CHOICE,
+                    _subject_revision_command(
+                        decision_id=decision_id,
+                        reference="after-unwitnessed-projection-version",
+                        expected_version=DecisionVersion(2),
                     )
                 )
         finally:

@@ -1,4 +1,4 @@
-name: ChatGPT substitute Spec 280 contract builder
+name: ChatGPT Spec 280 wiki audit
 
 on:
   push:
@@ -7,10 +7,9 @@ on:
 
 permissions:
   contents: read
-  issues: read
 
 jobs:
-  build-contract:
+  wiki-audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,273 +20,147 @@ jobs:
       - name: Pin exact candidate
         run: |
           set -euo pipefail
-          test "$(git branch --show-current)" = "spec-280"
           test "$(git rev-parse HEAD)" = "af9937141acdec7ca463b9a825be7fdb5715232c"
           test -z "$(git status --porcelain)"
 
-      - name: Build owner-authorized substitute contract
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Materialize deterministic wiki audit coverage
         run: |
           set -euo pipefail
-          BUILD_ROOT="$RUNNER_TEMP/spec-contract-280-substitute-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          CONTRACT_HANDOFF="$RUNNER_TEMP/spec-280-contract.json"
-          SPEC_BODY="$BUILD_ROOT/spec-body.md"
-          mkdir -p "$BUILD_ROOT"
-          test ! -e "$CONTRACT_HANDOFF"
-
-          gh issue view 280 --repo sponge-b0b/Polaris --json body --jq .body > "$SPEC_BODY"
-
-          python .agents/skills/spec-contract/scripts/classify_ownership.py \
-            --baseline 23f7a2df40557b87754fd62e3f70164f60b18788 \
-            --branch spec-280 \
-            --head af9937141acdec7ca463b9a825be7fdb5715232c \
-            > "$BUILD_ROOT/provenance.json"
-
-          python - "$SPEC_BODY" "$BUILD_ROOT/provenance.json" "$CONTRACT_HANDOFF" <<'PY'
+          python - <<'PY'
           from __future__ import annotations
-          import hashlib
-          import json
           import re
-          import sys
           from pathlib import Path
 
-          spec_body_path = Path(sys.argv[1])
-          provenance = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
-          handoff_path = Path(sys.argv[3])
-          body = spec_body_path.read_text(encoding="utf-8")
-          lines = body.splitlines()
+          root = Path(".")
+          wiki = root / "wiki"
+          entities_dir = wiki / "entities"
+          index = (wiki / "index.md").read_text()
+          template = (wiki / "_template.md").read_text()
+          ignore_path = root / "docs" / ".wikiignore"
 
-          units = []
-          section = "(preamble)"
-          paragraph = []
-          kind_counts = {}
-          oos_counter = 0
+          problems: list[str] = []
+          rows = []
+          for line in index.splitlines():
+              m = re.match(r"^\| \[([^]]+)\]\(entities/([^)]+)\.md\) \| ([^|]+) \| ([^|]+) \| ([^|]+) \| ([^|]+) \|$", line)
+              if m:
+                  rows.append(tuple(x.strip() for x in m.groups()))
 
-          def normalize(value: str) -> str:
-              value = value.replace("\r\n", "\n").replace("\r", "\n")
-              return "\n".join(part.rstrip() for part in value.split("\n")).rstrip()
+          entity_files = sorted(p.stem for p in entities_dir.glob("*.md"))
+          row_ids = sorted(r[1] for r in rows)
+          if entity_files != row_ids:
+              problems.append(f"entity/index mismatch files={entity_files} rows={row_ids}")
 
-          def source_identity(kind: str, text: str) -> str:
-              nonlocal_dummy = None
-              numbered = re.match(r"^\s*(\d+)\.\s+", text)
-              if section in {"User Stories", "Implementation Decisions", "Testing Decisions"} and numbered:
-                  return f"{section} {int(numbered.group(1))}"
-              if section == "Out of Scope" and kind == "list-item":
-                  return f"Out of Scope {sum(1 for u in units if u['section'] == 'Out of Scope' and u['kind'] == 'list-item') + 1}"
-              key = (section, kind)
-              kind_counts[key] = kind_counts.get(key, 0) + 1
-              return f"{section} {kind} {kind_counts[key]}"
+          seen=set()
+          citations=[]
+          claim_count=0
+          open_questions=0
+          for name, entity_id, category, impl, anchors, summary in rows:
+              if entity_id in seen:
+                  problems.append(f"duplicate entity id: {entity_id}")
+              seen.add(entity_id)
+              if impl not in {"present","pending"}:
+                  problems.append(f"invalid implementation state: {entity_id}={impl}")
+              if impl == "pending" and anchors != "—":
+                  problems.append(f"pending entity has routing anchor: {entity_id}")
+              if impl == "present":
+                  count=0 if anchors=="—" else len([a for a in anchors.split("<br>") if a.strip()])
+                  if count<1 or count>2:
+                      problems.append(f"present entity routing anchor count: {entity_id}={count}")
+              p=entities_dir/f"{entity_id}.md"
+              text=p.read_text()
+              if not re.match(rf"^# .+ \(Entity ID: {re.escape(entity_id)}\)\n",text):
+                  problems.append(f"invalid title/entity id: {entity_id}")
+              if "**Boundary Rationale:**" not in text:
+                  problems.append(f"missing Boundary Rationale: {entity_id}")
+              if not re.search(r"\*\*Boundary Rationale:\*\*.*?\n\(source: (?:docs/[^)]+|owner-approved entity boundary determination|owner-approved entity promotion)\)",text,re.S):
+                  problems.append(f"invalid Boundary Rationale provenance: {entity_id}")
+              for forbidden in ["linked_docs:", "last_updated:", "Category:", "Implementation:", "Routing Anchors:"]:
+                  if forbidden in text:
+                      problems.append(f"obsolete entity metadata {forbidden}: {entity_id}")
+              section=None
+              for ln in text.splitlines():
+                  if ln.startswith("### "):
+                      section=ln[4:]
+                      if section=="Open Questions":
+                          pass
+                  if ln.lstrip().startswith("* "):
+                      claim_count+=1
+                      if section=="Open Questions":
+                          open_questions+=1
+                  for source in re.findall(r"source:\s*(docs/[^);]+)",ln):
+                      citations.append((entity_id,section,source.strip()))
 
-          def add(kind: str, raw: str) -> None:
-              text = normalize(raw)
-              if not text:
-                  return
-              units.append({
-                  "source_unit": f"SU-{len(units)+1:04d}",
-                  "source": source_identity(kind, text),
-                  "section": section,
-                  "kind": kind,
-                  "text_hash": hashlib.sha256(text.encode("utf-8")).hexdigest(),
-                  "text": text,
-              })
-
-          def flush() -> None:
-              nonlocal_dummy = None
-              if paragraph:
-                  add("paragraph", "\n".join(paragraph))
-                  paragraph.clear()
-
-          i = 0
-          while i < len(lines):
-              line = lines[i]
-              stripped = line.strip()
-              if re.match(r"^#{1,6}\s+", stripped):
-                  flush()
-                  section = re.sub(r"^#{1,6}\s+", "", stripped)
-                  i += 1
+          # Validate .wikiignore grammar and apply exact/directory exclusions.
+          entries=[]
+          for raw in ignore_path.read_text().splitlines():
+              s=raw.strip()
+              if not s or s.startswith("#"):
                   continue
-              if stripped.startswith("```"):
-                  flush()
-                  block = [line]
-                  i += 1
-                  while i < len(lines):
-                      block.append(lines[i])
-                      if lines[i].strip().startswith("```"):
-                          i += 1
-                          break
-                      i += 1
-                  add("code", "\n".join(block))
-                  continue
-              if not stripped:
-                  flush()
-                  i += 1
-                  continue
-              if stripped.startswith(">"):
-                  flush()
-                  block = [line]
-                  i += 1
-                  while i < len(lines) and lines[i].strip().startswith(">"):
-                      block.append(lines[i])
-                      i += 1
-                  add("blockquote", "\n".join(block))
-                  continue
-              if re.match(r"^\s*(?:[-*+]\s+|\d+\.\s+)", line):
-                  flush()
-                  item = [line]
-                  i += 1
-                  while i < len(lines):
-                      nxt = lines[i]
-                      if not nxt.strip() or re.match(r"^\s*(?:[-*+]\s+|\d+\.\s+)", nxt) or re.match(r"^#{1,6}\s+", nxt.strip()):
-                          break
-                      if nxt.startswith("  ") or nxt.startswith("\t"):
-                          item.append(nxt)
-                          i += 1
-                          continue
-                      break
-                  add("list-item", "\n".join(item))
-                  continue
-              if stripped.startswith("|") and stripped.endswith("|"):
-                  flush()
-                  if not re.fullmatch(r"\|?[\s:|-]+\|?", stripped):
-                      add("table-row", line)
-                  i += 1
-                  continue
-              if stripped.startswith("<") and stripped.endswith(">"):
-                  flush()
-                  add("html", line)
-                  i += 1
-                  continue
-              paragraph.append(line)
-              i += 1
-          flush()
-
-          if len(units) != 153:
-              raise SystemExit(f"SPEC CONTRACT: INVALID\nReason: expected 153 deterministic source units, got {len(units)}")
-
-          represented = {
-              "SU-0001": ["US-1","US-7","US-18","US-24","US-26","US-36","US-37","US-38","US-42","ID-1","ID-28"],
-              "SU-0002": ["US-3","US-16","US-17","US-18","US-19","US-20","US-21","US-22","US-23","US-24","US-25","US-26","US-32","US-35","US-36","US-37","US-39","US-42","US-43"],
-              "SU-0003": ["ID-1"],
-              "SU-0004": ["ID-2","ID-21","ID-22","ID-28"],
-              "SU-0005": ["ID-17","ID-18","ID-19","ID-21","ID-22","ID-23","ID-24","ID-25","ID-28"],
-              "SU-0008": ["NORM-1"],
-              "SU-0009": ["NORM-1"],
-              "SU-0010": ["NORM-1"],
-              "SU-0011": ["NORM-1"],
-              "SU-0065": ["ID-1","ID-2","ID-28","OOS-10"],
-              "SU-0151": ["NORM-1"],
-              "SU-0152": ["ID-1","ID-28"],
-              "SU-0153": ["US-50","ID-31"],
-          }
-
-          inventory = []
-          for idx, unit in enumerate(units, start=1):
-              su = unit["source_unit"]
-              if 13 <= idx <= 62:
-                  classification, cells, reason = "normative-new", [f"US-{idx-12}"], None
-              elif 70 <= idx <= 103:
-                  classification, cells, reason = "normative-new", [f"ID-{idx-69}"], None
-              elif 104 <= idx <= 137:
-                  classification, cells, reason = "normative-new", [f"TD-{idx-103}"], None
-              elif 138 <= idx <= 148:
-                  classification, cells, reason = "normative-new", [f"OOS-{idx-137}"], None
-              elif su == "SU-0007":
-                  classification, cells, reason = "normative-new", ["NORM-1"], None
-              elif su in represented:
-                  classification, cells, reason = "normative-represented", represented[su], "Normative meaning is fully represented by the mapped canonical contract cells."
+              bad = s.startswith("/") or "\\" in s or any(part in {".",".."} for part in s.rstrip("/").split("/")) or any(ch in s for ch in "*?![")
+              if bad:
+                  problems.append(f"invalid .wikiignore entry: {s}")
               else:
-                  classification, cells, reason = "non-normative", None, "Context, status, provenance, or explanatory material; no independent implementation obligation."
-              inventory.append({"source_unit": su, "classification": classification, "manifest_cells": cells, "reason": reason})
+                  entries.append(s)
+          def ignored(rel: str)->bool:
+              for e in entries:
+                  if e.endswith("/") and (rel==e[:-1] or rel.startswith(e)):
+                      return True
+                  if not e.endswith("/") and rel==e:
+                      return True
+              return False
 
-          rank = {"US":0,"ID":1,"TD":2,"OOS":3,"NORM":4}
-          pat = re.compile(r"^(US|ID|TD|OOS|NORM)-(\d+)$")
-          def cell_key(cell):
-              m = pat.fullmatch(cell)
-              if not m:
-                  raise ValueError(cell)
-              return rank[m.group(1)], int(m.group(2))
-
-          manifest_by_cell = {}
-          origins = {}
-          for unit, inv in zip(units, inventory, strict=True):
-              cells = inv["manifest_cells"] or []
-              for cell in cells:
-                  origins.setdefault(cell, []).append(unit["source_unit"])
-              if inv["classification"] != "normative-new":
+          docs=[p for p in (root/"docs").rglob("*") if p.is_file() and p != ignore_path]
+          unclassified=[]
+          for p in docs:
+              rel=p.relative_to(root/"docs").as_posix()
+              if ignored(rel):
                   continue
-              cell = cells[0]
-              source = unit["source"]
-              if cell == "NORM-1":
-                  requirement = (
-                      "Consume, rather than reinterpret, current #278, completed and synchronized #279, "
-                      "the R2 foundation public contract, and the synchronized lifecycle, relationship, "
-                      "application, and durable-persistence designs."
-                  )
-              else:
-                  requirement = re.sub(r"^\s*(?:[-*+]\s+|\d+\.\s+)", "", unit["text"]).strip()
-              manifest_by_cell[cell] = {"cell":cell,"source":source,"requirement":requirement}
+              parts=rel.split("/")
+              ok = parts[0] in {"adr","current","proposed","research","reference","process"}
+              if not ok:
+                  unclassified.append("docs/"+rel)
+          if unclassified:
+              problems.append("unclassified docs: "+", ".join(unclassified))
 
-          expected_cells = (
-              [f"US-{i}" for i in range(1,51)]
-              + [f"ID-{i}" for i in range(1,35)]
-              + [f"TD-{i}" for i in range(1,35)]
-              + [f"OOS-{i}" for i in range(1,12)]
-              + ["NORM-1"]
-          )
-          if sorted(manifest_by_cell, key=cell_key) != expected_cells:
-              raise SystemExit("SPEC CONTRACT: INVALID\nReason: canonical manifest cell universe mismatch")
-          if any(not origins.get(cell) for cell in expected_cells):
-              raise SystemExit("SPEC CONTRACT: INVALID\nReason: manifest cell without source origin")
+          eligible={"Strict Invariants":{"adr","current"},"Planned":{"adr","proposed"}}
+          broken=[]
+          ineligible=[]
+          for entity,section,src in citations:
+              p=root/src
+              if not p.exists():
+                  broken.append((entity,section,src))
+                  continue
+              parts=Path(src).parts
+              cls=parts[1] if len(parts)>1 else ""
+              if section in eligible and cls not in eligible[section]:
+                  ineligible.append((entity,section,src))
+          if broken:
+              problems.append("broken citations: "+repr(broken))
+          if ineligible:
+              problems.append("section-ineligible citations: "+repr(ineligible))
 
-          identity_units = [
-              [unit["source_unit"], unit["text_hash"], inv["classification"], inv["manifest_cells"]]
-              for unit, inv in zip(units, inventory, strict=True)
-          ]
-          identity_manifest = [[cell, origins[cell]] for cell in expected_cells]
-          spec_body_hash = hashlib.sha256(spec_body_path.read_bytes()).hexdigest()
-          payload = (
-              "SPEC-CONTRACT-V2\n" + spec_body_hash
-              + "\n--SOURCE-UNITS--\n"
-              + "\n".join(json.dumps(row, ensure_ascii=False, separators=(",",":")) for row in identity_units)
-              + "\n--MANIFEST--\n"
-              + "\n".join(json.dumps(row, ensure_ascii=False, separators=(",",":")) for row in identity_manifest)
-              + "\n"
+          # Explicitly account for every docs file after exclusions.
+          classified_docs = sum(
+              1 for p in docs
+              if not ignored(p.relative_to(root/"docs").as_posix())
+              and p.relative_to(root/"docs").parts[0] in {"adr","current","proposed","research","reference","process"}
           )
-          contract_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-          handoff = {
-              "spec_issue":280,
-              "head":"af9937141acdec7ca463b9a825be7fdb5715232c",
-              "baseline":"23f7a2df40557b87754fd62e3f70164f60b18788",
-              "branch":"spec-280",
-              "spec_body_hash":spec_body_hash,
-              "spec_contract_hash":contract_hash,
-              "default_branch":provenance["default_branch"],
-              "default_head":provenance["default_head"],
-              "source_counts":{"user_stories":50,"implementation_decisions":34,"testing_decisions":34,"out_of_scope":11,"other_normative":1},
-              "manifest":[manifest_by_cell[cell] for cell in expected_cells],
-              "contract_identity":{"source_units":identity_units,"manifest":identity_manifest},
-          }
-          data = json.dumps(handoff,ensure_ascii=False,separators=(",",":")).encode("utf-8")
-          handoff_path.write_bytes(data)
-          digest = hashlib.sha256(data).hexdigest()
-          counts = {k:sum(1 for row in inventory if row["classification"]==k) for k in ("normative-new","normative-represented","non-normative")}
-          print("SPEC CONTRACT: VALID")
-          print(f"Spec Body Hash: {spec_body_hash}")
-          print(f"Spec Contract Hash: {contract_hash}")
-          print(f"Contract handoff digest: {digest}")
-          print(f"Source units: {len(units)}")
-          print(f"Normative-new: {counts['normative-new']}")
-          print(f"Normative-represented: {counts['normative-represented']}")
-          print(f"Non-normative: {counts['non-normative']}")
-          print(f"Manifest cells: {len(expected_cells)}")
-          print(f"Branch-local commits: {len(provenance['branch_local_commits'])}")
-          print(f"Branch-local surfaces: {len(provenance['branch_local_surfaces'])}")
-          print(f"Mixed-provenance surfaces: {len(provenance['mixed_provenance_surfaces'])}")
-          print(f"Inherited-only surfaces: {len(provenance['inherited_only_surfaces'])}")
-          print("Substitute independence mode: owner-authorized in-session")
-          print("Prior contract representations used as construction input: 0")
-          print("Handoff path existed before build: no")
+          print(f"INDEX_ROWS={len(rows)}")
+          print(f"ENTITY_FILES={len(entity_files)}")
+          print(f"CLAIM_ROWS={claim_count}")
+          print(f"OPEN_QUESTIONS={open_questions}")
+          print(f"INLINE_DOC_CITATIONS={len(citations)}")
+          print(f"DOC_FILES_TOTAL={len(docs)}")
+          print(f"WIKIIGNORE_ENTRIES={len(entries)}")
+          print(f"CLASSIFIED_DOCS={classified_docs}")
+          print(f"UNCLASSIFIED_DOCS={len(unclassified)}")
+          print(f"BROKEN_CITATIONS={len(broken)}")
+          print(f"INELIGIBLE_CITATIONS={len(ineligible)}")
+          print(f"STRUCTURAL_PROBLEMS={len(problems)}")
+          for problem in problems:
+              print("PROBLEM:",problem)
+          if problems:
+              raise SystemExit(1)
           PY
 
       - name: Candidate mutation guard
@@ -295,11 +168,3 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "af9937141acdec7ca463b9a825be7fdb5715232c"
           test -z "$(git status --porcelain)"
-
-      - name: Upload contract handoff
-        uses: actions/upload-artifact@v4
-        with:
-          name: spec-280-substitute-contract-handoff
-          path: ${{ runner.temp }}/spec-280-contract.json
-          if-no-files-found: error
-          retention-days: 1

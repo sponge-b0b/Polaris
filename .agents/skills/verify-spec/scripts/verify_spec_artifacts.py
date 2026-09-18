@@ -22,7 +22,9 @@ DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
 WORKSPACE_METADATA_HEADER = "## Workspace Metadata"
 BASELINE_LINE_RE = re.compile(r"^\*\*Baseline Commit Hash:\*\* (?P<sha>[0-9a-f]{40})$")
 RECEIPT_HEADER = "## Spec Verification Receipt"
+TCM_HEADER = "## Ticket Coverage Manifest"
 RECEIPT_FORMAT = "manifest-table-v2"
+SPEC_CONTRACT_ENCODING = "V2"
 PROOF_STATES = {"proven", "not-applicable", "unresolved"}
 GATE_STATES = {"PASS", "NOT APPLICABLE"}
 CONTRACT_HANDOFF_KEYS = {
@@ -31,6 +33,7 @@ CONTRACT_HANDOFF_KEYS = {
     "baseline",
     "branch",
     "spec_body_hash",
+    "spec_contract_encoding",
     "spec_contract_hash",
     "default_branch",
     "default_head",
@@ -70,6 +73,15 @@ def _digest_text(value: Any, label: str) -> str:
         f"{label} must be a SHA-256 digest",
     )
     return text
+
+
+def _contract_encoding(value: Any, label: str = "Spec Contract Encoding") -> str:
+    encoding = _text(value, label)
+    _require(
+        encoding == SPEC_CONTRACT_ENCODING,
+        f"{label} must be {SPEC_CONTRACT_ENCODING}",
+    )
+    return encoding
 
 
 def _digest(value: Any) -> str:
@@ -144,6 +156,7 @@ def _require_contract_digest(path: str | Path, expected: str) -> None:
 
 
 def _validate_contract_identity(contract: dict[str, Any]) -> None:
+    _contract_encoding(contract.get("spec_contract_encoding"), "spec_contract_encoding")
     identity = contract.get("contract_identity")
     _require(isinstance(identity, dict), "contract_identity must be an object")
     _require(
@@ -323,22 +336,30 @@ def comments_summary(raw: Any) -> dict[str, Any]:
     )
     metadata = _workspace_metadata(comments)
     receipts: list[dict[str, Any]] = []
+    ticket_coverage_manifests: list[dict[str, Any]] = []
     for comment in comments:
         body = str(comment.get("body") or "")
+        record = {
+            "id": comment.get("id"),
+            "created_at": comment.get("created_at"),
+            "html_url": comment.get("html_url") or comment.get("url"),
+            "body": body,
+        }
         if RECEIPT_HEADER in body:
-            receipts.append(
-                {
-                    "id": comment.get("id"),
-                    "created_at": comment.get("created_at"),
-                    "html_url": comment.get("html_url") or comment.get("url"),
-                    "body": body,
-                }
-            )
+            receipts.append(record)
+        if TCM_HEADER in body.splitlines():
+            ticket_coverage_manifests.append(record)
     return {
         "comment_count": len(comments),
         "workspace_metadata": metadata,
         "baseline_commit": metadata["baseline_commit"],
         "latest_receipt": receipts[-1] if receipts else None,
+        "ticket_coverage_manifest": (
+            ticket_coverage_manifests[0]
+            if len(ticket_coverage_manifests) == 1
+            else None
+        ),
+        "ticket_coverage_manifest_count": len(ticket_coverage_manifests),
     }
 
 
@@ -465,6 +486,7 @@ def finalize(raw: Any) -> dict[str, Any]:
         "mode": _text(raw.get("mode"), "mode"),
         "prior_checkpoint": raw.get("prior_checkpoint"),
         "spec_body_hash": _digest_text(raw.get("spec_body_hash"), "spec_body_hash"),
+        "spec_contract_encoding": _contract_encoding(raw.get("spec_contract_encoding"), "spec_contract_encoding"),
         "spec_contract_hash": _digest_text(
             raw.get("spec_contract_hash"),
             "spec_contract_hash",
@@ -556,6 +578,7 @@ def render_receipt(state: dict[str, Any]) -> str:
         f"**Verification mode:** {state['mode']}",
         f"**Prior verified checkpoint:** {state.get('prior_checkpoint') or 'None'}",
         f"**Spec Body Hash:** {state['spec_body_hash']}",
+        f"**Spec Contract Encoding:** {state['spec_contract_encoding']}",
         f"**Spec Contract Hash:** {state['spec_contract_hash']}",
         f"**Verification Hash:** {state['verification_hash']}",
         (
@@ -636,10 +659,22 @@ def self_test() -> None:
                 f"## Implementation Tickets\n**Baseline Commit Hash:** `{'a' * 40}`"
             ),
         },
+        {
+            "id": 3,
+            "created_at": "2026-08-31T00:02:00Z",
+            "body": (
+                "## Ticket Coverage Manifest\n"
+                f"Spec Body Hash: {'b' * 64}\n"
+                f"Spec Contract Encoding: {SPEC_CONTRACT_ENCODING}\n"
+                f"Spec Contract Hash: {'c' * 64}"
+            ),
+        },
     ]
     summary = comments_summary(canonical_comments)
     assert summary["baseline_commit"] == "a" * 40
     assert summary["workspace_metadata"]["comment_id"] == 1
+    assert summary["ticket_coverage_manifest_count"] == 1
+    assert summary["ticket_coverage_manifest"]["id"] == 3
 
     invalid_comments = [
         [
@@ -708,6 +743,7 @@ def self_test() -> None:
         "mode": "full",
         "prior_checkpoint": None,
         "spec_body_hash": body_hash,
+        "spec_contract_encoding": SPEC_CONTRACT_ENCODING,
         "spec_contract_hash": contract_hash,
         "default_branch": "main",
         "default_head": "e" * 40,
@@ -770,6 +806,7 @@ def self_test() -> None:
 
     receipt = render_receipt(state)
     assert f"**Receipt format:** {RECEIPT_FORMAT}" in receipt
+    assert f"**Spec Contract Encoding:** {SPEC_CONTRACT_ENCODING}" in receipt
     assert "### Spec Contract Manifest" in receipt
     assert "### Spec Proof Objects" not in receipt
     assert "- proven: US-1, US-2" in receipt

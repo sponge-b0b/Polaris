@@ -15,7 +15,7 @@ This `SKILL.md` is the single authoritative procedure for `$verify-spec`. The pr
 
 This section is authoritative for contract reconstruction and supersedes preserved wording that treats model-authored manifest display prose as contract identity.
 
-`$spec-contract` owns structural contract identity. Its current V2 `SPEC_CONTRACT_HASH` binds the exact Spec body plus deterministic Source Unit identity/classification and source-unit-to-cell mapping; manifest `Source`, `Requirement`, `Named surfaces`, and inventory `Reason` prose are not contract identity.
+`$spec-contract` owns structural contract identity. Its current durable identity is the pair `SPEC_CONTRACT_ENCODING = V2` plus `SPEC_CONTRACT_HASH`; the hash binds the exact Spec body plus deterministic Source Unit identity/classification and source-unit-to-cell mapping. Manifest `Source`, `Requirement`, `Named surfaces`, and inventory `Reason` prose are not contract identity.
 
 Consequences for `$verify-spec`:
 
@@ -479,6 +479,23 @@ A verifier-integrity failure, handoff-digest mismatch, or incomplete saturation 
 ## Architecture / Design Decomposition Integrity
 
 `$verify-spec` is the integrated decomposition backstop.
+
+### Spec Contract Coherence Gate
+
+Before trusting Ticket Coverage Manifest routing, dispatching the semantic certifier, or persisting a passing Spec Verification Receipt, mechanically reconcile the fresh current V2 contract with the parent Spec's current Ticket Coverage Manifest.
+
+Require:
+
+```text
+Current Spec Contract Encoding: V2
+TCM Spec Contract Encoding: V2
+Spec Body Hash equal: yes
+Spec Contract Hash equal: yes
+```
+
+The TCM must persist all three identity fields explicitly: `Spec Body Hash`, `Spec Contract Encoding`, and `Spec Contract Hash`. A missing encoding is `legacy-unversioned`; any non-V2 encoding is incompatible with the current contract. A different or unversioned hash is never made coherent by equal manifest counts, equal cell-ID sets, equal ticket mappings, or apparently equivalent display prose.
+
+If this gate fails, **no Spec Verification Receipt is legal**. Continue independently actionable verification-owned repair that does not depend on the conflict, but route the contract-identity defect to the current `$to-tickets` decomposition owner. When current contract cells/routing are otherwise unchanged, `$to-tickets` may perform its deterministic contract-identity reconciliation; otherwise ordinary decomposition remediation applies. After reconciliation, obtain a fresh exact-HEAD V2 contract build and semantic certification before finalization.
 
 Recover the exact current `$spec-contract` manifest and the parent Spec's current `Ticket Coverage Manifest`. For a conventional fresh-Spec decomposition, mechanically compare the Spec-cell ID sets before trusting any routing row:
 

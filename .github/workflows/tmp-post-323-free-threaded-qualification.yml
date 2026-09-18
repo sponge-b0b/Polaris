@@ -1,4 +1,4 @@
-name: Temporary post-323 crash isolation
+name: Temporary post-323 standard-CPython persistence stress
 
 on:
   push:
@@ -11,8 +11,17 @@ permissions:
   contents: read
 
 jobs:
-  isolate:
+  standard-stress:
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: ticket-baseline
+            target_ref: d7c7010b6db7ed3ee96888e2a983e48e06415153
+          - label: ticket-final
+            target_ref: 79e9a2a825977b1689bf336ec2c272deb969d2f1
+
     services:
       postgres:
         image: postgres:18
@@ -31,61 +40,64 @@ jobs:
     env:
       POLARIS_TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/polaris_test
       UV_PYTHON_PREFERENCE: only-managed
-      DISABLE_SQLALCHEMY_CEXT_RUNTIME: '1'
 
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 79e9a2a825977b1689bf336ec2c272deb969d2f1
+          ref: ${{ matrix.target_ref }}
           fetch-depth: 0
 
       - uses: astral-sh/setup-uv@v6
 
-      - name: Prepare
+      - name: Prepare standard CPython environment
         run: |
           set -euo pipefail
-          uv python install 3.14t
-          uv sync --locked --python 3.14t
-          uv run --python 3.14t python -X gil=0 scripts/verify_free_threaded_runtime.py
-          uv run --python 3.14t python -X gil=0 -m pytest --collect-only -q             tests/integration/persistence/postgresql | tee "$RUNNER_TEMP/collected.txt"
+          uv python install 3.14
+          uv sync --locked --python 3.14
+          uv run --python 3.14 python - <<'PY'
+          import sys
+          import sysconfig
+          import sqlalchemy
+          import greenlet
 
-      - name: Verbose full-suite trials
+          print(f"PYTHON={sys.version}")
+          print(f"PY_GIL_DISABLED={sysconfig.get_config_var('Py_GIL_DISABLED')}")
+          is_gil_enabled = getattr(sys, "_is_gil_enabled", None)
+          print(f"GIL_ENABLED={None if is_gil_enabled is None else is_gil_enabled()}")
+          print(f"SQLALCHEMY_VERSION={sqlalchemy.__version__}")
+          print(f"GREENLET_VERSION={greenlet.__version__}")
+          if sysconfig.get_config_var("Py_GIL_DISABLED") == 1:
+              raise SystemExit("expected standard GIL-enabled CPython build")
+          PY
+
+      - name: Repeated standard-runtime persistence trials
+        id: standard
         shell: bash
         run: |
           set +e
-          for i in 1 2 3; do
-            echo "=== VERBOSE_TRIAL_${i}_BEGIN ==="
-            PYTHONFAULTHANDLER=1               uv run --python 3.14t python -X gil=0 -m pytest -vv                 tests/integration/persistence/postgresql
+          set -u
+          failures=0
+          for i in 1 2 3 4 5; do
+            echo "STANDARD_TRIAL_${i}_BEGIN"
+            PYTHONFAULTHANDLER=1               uv run --python 3.14 python -m pytest -q                 tests/integration/persistence/postgresql
             rc=$?
-            echo "=== VERBOSE_TRIAL_${i}_EXIT=$rc ==="
+            echo "STANDARD_TRIAL_${i}_EXIT=$rc"
+            if [ "$rc" -ne 0 ]; then
+              failures=$((failures + 1))
+            fi
           done
+          echo "STANDARD_FAILURES=$failures"
+          echo "failures=$failures" >> "$GITHUB_OUTPUT"
           exit 0
 
-      - name: New-or-changed test node trials
-        shell: bash
+      - name: Standard runtime summary
+        env:
+          LABEL: ${{ matrix.label }}
+          TARGET_REF: ${{ matrix.target_ref }}
+          STANDARD_FAILURES: ${{ steps.standard.outputs.failures }}
         run: |
-          set +e
-          nodes=(
-            "tests/integration/persistence/postgresql/test_decision_store.py::test_explicit_create_new_persists_complete_candidate_basis"
-            "tests/integration/persistence/postgresql/test_decision_store.py::test_continuation_persists_only_a_restart_safe_receipt"
-            "tests/integration/persistence/postgresql/test_decision_store.py::test_initiation_with_expected_version_commits_nothing"
-            "tests/integration/persistence/postgresql/test_decision_store.py::test_initiation_rejects_mutation_operation_id_after_restart"
-            "tests/integration/persistence/postgresql/test_decision_store.py::test_concurrent_different_operations_create_at_most_one_decision_and_need"
-            "tests/integration/persistence/postgresql/test_relationship_store.py::test_initiation_rejects_relationship_operation_id_after_restart"
-            "tests/integration/persistence/postgresql/test_relationship_store.py::test_ordinary_and_renewal_initiation_share_one_continuity_guard"
-            "tests/integration/persistence/postgresql/test_relationship_store.py::test_renewal_initial_lineage_failure_rolls_back_entire_creation"
-          )
-          for node in "${nodes[@]}"; do
-            failures=0
-            echo "=== NODE_BEGIN=$node ==="
-            for i in 1 2 3 4 5; do
-              PYTHONFAULTHANDLER=1                 uv run --python 3.14t python -X gil=0 -m pytest -q "$node"
-              rc=$?
-              echo "NODE_TRIAL=$node|$i|EXIT=$rc"
-              if [ "$rc" -ne 0 ]; then
-                failures=$((failures + 1))
-              fi
-            done
-            echo "NODE_FAILURES=$node|$failures"
-          done
-          exit 0
+          set -euo pipefail
+          echo "STANDARD_STRESS_LABEL=$LABEL"
+          echo "STANDARD_STRESS_REF=$TARGET_REF"
+          echo "STANDARD_STRESS_FAILURES=$STANDARD_FAILURES"
+          test "$STANDARD_FAILURES" = "0"

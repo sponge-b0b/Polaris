@@ -79,7 +79,7 @@ Require the packet:
 * `Reviewed HEAD == current HEAD`;
 * `Reviewed Baseline == current Spec baseline`;
 * branch matches;
-* `Spec Body Hash` and `Spec Contract Hash` match the passing verification receipt.
+* `Spec Body Hash`, `Spec Contract Encoding: V2`, and `Spec Contract Hash` match the passing verification receipt and the parent Spec's current Ticket Coverage Manifest.
 
 If stale/missing, return a remediation-state error to `$review-spec`.
 

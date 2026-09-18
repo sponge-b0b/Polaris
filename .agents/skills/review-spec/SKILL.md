@@ -96,7 +96,7 @@ Token/model cost is an execution constraint, never permission to omit coverage, 
 
 Correctness coverage is mandatory; repeated retrieval and transcript volume are not. Use the following execution discipline for every review:
 
-1. **Build one Review Context Index before reviewer dispatch.** Record the exact verified receipt/HEAD, Spec Contract identity, change-provenance artifact, Architecture Impact/source identities, current Spec Review issue, known machine-managed comment IDs/markers, Ticket Coverage Manifest, prior Review Proof Reuse Ledger, and current Review Finding Continuity Ledger when present. Reuse this index while those identities remain unchanged.
+1. **Build one Review Context Index before reviewer dispatch.** Record the exact verified receipt/HEAD, versioned Spec Contract identity (`V2` + hash), change-provenance artifact, Architecture Impact/source identities, current Spec Review issue, known machine-managed comment IDs/markers, Ticket Coverage Manifest, prior Review Proof Reuse Ledger, and current Review Finding Continuity Ledger when present. Reuse this index while those identities remain unchanged.
 2. **Retrieve by durable coordinate first.** Prefer exact issue/comment IDs, markers, source sections, hashes, and domain IDs. Do not fetch/search complete historical issue sets or comment histories when the required provenance is already directly addressable. Broaden only to resolve a material ambiguity or completeness question.
 3. **Reduce mechanically before semantic inspection.** Use deterministic filtering/counting/hashing/grouping for large JSON, manifests, comments, and proof ledgers. Give the reviewer the compact authoritative rows plus exact drill-down coordinates; expand raw payloads only when the compact form cannot settle the claim.
 4. **Do not dump scratch construction artifacts into the human transcript.** Raw proof-group JSON, long source inventories, and machine manifests remain working state unless the user requests them or a durable workflow record requires them. Present compact counts/findings and persist only the canonical required artifact.
@@ -393,6 +393,7 @@ Invalidation boundary:
 - tracker/lifecycle inputs when material
 Reviewed HEAD: <sha>
 Spec Body Hash: <hash>
+Spec Contract Encoding: V2
 Spec Contract Hash: <hash>
 ```
 
@@ -597,11 +598,15 @@ python "$REVIEW_TOOL" checkpoint \
 
 Require the expected `spec-<n>` branch and a clean worktree before review begins.
 
-The checkpoint utility fails closed unless the newest verification receipt is passed, bound to the exact current Spec/HEAD/baseline/branch/body hash, contains one complete manifest, maps every manifest cell exactly once to proven/not-applicable coverage, and has zero unresolved cells.
+The checkpoint utility fails closed unless the newest verification receipt is passed, bound to the exact current Spec/HEAD/baseline/branch/body hash, declares `Spec Contract Encoding: V2`, contains one complete manifest, maps every manifest cell exactly once to proven/not-applicable coverage, and has zero unresolved cells. It also mechanically compares that receipt with the current parent Ticket Coverage Manifest and requires the TCM to declare `Spec Contract Encoding: V2` with the same Spec Body Hash and Spec Contract Hash.
+
+A missing/unversioned TCM encoding or any body/hash mismatch is a **review-input contract-coherence failure**, even when manifest cell counts and cell-ID sets match. Do not infer equivalence. Route the parent Spec to `$to-tickets` for deterministic contract-identity reconciliation when eligible; after reconciliation, require a fresh `$verify-spec` receipt before review resumes.
+
+Historical review-owned artifacts created before the encoding field may be read as `legacy-unversioned` only for migration. After the coherent checkpoint above exists, a review-owned finding/proof artifact may be rewritten with `Spec Contract Encoding: V2` only when its exact Reviewed HEAD, Spec Body Hash, and bare Spec Contract Hash already equal that checkpoint and no semantic finding/proof content changes. A different hash is never migrated by inference; it is stale/conflicting review state.
 
 Do **not** independently parse receipt Markdown, walk backward to an older receipt, or rebuild the source-unit/manifest proof inside review. Any checkpoint failure routes back to fresh `$verify-spec`.
 
-The checkpoint JSON is the immutable review contract for this invocation. Retain exactly its baseline, body/contract hashes, manifest, verification hash, and receipt identity.
+The checkpoint JSON is the immutable review contract for this invocation. Retain exactly its baseline, Spec Contract Encoding, body/contract hashes, manifest, verification hash, and receipt identity.
 
 ## 2. Refresh Change Provenance Only
 

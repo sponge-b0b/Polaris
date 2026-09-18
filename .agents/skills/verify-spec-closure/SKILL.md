@@ -378,6 +378,7 @@ Baseline: <sha>
 Branch: spec-<n>
 HEAD: <sha>
 Spec body hash: <hash>
+Spec contract encoding: V2
 Spec contract hash: <hash>
 Contract handoff digest: <sha256>
 Manifest: <n>; proven <n>; not-applicable <n>; violated 0; unproven 0; unchecked 0
@@ -398,6 +399,7 @@ Baseline: <sha>
 Branch: spec-<n>
 HEAD: <sha>
 Spec body hash: <hash>
+Spec contract encoding: V2
 Spec contract hash: <hash>
 Contract handoff digest: <sha256>
 Manifest: <n>; proven <n>; not-applicable <n>; violated <n>; unproven <n>; unchecked 0
@@ -416,7 +418,7 @@ Return the verdict to `$verify-spec`. Do not repair or persist a Spec Verificati
 
 ## 6. Binding and Reuse
 
-Certification applies only to the exact baseline, Spec body/contract hashes, branch, HEAD, authoritative mutable inputs, and exact contract handoff bytes certified. Echo `CONTRACT_HANDOFF_DIGEST` unchanged in the verdict so the parent can bind finalization to those same bytes.
+Certification applies only to the exact baseline, Spec body hash, `Spec contract encoding: V2`, Spec contract hash, branch, HEAD, authoritative mutable inputs, and exact contract handoff bytes certified. Echo `CONTRACT_HANDOFF_DIGEST` unchanged in the verdict so the parent can bind finalization to those same bytes.
 
 The digest is invocation-local transport binding only. It does not replace `SPEC_CONTRACT_HASH`, does not become durable contract identity, and must never be compared across independent `$spec-contract` builds.
 

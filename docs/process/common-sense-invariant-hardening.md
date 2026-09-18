@@ -33,6 +33,7 @@ Current generic hardening principles include:
 * Certified Invalidation Boundaries;
 * Semantic-First Cost Control;
 * Local Enforcement;
+* Versioned Durable Identity Coherence;
 * Preserve Lean Workflows;
 * Polaris-Wide Meta-Level Attention;
 * Mandate-Bound Structural Change;
@@ -50,6 +51,8 @@ Current generic hardening principles include:
 * independently certified semantic closure domains remain the membership authority for correctly decomposed obligations while their governing authority is unchanged;
 * a certified ticket/root domain cannot suppress an explicit upstream architecture/design obligation that `$to-tickets` omitted or misrouted; that condition is a decomposition defect routed back to `$to-tickets`;
 * later review may reopen a correctly decomposed closed domain only for an in-domain falsifier, an actual governing-authority change, or an explicit authority contradiction—not by silently adopting a broader plausible interpretation.
+
+**Versioned Durable Identity Coherence** means that a durable hash whose encoding can evolve is not a complete identity unless its encoding/version is persisted with it. Any consequential transition that consumes multiple durable representations of the same semantic contract must mechanically require compatible encodings plus equality of the canonical identity bindings before PASS, publication, review, remediation, or handoff. Matching body text, cell counts, cell-ID sets, routing counts, or other derived subsets may support reconciliation but may never be used to infer equality between different or unversioned contract hashes. A legacy/unversioned identity is explicitly incomparable until the owning workflow rebuilds the current canonical identity and performs an authority-bounded deterministic reconciliation; downstream actors may not self-declare the mismatch harmless.
 
 **Mandate-Bound Structural Change** means that engineering principles govern how authorized work is performed but do not expand its scope. Optional refactors or structural changes to canonical authority artifacts require explicit owner authorization, with a pre-mutation mandate check and post-change authorized-delta reconciliation.
 

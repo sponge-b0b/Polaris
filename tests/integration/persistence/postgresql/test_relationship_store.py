@@ -893,10 +893,13 @@ def test_renewal_initial_lineage_failure_rolls_back_entire_creation(
                 investment_decision_command_receipts,
             )
             async with engine.connect() as connection:
-                before_counts = tuple(
-                    await connection.scalar(select(func.count()).select_from(table))
-                    for table in tables
-                )
+                before_counts = []
+                for table in tables:
+                    before_counts.append(
+                        await connection.scalar(
+                            select(func.count()).select_from(table)
+                        )
+                    )
             before_history = await setup.load_decision_history(predecessor)
             before_relationships = await setup.load_relationship_history()
 
@@ -931,10 +934,13 @@ def test_renewal_initial_lineage_failure_rolls_back_entire_creation(
                 )
 
             async with engine.connect() as connection:
-                after_counts = tuple(
-                    await connection.scalar(select(func.count()).select_from(table))
-                    for table in tables
-                )
+                after_counts = []
+                for table in tables:
+                    after_counts.append(
+                        await connection.scalar(
+                            select(func.count()).select_from(table)
+                        )
+                    )
             assert after_counts == before_counts
             assert await setup.load_decision_history(predecessor) == before_history
             assert await setup.load_relationship_history() == before_relationships

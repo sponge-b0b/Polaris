@@ -629,7 +629,7 @@ Present the blocker set separately from the invocation line. The certifier does 
 
 Accept `SPEC CLOSURE: PASS` only when:
 
-* Spec/baseline/branch/HEAD/body hash/contract hash match dispatch exactly;
+* Spec/baseline/branch/HEAD/body hash/contract encoding/contract hash match dispatch exactly;
 * returned `CONTRACT_HANDOFF_DIGEST` matches the exact digest supplied at dispatch;
 * candidate and required mutable authority did not change unexpectedly during certification;
 * certifier was genuinely fresh, non-mutating, and non-delegating;
@@ -773,7 +773,7 @@ A tracker-only Spec may have an empty diff only when durable evidence proves no 
 
 Invoke `$spec-contract` in `build` mode with the Spec, baseline, branch, current `HEAD`, and `handoff-output = CONTRACT_HANDOFF`. Require `SPEC CONTRACT: VALID`, a non-empty `CONTRACT_HANDOFF`, and retain exactly the returned:
 
-- `SPEC_BODY_HASH` and `SPEC_CONTRACT_HASH`;
+- `SPEC_BODY_HASH`, `SPEC_CONTRACT_ENCODING = V2`, and `SPEC_CONTRACT_HASH`;
 - `CONTRACT_HANDOFF_DIGEST` for the exact handoff bytes from this build;
 - deterministic V2 `contract_identity` rows embedded in `CONTRACT_HANDOFF`;
 - ordered manifest;
@@ -784,6 +784,21 @@ Invoke `$spec-contract` in `build` mode with the Spec, baseline, branch, current
 `$spec-contract` owns serialization of the finalizer-facing contract handoff while the canonical manifest is already in context. Do not independently recreate, pretty-print, copy, or re-key the manifest/source-count/identity payload later in this workflow.
 
 Retain the exact `CONTRACT_HANDOFF` file and `CONTRACT_HANDOFF_DIGEST` as one pair. If either is lost, rebuild through `$spec-contract`; do not reconstruct them from a prior receipt, independent Spec parsing, or conversational state.
+
+Immediately after the final stable-HEAD build, execute the deterministic coherence gate before semantic certifier dispatch:
+
+```bash
+CONTRACT_COHERENCE=$(mktemp)
+
+python "$ARTIFACT_TOOL" contract-coherence \
+  --comments-summary "$SPEC_COMMENTS_SUMMARY" \
+  --contract-input "$CONTRACT_HANDOFF" \
+  > "$CONTRACT_COHERENCE"
+
+test "$(jq -r .status "$CONTRACT_COHERENCE")" = "PASS"
+```
+
+Any nonzero exit or non-PASS result is a contract-identity blocker owned by the decomposition lifecycle. Do not dispatch `$verify-spec-closure` while it remains.
 
 Do not independently refresh or reinterpret default-branch ownership.
 
@@ -975,8 +990,9 @@ At stable candidate `HEAD`, after valid `SPEC CLOSURE: PASS`:
 4. require Delegated Gate Ownership closure complete;
 5. require Observed Failure Disposition closure complete;
 6. require the certifier coverage to map every manifest cell to `proven` or valid originating-Spec `not-applicable` with `violated=0`, `unproven=0`, and `unchecked=0`, and require the Certifier Saturation Witness to remain complete with zero remaining authoritative members, ambiguous membership, or unexplored authoritative siblings;
-7. require current hierarchy/dependency state valid;
-8. require clean worktree.
+7. re-fetch the parent Spec comments, rebuild `SPEC_COMMENTS_SUMMARY`, and rerun `contract-coherence` against the **same certifier-bound** `CONTRACT_HANDOFF`; require PASS so tracker identity could not drift during certification;
+8. require current hierarchy/dependency state valid;
+9. require clean worktree.
 
 Create only the two genuinely verification-owned compact arrays:
 
@@ -1013,7 +1029,7 @@ python "$ARTIFACT_TOOL" finalize-parts \
   [--inherited-finding <finding>]...
 ```
 
-`finalize-parts` first requires the exact contract-input bytes to match the certifier-bound `CONTRACT_HANDOFF_DIGEST`, independently recomputes V2 `SPEC_CONTRACT_HASH` from deterministic `contract_identity` rows, then assembles the already-owned proof/gate pieces, validates bindings/coverage/gates, rejects unresolved cells, computes one Verification Hash, renders the human-readable receipt, and requires the rendered manifest to round-trip exactly through the current `$review-spec` parser before writing the receipt file. There is no model-authored wrapper, reconstructed manifest, separate packet admission, or second receipt renderer.
+`finalize-parts` first requires the exact contract-input bytes to match the certifier-bound `CONTRACT_HANDOFF_DIGEST`, independently recomputes V2 `SPEC_CONTRACT_HASH` from deterministic `contract_identity` rows, then assembles the already-owned proof/gate pieces, validates bindings/coverage/gates, rejects unresolved cells, computes one Verification Hash, renders the human-readable receipt, and requires the rendered manifest to round-trip exactly through the current `$review-spec` parser before writing the receipt file. The parent must already have rerun deterministic TCM/contract coherence against those same handoff bytes immediately before this operation. There is no model-authored wrapper, reconstructed manifest, separate packet admission, or second receipt renderer.
 
 Direct `finalize` is not a valid lifecycle path.
 

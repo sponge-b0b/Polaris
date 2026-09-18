@@ -98,6 +98,13 @@ def _read_json(path: str | Path) -> Any:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
+def _tcm_field(lines: list[str], label: str) -> str:
+    prefix = f"{label}: "
+    matches = [line[len(prefix) :] for line in lines if line.startswith(prefix)]
+    _require(len(matches) == 1, f"TCM must contain exactly one {label} field")
+    return matches[0].strip()
+
+
 def _strings(value: Any, label: str) -> list[str]:
     if value is None:
         return []
@@ -360,6 +367,63 @@ def comments_summary(raw: Any) -> dict[str, Any]:
             else None
         ),
         "ticket_coverage_manifest_count": len(ticket_coverage_manifests),
+    }
+
+
+def contract_coherence(summary: Any, contract: Any) -> dict[str, str]:
+    _require(isinstance(summary, dict), "comments summary must be an object")
+    _require(isinstance(contract, dict), "contract handoff must be an object")
+    keys = set(contract)
+    _require(
+        keys == CONTRACT_HANDOFF_KEYS,
+        "contract handoff keys mismatch: "
+        f"missing={sorted(CONTRACT_HANDOFF_KEYS - keys)}, "
+        f"extra={sorted(keys - CONTRACT_HANDOFF_KEYS)}",
+    )
+    _validate_contract_identity(contract)
+
+    _require(
+        summary.get("ticket_coverage_manifest_count") == 1,
+        "exactly one current Ticket Coverage Manifest is required",
+    )
+    tcm = summary.get("ticket_coverage_manifest")
+    _require(isinstance(tcm, dict), "current Ticket Coverage Manifest is missing")
+    tcm_body = _text(tcm.get("body"), "Ticket Coverage Manifest body")
+    lines = tcm_body.splitlines()
+    _require(TCM_HEADER in lines, "invalid Ticket Coverage Manifest")
+
+    contract_body_hash = _digest_text(
+        contract.get("spec_body_hash"),
+        "contract spec_body_hash",
+    )
+    contract_encoding = _contract_encoding(
+        contract.get("spec_contract_encoding"),
+        "contract spec_contract_encoding",
+    )
+    contract_hash = _digest_text(
+        contract.get("spec_contract_hash"),
+        "contract spec_contract_hash",
+    )
+    tcm_body_hash = _digest_text(_tcm_field(lines, "Spec Body Hash"), "TCM Spec Body Hash")
+    tcm_encoding = _contract_encoding(
+        _tcm_field(lines, "Spec Contract Encoding"),
+        "TCM Spec Contract Encoding",
+    )
+    tcm_hash = _digest_text(
+        _tcm_field(lines, "Spec Contract Hash"),
+        "TCM Spec Contract Hash",
+    )
+
+    _require(tcm_body_hash == contract_body_hash, "TCM Spec Body Hash mismatch")
+    _require(tcm_encoding == contract_encoding, "TCM Spec Contract Encoding mismatch")
+    _require(tcm_hash == contract_hash, "TCM Spec Contract Hash mismatch")
+
+    return {
+        "status": "PASS",
+        "spec_body_hash": contract_body_hash,
+        "spec_contract_encoding": contract_encoding,
+        "spec_contract_hash": contract_hash,
+        "ticket_coverage_manifest_id": str(tcm.get("id") or ""),
     }
 
 
@@ -793,6 +857,45 @@ def self_test() -> None:
         "source_units": source_identity,
         "manifest": manifest_identity,
     }
+    coherent_tcm = {
+        "id": 99,
+        "body": (
+            "## Ticket Coverage Manifest\n"
+            f"Spec Body Hash: {body_hash}\n"
+            f"Spec Contract Encoding: {SPEC_CONTRACT_ENCODING}\n"
+            f"Spec Contract Hash: {contract_hash}\n"
+            "US-1 -> implementation ticket #1\n"
+            "US-2 -> implementation ticket #1\n"
+            "OOS-1 -> authoritative-exclusion"
+        ),
+    }
+    coherence_summary = {
+        "ticket_coverage_manifest": coherent_tcm,
+        "ticket_coverage_manifest_count": 1,
+    }
+    coherent = contract_coherence(coherence_summary, contract)
+    assert coherent["status"] == "PASS"
+    for bad_body in (
+        coherent_tcm["body"].replace(
+            f"Spec Contract Hash: {contract_hash}",
+            f"Spec Contract Hash: {'9' * 64}",
+        ),
+        coherent_tcm["body"].replace(
+            f"Spec Contract Encoding: {SPEC_CONTRACT_ENCODING}\n",
+            "",
+        ),
+    ):
+        broken_summary = {
+            "ticket_coverage_manifest": {"id": 99, "body": bad_body},
+            "ticket_coverage_manifest_count": 1,
+        }
+        try:
+            contract_coherence(broken_summary, contract)
+        except ValidationError:
+            pass
+        else:
+            raise AssertionError("contract-incoherent TCM was accepted")
+
     assembled = finalize_parts(
         contract,
         raw["proofs"],
@@ -864,6 +967,9 @@ def _args() -> argparse.Namespace:
     sub = parser.add_subparsers(dest="command", required=True)
     comments = sub.add_parser("comments")
     comments.add_argument("--input", required=True)
+    coherence = sub.add_parser("contract-coherence")
+    coherence.add_argument("--comments-summary", required=True)
+    coherence.add_argument("--contract-input", required=True)
     parts = sub.add_parser("finalize-parts")
     parts.add_argument("--contract-input", required=True)
     parts.add_argument("--contract-digest", required=True)
@@ -883,6 +989,12 @@ def main() -> int:
     try:
         if args.command == "comments":
             result = comments_summary(_read_json(args.input))
+            print(json.dumps(result, indent=2, sort_keys=True))
+        elif args.command == "contract-coherence":
+            result = contract_coherence(
+                _read_json(args.comments_summary),
+                _read_json(args.contract_input),
+            )
             print(json.dumps(result, indent=2, sort_keys=True))
         elif args.command == "finalize-parts":
             _require_contract_digest(args.contract_input, args.contract_digest)

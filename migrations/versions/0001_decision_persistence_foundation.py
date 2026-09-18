@@ -47,7 +47,7 @@ def upgrade() -> None:
             name="ck_decision_needs_actor_attribution_kind",
         ),
         sa.CheckConstraint(
-            # duplicate-code: immutable migration DDL is an auditable historical snapshot; sharing mutable schema helpers would couple deployed migration history to current metadata.
+            # duplicate-code: immutable DDL must remain revision-local.
             # arid: disable
             "(actor_attribution_kind = 'known' AND actor_id IS NOT NULL "
             "AND actor_candidate_ids IS NULL) OR "
@@ -157,7 +157,7 @@ def upgrade() -> None:
         sa.Column("lifecycle_sequence", sa.Integer(), nullable=False),
         sa.Column("decision_version", sa.Integer(), nullable=False),
         sa.Column("fact_kind", sa.String(length=48), nullable=False),
-        # duplicate-code: immutable migration DDL is an auditable historical snapshot; sharing mutable schema helpers would couple deployed migration history to current metadata.
+        # duplicate-code: immutable DDL must remain revision-local.
         # arid: disable
         sa.Column("operation_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("actor_attribution_kind", sa.String(length=16), nullable=False),
@@ -211,7 +211,7 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "actor_attribution_kind IN ('known', 'unknown', 'contested')",
             name="ck_investment_decision_lifecycle_facts_actor_attribution_kind",
-            # duplicate-code: immutable migration DDL is an auditable historical snapshot; sharing mutable schema helpers would couple deployed migration history to current metadata.
+            # duplicate-code: immutable DDL must remain revision-local.
             # arid: disable
         ),
         sa.CheckConstraint(
@@ -296,7 +296,7 @@ def upgrade() -> None:
             postgresql.UUID(as_uuid=True),
             nullable=True,
         ),
-        # duplicate-code: immutable migration DDL is an auditable historical snapshot; sharing mutable schema helpers would couple deployed migration history to current metadata.
+        # duplicate-code: immutable DDL must remain revision-local.
         # arid: disable
         sa.Column("operation_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("actor_attribution_kind", sa.String(length=16), nullable=False),
@@ -339,7 +339,7 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "actor_attribution_kind IN ('known', 'unknown', 'contested')",
             name="ck_investment_decision_relationships_actor_kind",
-            # duplicate-code: immutable migration DDL is an auditable historical snapshot; sharing mutable schema helpers would couple deployed migration history to current metadata.
+            # duplicate-code: immutable DDL must remain revision-local.
             # arid: disable
         ),
         sa.CheckConstraint(

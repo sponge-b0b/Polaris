@@ -307,7 +307,7 @@ class PostgresDecisionStore:
                 # A missing receipt row cannot be locked. The Decision row is the
                 # serialization point for same-Decision commits, so re-read after
                 # acquiring it before reporting a stale version/history guard.
-                # duplicate-code: Decision initiation, mutation, and read paths expose distinct persistence outcomes; sharing this local control shape would couple independent operations.
+                # duplicate-code: operations require independent control flow.
                 # arid: disable
                 prior_row = await _get_operation_receipt(
                     connection,
@@ -365,7 +365,7 @@ class PostgresDecisionStore:
                     )
                     self._write_completed("projection")
                 receipt = DecisionMutationReceipt(
-                    # duplicate-code: Decision initiation, mutation, and read paths expose distinct persistence outcomes; sharing this local control shape would couple independent operations.
+                    # duplicate-code: operations require independent control flow.
                     # arid: disable
                     operation_id=commit.operation_id,
                     request=commit.request,
@@ -559,7 +559,7 @@ class PostgresDecisionStore:
                 prior_row = await _get_operation_receipt(
                     connection,
                     commit.operation_id,
-                    # duplicate-code: Decision initiation, mutation, and read paths expose distinct persistence outcomes; sharing this local control shape would couple independent operations.
+                    # duplicate-code: operations require independent control flow.
                     # arid: disable
                 )
             if prior_row is not None and (
@@ -619,7 +619,7 @@ async def _get_initiation_operation_receipt(
     *,
     for_update: bool,
 ) -> InitiationReceipt | InitiationIdempotencyConflict | None:
-    # duplicate-code: Decision initiation, mutation, and read paths expose distinct persistence outcomes; sharing this local control shape would couple independent operations.
+    # duplicate-code: operations require independent control flow.
     # arid: disable
     row = await _get_operation_receipt(
         connection,
@@ -662,7 +662,7 @@ async def _get_mutation_receipt(
     *,
     for_update: bool = False,
 ) -> DecisionMutationReceipt | None:
-    # duplicate-code: Decision initiation, mutation, and read paths expose distinct persistence outcomes; sharing this local control shape would couple independent operations.
+    # duplicate-code: operations require independent control flow.
     # arid: disable
     row = await _get_operation_receipt(
         connection,
@@ -978,7 +978,7 @@ def _decision_version(value: object) -> DecisionVersion:
 
 
 def _domain_uuid(value: object) -> UUID:
-    # duplicate-code: Decision initiation, mutation, and read paths expose distinct persistence outcomes; sharing this local control shape would couple independent operations.
+    # duplicate-code: operations require independent control flow.
     # arid: disable
     if type(value) is UUID:
         return value

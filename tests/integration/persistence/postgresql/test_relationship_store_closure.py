@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from polaris.application.decisions import (
@@ -128,7 +127,7 @@ async def _qualify_base(
         store=store,
         now=lambda: recorded_at,
         new_uuid=lambda: fact_id,
-        # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+        # duplicate-code: graph falsifiers require local proof shape.
         # arid: disable
     ).correct(
         CorrectDecisionRelationshipCommand(
@@ -173,7 +172,7 @@ def test_competing_persisted_corrections_reconstruct_contested(
             )
             base_at = BASE + timedelta(hours=1)
             base_fact_id = uuid4()
-            # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+            # duplicate-code: graph falsifiers require local proof shape.
             # arid: disable
             await _supersede(
                 store,
@@ -198,7 +197,7 @@ def test_competing_persisted_corrections_reconstruct_contested(
             )
             second_at = first_at + timedelta(minutes=10)
             second_fact_id = await _qualify_base(
-                # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+                # duplicate-code: graph falsifiers require local proof shape.
                 # arid: disable
                 store,
                 source=source,
@@ -243,7 +242,7 @@ def test_resolved_target_supersession_preserves_lifecycle_history(
             assert history_before is not None
 
             superseded_at = BASE + timedelta(hours=1)
-            # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+            # duplicate-code: graph falsifiers require local proof shape.
             # arid: disable
             await _supersede(
                 store,
@@ -325,7 +324,7 @@ def test_relationship_fact_provenance_round_trips_separately(
                         )
                     ),
                 ),
-                # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+                # duplicate-code: graph falsifiers require local proof shape.
                 # arid: disable
                 source_decision_id=source,
                 targets=(
@@ -335,7 +334,7 @@ def test_relationship_fact_provenance_round_trips_separately(
                         SupersedesRelationshipBasis(("provenance-basis",)),
                         recorded_at,
                     ),
-                    # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+                    # duplicate-code: graph falsifiers require local proof shape.
                     # arid: disable
                 ),
             )
@@ -442,7 +441,7 @@ def test_atomic_correction_set_persists_same_command_ancestry_after_restart(
             target = await _create_decision(
                 store, recorded_at=BASE + timedelta(minutes=1), label="set-target"
             )
-            # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+            # duplicate-code: graph falsifiers require local proof shape.
             # arid: disable
             await _supersede(
                 store,
@@ -454,7 +453,7 @@ def test_atomic_correction_set_persists_same_command_ancestry_after_restart(
                 reference="set-base",
             )
             command = CorrectDecisionRelationshipSetCommand(
-                # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+                # duplicate-code: graph falsifiers require local proof shape.
                 # arid: disable
                 envelope=_envelope(
                     operation_id=OperationId(uuid4()),
@@ -607,7 +606,7 @@ def test_postgres_rejects_mixed_renewal_supersession_cycle(
                 store=store,
                 now=lambda: renewal_at,
                 new_uuid=identities.__next__,
-                # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+                # duplicate-code: graph falsifiers require local proof shape.
                 # arid: disable
             ).renew(
                 RenewDecisionCommand(
@@ -620,7 +619,7 @@ def test_postgres_rejects_mixed_renewal_supersession_cycle(
                     ),
                     need_statement="Renew the resolved predecessor",
                     subject=DecisionSubject("Renewed mixed-cycle decision"),
-                    # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+                    # duplicate-code: graph falsifiers require local proof shape.
                     # arid: disable
                     scope=DecisionScope.unresolved(),
                     predecessors=(
@@ -658,7 +657,7 @@ def test_known_future_and_contested_positive_cycles_fail_closed(
                 store, recorded_at=BASE + timedelta(minutes=1), label="future-b"
             )
             recorded_at = BASE + timedelta(hours=1)
-            # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+            # duplicate-code: graph falsifiers require local proof shape.
             # arid: disable
             await _supersede(
                 store,
@@ -668,7 +667,7 @@ def test_known_future_and_contested_positive_cycles_fail_closed(
                 recorded_at=recorded_at,
                 relationship_effective_at=recorded_at + timedelta(days=1),
                 reference="known-future-forward",
-                # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+                # duplicate-code: graph falsifiers require local proof shape.
                 # arid: disable
             )
             with pytest.raises(RelationshipCycle):
@@ -712,7 +711,7 @@ def test_known_future_and_contested_positive_cycles_fail_closed(
                 reference="contest-first",
             )
             second_qualification = base_at + timedelta(minutes=2)
-            # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+            # duplicate-code: graph falsifiers require local proof shape.
             # arid: disable
             await _qualify_base(
                 store,
@@ -740,7 +739,7 @@ def test_disjoint_endpoint_graph_race_commits_only_one_safe_edge(
     postgres_target: PostgresTestTarget,
 ) -> None:
     async def scenario() -> None:
-        # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+        # duplicate-code: graph falsifiers require local proof shape.
         # arid: disable
         engine = create_postgres_engine(
             postgres_target.database_url, schema=postgres_target.schema
@@ -826,7 +825,7 @@ def test_commit_time_semantic_revalidation_is_not_reported_as_outage(
                 reject_revalidation,
             )
             with pytest.raises(RelationshipConflict):
-                # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+                # duplicate-code: graph falsifiers require local proof shape.
                 # arid: disable
                 await _supersede(
                     store,

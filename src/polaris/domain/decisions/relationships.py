@@ -1180,7 +1180,7 @@ def _protected_entry(
 def _with_version(
     decision: InvestmentDecision, version: DecisionVersion
 ) -> InvestmentDecision:
-    # duplicate-code: relationship-history reconstruction owns different invariants from lifecycle reconstruction; sharing this local shape would couple independent aggregate rules.
+    # duplicate-code: graph rules must remain independently owned.
     # arid: disable
     return InvestmentDecision._from_validated(
         decision._history,

@@ -66,7 +66,7 @@ def relationship_request_payload(
 ) -> JsonObject:
     return {
         "kind": request.kind.value,
-        # duplicate-code: relationship payload variants are independently versioned command/fact contracts; sharing this local shape would couple distinct wire semantics.
+        # duplicate-code: wire variants require local payload shapes.
         # arid: disable
         "actor_attribution": _actor_payload(request.actor_attribution),
         "trigger": {
@@ -174,7 +174,7 @@ def relationship_result_from_payload(value: object) -> DecisionRelationshipResul
             InvestmentDecisionId(_uuid(raw_new_decision_id, "new_decision_id"))
             if raw_new_decision_id is not None
             else None
-            # duplicate-code: relationship payload variants are independently versioned command/fact contracts; sharing this local shape would couple distinct wire semantics.
+            # duplicate-code: wire variants require local payload shapes.
             # arid: disable
         ),
         need_id=(
@@ -211,7 +211,7 @@ def relationship_fact_values(
         "source_decision_id": group[0].value,
         "relationship_type": group[1].value,
         "target_decision_id": group[2].value,
-        # duplicate-code: relationship payload variants are independently versioned command/fact contracts; sharing this local shape would couple distinct wire semantics.
+        # duplicate-code: wire variants require local payload shapes.
         # arid: disable
         "operation_id": metadata.operation_id.value,
         **actor_columns(metadata.actor_attribution),
@@ -252,7 +252,7 @@ def relationship_fact_from_row(row: RowMapping) -> DecisionRelationshipHistoryFa
     metadata = DecisionRelationshipFactMetadata(
         relationship_fact_id=DecisionRelationshipFactId(
             _uuid(row["relationship_fact_id"], "relationship_fact_id")
-            # duplicate-code: relationship payload variants are independently versioned command/fact contracts; sharing this local shape would couple distinct wire semantics.
+            # duplicate-code: wire variants require local payload shapes.
             # arid: disable
         ),
         operation_id=OperationId(_uuid(row["operation_id"], "operation_id")),
@@ -615,7 +615,7 @@ def _continuity_from_payload(value: object) -> ContinuityDetermination | None:
     return ContinuityDetermination(
         kind=ContinuityDeterminationKind(
             _string(payload.get("kind"), "continuity kind")
-            # duplicate-code: relationship payload variants are independently versioned command/fact contracts; sharing this local shape would couple distinct wire semantics.
+            # duplicate-code: wire variants require local payload shapes.
             # arid: disable
         ),
         decision_id=(
@@ -643,7 +643,7 @@ def _actor_from_payload(value: object) -> KnownActorAttribution:
 
 def _mapping(value: object, field: str) -> Mapping[str, object]:
     if not isinstance(value, Mapping):
-        # duplicate-code: relationship payload variants are independently versioned command/fact contracts; sharing this local shape would couple distinct wire semantics.
+        # duplicate-code: wire variants require local payload shapes.
         # arid: disable
         raise ValueError(f"{field} must be a JSON object")
     return value
@@ -659,7 +659,7 @@ def _object_list(value: object, field: str) -> list[object]:
 def _uuid(value: object, field: str):
     from uuid import UUID
 
-    # duplicate-code: relationship payload variants are independently versioned command/fact contracts; sharing this local shape would couple distinct wire semantics.
+    # duplicate-code: wire variants require local payload shapes.
     # arid: disable
     if type(value) is UUID:
         return value
@@ -672,7 +672,7 @@ def _uuid(value: object, field: str):
 
 
 def _datetime(value: object, field: str) -> datetime:
-    # duplicate-code: relationship payload variants are independently versioned command/fact contracts; sharing this local shape would couple distinct wire semantics.
+    # duplicate-code: wire variants require local payload shapes.
     # arid: disable
     if isinstance(value, datetime):
         result = value
@@ -681,7 +681,7 @@ def _datetime(value: object, field: str) -> datetime:
     else:
         # arid: enable
         raise ValueError(f"{field} must be a datetime")
-    # duplicate-code: relationship payload variants are independently versioned command/fact contracts; sharing this local shape would couple distinct wire semantics.
+    # duplicate-code: wire variants require local payload shapes.
     # arid: disable
     if result.tzinfo is None or result.utcoffset() is None:
         raise ValueError(f"{field} must be timezone-aware")
@@ -698,7 +698,7 @@ def _integer(value: object, field: str) -> int:
 def _string(value: object, field: str) -> str:
     if not isinstance(value, str) or not value:
         raise ValueError(f"{field} must be a non-empty string")
-    # duplicate-code: relationship payload variants are independently versioned command/fact contracts; sharing this local shape would couple distinct wire semantics.
+    # duplicate-code: wire variants require local payload shapes.
     # arid: disable
     return value
 

@@ -301,7 +301,7 @@ def mutation_request_payload(request: DecisionMutationSemanticRequest) -> JsonOb
     return {
         "kind": request.kind.value,
         "decision_id": str(request.decision_id.value),
-        # duplicate-code: lifecycle payload variants own distinct persisted-field contracts; sharing this local shape would hide variant-specific validation and evolution.
+        # duplicate-code: variants require independent field validation.
         # arid: disable
         "actor_attribution": _actor_payload(request.actor_attribution),
         "trigger": {
@@ -346,7 +346,7 @@ def mutation_request_from_payload(value: object) -> DecisionMutationSemanticRequ
         decision_id=InvestmentDecisionId(
             _uuid(payload.get("decision_id"), "decision_id")
         ),
-        # duplicate-code: lifecycle payload variants own distinct persisted-field contracts; sharing this local shape would hide variant-specific validation and evolution.
+        # duplicate-code: variants require independent field validation.
         # arid: disable
         actor_attribution=actor,
         trigger=TriggerProvenance(
@@ -376,7 +376,7 @@ def mutation_result_from_payload(value: object) -> DecisionMutationResult:
 def mutation_request_fingerprint(request: DecisionMutationSemanticRequest) -> str:
     encoded = json.dumps(
         mutation_request_payload(request),
-        # duplicate-code: lifecycle payload variants own distinct persisted-field contracts; sharing this local shape would hide variant-specific validation and evolution.
+        # duplicate-code: variants require independent field validation.
         # arid: disable
         sort_keys=True,
         separators=(",", ":"),
@@ -823,7 +823,7 @@ def _actor_from_payload(value: object) -> ActorAttribution:
         return KnownActorAttribution(
             ActorId(_uuid(payload.get("actor_id"), "actor_id"))
         )
-    # duplicate-code: lifecycle payload variants own distinct persisted-field contracts; sharing this local shape would hide variant-specific validation and evolution.
+    # duplicate-code: variants require independent field validation.
     # arid: disable
     if kind == "unknown":
         return UnknownActorAttribution()
@@ -904,7 +904,7 @@ def _replacement_basis_from_payload(
     if kind == "human":
         return _human_basis_from_payload(payload)
     reference = _string(payload.get("reference"), "replacement basis reference")
-    # duplicate-code: lifecycle payload variants own distinct persisted-field contracts; sharing this local shape would hide variant-specific validation and evolution.
+    # duplicate-code: variants require independent field validation.
     # arid: disable
     if kind == "external":
         return ExternalResolutionBasis(reference)

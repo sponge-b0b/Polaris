@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import func, select, text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from polaris.application.decisions import (
@@ -140,7 +140,7 @@ async def _create_decision(
     return result.decision_id
 
 
-# duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+# duplicate-code: relation falsifiers require local proof shape.
 # arid: disable
 class _ConcurrentCandidateReadStore(PostgresDecisionStore):
     def __init__(self, engine: AsyncEngine, barrier: asyncio.Barrier) -> None:
@@ -431,7 +431,7 @@ def test_replay_conflict_and_equivalent_support_are_distinct(
         finally:
             await engine.dispose()
 
-    # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+    # duplicate-code: relation falsifiers require local proof shape.
     # arid: disable
     asyncio.run(scenario())
 
@@ -450,7 +450,7 @@ def test_initiation_rejects_relationship_operation_id_after_restart(
             )
             relationship_at = BASE + timedelta(hours=1)
             operation_id = OperationId(uuid4())
-            # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+            # duplicate-code: relation falsifiers require local proof shape.
             # arid: disable
             await _supersede(
                 store,
@@ -480,7 +480,7 @@ def test_initiation_rejects_relationship_operation_id_after_restart(
                 "A distinct unresolved choice"
             ),
         )
-        # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+        # duplicate-code: relation falsifiers require local proof shape.
         # arid: disable
         try:
             with pytest.raises(IdempotencyConflict):
@@ -500,7 +500,7 @@ def test_initiation_rejects_relationship_operation_id_after_restart(
         finally:
             await restarted_engine.dispose()
 
-    # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+    # duplicate-code: relation falsifiers require local proof shape.
     # arid: disable
     asyncio.run(scenario())
 
@@ -606,7 +606,7 @@ def test_qualification_gap_ages_without_synthetic_version_and_restores(
                 store=store,
                 now=lambda: restore_at,
                 new_uuid=uuid4,
-                # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+                # duplicate-code: relation falsifiers require local proof shape.
                 # arid: disable
             ).correct(
                 CorrectDecisionRelationshipCommand(
@@ -747,7 +747,7 @@ def test_renewal_persists_admission_evidence_and_survives_later_endpoint_change(
             assert len(lineage) == 1
             assert lineage[0].state is DecisionRelationshipState.SUPPORTED
 
-    # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+    # duplicate-code: relation falsifiers require local proof shape.
     # arid: disable
     asyncio.run(scenario())
 
@@ -775,7 +775,7 @@ def test_ordinary_and_renewal_initiation_share_one_continuity_guard(
                 store=concurrent,
                 now=lambda: initiation_at,
                 new_uuid=lambda: next(ordinary_ids),
-                # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+                # duplicate-code: relation falsifiers require local proof shape.
                 # arid: disable
             ).initiate(
                 InitiateDecisionCommand(
@@ -797,7 +797,7 @@ def test_ordinary_and_renewal_initiation_share_one_continuity_guard(
                 store=concurrent,
                 now=lambda: initiation_at,
                 new_uuid=lambda: next(renewal_ids),
-                # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+                # duplicate-code: relation falsifiers require local proof shape.
                 # arid: disable
             ).renew(
                 RenewDecisionCommand(
@@ -810,7 +810,7 @@ def test_ordinary_and_renewal_initiation_share_one_continuity_guard(
                     ),
                     need_statement="Renew the resolved choice",
                     subject=DecisionSubject("Renewal concurrent choice"),
-                    # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+                    # duplicate-code: relation falsifiers require local proof shape.
                     # arid: disable
                     scope=DecisionScope.unresolved(),
                     predecessors=(
@@ -885,7 +885,7 @@ def test_renewal_initial_lineage_failure_rolls_back_entire_creation(
                 await DecisionRelationshipService(
                     reader=failing,
                     store=failing,
-                    # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+                    # duplicate-code: relation falsifiers require local proof shape.
                     # arid: disable
                     now=lambda: renewal_at,
                     new_uuid=lambda: next(identities),
@@ -899,7 +899,7 @@ def test_renewal_initial_lineage_failure_rolls_back_entire_creation(
                             reference=f"rollback-renewal-{fail_step}",
                         ),
                         need_statement="Renew after the resolved predecessor",
-                        # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+                        # duplicate-code: relation falsifiers require local proof shape.
                         # arid: disable
                         subject=DecisionSubject("Renewed choice"),
                         scope=DecisionScope.unresolved(),
@@ -1001,7 +1001,7 @@ def test_four_state_relationship_history_round_trips(
     postgres_target: PostgresTestTarget,
 ) -> None:
     async def scenario() -> None:
-        # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+        # duplicate-code: relation falsifiers require local proof shape.
         # arid: disable
         async with postgres_engine_store(postgres_target) as (engine, store):
             source = await _create_decision(store, recorded_at=BASE, label="source")
@@ -1023,7 +1023,7 @@ def test_four_state_relationship_history_round_trips(
 
             base_at = BASE + timedelta(hours=1)
             base_fact = uuid4()
-            # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+            # duplicate-code: relation falsifiers require local proof shape.
             # arid: disable
             await _supersede(
                 store,
@@ -1041,7 +1041,7 @@ def test_four_state_relationship_history_round_trips(
                 store=store,
                 now=lambda: withdraw_at,
                 new_uuid=lambda: withdraw_fact,
-                # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+                # duplicate-code: relation falsifiers require local proof shape.
                 # arid: disable
             ).correct(
                 CorrectDecisionRelationshipCommand(
@@ -1071,7 +1071,7 @@ def test_four_state_relationship_history_round_trips(
             second_recorded = withdraw_at + timedelta(minutes=10)
             second_effective = base_at + timedelta(minutes=1)
             second_fact = uuid4()
-            # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+            # duplicate-code: relation falsifiers require local proof shape.
             # arid: disable
             await _supersede(
                 store,
@@ -1091,7 +1091,7 @@ def test_four_state_relationship_history_round_trips(
             third_recorded = second_recorded + timedelta(minutes=10)
             third_effective = base_at + timedelta(minutes=2)
             third_fact = uuid4()
-            # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+            # duplicate-code: relation falsifiers require local proof shape.
             # arid: disable
             await _supersede(
                 store,
@@ -1123,7 +1123,7 @@ def test_four_state_relationship_history_round_trips(
             }
             assert DecisionRelationshipFactId(third_fact) not in (
                 before_late_claim[0].support_fact_ids
-                # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+                # duplicate-code: relation falsifiers require local proof shape.
                 # arid: disable
             )
 
@@ -1208,7 +1208,7 @@ def test_ordinary_mutation_advances_from_durable_relationship_version(
                 for fact in relationship_history
             )
 
-    # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+    # duplicate-code: relation falsifiers require local proof shape.
     # arid: disable
     asyncio.run(scenario())
 
@@ -1227,7 +1227,7 @@ def test_malformed_persisted_correction_lineage_fails_closed(
                 store,
                 recorded_at=BASE + timedelta(minutes=2),
                 label="unrelated",
-                # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+                # duplicate-code: relation falsifiers require local proof shape.
                 # arid: disable
             )
             base_at = BASE + timedelta(hours=1)
@@ -1247,7 +1247,7 @@ def test_malformed_persisted_correction_lineage_fails_closed(
                 store=store,
                 now=lambda: correction_at,
                 new_uuid=lambda: correction_fact,
-                # duplicate-code: independent relationship persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct graph, restart, concurrency, or correction assertions.
+                # duplicate-code: relation falsifiers require local proof shape.
                 # arid: disable
             ).correct(
                 CorrectDecisionRelationshipCommand(

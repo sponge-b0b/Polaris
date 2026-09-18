@@ -48,7 +48,7 @@ async def _table_names(target: PostgresTestTarget) -> frozenset[str]:
 async def _identity_column_types(
     target: PostgresTestTarget,
 ) -> dict[tuple[str, str], str]:
-    # duplicate-code: migration assertions prove separate schema invariants; sharing the repeated assertion shape would couple independently meaningful migration checks.
+    # duplicate-code: migration falsifiers require local proof shape.
     # arid: disable
     engine = create_postgres_engine(target.database_url, schema=target.schema)
     try:
@@ -65,7 +65,7 @@ async def _identity_column_types(
                 {"schema": target.schema},
             )
             return {(row.table_name, row.column_name): row.udt_name for row in rows}
-    # duplicate-code: migration assertions prove separate schema invariants; sharing the repeated assertion shape would couple independently meaningful migration checks.
+    # duplicate-code: migration falsifiers require local proof shape.
     # arid: disable
     finally:
         await engine.dispose()

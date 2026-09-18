@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -121,6 +121,9 @@ MUTATION_RECORDED_AT = datetime(2026, 9, 17, 6, 0, tzinfo=UTC)
 CONCURRENT_OPERATION_ID = UUID("00000000-0000-4000-8000-00000000000a")
 CONCURRENT_FACT_ID = UUID("00000000-0000-4000-8000-00000000000b")
 
+_DEFAULT_DECISION_ID = InvestmentDecisionId(DECISION_ID)
+_DEFAULT_DECISION_VERSION = DecisionVersion(1)
+
 
 def _uuids(*values: UUID) -> Iterator[UUID]:
     yield from values
@@ -131,8 +134,8 @@ def _test_envelope(
     *,
     reference: str,
     effective_at: datetime = MUTATION_RECORDED_AT,
-    decision_id: InvestmentDecisionId | None = InvestmentDecisionId(DECISION_ID),
-    expected_version: DecisionVersion | None = DecisionVersion(1),
+    decision_id: InvestmentDecisionId | None = _DEFAULT_DECISION_ID,
+    expected_version: DecisionVersion | None = _DEFAULT_DECISION_VERSION,
     technical_provenance: TechnicalProvenance | None = None,
 ) -> DecisionCommandEnvelope:
     operation = (
@@ -163,10 +166,10 @@ def _subject_revision_command(
     *,
     operation_id: UUID | OperationId = MUTATION_OPERATION_ID,
     subject: str = "Whether to increase the position",
-    decision_id: InvestmentDecisionId = InvestmentDecisionId(DECISION_ID),
+    decision_id: InvestmentDecisionId = _DEFAULT_DECISION_ID,
     reference: str = "request-322",
     effective_at: datetime = MUTATION_RECORDED_AT,
-    expected_version: DecisionVersion = DecisionVersion(1),
+    expected_version: DecisionVersion = _DEFAULT_DECISION_VERSION,
 ) -> ReviseDecisionSubjectCommand:
     return ReviseDecisionSubjectCommand(
         envelope=_test_envelope(
@@ -274,7 +277,7 @@ def test_no_candidate_initiation_round_trips_after_restart(
         assert result.decision_id == InvestmentDecisionId(DECISION_ID)
         assert result.need_id == DecisionNeedId(NEED_ID)
         assert result.kind is InitiationResultKind.CREATED
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         await store._engine.dispose()
 
@@ -400,7 +403,7 @@ def test_explicit_create_new_persists_complete_candidate_basis(
             new_uuid=lambda: next(third_identities),
         ).initiate(third_command)
         assert result.decision_id == InvestmentDecisionId(third_decision_id)
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         await store._engine.dispose()
 
@@ -467,7 +470,7 @@ def test_continuation_persists_only_a_restart_safe_receipt(
     async def scenario() -> None:
         store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
         operation_id = OperationId(UUID("00000000-0000-4000-8000-00000000000c"))
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         command = InitiateDecisionCommand(
             envelope=_test_envelope(
@@ -481,7 +484,7 @@ def test_continuation_persists_only_a_restart_safe_receipt(
             scope=DecisionScope.unresolved(),
             continuity=ContinuityDetermination.continue_existing(
                 InvestmentDecisionId(DECISION_ID)
-                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # duplicate-code: restart falsifiers require local proof shape.
                 # arid: disable
             ),
         )
@@ -498,7 +501,7 @@ def test_continuation_persists_only_a_restart_safe_receipt(
         assert result.kind is InitiationResultKind.CONTINUED
         assert result.decision_id == InvestmentDecisionId(DECISION_ID)
         assert result.need_id is None
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         await store._engine.dispose()
 
@@ -558,7 +561,7 @@ def test_initiation_with_expected_version_commits_nothing(
                 ).initiate(command)
             counts = await postgres_row_counts(
                 engine,
-                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # duplicate-code: restart falsifiers require local proof shape.
                 # arid: disable
                 decision_needs,
                 investment_decisions,
@@ -610,7 +613,7 @@ def test_subject_revision_commits_fact_projection_and_receipt_before_restart(
         result = await service.revise_subject(command)
         assert result.kind is DecisionMutationResultKind.APPLIED
         assert result.version == DecisionVersion(2)
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         await store._engine.dispose()
 
@@ -715,7 +718,7 @@ def test_subject_and_scope_no_ops_persist_receipts_without_changing_decision(
         assert subject_result.kind is DecisionMutationResultKind.NO_OP
         assert scope_result.kind is DecisionMutationResultKind.NO_OP
         assert subject_result.version == scope_result.version == DecisionVersion(1)
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         await store._engine.dispose()
 
@@ -752,7 +755,7 @@ def test_subject_and_scope_no_ops_persist_receipts_without_changing_decision(
                 )
                 is not None
             )
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         finally:
             await restarted_engine.dispose()
@@ -798,7 +801,7 @@ def test_initiation_rejects_mutation_operation_id_after_restart(
             now=lambda: MUTATION_RECORDED_AT,
             new_uuid=lambda: MUTATION_FACT_ID,
         ).revise_subject(mutation)
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         await store._engine.dispose()
 
@@ -918,7 +921,7 @@ def test_no_op_receipt_failure_rolls_back_receipt_only_transaction(
     postgres_target: PostgresTestTarget,
 ) -> None:
     async def scenario() -> None:
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
         await store._engine.dispose()
@@ -946,7 +949,7 @@ def test_no_op_receipt_failure_rolls_back_receipt_only_transaction(
                 is None
             )
             state = await failing.load_decision_for_command(
-                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # duplicate-code: restart falsifiers require local proof shape.
                 # arid: disable
                 decision_id,
                 known_at=MUTATION_RECORDED_AT,
@@ -984,7 +987,7 @@ def test_concurrent_expected_version_mutations_commit_exactly_once(
     postgres_target: PostgresTestTarget,
 ) -> None:
     async def scenario() -> None:
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
         await store._engine.dispose()
@@ -1045,7 +1048,7 @@ def test_concurrent_same_operation_replays_or_reports_idempotency_conflict(
     same_request: bool,
 ) -> None:
     async def scenario() -> None:
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
         await store._engine.dispose()
@@ -1062,7 +1065,7 @@ def test_concurrent_same_operation_replays_or_reports_idempotency_conflict(
                 subject=subject,
                 decision_id=decision_id,
                 reference="same-operation-race",
-                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # duplicate-code: restart falsifiers require local proof shape.
                 # arid: disable
             )
 
@@ -1076,7 +1079,7 @@ def test_concurrent_same_operation_replays_or_reports_idempotency_conflict(
             "Whether to increase the position"
             if same_request
             else "Whether to decrease the position"
-            # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+            # duplicate-code: restart falsifiers require local proof shape.
             # arid: disable
         )
         second = DecisionOrdinaryWorkService(
@@ -1102,7 +1105,7 @@ def test_concurrent_same_operation_replays_or_reports_idempotency_conflict(
                 )
             state = await PostgresDecisionStore(engine).load_decision_for_command(
                 decision_id,
-                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # duplicate-code: restart falsifiers require local proof shape.
                 # arid: disable
                 known_at=MUTATION_RECORDED_AT,
             )
@@ -1235,7 +1238,7 @@ def test_all_ordinary_lifecycle_mutations_round_trip_with_distinct_redeferral(
             )
         )
         assert result.version == DecisionVersion(10)
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         await store._engine.dispose()
 
@@ -1257,7 +1260,7 @@ def test_all_ordinary_lifecycle_mutations_round_trip_with_distinct_redeferral(
                 range(1, 11)
             )
             assert [type(fact) for fact in history[1:]] == [
-                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # duplicate-code: restart falsifiers require local proof shape.
                 # arid: disable
                 DecisionSubjectRevised,
                 DecisionScopeEstablished,
@@ -1314,7 +1317,7 @@ def test_ordinary_mutation_rejects_unwitnessed_projection_version_ahead_of_histo
             )
         try:
             with pytest.raises(ConcurrencyConflict):
-                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # duplicate-code: restart falsifiers require local proof shape.
                 # arid: disable
                 await DecisionOrdinaryWorkService(
                     store=store,
@@ -1328,7 +1331,7 @@ def test_ordinary_mutation_rejects_unwitnessed_projection_version_ahead_of_histo
                         expected_version=DecisionVersion(2),
                     )
                 )
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         finally:
             await store._engine.dispose()
@@ -1366,7 +1369,7 @@ def test_concurrent_future_corrections_use_history_tail_when_version_does_not_ad
                 resolution,
             )
         )
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         await store._engine.dispose()
 
@@ -1415,7 +1418,7 @@ def test_concurrent_future_corrections_use_history_tail_when_version_does_not_ad
             now=lambda: correction_recorded_at,
             new_uuid=lambda: second_fact,
         ).record_lifecycle_correction(command(second_operation, "correction-b"))
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         try:
             outcomes = await asyncio.gather(first, second, return_exceptions=True)
@@ -1446,7 +1449,7 @@ def test_concurrent_future_corrections_use_history_tail_when_version_does_not_ad
             receipts = [
                 await concurrent_store.get_mutation_receipt(OperationId(operation))
                 for operation in (CONCURRENT_OPERATION_ID, second_operation)
-                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # duplicate-code: restart falsifiers require local proof shape.
                 # arid: disable
             ]
             assert sum(receipt is not None for receipt in receipts) == 1
@@ -1463,7 +1466,7 @@ def test_concurrent_same_operation_future_correction_replays_after_tail_wait(
         store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
         # arid: enable
         decision_id = InvestmentDecisionId(DECISION_ID)
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         await DecisionOrdinaryWorkService(
             store=store,
@@ -1471,7 +1474,7 @@ def test_concurrent_same_operation_future_correction_replays_after_tail_wait(
             new_uuid=lambda: MUTATION_FACT_ID,
             # arid: enable
         ).apply_substantive_resolution(
-            # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+            # duplicate-code: restart falsifiers require local proof shape.
             # arid: disable
             ApplySubstantiveResolutionCommand(
                 _test_envelope(
@@ -1485,7 +1488,7 @@ def test_concurrent_same_operation_future_correction_replays_after_tail_wait(
                     "human-resolution",
                     HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING,
                 ),
-                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # duplicate-code: restart falsifiers require local proof shape.
                 # arid: disable
             )
         )
@@ -1504,7 +1507,7 @@ def test_concurrent_same_operation_future_correction_replays_after_tail_wait(
             envelope=_test_envelope(
                 correction_operation_id,
                 reference="same-correction-race",
-                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # duplicate-code: restart falsifiers require local proof shape.
                 # arid: disable
                 effective_at=correction_effective_at,
                 decision_id=decision_id,
@@ -1518,7 +1521,7 @@ def test_concurrent_same_operation_future_correction_replays_after_tail_wait(
             replacement_disposition=DecisionLifecycleDisposition.SUBSTANTIVELY_RESOLVED,
             replacement_basis=TrustedHumanInvestmentDecisionBasis(
                 "replacement",
-                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # duplicate-code: restart falsifiers require local proof shape.
                 # arid: disable
                 HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING,
             ),
@@ -1542,7 +1545,7 @@ def test_concurrent_same_operation_future_correction_replays_after_tail_wait(
             ]
             assert sum(result.replayed for result in results) == 1
             assert all(result.version == DecisionVersion(2) for result in results)
-            # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+            # duplicate-code: restart falsifiers require local proof shape.
             # arid: disable
             state = await PostgresDecisionStore(engine).load_decision_for_command(
                 decision_id,
@@ -1554,7 +1557,7 @@ def test_concurrent_same_operation_future_correction_replays_after_tail_wait(
             assert [
                 fact.metadata.decision_version.value for fact in state.decision.history
             ] == [1, 2, 2]
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         finally:
             await engine.dispose()
@@ -1604,7 +1607,7 @@ def test_unsupported_need_retraction_and_disconfirmation_round_trip(
                     restored_operation_id,
                     reference="restore-need",
                     effective_at=restored_at,
-                    # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                    # duplicate-code: restart falsifiers require local proof shape.
                     # arid: disable
                     decision_id=decision_id,
                     expected_version=DecisionVersion(2),
@@ -1619,7 +1622,7 @@ def test_unsupported_need_retraction_and_disconfirmation_round_trip(
             )
         )
         assert restored.version == DecisionVersion(3)
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         await store._engine.dispose()
 
@@ -1631,7 +1634,7 @@ def test_unsupported_need_retraction_and_disconfirmation_round_trip(
                 decision_id,
                 # arid: enable
                 known_at=restored_at,
-                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # duplicate-code: restart falsifiers require local proof shape.
                 # arid: disable
             )
             assert state is not None
@@ -1663,7 +1666,7 @@ def test_unsupported_need_retraction_and_disconfirmation_round_trip(
             assert receipt is not None
             assert receipt.result == restored
 
-    # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+    # duplicate-code: restart falsifiers require local proof shape.
     # arid: disable
     asyncio.run(scenario())
 
@@ -1685,7 +1688,7 @@ def test_decision_memory_distinguishes_knowledge_and_effective_boundaries(
             command,
             envelope=replace(command.envelope, effective_at=future_effective_at),
         )
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         await DecisionInitiationService(
             reader=store,
@@ -1750,7 +1753,7 @@ def test_decision_memory_distinguishes_knowledge_and_effective_boundaries(
                 known_at=future_effective_at,
             )
             assert as_known == effective
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         finally:
             await restarted_engine.dispose()
@@ -1775,7 +1778,7 @@ def test_decision_memory_reconstructs_late_sibling_corrections_after_restart(
                     MUTATION_OPERATION_ID,
                     # arid: enable
                     reference="initial-resolution",
-                    # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                    # duplicate-code: restart falsifiers require local proof shape.
                     # arid: disable
                     effective_at=MUTATION_RECORDED_AT,
                     decision_id=decision_id,
@@ -1809,7 +1812,7 @@ def test_decision_memory_reconstructs_late_sibling_corrections_after_restart(
                     external_operation,
                     reference="late-external-qualification",
                     effective_at=RECORDED_AT + timedelta(minutes=30),
-                    # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                    # duplicate-code: restart falsifiers require local proof shape.
                     # arid: disable
                     decision_id=decision_id,
                     expected_version=DecisionVersion(2),
@@ -1841,7 +1844,7 @@ def test_decision_memory_reconstructs_late_sibling_corrections_after_restart(
                     effective_at=MUTATION_RECORDED_AT,
                     decision_id=decision_id,
                     expected_version=external.version,
-                    # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                    # duplicate-code: restart falsifiers require local proof shape.
                     # arid: disable
                 ),
                 decision_id=decision_id,
@@ -1884,7 +1887,7 @@ def test_decision_memory_reconstructs_late_sibling_corrections_after_restart(
             )
         )
         assert restored.version == DecisionVersion(5)
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         await store._engine.dispose()
 
@@ -1979,7 +1982,7 @@ def test_decision_memory_reconstructs_late_sibling_corrections_after_restart(
                         decision_id
                     )
                 )[1]
-                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # duplicate-code: restart falsifiers require local proof shape.
                 # arid: disable
             )
         finally:
@@ -2013,7 +2016,7 @@ def test_decision_memory_restores_deferred_posture_after_disconfirmation(
                     deferral_operation,
                     reference="defer-before-resolution",
                     effective_at=deferred_at,
-                    # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                    # duplicate-code: restart falsifiers require local proof shape.
                     # arid: disable
                     decision_id=decision_id,
                     expected_version=DecisionVersion(1),
@@ -2070,7 +2073,7 @@ def test_decision_memory_restores_deferred_posture_after_disconfirmation(
             )
         )
         assert corrected.version == DecisionVersion(4)
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         await store._engine.dispose()
 
@@ -2084,7 +2087,7 @@ def test_decision_memory_restores_deferred_posture_after_disconfirmation(
                 reader=PostgresDecisionStore(restarted_engine),
                 now=lambda: corrected_at,
             ).current(decision_id)
-            # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+            # duplicate-code: restart falsifiers require local proof shape.
             # arid: disable
             assert isinstance(
                 current.lifecycle_interpretation,
@@ -2100,7 +2103,7 @@ def test_decision_memory_restores_deferred_posture_after_disconfirmation(
                     DecisionLifecycleFactId(FACT_ID),
                     DecisionLifecycleFactId(correction_fact),
                 }
-                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # duplicate-code: restart falsifiers require local proof shape.
                 # arid: disable
             )
         finally:
@@ -2159,7 +2162,7 @@ def test_restart_detects_projection_drift_without_trusting_projection(
                     scope_portfolio_ids=[PORTFOLIO_B],
                 )
             )
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         await store._engine.dispose()
 
@@ -2195,7 +2198,7 @@ def test_restart_detects_version_only_projection_drift(
         async with store._engine.begin() as connection:
             await connection.execute(
                 investment_decisions.update().values(decision_version=2)
-                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # duplicate-code: restart falsifiers require local proof shape.
                 # arid: disable
             )
         await store._engine.dispose()
@@ -2216,7 +2219,7 @@ def test_restart_detects_version_only_projection_drift(
             # arid: enable
             assert history[-1].metadata.decision_version == DecisionVersion(1)
 
-    # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+    # duplicate-code: restart falsifiers require local proof shape.
     # arid: disable
     asyncio.run(scenario())
 
@@ -2270,7 +2273,7 @@ def test_commit_revalidates_stale_empty_candidate_basis(
         finally:
             await engine.dispose()
 
-    # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+    # duplicate-code: restart falsifiers require local proof shape.
     # arid: disable
     asyncio.run(scenario())
 
@@ -2290,7 +2293,7 @@ def test_concurrent_different_operations_create_at_most_one_decision_and_need(
         def service(*, decision_id: UUID, fact_id: UUID) -> DecisionInitiationService:
             identities = _uuids(decision_id, shared_need_id, fact_id)
             return DecisionInitiationService(
-                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # duplicate-code: restart falsifiers require local proof shape.
                 # arid: disable
                 reader=store,
                 store=store,
@@ -2324,7 +2327,7 @@ def test_concurrent_different_operations_create_at_most_one_decision_and_need(
             outcomes = await asyncio.gather(first, second, return_exceptions=True)
             assert sum(not isinstance(item, Exception) for item in outcomes) == 1
             assert sum(isinstance(item, ContinuityConflict) for item in outcomes) == 1
-            # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+            # duplicate-code: restart falsifiers require local proof shape.
             # arid: disable
             counts = await postgres_row_counts(
                 engine,
@@ -2335,7 +2338,7 @@ def test_concurrent_different_operations_create_at_most_one_decision_and_need(
             )
             # arid: enable
             assert counts == (1, 1, 1, 1)
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         finally:
             await engine.dispose()
@@ -2467,7 +2470,7 @@ def test_injected_failure_rolls_back_every_semantic_write(
         )
         try:
             assert await postgres_row_counts(
-                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # duplicate-code: restart falsifiers require local proof shape.
                 # arid: disable
                 engine,
                 decision_needs,
@@ -2476,7 +2479,7 @@ def test_injected_failure_rolls_back_every_semantic_write(
                 investment_decision_command_receipts,
                 # arid: enable
             ) == (0, 0, 0, 0)
-        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # duplicate-code: restart falsifiers require local proof shape.
         # arid: disable
         finally:
             await engine.dispose()

@@ -127,7 +127,7 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
                     history,
                     {identity: value[0] for identity, value in loaded.items()},
                 )
-        # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
+        # duplicate-code: paths require separate transaction semantics.
         # arid: disable
         except (
             SQLAlchemyError,
@@ -146,7 +146,7 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
         try:
             async with self._engine.connect() as connection:
                 return await _load_relationship_history(connection)
-        # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
+        # duplicate-code: paths require separate transaction semantics.
         # arid: disable
         except (
             SQLAlchemyError,
@@ -157,7 +157,7 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
             raise DecisionCommandReadUnavailable(
                 # arid: enable
                 "Decision relationship history read is unavailable"
-                # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
+                # duplicate-code: paths require separate transaction semantics.
                 # arid: disable
             ) from error
 
@@ -184,7 +184,7 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
                     return None
                 decision, applicability = loaded
                 return DecisionCommandState(decision, applicability)
-        # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
+        # duplicate-code: paths require separate transaction semantics.
         # arid: disable
         except (
             SQLAlchemyError,
@@ -195,7 +195,7 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
             raise DecisionCommandReadUnavailable(
                 # arid: enable
                 "Decision command-state read is unavailable"
-                # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
+                # duplicate-code: paths require separate transaction semantics.
                 # arid: disable
             ) from error
 
@@ -245,7 +245,7 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
                     lifecycle_facts=history,
                     version=version,
                     relationship_history=relationships,
-                    # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
+                    # duplicate-code: paths require separate transaction semantics.
                     # arid: disable
                 )
         except (
@@ -257,7 +257,7 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
             raise DecisionCommandReadUnavailable(
                 # arid: enable
                 "Decision current-state read is unavailable"
-                # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
+                # duplicate-code: paths require separate transaction semantics.
                 # arid: disable
             ) from error
 
@@ -293,7 +293,7 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
                         ),
                         key=lambda identity: identity.value.int,
                     )
-                    # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
+                    # duplicate-code: paths require separate transaction semantics.
                     # arid: disable
                 )
         except (
@@ -325,7 +325,7 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
                 # A missing receipt row cannot be locked. Endpoint rows serialize
                 # directly touched same-Decision commits, so re-read after acquiring
                 # them before proceeding.
-                # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
+                # duplicate-code: paths require separate transaction semantics.
                 # arid: disable
                 prior = await _relationship_operation_receipt(
                     connection, commit.operation_id, for_update=True
@@ -401,7 +401,7 @@ _RELATIONSHIP_CONFLICT_OUTCOMES = (
 )
 
 _RELATIONSHIP_REVALIDATION_ERRORS = (
-    # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
+    # duplicate-code: paths require separate transaction semantics.
     # arid: disable
     DecisionRelationshipAdmissionRejected,
     DecisionLifecycleLineageCycle,
@@ -544,7 +544,7 @@ async def _relationship_operation_receipt(
     *,
     for_update: bool,
 ) -> DecisionRelationshipReceipt | DecisionRelationshipIdempotencyConflict | None:
-    # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
+    # duplicate-code: paths require separate transaction semantics.
     # arid: disable
     row = await _get_operation_receipt(
         connection,
@@ -1173,7 +1173,7 @@ def _relationship_group(
     history: Iterable[DecisionRelationshipHistoryFact],
 ) -> tuple[InvestmentDecisionId, DecisionRelationshipType, InvestmentDecisionId]:
     root = _relationship_root_fact(fact, _history_map(history))
-    # duplicate-code: relationship persistence operations have distinct transaction and failure semantics; extracting this local shape would couple independently evolving command paths.
+    # duplicate-code: paths require separate transaction semantics.
     # arid: disable
     return (
         root.source_decision_id,

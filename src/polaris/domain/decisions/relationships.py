@@ -1180,6 +1180,8 @@ def _protected_entry(
 def _with_version(
     decision: InvestmentDecision, version: DecisionVersion
 ) -> InvestmentDecision:
+    # duplicate-code: relationship-history reconstruction owns different invariants from lifecycle reconstruction; sharing this local shape would couple independent aggregate rules.
+    # arid: disable
     return InvestmentDecision._from_validated(
         decision._history,
         decision._subject,
@@ -1189,6 +1191,7 @@ def _with_version(
         decision._applicability,
         decision._work_posture,
     )
+    # arid: enable
 
 
 def _validate_command_envelope(

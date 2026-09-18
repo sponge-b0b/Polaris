@@ -1,0 +1,104 @@
+name: Temporary verify Spec 280 dedup
+
+on:
+  push:
+    branches:
+      - chatgpt/verify-spec-280-dedup
+
+permissions:
+  contents: read
+
+jobs:
+  dedup:
+    runs-on: ubuntu-latest
+    env:
+      CANDIDATE_SHA: 08266805bb9932b7e371cbdba6f76c2d621f57ae
+      BASELINE_SHA: 23f7a2df40557b87754fd62e3f70164f60b18788
+    steps:
+      - name: Checkout transport branch for workflow
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install standard Python
+        run: uv python install 3.14
+
+      - name: Checkout exact Spec candidate
+        run: |
+          git checkout --detach "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          git status --short --branch
+
+      - name: Candidate Arid scan
+        id: candidate_arid
+        shell: bash
+        run: |
+          set +e
+          uv run --python 3.14 --locked arid . --fail-on-stale --suppression-summary 2>&1 | tee /tmp/candidate-arid.txt
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "candidate_arid_status=$status"
+
+      - name: Baseline Arid scan
+        id: baseline_arid
+        shell: bash
+        run: |
+          set -e
+          BASE_DIR="$(mktemp -d /tmp/polaris-spec280-baseline.XXXXXX)"
+          git worktree add --detach "$BASE_DIR" "$BASELINE_SHA"
+          set +e
+          uv run --python 3.14 --locked arid "$BASE_DIR" --fail-on-stale --suppression-summary 2>&1 | tee /tmp/baseline-arid.txt
+          status=${PIPESTATUS[0]}
+          set -e
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "baseline_arid_status=$status"
+          git worktree remove --force "$BASE_DIR"
+
+      - name: Candidate JSCPD scan
+        id: candidate_jscpd
+        shell: bash
+        run: |
+          set +e
+          npx --yes jscpd@5.0.12 . --reporters console 2>&1 | tee /tmp/candidate-jscpd.txt
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "candidate_jscpd_status=$status"
+
+      - name: Baseline JSCPD scan
+        id: baseline_jscpd
+        shell: bash
+        run: |
+          set -e
+          BASE_DIR="$(mktemp -d /tmp/polaris-spec280-baseline-jscpd.XXXXXX)"
+          git worktree add --detach "$BASE_DIR" "$BASELINE_SHA"
+          set +e
+          (
+            cd "$BASE_DIR"
+            npx --yes jscpd@5.0.12 . --reporters console
+          ) 2>&1 | tee /tmp/baseline-jscpd.txt
+          status=${PIPESTATUS[0]}
+          set -e
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          echo "baseline_jscpd_status=$status"
+          git worktree remove --force "$BASE_DIR"
+
+      - name: Dedup summary
+        if: always()
+        run: |
+          echo "candidate_arid_status=${{ steps.candidate_arid.outputs.status }}"
+          echo "baseline_arid_status=${{ steps.baseline_arid.outputs.status }}"
+          echo "candidate_jscpd_status=${{ steps.candidate_jscpd.outputs.status }}"
+          echo "baseline_jscpd_status=${{ steps.baseline_jscpd.outputs.status }}"
+          echo "candidate_arid_groups=$(grep -c '^DUP001 ' /tmp/candidate-arid.txt || true)"
+          echo "baseline_arid_groups=$(grep -c '^DUP001 ' /tmp/baseline-arid.txt || true)"
+          echo "---- candidate Arid ----"
+          cat /tmp/candidate-arid.txt || true
+          echo "---- baseline Arid ----"
+          cat /tmp/baseline-arid.txt || true
+          echo "---- candidate JSCPD ----"
+          cat /tmp/candidate-jscpd.txt || true
+          echo "---- baseline JSCPD ----"
+          cat /tmp/baseline-jscpd.txt || true

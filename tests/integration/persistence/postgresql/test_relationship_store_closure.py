@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
@@ -68,7 +66,7 @@ from polaris.infrastructure.persistence.postgresql.schema import (
     investment_decisions,
 )
 
-from .conftest import PostgresTestTarget
+from .conftest import PostgresTestTarget, postgres_engine_store
 from .test_relationship_store import (
     BASE,
     _create_decision,
@@ -77,17 +75,6 @@ from .test_relationship_store import (
     _supersede,
     _version,
 )
-
-
-@asynccontextmanager
-async def _store(
-    target: PostgresTestTarget,
-) -> AsyncIterator[PostgresDecisionStore]:
-    engine = create_postgres_engine(target.database_url, schema=target.schema)
-    try:
-        yield PostgresDecisionStore(engine)
-    finally:
-        await engine.dispose()
 
 
 class _ConcurrentRelationshipStateStore(PostgresDecisionStore):
@@ -172,7 +159,7 @@ def test_competing_persisted_corrections_reconstruct_contested(
     postgres_target: PostgresTestTarget,
 ) -> None:
     async def scenario() -> None:
-        async with _store(postgres_target) as store:
+        async with postgres_engine_store(postgres_target) as (_, store):
             source = await _create_decision(
                 store, recorded_at=BASE, label="correction-source"
             )
@@ -214,7 +201,7 @@ def test_competing_persisted_corrections_reconstruct_contested(
                 reference="second-qualification",
             )
 
-        async with _store(postgres_target) as restarted:
+        async with postgres_engine_store(postgres_target) as (_, restarted):
             lineage = await DecisionMemoryService(
                 reader=restarted, now=lambda: second_at
             ).lineage(target, known_at=second_at)
@@ -232,7 +219,7 @@ def test_resolved_target_supersession_preserves_lifecycle_history(
     postgres_target: PostgresTestTarget,
 ) -> None:
     async def scenario() -> None:
-        async with _store(postgres_target) as store:
+        async with postgres_engine_store(postgres_target) as (_, store):
             source = await _create_decision(
                 store, recorded_at=BASE, label="resolved-supersession-source"
             )
@@ -299,7 +286,7 @@ def test_relationship_fact_provenance_round_trips_separately(
         operation_id = OperationId(uuid4())
         recorded_at = BASE + timedelta(hours=1)
 
-        async with _store(postgres_target) as store:
+        async with postgres_engine_store(postgres_target) as (_, store):
             source = await _create_decision(
                 store, recorded_at=BASE, label="provenance-source"
             )
@@ -345,7 +332,7 @@ def test_relationship_fact_provenance_round_trips_separately(
                 DecisionRelationshipFactId(fact_id),
             )
 
-        async with _store(postgres_target) as restarted:
+        async with postgres_engine_store(postgres_target) as (_, restarted):
             history = await restarted.load_relationship_history()
             persisted = next(
                 fact
@@ -442,7 +429,7 @@ def test_atomic_correction_set_persists_same_command_ancestry_after_restart(
         correction_at = base_at + timedelta(minutes=10)
         base_fact_id = uuid4()
         generated = (uuid4(), uuid4())
-        async with _store(postgres_target) as store:
+        async with postgres_engine_store(postgres_target) as (_, store):
             source = await _create_decision(store, recorded_at=BASE, label="set-source")
             target = await _create_decision(
                 store, recorded_at=BASE + timedelta(minutes=1), label="set-target"
@@ -499,7 +486,7 @@ def test_atomic_correction_set_persists_same_command_ancestry_after_restart(
                 DecisionRelationshipFactId(identity) for identity in generated
             }
 
-        async with _store(postgres_target) as restarted:
+        async with postgres_engine_store(postgres_target) as (_, restarted):
             history = await restarted.load_relationship_history()
             corrections = tuple(
                 fact
@@ -529,7 +516,7 @@ def test_postgres_rejects_self_direct_and_indirect_lineage_cycles(
     postgres_target: PostgresTestTarget,
 ) -> None:
     async def scenario() -> None:
-        async with _store(postgres_target) as store:
+        async with postgres_engine_store(postgres_target) as (_, store):
             first = await _create_decision(store, recorded_at=BASE, label="cycle-a")
             second = await _create_decision(
                 store, recorded_at=BASE + timedelta(minutes=1), label="cycle-b"
@@ -590,7 +577,7 @@ def test_postgres_rejects_mixed_renewal_supersession_cycle(
     postgres_target: PostgresTestTarget,
 ) -> None:
     async def scenario() -> None:
-        async with _store(postgres_target) as store:
+        async with postgres_engine_store(postgres_target) as (_, store):
             predecessor = await _create_decision(
                 store, recorded_at=BASE, label="mixed-predecessor"
             )
@@ -645,7 +632,7 @@ def test_known_future_and_contested_positive_cycles_fail_closed(
     postgres_target: PostgresTestTarget,
 ) -> None:
     async def scenario() -> None:
-        async with _store(postgres_target) as store:
+        async with postgres_engine_store(postgres_target) as (_, store):
             first = await _create_decision(store, recorded_at=BASE, label="future-a")
             second = await _create_decision(
                 store, recorded_at=BASE + timedelta(minutes=1), label="future-b"
@@ -787,7 +774,7 @@ def test_commit_time_semantic_revalidation_is_not_reported_as_outage(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async def scenario() -> None:
-        async with _store(postgres_target) as store:
+        async with postgres_engine_store(postgres_target) as (_, store):
             source = await _create_decision(
                 store, recorded_at=BASE, label="revalidation-source"
             )

@@ -1,0 +1,230 @@
+name: Temporary ChatGPT verify ticket 323 repair
+
+on:
+  push:
+    branches:
+      - chatgpt/ticket-323-verifier
+    paths:
+      - '.github/workflows/tmp-chatgpt-ticket-323-repair.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify-repair:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: polaris_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d polaris_test"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+
+    env:
+      POLARIS_TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/polaris_test
+      DISABLE_SQLALCHEMY_CEXT_RUNTIME: '1'
+      TICKET_BASELINE: d7c7010b6db7ed3ee96888e2a983e48e06415153
+      TICKET_CANDIDATE: 0974bb7e9bb68a2ea2ffd1db550baf2e49dee96f
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0974bb7e9bb68a2ea2ffd1db550baf2e49dee96f
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Bind candidate and compute canonical state
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TICKET_CANDIDATE"
+          test -z "$(git status --porcelain)"
+          git diff --check "$TICKET_BASELINE"..HEAD
+
+          state="$(
+            TICKET_BASELINE="$TICKET_BASELINE" python - <<'PY'
+          import hashlib
+          import os
+          import stat
+          import subprocess
+
+          baseline = os.environ["TICKET_BASELINE"]
+
+          def git_paths(*args: str) -> list[bytes]:
+              result = subprocess.run(
+                  ["git", *args],
+                  check=True,
+                  stdout=subprocess.PIPE,
+              )
+              return [path for path in result.stdout.split(b"\0") if path]
+
+          paths = set(
+              git_paths(
+                  "diff",
+                  "--no-renames",
+                  "--name-only",
+                  "-z",
+                  baseline,
+                  "--",
+              )
+          )
+          paths.update(
+              git_paths(
+                  "ls-files",
+                  "--others",
+                  "--exclude-standard",
+                  "-z",
+              )
+          )
+
+          candidate = hashlib.sha256()
+          for raw_path in sorted(paths):
+              path = os.fsdecode(raw_path)
+              candidate.update(b"path\0")
+              candidate.update(raw_path)
+              candidate.update(b"\0")
+              try:
+                  metadata = os.lstat(path)
+              except FileNotFoundError:
+                  candidate.update(b"state\0DELETED\0")
+                  continue
+
+              if stat.S_ISLNK(metadata.st_mode):
+                  mode = b"120000"
+                  content_hash = hashlib.sha256(
+                      os.fsencode(os.readlink(path))
+                  ).hexdigest()
+              elif stat.S_ISREG(metadata.st_mode):
+                  mode = (
+                      b"100755"
+                      if metadata.st_mode & stat.S_IXUSR
+                      else b"100644"
+                  )
+                  digest = hashlib.sha256()
+                  with open(path, "rb") as handle:
+                      for chunk in iter(
+                          lambda: handle.read(1024 * 1024),
+                          b"",
+                      ):
+                          digest.update(chunk)
+                  content_hash = digest.hexdigest()
+              else:
+                  raise SystemExit(
+                      f"unsupported candidate path type: {path}"
+                  )
+
+              candidate.update(b"mode\0")
+              candidate.update(mode)
+              candidate.update(b"\0sha256\0")
+              candidate.update(content_hash.encode("ascii"))
+              candidate.update(b"\0")
+
+          print(candidate.hexdigest())
+          PY
+          )"
+
+          echo "CANDIDATE_STATE=$state"
+          printf '%s\n' "$state" > "$RUNNER_TEMP/candidate-state.txt"
+
+      - name: Sync locked environment
+        run: uv sync --locked
+
+      - name: Ruff format
+        run: |
+          uv run --locked ruff format --check             tests/integration/persistence/postgresql/test_relationship_store.py
+
+      - name: Ruff lint
+        run: |
+          uv run --locked ruff check             tests/integration/persistence/postgresql/test_relationship_store.py
+
+      - name: Mypy
+        run: |
+          uv run --locked mypy             tests/integration/persistence/postgresql/test_relationship_store.py
+
+      - name: Focused renewal rollback
+        run: |
+          uv run --locked pytest -q             tests/integration/persistence/postgresql/test_relationship_store.py::test_renewal_initial_lineage_failure_rolls_back_entire_creation
+
+      - name: Full PostgreSQL persistence integration
+        run: |
+          uv run --locked pytest -q             tests/integration/persistence/postgresql
+
+      - name: Rebind candidate after checks
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TICKET_CANDIDATE"
+          test -z "$(git status --porcelain)"
+          post="$(
+            TICKET_BASELINE="$TICKET_BASELINE" python - <<'PY'
+          import hashlib
+          import os
+          import stat
+          import subprocess
+
+          baseline = os.environ["TICKET_BASELINE"]
+
+          def zpaths(*args: str) -> list[bytes]:
+              result = subprocess.run(
+                  ["git", *args],
+                  check=True,
+                  stdout=subprocess.PIPE,
+              )
+              return [p for p in result.stdout.split(b"\0") if p]
+
+          paths = set(
+              zpaths("diff", "--no-renames", "--name-only", "-z", baseline, "--")
+          )
+          paths.update(zpaths("ls-files", "--others", "--exclude-standard", "-z"))
+          digest = hashlib.sha256()
+
+          for raw in sorted(paths):
+              path = os.fsdecode(raw)
+              digest.update(b"path\0" + raw + b"\0")
+              try:
+                  meta = os.lstat(path)
+              except FileNotFoundError:
+                  digest.update(b"state\0DELETED\0")
+                  continue
+              if stat.S_ISLNK(meta.st_mode):
+                  mode = b"120000"
+                  content_hash = hashlib.sha256(
+                      os.fsencode(os.readlink(path))
+                  ).hexdigest()
+              else:
+                  mode = b"100755" if meta.st_mode & stat.S_IXUSR else b"100644"
+                  h = hashlib.sha256()
+                  with open(path, "rb") as handle:
+                      for chunk in iter(
+                          lambda: handle.read(1024 * 1024), b""
+                      ):
+                          h.update(chunk)
+                  content_hash = h.hexdigest()
+              digest.update(
+                  b"mode\0"
+                  + mode
+                  + b"\0sha256\0"
+                  + content_hash.encode("ascii")
+                  + b"\0"
+              )
+          print(digest.hexdigest())
+          PY
+          )"
+          pre="$(cat "$RUNNER_TEMP/candidate-state.txt")"
+          echo "POST_CANDIDATE_STATE=$post"
+          test "$pre" = "$post"
+          echo "FINAL_STATUS=PASS"

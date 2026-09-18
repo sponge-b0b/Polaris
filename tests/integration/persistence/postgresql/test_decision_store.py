@@ -126,6 +126,37 @@ def _uuids(*values: UUID) -> Iterator[UUID]:
     yield from values
 
 
+def _test_envelope(
+    operation_id: UUID | OperationId,
+    *,
+    reference: str,
+    effective_at: datetime = MUTATION_RECORDED_AT,
+    decision_id: InvestmentDecisionId | None = InvestmentDecisionId(DECISION_ID),
+    expected_version: DecisionVersion | None = DecisionVersion(1),
+    technical_provenance: TechnicalProvenance | None = None,
+) -> DecisionCommandEnvelope:
+    operation = (
+        operation_id if isinstance(operation_id, OperationId) else OperationId(operation_id)
+    )
+    expected_versions = (
+        frozenset()
+        if decision_id is None or expected_version is None
+        else frozenset({ExpectedDecisionVersion(decision_id, expected_version)})
+    )
+    return DecisionCommandEnvelope(
+        operation_id=operation,
+        actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+        trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, reference),
+        effective_at=effective_at,
+        technical_provenance=(
+            technical_provenance
+            if technical_provenance is not None
+            else TechnicalProvenance()
+        ),
+        expected_versions=expected_versions,
+    )
+
+
 def _command(scope: DecisionScope) -> InitiateDecisionCommand:
     return InitiateDecisionCommand(
         envelope=DecisionCommandEnvelope(
@@ -541,20 +572,9 @@ def test_subject_revision_commits_fact_projection_and_receipt_before_restart(
             new_uuid=lambda: MUTATION_FACT_ID,
         )
         command = ReviseDecisionSubjectCommand(
-            envelope=DecisionCommandEnvelope(
-                operation_id=OperationId(MUTATION_OPERATION_ID),
-                actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "request-322"),
-                effective_at=MUTATION_RECORDED_AT,
-                technical_provenance=TechnicalProvenance(),
-                expected_versions=frozenset(
-                    {
-                        ExpectedDecisionVersion(
-                            InvestmentDecisionId(DECISION_ID),
-                            DecisionVersion(1),
-                        )
-                    }
-                ),
+            envelope=_test_envelope(
+                MUTATION_OPERATION_ID,
+                reference="request-322",
             ),
             decision_id=InvestmentDecisionId(DECISION_ID),
             subject=DecisionSubject("Whether to increase the position"),
@@ -778,20 +798,9 @@ def test_initiation_rejects_mutation_operation_id_after_restart(
     async def scenario() -> None:
         store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
         mutation = ReviseDecisionSubjectCommand(
-            envelope=DecisionCommandEnvelope(
-                operation_id=OperationId(MUTATION_OPERATION_ID),
-                actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "request-322"),
-                effective_at=MUTATION_RECORDED_AT,
-                technical_provenance=TechnicalProvenance(),
-                expected_versions=frozenset(
-                    {
-                        ExpectedDecisionVersion(
-                            InvestmentDecisionId(DECISION_ID),
-                            DecisionVersion(1),
-                        )
-                    }
-                ),
+            envelope=_test_envelope(
+                MUTATION_OPERATION_ID,
+                reference="request-322",
             ),
             decision_id=InvestmentDecisionId(DECISION_ID),
             subject=DecisionSubject("Whether to increase the position"),
@@ -897,20 +906,9 @@ def test_mutation_failure_between_semantic_writes_rolls_back_every_change(
             new_uuid=lambda: MUTATION_FACT_ID,
         )
         command = ReviseDecisionSubjectCommand(
-            envelope=DecisionCommandEnvelope(
-                operation_id=OperationId(MUTATION_OPERATION_ID),
-                actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "request-322"),
-                effective_at=MUTATION_RECORDED_AT,
-                technical_provenance=TechnicalProvenance(),
-                expected_versions=frozenset(
-                    {
-                        ExpectedDecisionVersion(
-                            InvestmentDecisionId(DECISION_ID),
-                            DecisionVersion(1),
-                        )
-                    }
-                ),
+            envelope=_test_envelope(
+                MUTATION_OPERATION_ID,
+                reference="request-322",
             ),
             decision_id=InvestmentDecisionId(DECISION_ID),
             subject=DecisionSubject("Whether to increase the position"),
@@ -952,15 +950,10 @@ def test_no_op_receipt_failure_rolls_back_receipt_only_transaction(
         failing = _FailAfterMutationReceiptStore(engine)
         decision_id = InvestmentDecisionId(DECISION_ID)
         command = ReviseDecisionSubjectCommand(
-            DecisionCommandEnvelope(
-                operation_id=OperationId(MUTATION_OPERATION_ID),
-                actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "no-op"),
-                effective_at=MUTATION_RECORDED_AT,
-                technical_provenance=TechnicalProvenance(),
-                expected_versions=frozenset(
-                    {ExpectedDecisionVersion(decision_id, DecisionVersion(1))}
-                ),
+            _test_envelope(
+                MUTATION_OPERATION_ID,
+                reference="no-op",
+                decision_id=decision_id,
             ),
             decision_id,
             DecisionSubject("Whether to establish the position"),
@@ -1529,15 +1522,10 @@ def test_concurrent_same_operation_future_correction_replays_after_tail_wait(
             new_uuid=lambda: MUTATION_FACT_ID,
         ).apply_substantive_resolution(
             ApplySubstantiveResolutionCommand(
-                DecisionCommandEnvelope(
-                    operation_id=OperationId(MUTATION_OPERATION_ID),
-                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                    trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "resolution"),
-                    effective_at=MUTATION_RECORDED_AT,
-                    technical_provenance=TechnicalProvenance(),
-                    expected_versions=frozenset(
-                        {ExpectedDecisionVersion(decision_id, DecisionVersion(1))}
-                    ),
+                _test_envelope(
+                    MUTATION_OPERATION_ID,
+                    reference="resolution",
+                    decision_id=decision_id,
                 ),
                 decision_id,
                 TrustedHumanInvestmentDecisionBasis(

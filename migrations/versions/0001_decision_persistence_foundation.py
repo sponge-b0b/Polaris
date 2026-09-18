@@ -47,12 +47,15 @@ def upgrade() -> None:
             name="ck_decision_needs_actor_attribution_kind",
         ),
         sa.CheckConstraint(
+            # duplicate-code: immutable migration DDL is an auditable historical snapshot; sharing mutable schema helpers would couple deployed migration history to current metadata.
+            # arid: disable
             "(actor_attribution_kind = 'known' AND actor_id IS NOT NULL "
             "AND actor_candidate_ids IS NULL) OR "
             "(actor_attribution_kind = 'unknown' AND actor_id IS NULL "
             "AND actor_candidate_ids IS NULL) OR "
             "(actor_attribution_kind = 'contested' AND actor_id IS NULL "
             "AND cardinality(actor_candidate_ids) > 0)",
+            # arid: enable
             name="ck_decision_needs_actor_attribution_shape",
         ),
         sa.CheckConstraint(
@@ -154,6 +157,8 @@ def upgrade() -> None:
         sa.Column("lifecycle_sequence", sa.Integer(), nullable=False),
         sa.Column("decision_version", sa.Integer(), nullable=False),
         sa.Column("fact_kind", sa.String(length=48), nullable=False),
+        # duplicate-code: immutable migration DDL is an auditable historical snapshot; sharing mutable schema helpers would couple deployed migration history to current metadata.
+        # arid: disable
         sa.Column("operation_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("actor_attribution_kind", sa.String(length=16), nullable=False),
         sa.Column("actor_id", postgresql.UUID(as_uuid=True), nullable=True),
@@ -170,6 +175,7 @@ def upgrade() -> None:
             server_default=sa.text("'[]'::jsonb"),
             nullable=False,
         ),
+        # arid: enable
         sa.Column("effective_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("recorded_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("need_id", postgresql.UUID(as_uuid=True), nullable=True),
@@ -205,6 +211,8 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "actor_attribution_kind IN ('known', 'unknown', 'contested')",
             name="ck_investment_decision_lifecycle_facts_actor_attribution_kind",
+        # duplicate-code: immutable migration DDL is an auditable historical snapshot; sharing mutable schema helpers would couple deployed migration history to current metadata.
+        # arid: disable
         ),
         sa.CheckConstraint(
             "(actor_attribution_kind = 'known' AND actor_id IS NOT NULL "
@@ -213,6 +221,7 @@ def upgrade() -> None:
             "AND actor_candidate_ids IS NULL) OR "
             "(actor_attribution_kind = 'contested' AND actor_id IS NULL "
             "AND cardinality(actor_candidate_ids) > 0)",
+        # arid: enable
             name="ck_investment_decision_lifecycle_facts_actor_shape",
         ),
         sa.CheckConstraint(
@@ -287,6 +296,8 @@ def upgrade() -> None:
             postgresql.UUID(as_uuid=True),
             nullable=True,
         ),
+        # duplicate-code: immutable migration DDL is an auditable historical snapshot; sharing mutable schema helpers would couple deployed migration history to current metadata.
+        # arid: disable
         sa.Column("operation_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("actor_attribution_kind", sa.String(length=16), nullable=False),
         sa.Column("actor_id", postgresql.UUID(as_uuid=True), nullable=True),
@@ -305,6 +316,7 @@ def upgrade() -> None:
         ),
         sa.Column("effective_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("recorded_at", sa.DateTime(timezone=True), nullable=False),
+        # arid: enable
         sa.Column("correction_effect", sa.String(length=16), nullable=True),
         sa.Column(
             "positive_claim_effective_at", sa.DateTime(timezone=True), nullable=True
@@ -327,6 +339,8 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "actor_attribution_kind IN ('known', 'unknown', 'contested')",
             name="ck_investment_decision_relationships_actor_kind",
+        # duplicate-code: immutable migration DDL is an auditable historical snapshot; sharing mutable schema helpers would couple deployed migration history to current metadata.
+        # arid: disable
         ),
         sa.CheckConstraint(
             "(actor_attribution_kind = 'known' AND actor_id IS NOT NULL "
@@ -335,6 +349,7 @@ def upgrade() -> None:
             "AND actor_candidate_ids IS NULL) OR "
             "(actor_attribution_kind = 'contested' AND actor_id IS NULL "
             "AND cardinality(actor_candidate_ids) > 0)",
+        # arid: enable
             name="ck_investment_decision_relationships_actor_shape",
         ),
         sa.CheckConstraint(

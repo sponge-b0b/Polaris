@@ -728,6 +728,7 @@ When `$implement-ticket` is parent and `$wiki-sync` changes repository files, `$
 * Use `$tdd` only at applicable pre-agreed code/test seams.
 * Use `$format-code` only when code/test surfaces governed by it changed.
 * Use `$coding-standards` only for code surfaces it governs.
+* Use `$deduplicate-code` in `ticket-differential` mode when the ticket changes files inside the repository's configured Arid or JSCPD scan universe; whole-repository scanning is required, but repair attribution is only against `TICKET_BASELINE`.
 * Use documentation/workflow/configuration/CI/tracker owners and deterministic checks appropriate to those surfaces instead of substituting code helpers.
 * Avoid unrelated cleanup.
 
@@ -746,13 +747,14 @@ Build the verification set from the ticket acceptance criteria plus the classifi
 Typical routing:
 
 * Code/Tests → invoke `$verify-code` with `TICKET_BASELINE`, plus any ticket-required targeted production-boundary proof;
+* Duplicate-code discipline → when any ticket-changed path is inside the configured Arid or JSCPD scan universe, invoke `$deduplicate-code` in `ticket-differential` mode with `TICKET_BASELINE` and the exact ticket candidate; repair candidate-introduced/expanded duplication before closure, while baseline-identical debt remains out of scope;
 * Documentation → deterministic document/ADR/wiki validation owned by the relevant documentation workflow;
 * Agent skills/workflow policy → structure/frontmatter, cross-skill contract consistency, ownership/handoff, fail-closed behavior, idempotency/re-entry, tracker relationship/projection proof as required;
 * Repository configuration / CI → syntax/schema/lint/dry-run or repository-defined validation appropriate to the changed surface;
 * Data/schema/migrations → `$database-migrations` and required migration/database proof;
 * Tracker-only state → canonical re-read, native relationship/state verification, idempotency when required, and proof that repository files did not need mutation.
 
-Do not automatically run full-suite tests, repository-wide lint/type checks, coverage, or unrelated integration suites.
+Do not automatically run full-suite tests, repository-wide lint/type checks, coverage, or unrelated integration suites. The applicable `$deduplicate-code` gate is an explicit exception to ordinary narrow-scope verification because duplicate relations are repository-wide by definition; its differential mode limits repair attribution rather than scan scope.
 
 Do not claim an acceptance criterion is proven without identifiable source/test/document/configuration/tracker evidence appropriate to that criterion.
 
@@ -1249,7 +1251,7 @@ When implementation, applicability reconciliation, semantic discovery, and all k
 1. compute `FINAL_VERIFY_STATE` using the exact `TICKET_CLOSURE_STATE` hash procedure in **Candidate State**;
 2. bind any tracker-only or mixed durable tracker state required by the ticket at the same boundary;
 3. record that no known substantive repository/tracker mutation remains before final verification;
-4. run every applicable final verification owner/gate once against that frozen state, including `$verify-code` and any applicable delegated invariant gate;
+4. run every applicable final verification owner/gate once against that frozen state, including `$verify-code`, applicable `$deduplicate-code ticket-differential`, and any other applicable delegated invariant gate;
 5. recompute the same candidate/tracker state after final verification and require exact equality with the freeze.
 
 Final verification is evidence for one immutable candidate, not another implementation iteration.

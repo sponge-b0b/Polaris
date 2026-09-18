@@ -62,6 +62,9 @@ Read the originating Spec/remediation authority and every architecture/design so
 Independently check that:
 
 * the implementation-ready source contract is the one bound to the proposal;
+* for a fresh Spec proposal, the exact Spec-cell ID set rendered in the parent Ticket Coverage Manifest is **identical** to the exact Spec-cell ID set emitted by the bound `$spec-contract` manifest;
+* for that equality check, independently compute both directional differences and require missing source-derived cells = 0 and extra/non-source-derived cells = 0; a proposal containing every source cell plus one synthetic cell must FAIL;
+* every disposition in a fresh-Spec Ticket Coverage Manifest refers to an existing source Spec cell; workflow/lifecycle/publication mechanics may not appear as synthetic Spec cells unless `$spec-contract` itself emits them;
 * every materially normative source unit in the bounded source set is represented by a Spec cell, `ARCHSRC-*`, or an authority-backed non-implementation disposition;
 * no material condition, negative rule, temporal boundary, failure state, preservation rule, or implementation destination was hidden by grouping or declared duplicate without semantic entailment;
 * no current owning architecture/design source required by the affected boundary was omitted.
@@ -117,6 +120,7 @@ Source state identity: <identity/hash>
 Proposal identity: <sha256>
 Verifier: fresh-independent
 Source closure: complete; missing material sources/units 0
+Spec-cell identity: exact; source <n>; manifest <n>; missing 0; extra 0
 Semantic carry: complete; incomplete 0; ambiguous 0
 Design delegation: 0
 Dependency/slice semantic defects: 0
@@ -132,7 +136,7 @@ Mode: fresh | remediation
 Source state identity: <identity/hash>
 Proposal identity: <sha256>
 Findings:
-1. Classification: missing-source | missing-predicate | incomplete-carry | misrouted | dependency-safety | design-delegation | contradiction
+1. Classification: missing-source | invented-source-cell | missing-predicate | incomplete-carry | misrouted | dependency-safety | design-delegation | contradiction
    Governing source: <durable source + anchor>
    Authoritative requirement: <compact requirement>
    Affected proposal element: <ticket/manifest/dependency>

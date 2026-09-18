@@ -1,10 +1,10 @@
 ---
 name: deduplicate-code
-description: Enforces repository-wide duplicate-code discipline, with zero unsuppressed findings by default and baseline-differential causality when delegated by $verify-spec.
+description: Enforces repository-wide duplicate-code discipline, with zero unsuppressed findings by default and baseline-differential causality for ticket/spec verification.
 license: MIT
 compatibility: product=codex product=claude-code system=arid system=jscpd network=none
 metadata:
-  version: 2.1.1
+  version: 2.2.0
 ---
 
 # Code Duplication Checks
@@ -17,9 +17,9 @@ The standalone/default terminal invariant is:
 
 > **Zero unsuppressed duplicate findings.**
 
-When delegated by `$verify-spec` in `spec-differential` mode, the terminal invariant is instead zero candidate-introduced/expanded duplication and zero unresolved causality; machine-correlated `baseline-identical` findings may remain as inherited debt. This changes repair attribution, never whole-repository scan scope.
+When delegated in a differential integration mode, the terminal invariant is instead zero candidate-introduced/expanded duplication and zero unresolved causality; machine-correlated `baseline-identical` findings may remain as inherited debt. `$implement-ticket` uses `ticket-differential`; `$verify-spec` uses `spec-differential`. These modes change repair attribution, never whole-repository scan scope.
 
-Physical repetition may remain only when consolidation would be the wrong design and that decision is encoded as a narrow, justified tool-native suppression, or when `spec-differential` proves the finding is baseline-identical and therefore outside the active Spec repair loop. A finding is never complete merely because an agent inspected it and called it harmless.
+Physical repetition may remain only when consolidation would be the wrong design and that decision is encoded as a narrow, justified tool-native suppression, or when the active differential mode proves the finding is baseline-identical and therefore outside that parent lifecycle's repair loop. A finding is never complete merely because an agent inspected it and called it harmless.
 
 ## Core Invariants
 
@@ -44,7 +44,40 @@ jscpd .
 
 Do not narrow scanner scope merely because a parent workflow is ticket- or Spec-scoped. Repository-local Arid/JSCPD configuration and ordinary discovery/exclusion policy still apply.
 
-When this skill is delegated by another lifecycle or verification skill, the parent-supplied integration mode controls **repair attribution**, never scanner scope. Default mode retains the repository-wide zero-finding invariant. `$verify-spec` uses the `spec-differential` mode below so candidate-caused duplication is repaired globally without turning Spec verification into unrelated historical cleanup. Repair authority remains limited to duplicate-code consolidation or justified suppression under this skill; it does not authorize unrelated cleanup.
+When this skill is delegated by another lifecycle or verification skill, the parent-supplied integration mode controls **repair attribution**, never scanner scope. Default mode retains the repository-wide zero-finding invariant. `$implement-ticket` uses `ticket-differential` against the fixed ticket baseline; `$verify-spec` uses `spec-differential` against the fixed Spec baseline. Candidate-caused duplication is repaired globally without turning either lifecycle into unrelated historical cleanup. Repair authority remains limited to duplicate-code consolidation or justified suppression under this skill; it does not authorize unrelated cleanup.
+
+## Verification Integration Mode: `ticket-differential`
+
+When `$implement-ticket` delegates this skill, it supplies the fixed `TICKET_BASELINE` and the exact current ticket candidate state and invokes `ticket-differential` mode.
+
+Applicability is determined by the parent: use this mode when the ticket changes executable/source files that fall inside the repository's configured Arid or JSCPD scan universe. Scanner scope remains whole-repository.
+
+Run the candidate scans in the current exact ticket worktree and the baseline scans against an isolated read-only `TICKET_BASELINE` worktree/ref. Classify every candidate finding using the same four causality states defined for `spec-differential` below:
+
+```text
+candidate-introduced
+candidate-expanded
+baseline-identical
+unresolved
+```
+
+Interpret "candidate" as the ticket candidate and "baseline" as `TICKET_BASELINE`.
+
+Only candidate-introduced and candidate-expanded findings enter the ticket repair loop. Repair them before ticket closure using the normal consolidation/suppression rules. A correct shared-owner repair may touch an otherwise unchanged file when necessary to remove the ticket-caused duplicate relation, but this mode does not authorize unrelated inherited cleanup.
+
+The `ticket-differential` terminal invariant is identical in shape to the Spec differential invariant:
+
+```text
+Candidate-introduced duplicate findings: 0
+Candidate-expanded duplicate findings: 0
+Unresolved causality classifications: 0
+Candidate-attributable stale/invalid suppressions: 0
+Arid operational/source-processing errors: 0
+JSCPD operational errors: 0
+Actionable competing implementations introduced/expanded by candidate: 0
+```
+
+Baseline-identical findings may remain nonzero. If a dedup repair changes the ticket candidate, the parent candidate freeze/evidence is stale and must be recomputed under `$implement-ticket`.
 
 ## Verification Integration Mode: `spec-differential`
 
@@ -103,7 +136,7 @@ Suppressions without meaningful justification: 0
 Actionable competing implementations remaining: 0
 ```
 
-In standalone/default mode, a non-zero finding count starts or continues the repair loop. In `spec-differential` mode, only candidate-introduced, candidate-expanded, unresolved, operational, or candidate-attributable stale/invalid-suppression results continue the repair loop; baseline-identical findings are already dispositioned.
+In standalone/default mode, a non-zero finding count starts or continues the repair loop. In `ticket-differential` or `spec-differential` mode, only candidate-introduced, candidate-expanded, unresolved, operational, or candidate-attributable stale/invalid-suppression results continue the repair loop; baseline-identical findings are already dispositioned.
 
 ## Finding Repair Loop
 
@@ -117,7 +150,7 @@ suppress
 unresolved
 ```
 
-In `spec-differential` mode, perform baseline causality classification first. Only `candidate-introduced` and `candidate-expanded` findings then receive `consolidate | suppress | unresolved`; `baseline-identical` is a terminal inherited disposition for this invocation and does not enter the repair loop.
+In a differential mode, perform baseline causality classification first. Only `candidate-introduced` and `candidate-expanded` findings then receive `consolidate | suppress | unresolved`; `baseline-identical` is a terminal inherited disposition for that invocation and does not enter the repair loop.
 
 Apply all authorized repairs, rerun invalidated verification when executable behavior changed, and rerun both repository-wide candidate scanners. Repeat until the active mode's terminal invariant is satisfied or a concrete blocker makes further safe repair impossible.
 
@@ -198,7 +231,7 @@ After suppression changes, audit suppression health with the whole-repository Ar
 uv run --locked arid . --fail-on-stale --suppression-summary
 ```
 
-In standalone/default mode it must exit successfully with zero reportable duplicate groups and zero stale suppressions. In `spec-differential` mode, retain the native output/exit status for classification: a finding-caused non-zero result may remain only for machine-correlated `baseline-identical` groups, while operational/source-processing failures and candidate-attributable stale/invalid suppressions remain blocking.
+In standalone/default mode it must exit successfully with zero reportable duplicate groups and zero stale suppressions. In a differential mode, retain the native output/exit status for classification: a finding-caused non-zero result may remain only for machine-correlated `baseline-identical` groups, while operational/source-processing failures and candidate-attributable stale/invalid suppressions remain blocking.
 
 ### JSCPD
 
@@ -250,7 +283,7 @@ After every repair cycle:
 1. if executable Python source/tests changed through consolidation, invoke `$verify-code` for the affected change and consumer set;
 2. rerun Arid across the repository with stale-suppression enforcement;
 3. rerun JSCPD across the repository;
-4. in default mode, inspect remaining findings normally; in `spec-differential` mode, reuse exact baseline-identical correlations unless a repair/configuration/suppression change invalidated them;
+4. in default mode, inspect remaining findings normally; in a differential mode, reuse exact baseline-identical correlations unless a repair/configuration/suppression change invalidated them;
 5. continue until the active mode's terminal invariant is satisfied.
 
 Use:
@@ -260,7 +293,7 @@ uv run --locked arid . --fail-on-stale --suppression-summary
 jscpd .
 ```
 
-In standalone/default mode, the final successful native exit status for both tools must be zero. In `spec-differential` mode, a scanner may still report only machine-correlated `baseline-identical` findings; the differential wrapper/classification must prove candidate-introduced `0`, candidate-expanded `0`, unresolved `0`, candidate-attributable stale/invalid suppressions `0`, and operational errors `0`.
+In standalone/default mode, the final successful native exit status for both tools must be zero. In a differential mode, a scanner may still report only machine-correlated `baseline-identical` findings; the differential wrapper/classification must prove candidate-introduced `0`, candidate-expanded `0`, unresolved `0`, candidate-attributable stale/invalid suppressions `0`, and operational errors `0`.
 
 This skill does not commit independently when invoked as a child workflow. The owning lifecycle includes deduplication repairs in its normal candidate verification and commit/persistence process.
 
@@ -315,6 +348,37 @@ Finding disposition:
 - Actionable competing implementations remaining: 0
 ```
 
+`$implement-ticket` `ticket-differential` mode:
+
+```text
+DEDUPLICATION: PASS
+Mode: ticket-differential
+Baseline: <TICKET_BASELINE>
+Candidate: <exact ticket candidate state>
+
+Whole-project scope:
+- Arid candidate scan: .
+- Arid baseline scan: .
+- JSCPD candidate scan: .
+- JSCPD baseline scan: .
+
+Causality:
+- Candidate-introduced: 0
+- Candidate-expanded: 0
+- Baseline-identical: <n>
+- Unresolved: 0
+
+Health:
+- Candidate-attributable stale/invalid suppressions: 0
+- Arid operational/source-processing errors: 0
+- JSCPD operational errors: 0
+- Actionable competing implementations introduced/expanded by candidate: 0
+
+Repairs:
+- Consolidated/refactored: <n>
+- Justified and suppressed: <n>
+```
+
 `$verify-spec` `spec-differential` mode:
 
 ```text
@@ -346,4 +410,4 @@ Repairs:
 - Justified and suppressed: <n>
 ```
 
-If the tool cannot run, causality cannot be safely classified, a candidate-caused finding cannot be safely repaired, a required consolidation needs unresolved architecture, or another concrete external/tooling constraint prevents completion, report the exact blocker. In default mode, do not report PASS with a non-zero unsuppressed finding count. In `spec-differential` mode, do not fail merely because classified baseline-identical findings remain; do fail for any candidate-introduced, candidate-expanded, unresolved, stale/invalid-suppression, or operational count above zero.
+If the tool cannot run, causality cannot be safely classified, a candidate-caused finding cannot be safely repaired, a required consolidation needs unresolved architecture, or another concrete external/tooling constraint prevents completion, report the exact blocker. In default mode, do not report PASS with a non-zero unsuppressed finding count. In either differential mode, do not fail merely because classified baseline-identical findings remain; do fail for any candidate-introduced, candidate-expanded, unresolved, stale/invalid-suppression, or operational count above zero.

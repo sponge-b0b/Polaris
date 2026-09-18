@@ -411,6 +411,16 @@ The supported Python baseline is CPython 3.14 or newer. The repository's default
 
 Free-threaded qualification must verify both that the interpreter was built with free-threading support and that the GIL remains disabled after importing the supported Polaris runtime surface. A native extension that re-enables the GIL is a compatibility failure for the free-threaded target, not an acceptable invisible degradation.
 
+A concrete third-party dependency incompatibility may temporarily remove one adapter/runtime role from the GIL-disabled surface when all of the following are true:
+
+- the incompatibility is reproduced against the real owned adapter contract rather than inferred from package metadata;
+- the same Polaris semantics remain qualified on the standard GIL-enabled compatibility target;
+- the affected adapter fails fast before unsafe work when invoked under the unqualified GIL-disabled runtime;
+- the exception stays outside domain/application contracts and does not make Polaris correctness rely on incidental GIL serialization;
+- the dependency/runtime combination has an explicit requalification gate, and one green run is insufficient to remove the exception.
+
+ADR 0005 currently applies this bounded exception to the SQLAlchemy/greenlet-backed PostgreSQL adapter. The rest of the supported Polaris runtime remains free-threaded by default. A deployment that needs both may isolate the persistence role in a standard CPython process; this is the concrete dependency-incompatibility case already permitted by this architecture.
+
 The next CPython minor release is qualified during its release-candidate window when practical. Promotion to the new baseline occurs after project dependencies, tests, static analysis, and free-threaded qualification pass; calendar release alone does not waive those gates.
 
 Application and domain contracts must remain independent of whether a concrete runtime uses an event loop, worker thread, subinterpreter, or process. Runtime mechanism is an adapter or coordination choice unless a future product requirement explicitly makes it semantic.
@@ -974,7 +984,7 @@ external provider integrations as configured
 
 The initial/reference durable-store adapter is expected to be PostgreSQL. That is a deployment/adapter choice, not a requirement that application/domain contracts depend on PostgreSQL.
 
-Both processes execute the same application/domain code and use the same business truth. Either role may use asynchronous I/O and free-threaded multi-core execution where the workload benefits, without changing domain or application semantics.
+Both processes execute the same application/domain code and use the same business truth. Either role may use asynchronous I/O and free-threaded multi-core execution where the workload benefits, without changing domain or application semantics. When a verified native/dependency incompatibility excludes one adapter from the GIL-disabled surface, the affected role may run in a standard CPython process while preserving the same inward-owned contracts and durable business truth.
 
 This is not a microservice split. Worker/scheduler separation exists only to keep slow/background work from blocking interactive use.
 
@@ -1008,7 +1018,7 @@ Acceptance tests must assert canonical business facts, not merely that a workflo
 
 ## Architecture tests
 
-Import/dependency, vendor-insulation, port-contract, and legacy-isolation checks run continuously from R2 onward. Runtime qualification also covers the supported standard and free-threaded CPython targets; the free-threaded target must preserve a disabled GIL across the supported runtime import surface.
+Import/dependency, vendor-insulation, port-contract, and legacy-isolation checks run continuously from R2 onward. Runtime qualification also covers the supported standard and free-threaded CPython targets; the free-threaded target must preserve a disabled GIL across the supported runtime import surface. Any adapter-scoped dependency exception must additionally prove the adapter on its qualified compatibility runtime, fail fast on the excluded runtime before unsafe work, and be re-qualified under repeated fresh-process contract/concurrency runs before the exception is removed.
 
 ---
 

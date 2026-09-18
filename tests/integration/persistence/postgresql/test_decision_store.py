@@ -159,11 +159,11 @@ def _test_envelope(
 
 def _command(scope: DecisionScope) -> InitiateDecisionCommand:
     return InitiateDecisionCommand(
-        envelope=DecisionCommandEnvelope(
-            operation_id=OperationId(OPERATION_ID),
-            actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-            trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "request-321"),
+        envelope=_test_envelope(
+            OPERATION_ID,
+            reference="request-321",
             effective_at=RECORDED_AT,
+            decision_id=None,
             technical_provenance=TechnicalProvenance(
                 {
                     TechnicalReference(
@@ -1127,27 +1127,17 @@ def test_all_ordinary_lifecycle_mutations_round_trip_with_distinct_redeferral(
         decision_id = InvestmentDecisionId(DECISION_ID)
 
         def envelope(version: int, effective_at: datetime) -> DecisionCommandEnvelope:
-            return DecisionCommandEnvelope(
-                operation_id=OperationId(next(operation_ids)),
-                actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                trigger=TriggerProvenance(
-                    TriggerKind.HUMAN_REQUEST,
-                    f"ordinary-{version}",
-                ),
+            return _test_envelope(
+                next(operation_ids),
+                reference=f"ordinary-{version}",
                 effective_at=effective_at,
+                decision_id=decision_id,
+                expected_version=DecisionVersion(version),
                 technical_provenance=TechnicalProvenance(
                     {
                         TechnicalReference(
                             TechnicalReferenceKind.TRACE,
                             f"ordinary-trace-{version}",
-                        )
-                    }
-                ),
-                expected_versions=frozenset(
-                    {
-                        ExpectedDecisionVersion(
-                            decision_id,
-                            DecisionVersion(version),
                         )
                     }
                 ),

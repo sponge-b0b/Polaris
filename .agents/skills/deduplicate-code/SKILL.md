@@ -231,7 +231,7 @@ After suppression changes, audit suppression health with the whole-repository Ar
 uv run --locked arid . --fail-on-stale --suppression-summary
 ```
 
-In standalone/default mode it must exit successfully with zero reportable duplicate groups and zero stale suppressions. In `spec-differential` mode, retain the native output/exit status for classification: a finding-caused non-zero result may remain only for machine-correlated `baseline-identical` groups, while operational/source-processing failures and candidate-attributable stale/invalid suppressions remain blocking.
+In standalone/default mode it must exit successfully with zero reportable duplicate groups and zero stale suppressions. In a differential mode, retain the native output/exit status for classification: a finding-caused non-zero result may remain only for machine-correlated `baseline-identical` groups, while operational/source-processing failures and candidate-attributable stale/invalid suppressions remain blocking.
 
 ### JSCPD
 
@@ -293,7 +293,7 @@ uv run --locked arid . --fail-on-stale --suppression-summary
 jscpd .
 ```
 
-In standalone/default mode, the final successful native exit status for both tools must be zero. In `spec-differential` mode, a scanner may still report only machine-correlated `baseline-identical` findings; the differential wrapper/classification must prove candidate-introduced `0`, candidate-expanded `0`, unresolved `0`, candidate-attributable stale/invalid suppressions `0`, and operational errors `0`.
+In standalone/default mode, the final successful native exit status for both tools must be zero. In a differential mode, a scanner may still report only machine-correlated `baseline-identical` findings; the differential wrapper/classification must prove candidate-introduced `0`, candidate-expanded `0`, unresolved `0`, candidate-attributable stale/invalid suppressions `0`, and operational errors `0`.
 
 This skill does not commit independently when invoked as a child workflow. The owning lifecycle includes deduplication repairs in its normal candidate verification and commit/persistence process.
 

@@ -448,6 +448,34 @@ For a **Spec Review remediation** proposal, validate against:
 
 Completeness must be defined from those authoritative universes, never from what the draft happened to mention.
 
+### Exact Spec-cell identity
+
+For every **fresh Spec** proposal, the parent Ticket Coverage Manifest may route and disposition only cells that exist in the exact current `$spec-contract` manifest.
+
+Materialize both ID sets mechanically:
+
+```text
+SOURCE_SPEC_CELL_IDS = exact Spec-cell IDs emitted by the bound $spec-contract manifest
+TCM_SPEC_CELL_IDS = exact Spec-cell IDs rendered in the proposed Ticket Coverage Manifest
+```
+
+Require exact bidirectional equality:
+
+```text
+SOURCE_SPEC_CELL_IDS - TCM_SPEC_CELL_IDS = ∅
+TCM_SPEC_CELL_IDS - SOURCE_SPEC_CELL_IDS = ∅
+SOURCE_SPEC_CELL_IDS = TCM_SPEC_CELL_IDS
+source count = TCM Spec-cell count
+```
+
+The first difference detects missing source cells. The second detects **invented / non-source-derived cells**. Both are publication blockers.
+
+A disposition such as `implementation-ticket`, `verification-only`, `no-implementation-work`, `authoritative-exclusion`, or `deferred-conditional` is a disposition **of an existing source cell**. It never creates a new cell identity.
+
+Repository lifecycle rules, branch/baseline mechanics, publication preconditions, approval state, workflow metadata, tracker normalization, and other ticketing mechanics must remain proposal/readiness metadata unless the exact current `$spec-contract` independently emits them as Spec cells. Do not mint a `NORM-*` or any other cell merely because a mechanical condition matters to ticket publication.
+
+Regression falsifier: a proposal that contains every real source cell **plus one synthetic cell** must fail deterministic readiness with `Extra/non-source-derived Spec cells: 1`, even when all real cells are otherwise correctly routed.
+
 ### Deterministic-first validation
 
 Before making another semantic pass over ticket slicing, mechanically validate every mechanically decidable property. Prefer scripts, exact parsing, set equality, counts, hashes, and tracker/native relationship reads over model re-reading.
@@ -462,7 +490,11 @@ Source obligations/root cells complete: yes
 Architecture/design obligation coverage complete: yes
 Architecture/design obligations missing or ambiguous: 0
 Proposal coverage complete: yes
-Missing obligations/cells: 0
+Source Spec cells: <n>
+TCM Spec cells: <n>
+Missing source-derived Spec cells: 0
+Extra/non-source-derived Spec cells: 0
+Source/TCM Spec-cell ID sets equal: yes
 Ambiguous dispositions: 0
 Unclassified dispositions: 0
 Required remediation without ticket coverage: 0
@@ -507,6 +539,7 @@ Validation owner: $to-tickets
 Required independent verifier: $verify-ticket-decomposition
 Design delegation: 0
 Coverage: <n>/<n>; missing 0; ambiguous 0; unclassified 0
+Spec-cell identity: source <n>; TCM <n>; missing 0; extra 0; exact-set-equality yes
 Mechanics: template/lineage/branch/baseline/status/dependencies valid
 Repository-policy conflicts: 0
 Human verification required: no

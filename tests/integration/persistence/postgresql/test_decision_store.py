@@ -611,16 +611,7 @@ def test_subject_revision_replays_and_rejects_changed_request_after_restart(
 ) -> None:
     async def scenario() -> None:
         store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
-        envelope = _test_envelope(
-            MUTATION_OPERATION_ID,
-            reference="request-322",
-        )
-        command = ReviseDecisionSubjectCommand(
-            envelope=envelope,
-            decision_id=InvestmentDecisionId(DECISION_ID),
-            subject=DecisionSubject("Whether to increase the position"),
-            continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
-        )
+        command = _subject_revision_command()
         applied = await DecisionOrdinaryWorkService(
             store=store,
             now=lambda: MUTATION_RECORDED_AT,
@@ -639,11 +630,9 @@ def test_subject_revision_replays_and_rejects_changed_request_after_restart(
         try:
             replayed = await restarted_service.revise_subject(command)
             assert replayed == replace(applied, replayed=True)
-            changed = ReviseDecisionSubjectCommand(
-                envelope=envelope,
-                decision_id=InvestmentDecisionId(DECISION_ID),
+            changed = replace(
+                command,
                 subject=DecisionSubject("A different semantic request"),
-                continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
             )
             with pytest.raises(IdempotencyConflict):
                 await restarted_service.revise_subject(changed)

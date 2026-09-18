@@ -105,7 +105,7 @@ from polaris.infrastructure.persistence.postgresql.schema import (
     investment_decisions,
 )
 
-from .conftest import PostgresTestTarget, postgres_engine_store
+from .conftest import PostgresTestTarget, postgres_engine_store, postgres_row_counts
 
 RECORDED_AT = datetime(2026, 9, 17, 5, 0, tzinfo=UTC)
 ACTOR_ID = UUID("00000000-0000-4000-8000-000000000001")
@@ -464,23 +464,14 @@ def test_continuation_persists_only_a_restart_safe_receipt(
                 now=lambda: MUTATION_RECORDED_AT,
             ).initiate(command)
             assert replayed == replace(result, replayed=True)
-            async with restarted_engine.connect() as connection:
-                counts = []
-                for table in (
-                    decision_needs,
-                    investment_decisions,
-                    investment_decision_lifecycle_facts,
-                ):
-                    counts.append(
-                        await connection.scalar(select(func.count()).select_from(table))
-                    )
-                receipt_count = await connection.scalar(
-                    select(func.count()).select_from(
-                        investment_decision_command_receipts
-                    )
-                )
-            assert counts == [1, 1, 1]
-            assert receipt_count == 2
+            counts = await postgres_row_counts(
+                restarted_engine,
+                decision_needs,
+                investment_decisions,
+                investment_decision_lifecycle_facts,
+                investment_decision_command_receipts,
+            )
+            assert counts == (1, 1, 1, 2)
 
     asyncio.run(scenario())
 
@@ -516,18 +507,14 @@ def test_initiation_with_expected_version_commits_nothing(
                     store=store,
                     now=lambda: RECORDED_AT,
                 ).initiate(command)
-            async with engine.connect() as connection:
-                counts = []
-                for table in (
-                    decision_needs,
-                    investment_decisions,
-                    investment_decision_lifecycle_facts,
-                    investment_decision_command_receipts,
-                ):
-                    counts.append(
-                        await connection.scalar(select(func.count()).select_from(table))
-                    )
-            assert counts == [0, 0, 0, 0]
+            counts = await postgres_row_counts(
+                engine,
+                decision_needs,
+                investment_decisions,
+                investment_decision_lifecycle_facts,
+                investment_decision_command_receipts,
+            )
+            assert counts == (0, 0, 0, 0)
         finally:
             await engine.dispose()
 
@@ -811,17 +798,12 @@ def test_initiation_rejects_mutation_operation_id_after_restart(
                     now=lambda: initiation_at,
                     new_uuid=lambda: next(identities),
                 ).initiate(command)
-            async with restarted_engine.connect() as connection:
-                decision_count = await connection.scalar(
-                    select(func.count()).select_from(investment_decisions)
-                )
-                receipt_count = await connection.scalar(
-                    select(func.count()).select_from(
-                        investment_decision_command_receipts
-                    )
-                )
-            assert decision_count == 1
-            assert receipt_count == 2
+            counts = await postgres_row_counts(
+                restarted_engine,
+                investment_decisions,
+                investment_decision_command_receipts,
+            )
+            assert counts == (1, 2)
         finally:
             await restarted_engine.dispose()
 
@@ -2150,17 +2132,12 @@ def test_commit_revalidates_stale_empty_candidate_basis(
             assert raised.value.candidate_decision_ids == frozenset(
                 {InvestmentDecisionId(DECISION_ID)}
             )
-            async with engine.connect() as connection:
-                decision_count = await connection.scalar(
-                    select(func.count()).select_from(investment_decisions)
-                )
-                receipt_count = await connection.scalar(
-                    select(func.count()).select_from(
-                        investment_decision_command_receipts
-                    )
-                )
-            assert decision_count == 1
-            assert receipt_count == 1
+            counts = await postgres_row_counts(
+                engine,
+                investment_decisions,
+                investment_decision_command_receipts,
+            )
+            assert counts == (1, 1)
         finally:
             await engine.dispose()
 
@@ -2212,18 +2189,14 @@ def test_concurrent_different_operations_create_at_most_one_decision_and_need(
             outcomes = await asyncio.gather(first, second, return_exceptions=True)
             assert sum(not isinstance(item, Exception) for item in outcomes) == 1
             assert sum(isinstance(item, ContinuityConflict) for item in outcomes) == 1
-            async with engine.connect() as connection:
-                counts = []
-                for table in (
-                    decision_needs,
-                    investment_decisions,
-                    investment_decision_lifecycle_facts,
-                    investment_decision_command_receipts,
-                ):
-                    counts.append(
-                        await connection.scalar(select(func.count()).select_from(table))
-                    )
-            assert counts == [1, 1, 1, 1]
+            counts = await postgres_row_counts(
+                engine,
+                decision_needs,
+                investment_decisions,
+                investment_decision_lifecycle_facts,
+                investment_decision_command_receipts,
+            )
+            assert counts == (1, 1, 1, 1)
         finally:
             await engine.dispose()
 
@@ -2352,17 +2325,13 @@ def test_injected_failure_rolls_back_every_semantic_write(
             schema=postgres_target.schema,
         )
         try:
-            async with engine.connect() as connection:
-                for table in (
-                    decision_needs,
-                    investment_decisions,
-                    investment_decision_lifecycle_facts,
-                    investment_decision_command_receipts,
-                ):
-                    count = await connection.scalar(
-                        select(func.count()).select_from(table)
-                    )
-                    assert count == 0
+            assert await postgres_row_counts(
+                engine,
+                decision_needs,
+                investment_decisions,
+                investment_decision_lifecycle_facts,
+                investment_decision_command_receipts,
+            ) == (0, 0, 0, 0)
         finally:
             await engine.dispose()
 

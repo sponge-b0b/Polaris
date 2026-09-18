@@ -21,6 +21,7 @@ from polaris.application.decisions import (
     ExpectedDecisionVersion,
     IdempotencyConflict,
     InitiateDecisionCommand,
+    PersistenceUnavailable,
     ReviseDecisionSubjectCommand,
 )
 from polaris.application.decisions.lifecycle_correction import (
@@ -70,7 +71,9 @@ from polaris.infrastructure.persistence.postgresql import (
     create_postgres_engine,
 )
 from polaris.infrastructure.persistence.postgresql.schema import (
+    decision_needs,
     investment_decision_command_receipts,
+    investment_decision_lifecycle_facts,
     investment_decision_relationships,
     investment_decisions,
 )
@@ -842,6 +845,100 @@ def test_ordinary_and_renewal_initiation_share_one_continuity_guard(
                     select(func.count()).select_from(investment_decisions)
                 )
             assert decision_count == 2
+        finally:
+            await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+
+class _FailAfterRenewalWriteStore(PostgresDecisionStore):
+    def __init__(self, engine: AsyncEngine, fail_step: str) -> None:
+        super().__init__(engine)
+        self._fail_step = fail_step
+
+    def _write_completed(self, step: str) -> None:
+        if step == self._fail_step:
+            raise RuntimeError(f"injected renewal failure after {step}")
+
+
+@pytest.mark.parametrize(
+    "fail_step",
+    ["relationship_fact", "relationship_projection", "receipt"],
+)
+def test_renewal_initial_lineage_failure_rolls_back_entire_creation(
+    postgres_target: PostgresTestTarget,
+    fail_step: str,
+) -> None:
+    async def scenario() -> None:
+        engine = create_postgres_engine(
+            postgres_target.database_url, schema=postgres_target.schema
+        )
+        setup = PostgresDecisionStore(engine)
+        try:
+            predecessor = await _create_decision(
+                setup, recorded_at=BASE, label=f"rollback-{fail_step}"
+            )
+            renewal_at = BASE + timedelta(hours=1)
+            predecessor_version, _ = await _resolve(
+                setup,
+                predecessor,
+                recorded_at=renewal_at - timedelta(minutes=30),
+            )
+
+            tables = (
+                decision_needs,
+                investment_decisions,
+                investment_decision_lifecycle_facts,
+                investment_decision_relationships,
+                investment_decision_command_receipts,
+            )
+            async with engine.connect() as connection:
+                before_counts = tuple(
+                    await connection.scalar(select(func.count()).select_from(table))
+                    for table in tables
+                )
+            before_history = await setup.load_decision_history(predecessor)
+            before_relationships = await setup.load_relationship_history()
+
+            failing = _FailAfterRenewalWriteStore(engine, fail_step)
+            identities = iter((uuid4(), uuid4(), uuid4(), uuid4()))
+            with pytest.raises(PersistenceUnavailable):
+                await DecisionRelationshipService(
+                    reader=failing,
+                    store=failing,
+                    now=lambda: renewal_at,
+                    new_uuid=lambda: next(identities),
+                ).renew(
+                    RenewDecisionCommand(
+                        envelope=_envelope(
+                            operation_id=OperationId(uuid4()),
+                            effective_at=renewal_at,
+                            versions={predecessor: predecessor_version},
+                            reference=f"rollback-renewal-{fail_step}",
+                        ),
+                        need_statement="Renew after the resolved predecessor",
+                        subject=DecisionSubject("Renewed choice"),
+                        scope=DecisionScope.unresolved(),
+                        predecessors=(
+                            RenewalPredecessor(
+                                predecessor,
+                                RenewedFromRelationshipBasis(
+                                    (f"rollback-{fail_step}",)
+                                ),
+                            ),
+                        ),
+                    )
+                )
+
+            async with engine.connect() as connection:
+                after_counts = tuple(
+                    await connection.scalar(select(func.count()).select_from(table))
+                    for table in tables
+                )
+            assert after_counts == before_counts
+            assert await setup.load_decision_history(predecessor) == before_history
+            assert await setup.load_relationship_history() == before_relationships
         finally:
             await engine.dispose()
 

@@ -1,0 +1,428 @@
+name: Temporary ChatGPT verify ticket 323 closure
+
+on:
+  push:
+    branches:
+      - chatgpt/ticket-323-verifier
+    paths:
+      - '.github/workflows/tmp-chatgpt-ticket-323.yml'
+
+permissions:
+  contents: read
+  actions: read
+  issues: read
+  copilot-requests: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout verifier transport
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: transport
+          fetch-depth: 1
+
+      - name: Checkout immutable ticket candidate
+        uses: actions/checkout@v4
+        with:
+          ref: 30ecf25738b8cf4c5ba19d22b3d40189adcde44a
+          path: candidate
+          fetch-depth: 0
+
+      - name: Bind immutable candidate and materialize durable authority
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TICKET_BASELINE: d7c7010b6db7ed3ee96888e2a983e48e06415153
+          TICKET_CANDIDATE: 30ecf25738b8cf4c5ba19d22b3d40189adcde44a
+          EXPECTED_STATE: 9b5a04434f9e0aba0a2c2e09bdebf0c3cb26838afe6d8a089293a8fdd017be91
+        run: |
+          set -euo pipefail
+
+          test "$(git -C candidate rev-parse HEAD)" = "$TICKET_CANDIDATE"
+          test "$(git -C candidate rev-parse HEAD^)" = "$TICKET_BASELINE"
+          test -z "$(git -C candidate status --porcelain)"
+
+          mkdir -p transport/.verifier-input
+
+          gh api repos/sponge-b0b/Polaris/issues/323             > transport/.verifier-input/ticket-323.json
+          gh api repos/sponge-b0b/Polaris/issues/280             > transport/.verifier-input/spec-280.json
+          gh api repos/sponge-b0b/Polaris/issues/279             > transport/.verifier-input/spec-279.json
+          gh api repos/sponge-b0b/Polaris/issues/278             > transport/.verifier-input/spec-278.json
+          gh api repos/sponge-b0b/Polaris/issues/322             > transport/.verifier-input/ticket-322.json
+          gh api repos/sponge-b0b/Polaris/issues/326             > transport/.verifier-input/ticket-326.json
+          gh api repos/sponge-b0b/Polaris/issues/comments/5722376855             > transport/.verifier-input/checkpoint-323.json
+          gh api repos/sponge-b0b/Polaris/issues/comments/5708818969             > transport/.verifier-input/ticket-coverage-manifest-280.json
+
+          git -C candidate diff --no-renames             "$TICKET_BASELINE..$TICKET_CANDIDATE"             > transport/.verifier-input/candidate.diff
+
+          git -C candidate diff --no-renames --stat             "$TICKET_BASELINE..$TICKET_CANDIDATE"             > transport/.verifier-input/candidate-stat.txt
+
+          state="$(
+            cd candidate
+            TICKET_BASELINE="$TICKET_BASELINE" python - <<'PY'
+          import hashlib
+          import os
+          import stat
+          import subprocess
+
+          baseline = os.environ["TICKET_BASELINE"]
+
+          def git_paths(*args: str) -> list[bytes]:
+              result = subprocess.run(
+                  ["git", *args],
+                  check=True,
+                  stdout=subprocess.PIPE,
+              )
+              return [path for path in result.stdout.split(b"\0") if path]
+
+          paths = set(
+              git_paths(
+                  "diff",
+                  "--no-renames",
+                  "--name-only",
+                  "-z",
+                  baseline,
+                  "--",
+              )
+          )
+          paths.update(
+              git_paths(
+                  "ls-files",
+                  "--others",
+                  "--exclude-standard",
+                  "-z",
+              )
+          )
+
+          candidate = hashlib.sha256()
+
+          for raw_path in sorted(paths):
+              path = os.fsdecode(raw_path)
+              candidate.update(b"path\0")
+              candidate.update(raw_path)
+              candidate.update(b"\0")
+
+              try:
+                  metadata = os.lstat(path)
+              except FileNotFoundError:
+                  candidate.update(b"state\0DELETED\0")
+                  continue
+
+              if stat.S_ISLNK(metadata.st_mode):
+                  mode = b"120000"
+                  content_hash = hashlib.sha256(
+                      os.fsencode(os.readlink(path))
+                  ).hexdigest()
+              elif stat.S_ISREG(metadata.st_mode):
+                  mode = (
+                      b"100755"
+                      if metadata.st_mode & stat.S_IXUSR
+                      else b"100644"
+                  )
+                  digest = hashlib.sha256()
+                  with open(path, "rb") as handle:
+                      for chunk in iter(
+                          lambda: handle.read(1024 * 1024),
+                          b"",
+                      ):
+                          digest.update(chunk)
+                  content_hash = digest.hexdigest()
+              else:
+                  raise SystemExit(
+                      f"unsupported candidate path type: {path}"
+                  )
+
+              candidate.update(b"mode\0")
+              candidate.update(mode)
+              candidate.update(b"\0sha256\0")
+              candidate.update(content_hash.encode("ascii"))
+              candidate.update(b"\0")
+
+          print(candidate.hexdigest())
+          PY
+          )"
+
+          test "$state" = "$EXPECTED_STATE"
+          printf '%s\n' "$state"             > transport/.verifier-input/pre-verifier-state.txt
+
+      - name: Install current Copilot CLI
+        run: npm install --global @github/copilot
+
+      - name: Fresh independent ticket closure verification
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+          COPILOT_MCP_TOOL_CACHE: 'false'
+        run: |
+          set -euo pipefail
+
+          cat > "$RUNNER_TEMP/prompt.txt" <<'PROMPT'
+          You are the genuinely fresh, non-mutating semantic verifier leaf
+          for Polaris `$verify-ticket-closure` on ticket #323,
+          "Make Decision initiation continuity-safe and restart-idempotent".
+
+          You did NOT implement this candidate and did not participate in
+          the parent session's acceptance reconciliation. Do not repair
+          anything, edit files, commit, push, comment, close issues,
+          mutate tracker state, or delegate semantic verification.
+
+          Execute the CURRENT verifier procedure in:
+          - `candidate/.agents/skills/verify-ticket-closure/SKILL.md`
+          - current root policy `candidate/AGENTS.md`
+
+          Immutable dispatch binding:
+          - Ticket: #323
+          - Mode: ordinary
+          - Parent Spec: #280
+          - Ticket branch: spec-280
+          - Ticket baseline:
+            d7c7010b6db7ed3ee96888e2a983e48e06415153
+          - Candidate commit:
+            30ecf25738b8cf4c5ba19d22b3d40189adcde44a
+          - Candidate state:
+            9b5a04434f9e0aba0a2c2e09bdebf0c3cb26838afe6d8a089293a8fdd017be91
+          - Closure checkpoint comment: 5722376855
+          - Checkpoint stage/attempt:
+            awaiting-closure-verification / Attempt 2
+          - Architecture obligations: None
+          - Spec obligations:
+            US-1, US-3, US-24, US-25, US-26, US-27, US-28,
+            US-29, US-30, US-31, US-32, US-41, US-42,
+            ID-4, ID-9, ID-10, ID-18, ID-20, ID-21, ID-22,
+            ID-23, ID-29, ID-30,
+            TD-1, TD-3, TD-6, TD-7, TD-9, TD-10, TD-11,
+            TD-12, TD-32, TD-34, NORM-1
+
+          Durable tracker inputs are materialized read-only under:
+          - `transport/.verifier-input/ticket-323.json`
+          - `transport/.verifier-input/spec-280.json`
+          - `transport/.verifier-input/spec-279.json`
+          - `transport/.verifier-input/spec-278.json`
+          - `transport/.verifier-input/ticket-322.json`
+          - `transport/.verifier-input/ticket-326.json`
+          - `transport/.verifier-input/checkpoint-323.json`
+          - `transport/.verifier-input/ticket-coverage-manifest-280.json`
+          - `transport/.verifier-input/candidate.diff`
+          - `transport/.verifier-input/candidate-stat.txt`
+          - `transport/.verifier-input/pre-verifier-state.txt`
+
+          IMPORTANT RETRY-STATE RULE:
+          Attempt 1's durable FAIL did NOT preserve enough stable
+          acceptance-cell, proof-plan, nested-domain, or member identity
+          state to reuse its reported "22 proven" dispositions safely.
+          The checkpoint now contains a clearly labeled
+          "Recovered Cumulative Retry State" that records this limitation.
+          Do NOT inherit those 22 semantic dispositions by count.
+          Reconstruct the complete authoritative acceptance universe,
+          proof plans, nested domains, and any required finite/discoverable
+          semantic domains from unchanged durable authority. The prior
+          defect and prior falsifiers remain mandatory adversarial
+          knowledge.
+
+          Mandatory prior finding to classify:
+          Cross-command OperationId reuse was hidden by initiation's
+          command-kind-filtered receipt lookup, allowing the shared
+          receipt uniqueness failure to be misclassified as persistence
+          unavailability instead of typed idempotency conflict.
+
+          Mandatory prior falsifiers:
+          - mutation receipt -> initiation
+          - relationship receipt -> initiation
+          - both after engine disposal / restart
+          - same-kind initiation replay remains stable
+          - same-operation / different initiation request remains typed
+            conflict
+
+          Mandatory AC4 challenge:
+          Ticket AC4 permits broad/global serialization only if it is the
+          smallest demonstrably correct PostgreSQL mechanism. Do not equate
+          "works" with "smallest demonstrably correct". Independently
+          determine whether the candidate and governing authority actually
+          justify this granularity. If not provable, leave the affected
+          acceptance cell unproven or violated.
+
+          Also attack at least these semantic seams from authority:
+          - conservative unresolved-operative continuity candidate
+            discovery and exact candidate known_at boundary;
+          - no-candidate vs explicit-create-new explanation and complete
+            candidate attribution/rationale;
+          - continuation creates neither Need nor Decision nor initiation
+            fact and replays safely after restart;
+          - changed candidate basis fails closed with zero partial writes;
+          - different-operation ordinary/ordinary and ordinary/renewal
+            races create at most one coherent new Decision/Need;
+          - concurrent grounding of one Need cannot both succeed;
+          - every transaction capable of materially changing the
+            continuity candidate set participates in the required
+            protection mechanism;
+          - same-operation replay/conflict and expected-version semantics
+            remain atomic with continuity checks;
+          - crash/failure boundaries do not leave partial Need, Decision,
+            lifecycle fact, relationship fact, projection, or receipt
+            success;
+          - persistence lock IDs/advisory keys/generation tokens do not
+            leak into lifecycle/domain provenance;
+          - raw SQLAlchemy/driver failures do not leak inward where the
+            ticket owns failure translation;
+          - application/domain contracts remain PostgreSQL/ORM-neutral.
+
+          Candidate source and governing designs are under `candidate/`.
+          Independently inspect relevant bounded sections, especially:
+          - docs/proposed/application-use-cases-investment-decision-lifecycle.md
+          - docs/proposed/investment-decisions-r2-foundation-public-contract.md
+          - docs/proposed/durable-persistence-investment-decision-history.md
+          - docs/proposed/investment-decisions-r2-decision-kernel-component-boundaries.md
+          - current application/domain initiation/continuity contracts
+          - exact changed production code and PostgreSQL integration tests
+
+          The checkpoint records candidate-bound technical evidence:
+          diff hygiene PASS; targeted Ruff/Mypy PASS; 69 affected
+          application/PostgreSQL tests PASS with GIL disabled and
+          SQLAlchemy pure-Python runtime; architecture invariants
+          305 PASS. A native SQLAlchemy C-extension/free-threaded crash
+          was also observed and is an Attention concern, not something to
+          erase. Treat test counts as evidence, never semantic authority.
+
+          Build and close the bounded Authority Source Coverage Manifest,
+          authoritative acceptance universe, proof plans, nested/domain
+          construction, architecture/decomposition integrity, production
+          paths, negative/fail-closed paths, and prior-finding retry state
+          exactly as the current skill requires.
+
+          Saturate the WHOLE current candidate before a verdict.
+          Do not stop on the first defect.
+          Do not repair.
+
+          On PASS, include all skill-required accounting and every required
+          Certified Closure Domain record.
+
+          On FAIL, include every independently actionable finding,
+          complete Cumulative Retry State, classification/owner where
+          required, and all prior-finding dispositions.
+
+          Return ONE complete `$verify-ticket-closure` result.
+
+          End with exactly one standalone verdict line:
+          TICKET CLOSURE: PASS
+          or
+          TICKET CLOSURE: FAIL
+          PROMPT
+
+          copilot -s             --no-custom-instructions             --disable-builtin-mcps             --deny-tool=shell,write,url,memory             --no-ask-user             --no-remote             --no-remote-export             < "$RUNNER_TEMP/prompt.txt"             | tee "$RUNNER_TEMP/verifier-output.txt"
+
+          test "$(
+            grep -c               '^TICKET CLOSURE: PASS$\|^TICKET CLOSURE: FAIL$'               "$RUNNER_TEMP/verifier-output.txt"
+          )" -eq 1
+
+      - name: Verify candidate integrity after semantic pass
+        env:
+          TICKET_BASELINE: d7c7010b6db7ed3ee96888e2a983e48e06415153
+          TICKET_CANDIDATE: 30ecf25738b8cf4c5ba19d22b3d40189adcde44a
+          EXPECTED_STATE: 9b5a04434f9e0aba0a2c2e09bdebf0c3cb26838afe6d8a089293a8fdd017be91
+        run: |
+          set -euo pipefail
+
+          test "$(git -C candidate rev-parse HEAD)" = "$TICKET_CANDIDATE"
+          test -z "$(git -C candidate status --porcelain)"
+
+          state="$(
+            cd candidate
+            TICKET_BASELINE="$TICKET_BASELINE" python - <<'PY'
+          import hashlib
+          import os
+          import stat
+          import subprocess
+
+          baseline = os.environ["TICKET_BASELINE"]
+
+          def git_paths(*args: str) -> list[bytes]:
+              result = subprocess.run(
+                  ["git", *args],
+                  check=True,
+                  stdout=subprocess.PIPE,
+              )
+              return [path for path in result.stdout.split(b"\0") if path]
+
+          paths = set(
+              git_paths(
+                  "diff",
+                  "--no-renames",
+                  "--name-only",
+                  "-z",
+                  baseline,
+                  "--",
+              )
+          )
+          paths.update(
+              git_paths(
+                  "ls-files",
+                  "--others",
+                  "--exclude-standard",
+                  "-z",
+              )
+          )
+
+          candidate = hashlib.sha256()
+
+          for raw_path in sorted(paths):
+              path = os.fsdecode(raw_path)
+              candidate.update(b"path\0")
+              candidate.update(raw_path)
+              candidate.update(b"\0")
+
+              try:
+                  metadata = os.lstat(path)
+              except FileNotFoundError:
+                  candidate.update(b"state\0DELETED\0")
+                  continue
+
+              if stat.S_ISLNK(metadata.st_mode):
+                  mode = b"120000"
+                  content_hash = hashlib.sha256(
+                      os.fsencode(os.readlink(path))
+                  ).hexdigest()
+              elif stat.S_ISREG(metadata.st_mode):
+                  mode = (
+                      b"100755"
+                      if metadata.st_mode & stat.S_IXUSR
+                      else b"100644"
+                  )
+                  digest = hashlib.sha256()
+                  with open(path, "rb") as handle:
+                      for chunk in iter(
+                          lambda: handle.read(1024 * 1024),
+                          b"",
+                      ):
+                          digest.update(chunk)
+                  content_hash = digest.hexdigest()
+              else:
+                  raise SystemExit(
+                      f"unsupported candidate path type: {path}"
+                  )
+
+              candidate.update(b"mode\0")
+              candidate.update(mode)
+              candidate.update(b"\0sha256\0")
+              candidate.update(content_hash.encode("ascii"))
+              candidate.update(b"\0")
+
+          print(candidate.hexdigest())
+          PY
+          )"
+
+          test "$state" = "$EXPECTED_STATE"
+
+          mkdir -p "$RUNNER_TEMP/ticket-323-verifier"
+          cp "$RUNNER_TEMP/verifier-output.txt"             "$RUNNER_TEMP/ticket-323-verifier/verifier-output.txt"
+          printf '%s\n' "$state"             > "$RUNNER_TEMP/ticket-323-verifier/candidate-state.txt"
+          grep             '^TICKET CLOSURE: PASS$\|^TICKET CLOSURE: FAIL$'             "$RUNNER_TEMP/verifier-output.txt"             > "$RUNNER_TEMP/ticket-323-verifier/verdict.txt"
+
+      - name: Upload verifier result
+        uses: actions/upload-artifact@v4
+        with:
+          name: ticket-323-verifier
+          path: ${{ runner.temp }}/ticket-323-verifier
+          retention-days: 7

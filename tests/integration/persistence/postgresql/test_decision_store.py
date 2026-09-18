@@ -221,58 +221,58 @@ def test_no_candidate_initiation_round_trips_after_restart(
         await store._engine.dispose()
 
         async with postgres_engine_store(postgres_target) as (restarted_engine, restarted):
-        receipt = await restarted.get_initiation_receipt(OperationId(OPERATION_ID))
-        assert receipt is not None
-        assert receipt.request.scope == scope
-        memory = DecisionMemoryService(reader=restarted, now=lambda: RECORDED_AT)
-        view = await memory.current(InvestmentDecisionId(DECISION_ID))
-        assert view.need.need_id == DecisionNeedId(NEED_ID)
-        assert view.subject == DecisionSubject("Whether to establish the position")
-        assert view.scope == scope
-        assert view.version.value == 1
-        assert isinstance(
-            view.lifecycle_interpretation,
-            DeterminateDecisionLifecycleInterpretation,
-        )
-        initiated = view.lifecycle_interpretation.support_fact_ids
-        assert initiated == frozenset({DecisionLifecycleFactId(FACT_ID)})
-        history = await restarted.load_decision_history(
-            InvestmentDecisionId(DECISION_ID)
-        )
-        assert history is not None
-        initiation = history[0]
-        assert isinstance(initiation, DecisionInitiated)
-        continuity = initiation.continuity
-        assert continuity.determination is (
-            DecisionInitiationDetermination.NO_CANDIDATES
-        )
-        assert continuity.candidate_decision_ids == frozenset()
-        assert continuity.known_at == RECORDED_AT
-        assert history[0].metadata.actor_attribution == (
-            KnownActorAttribution(ActorId(ACTOR_ID))
-        )
-        assert history[0].metadata.technical_provenance == (
-            _command(scope).envelope.technical_provenance
-        )
-        async with restarted_engine.connect() as connection:
-            projection = (
-                (await connection.execute(select(investment_decisions)))
-                .mappings()
-                .one()
+            receipt = await restarted.get_initiation_receipt(OperationId(OPERATION_ID))
+            assert receipt is not None
+            assert receipt.request.scope == scope
+            memory = DecisionMemoryService(reader=restarted, now=lambda: RECORDED_AT)
+            view = await memory.current(InvestmentDecisionId(DECISION_ID))
+            assert view.need.need_id == DecisionNeedId(NEED_ID)
+            assert view.subject == DecisionSubject("Whether to establish the position")
+            assert view.scope == scope
+            assert view.version.value == 1
+            assert isinstance(
+                view.lifecycle_interpretation,
+                DeterminateDecisionLifecycleInterpretation,
             )
-        assert projection["scope_completeness"] == scope.completeness.value
-        assert set(projection["scope_portfolio_ids"]) == {
-            identity.value for identity in scope.portfolio_ids
-        }
-        assert projection["lifecycle_interpretation_kind"] == "DETERMINATE"
-        assert projection["lifecycle_disposition"] == "unresolved"
-        assert projection["lifecycle_effective_at"] == RECORDED_AT
-        assert projection["lifecycle_known_at"] == RECORDED_AT
-        assert set(projection["lifecycle_support_fact_ids"]) == {FACT_ID}
-        assert projection["work_posture"] == "active"
-        assert projection["applicability"] == "operative"
-        assert projection["decision_version"] == 1
-        assert projection["rebuild_required"] is False
+            initiated = view.lifecycle_interpretation.support_fact_ids
+            assert initiated == frozenset({DecisionLifecycleFactId(FACT_ID)})
+            history = await restarted.load_decision_history(
+                InvestmentDecisionId(DECISION_ID)
+            )
+            assert history is not None
+            initiation = history[0]
+            assert isinstance(initiation, DecisionInitiated)
+            continuity = initiation.continuity
+            assert continuity.determination is (
+                DecisionInitiationDetermination.NO_CANDIDATES
+            )
+            assert continuity.candidate_decision_ids == frozenset()
+            assert continuity.known_at == RECORDED_AT
+            assert history[0].metadata.actor_attribution == (
+                KnownActorAttribution(ActorId(ACTOR_ID))
+            )
+            assert history[0].metadata.technical_provenance == (
+                _command(scope).envelope.technical_provenance
+            )
+            async with restarted_engine.connect() as connection:
+                projection = (
+                    (await connection.execute(select(investment_decisions)))
+                    .mappings()
+                    .one()
+                )
+            assert projection["scope_completeness"] == scope.completeness.value
+            assert set(projection["scope_portfolio_ids"]) == {
+                identity.value for identity in scope.portfolio_ids
+            }
+            assert projection["lifecycle_interpretation_kind"] == "DETERMINATE"
+            assert projection["lifecycle_disposition"] == "unresolved"
+            assert projection["lifecycle_effective_at"] == RECORDED_AT
+            assert projection["lifecycle_known_at"] == RECORDED_AT
+            assert set(projection["lifecycle_support_fact_ids"]) == {FACT_ID}
+            assert projection["work_posture"] == "active"
+            assert projection["applicability"] == "operative"
+            assert projection["decision_version"] == 1
+            assert projection["rebuild_required"] is False
 
     asyncio.run(scenario())
 
@@ -343,54 +343,54 @@ def test_explicit_create_new_persists_complete_candidate_basis(
         await store._engine.dispose()
 
         async with postgres_engine_store(postgres_target) as (restarted_engine, restarted):
-        history = await restarted.load_decision_history(result.decision_id)
-        assert history is not None
-        initiation = history[0]
-        assert isinstance(initiation, DecisionInitiated)
-        assert initiation.continuity.determination is (
-            DecisionInitiationDetermination.EXPLICIT_CREATE_NEW
-        )
-        assert initiation.continuity.candidate_decision_ids == frozenset(
-            {
-                InvestmentDecisionId(DECISION_ID),
-                InvestmentDecisionId(second_decision_id),
-            }
-        )
-        assert initiation.continuity.known_at == third_at
-        assert initiation.continuity.rationale == (
-            "Both candidates address different coherent choices"
-        )
-        assert initiation.metadata.actor_attribution == (
-            KnownActorAttribution(ActorId(ACTOR_ID))
-        )
-        async with restarted_engine.connect() as connection:
-            persisted = (
-                (
-                    await connection.execute(
-                        select(investment_decision_lifecycle_facts).where(
-                            investment_decision_lifecycle_facts.c.fact_id
-                            == third_fact_id
+            history = await restarted.load_decision_history(result.decision_id)
+            assert history is not None
+            initiation = history[0]
+            assert isinstance(initiation, DecisionInitiated)
+            assert initiation.continuity.determination is (
+                DecisionInitiationDetermination.EXPLICIT_CREATE_NEW
+            )
+            assert initiation.continuity.candidate_decision_ids == frozenset(
+                {
+                    InvestmentDecisionId(DECISION_ID),
+                    InvestmentDecisionId(second_decision_id),
+                }
+            )
+            assert initiation.continuity.known_at == third_at
+            assert initiation.continuity.rationale == (
+                "Both candidates address different coherent choices"
+            )
+            assert initiation.metadata.actor_attribution == (
+                KnownActorAttribution(ActorId(ACTOR_ID))
+            )
+            async with restarted_engine.connect() as connection:
+                persisted = (
+                    (
+                        await connection.execute(
+                            select(investment_decision_lifecycle_facts).where(
+                                investment_decision_lifecycle_facts.c.fact_id
+                                == third_fact_id
+                            )
                         )
                     )
+                    .mappings()
+                    .one()
                 )
-                .mappings()
-                .one()
+            assert persisted["continuity_determination"] == "explicit_create_new"
+            assert set(persisted["continuity_candidate_ids"]) == {
+                DECISION_ID,
+                second_decision_id,
+            }
+            assert persisted["continuity_known_at"] == third_at
+            assert persisted["continuity_rationale"] == (
+                "Both candidates address different coherent choices"
             )
-        assert persisted["continuity_determination"] == "explicit_create_new"
-        assert set(persisted["continuity_candidate_ids"]) == {
-            DECISION_ID,
-            second_decision_id,
-        }
-        assert persisted["continuity_known_at"] == third_at
-        assert persisted["continuity_rationale"] == (
-            "Both candidates address different coherent choices"
-        )
-        assert {
-            "continuity_lock_id",
-            "continuity_token",
-            "advisory_lock_key",
-            "generation_token",
-        }.isdisjoint(persisted)
+            assert {
+                "continuity_lock_id",
+                "continuity_token",
+                "advisory_lock_key",
+                "generation_token",
+            }.isdisjoint(persisted)
 
     asyncio.run(scenario())
 
@@ -431,29 +431,29 @@ def test_continuation_persists_only_a_restart_safe_receipt(
         await store._engine.dispose()
 
         async with postgres_engine_store(postgres_target) as (restarted_engine, restarted):
-        replayed = await DecisionInitiationService(
-            reader=restarted,
-            store=restarted,
-            now=lambda: MUTATION_RECORDED_AT,
-        ).initiate(command)
-        assert replayed == replace(result, replayed=True)
-        async with restarted_engine.connect() as connection:
-            counts = []
-            for table in (
-                decision_needs,
-                investment_decisions,
-                investment_decision_lifecycle_facts,
-            ):
-                counts.append(
-                    await connection.scalar(select(func.count()).select_from(table))
+            replayed = await DecisionInitiationService(
+                reader=restarted,
+                store=restarted,
+                now=lambda: MUTATION_RECORDED_AT,
+            ).initiate(command)
+            assert replayed == replace(result, replayed=True)
+            async with restarted_engine.connect() as connection:
+                counts = []
+                for table in (
+                    decision_needs,
+                    investment_decisions,
+                    investment_decision_lifecycle_facts,
+                ):
+                    counts.append(
+                        await connection.scalar(select(func.count()).select_from(table))
+                    )
+                receipt_count = await connection.scalar(
+                    select(func.count()).select_from(
+                        investment_decision_command_receipts
+                    )
                 )
-            receipt_count = await connection.scalar(
-                select(func.count()).select_from(
-                    investment_decision_command_receipts
-                )
-            )
-        assert counts == [1, 1, 1]
-        assert receipt_count == 2
+            assert counts == [1, 1, 1]
+            assert receipt_count == 2
 
     asyncio.run(scenario())
 
@@ -566,24 +566,24 @@ def test_subject_revision_commits_fact_projection_and_receipt_before_restart(
         await store._engine.dispose()
 
         async with postgres_engine_store(postgres_target) as (restarted_engine, restarted):
-        receipt = await restarted.get_mutation_receipt(
-            OperationId(MUTATION_OPERATION_ID)
-        )
-        assert receipt is not None
-        assert receipt.result == result
-        current = await restarted.load_decision_for_command(
-            InvestmentDecisionId(DECISION_ID),
-            known_at=MUTATION_RECORDED_AT,
-        )
-        assert current is not None
-        assert current.decision.subject == DecisionSubject(
-            "Whether to increase the position"
-        )
-        assert current.decision.version == DecisionVersion(2)
-        assert len(current.decision.history) == 2
-        assert current.decision.history[-1].metadata.fact_id == (
-            DecisionLifecycleFactId(MUTATION_FACT_ID)
-        )
+            receipt = await restarted.get_mutation_receipt(
+                OperationId(MUTATION_OPERATION_ID)
+            )
+            assert receipt is not None
+            assert receipt.result == result
+            current = await restarted.load_decision_for_command(
+                InvestmentDecisionId(DECISION_ID),
+                known_at=MUTATION_RECORDED_AT,
+            )
+            assert current is not None
+            assert current.decision.subject == DecisionSubject(
+                "Whether to increase the position"
+            )
+            assert current.decision.version == DecisionVersion(2)
+            assert len(current.decision.history) == 2
+            assert current.decision.history[-1].metadata.fact_id == (
+                DecisionLifecycleFactId(MUTATION_FACT_ID)
+            )
 
     asyncio.run(scenario())
 
@@ -1293,55 +1293,55 @@ def test_all_ordinary_lifecycle_mutations_round_trip_with_distinct_redeferral(
         await store._engine.dispose()
 
         async with postgres_engine_store(postgres_target) as (restarted_engine, restarted):
-        state = await restarted.load_decision_for_command(
-            decision_id,
-            known_at=instants[-1],
-        )
-        assert state is not None
-        history = state.decision.history
-        assert [fact.metadata.sequence.value for fact in history] == list(
-            range(1, 11)
-        )
-        assert [fact.metadata.decision_version.value for fact in history] == list(
-            range(1, 11)
-        )
-        assert [type(fact) for fact in history[1:]] == [
-            DecisionSubjectRevised,
-            DecisionScopeEstablished,
-            DecisionScopeRevised,
-            DecisionDeferred,
-            DecisionDeferred,
-            DecisionWorkResumed,
-            DecisionWorkWithdrawn,
-            DecisionWorkResumed,
-            DecisionExternallyResolved,
-        ]
-        deferrals = [fact for fact in history if isinstance(fact, DecisionDeferred)]
-        assert [fact.basis.decision_reference for fact in deferrals] == [
-            "human-deferral-1",
-            "human-deferral-2",
-        ]
-        assert state.decision.subject == DecisionSubject(
-            "Whether to increase the position"
-        )
-        assert state.decision.scope == DecisionScope.established(
-            PortfolioId(PORTFOLIO_A),
-            PortfolioId(PORTFOLIO_B),
-        )
-        assert state.decision.version == DecisionVersion(10)
-        for version, fact in enumerate(history[1:], start=1):
-            assert fact.metadata.actor_attribution == KnownActorAttribution(
-                ActorId(ACTOR_ID)
+            state = await restarted.load_decision_for_command(
+                decision_id,
+                known_at=instants[-1],
             )
-            assert fact.metadata.trigger.reference == f"ordinary-{version}"
-            assert fact.metadata.technical_provenance == TechnicalProvenance(
-                {
-                    TechnicalReference(
-                        TechnicalReferenceKind.TRACE,
-                        f"ordinary-trace-{version}",
-                    )
-                }
+            assert state is not None
+            history = state.decision.history
+            assert [fact.metadata.sequence.value for fact in history] == list(
+                range(1, 11)
             )
+            assert [fact.metadata.decision_version.value for fact in history] == list(
+                range(1, 11)
+            )
+            assert [type(fact) for fact in history[1:]] == [
+                DecisionSubjectRevised,
+                DecisionScopeEstablished,
+                DecisionScopeRevised,
+                DecisionDeferred,
+                DecisionDeferred,
+                DecisionWorkResumed,
+                DecisionWorkWithdrawn,
+                DecisionWorkResumed,
+                DecisionExternallyResolved,
+            ]
+            deferrals = [fact for fact in history if isinstance(fact, DecisionDeferred)]
+            assert [fact.basis.decision_reference for fact in deferrals] == [
+                "human-deferral-1",
+                "human-deferral-2",
+            ]
+            assert state.decision.subject == DecisionSubject(
+                "Whether to increase the position"
+            )
+            assert state.decision.scope == DecisionScope.established(
+                PortfolioId(PORTFOLIO_A),
+                PortfolioId(PORTFOLIO_B),
+            )
+            assert state.decision.version == DecisionVersion(10)
+            for version, fact in enumerate(history[1:], start=1):
+                assert fact.metadata.actor_attribution == KnownActorAttribution(
+                    ActorId(ACTOR_ID)
+                )
+                assert fact.metadata.trigger.reference == f"ordinary-{version}"
+                assert fact.metadata.technical_provenance == TechnicalProvenance(
+                    {
+                        TechnicalReference(
+                            TechnicalReferenceKind.TRACE,
+                            f"ordinary-trace-{version}",
+                        )
+                    }
+                )
 
     asyncio.run(scenario())
 
@@ -1681,37 +1681,37 @@ def test_unsupported_need_retraction_and_disconfirmation_round_trip(
         await store._engine.dispose()
 
         async with postgres_engine_store(postgres_target) as (restarted_engine, restarted):
-        state = await restarted.load_decision_for_command(
-            decision_id,
-            known_at=restored_at,
-        )
-        assert state is not None
-        assert [
-            fact.metadata.sequence.value for fact in state.decision.history
-        ] == [
-            1,
-            2,
-            3,
-        ]
-        first_correction = state.decision.history[-2]
-        second_correction = state.decision.history[-1]
-        assert isinstance(first_correction, DecisionLifecycleCorrected)
-        assert first_correction.replacement_disposition is (
-            DecisionLifecycleDisposition.NEED_RETRACTED_UNSUPPORTED
-        )
-        assert first_correction.replacement_basis == UnsupportedDecisionNeedBasis(
-            "need-was-unsupported"
-        )
-        assert isinstance(second_correction, DecisionLifecycleCorrected)
-        assert second_correction.effect is (
-            DecisionLifecycleCorrectionEffect.DISCONFIRM
-        )
-        assert second_correction.replacement_basis is None
-        receipt = await restarted.get_mutation_receipt(
-            OperationId(restored_operation_id)
-        )
-        assert receipt is not None
-        assert receipt.result == restored
+            state = await restarted.load_decision_for_command(
+                decision_id,
+                known_at=restored_at,
+            )
+            assert state is not None
+            assert [
+                fact.metadata.sequence.value for fact in state.decision.history
+            ] == [
+                1,
+                2,
+                3,
+            ]
+            first_correction = state.decision.history[-2]
+            second_correction = state.decision.history[-1]
+            assert isinstance(first_correction, DecisionLifecycleCorrected)
+            assert first_correction.replacement_disposition is (
+                DecisionLifecycleDisposition.NEED_RETRACTED_UNSUPPORTED
+            )
+            assert first_correction.replacement_basis == UnsupportedDecisionNeedBasis(
+                "need-was-unsupported"
+            )
+            assert isinstance(second_correction, DecisionLifecycleCorrected)
+            assert second_correction.effect is (
+                DecisionLifecycleCorrectionEffect.DISCONFIRM
+            )
+            assert second_correction.replacement_basis is None
+            receipt = await restarted.get_mutation_receipt(
+                OperationId(restored_operation_id)
+            )
+            assert receipt is not None
+            assert receipt.result == restored
 
     asyncio.run(scenario())
 
@@ -2218,21 +2218,21 @@ def test_restart_detects_projection_drift_without_trusting_projection(
         await store._engine.dispose()
 
         async with postgres_engine_store(postgres_target) as (restarted_engine, restarted):
-        with pytest.raises(PersistenceUnavailable):
-            await DecisionMemoryService(
-                reader=restarted,
-                now=lambda: RECORDED_AT,
-            ).current(InvestmentDecisionId(DECISION_ID))
-        history = await restarted.load_decision_history(
-            InvestmentDecisionId(DECISION_ID)
-        )
-        assert history is not None
-        assert history[0].subject == DecisionSubject(
-            "Whether to establish the position"
-        )
-        assert history[0].scope == DecisionScope.unresolved(
-            PortfolioId(PORTFOLIO_A)
-        )
+            with pytest.raises(PersistenceUnavailable):
+                await DecisionMemoryService(
+                    reader=restarted,
+                    now=lambda: RECORDED_AT,
+                ).current(InvestmentDecisionId(DECISION_ID))
+            history = await restarted.load_decision_history(
+                InvestmentDecisionId(DECISION_ID)
+            )
+            assert history is not None
+            assert history[0].subject == DecisionSubject(
+                "Whether to establish the position"
+            )
+            assert history[0].scope == DecisionScope.unresolved(
+                PortfolioId(PORTFOLIO_A)
+            )
 
     asyncio.run(scenario())
 
@@ -2249,16 +2249,16 @@ def test_restart_detects_version_only_projection_drift(
         await store._engine.dispose()
 
         async with postgres_engine_store(postgres_target) as (restarted_engine, restarted):
-        with pytest.raises(PersistenceUnavailable):
-            await DecisionMemoryService(
-                reader=restarted,
-                now=lambda: RECORDED_AT,
-            ).current(InvestmentDecisionId(DECISION_ID))
-        history = await restarted.load_decision_history(
-            InvestmentDecisionId(DECISION_ID)
-        )
-        assert history is not None
-        assert history[-1].metadata.decision_version == DecisionVersion(1)
+            with pytest.raises(PersistenceUnavailable):
+                await DecisionMemoryService(
+                    reader=restarted,
+                    now=lambda: RECORDED_AT,
+                ).current(InvestmentDecisionId(DECISION_ID))
+            history = await restarted.load_decision_history(
+                InvestmentDecisionId(DECISION_ID)
+            )
+            assert history is not None
+            assert history[-1].metadata.decision_version == DecisionVersion(1)
 
     asyncio.run(scenario())
 

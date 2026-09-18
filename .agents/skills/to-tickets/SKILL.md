@@ -965,12 +965,92 @@ Use project domain vocabulary and respect applicable ADRs.
 
 Look for useful prefactoring: make the change easy, then make the easy change.
 
+### Existing-Spec Manifest Reconciliation
+
+Before routing an ordinary Spec with existing linked implementation tickets into `$to-remediation-tickets`, first determine whether the invocation is a **manifest-reconciliation-only** repair.
+
+This path exists for cases where implementation/ticket semantics are already complete but the parent Ticket Coverage Manifest or decomposition bookkeeping is mechanically inconsistent with the exact current `$spec-contract` universe.
+
+It is legal only when deterministic reconstruction proves all of the following:
+
+```text
+Source artifact is an ordinary Spec: yes
+Current $spec-contract: VALID
+Current Ticket Coverage Manifest: exactly one
+Source Spec-cell IDs recovered: <n>
+Linked ticket set recovered exactly: yes
+Linked ticket body/lifecycle/native-relationship snapshot complete: yes
+
+Missing source-derived Spec cells after reconstruction: 0
+Extra/non-source-derived TCM cells to remove: <n>
+Legitimate source-derived routing rows changed: 0
+Existing linked-ticket Spec-obligation mappings changed: 0
+Existing linked-ticket Architecture-obligation mappings changed: 0
+Ticket acceptance/verification/preservation semantics changed: 0
+Ticket dependency/blocking semantics changed: 0
+Ticket labels/status/lifecycle state changed: 0
+Ticket branch/baseline metadata changed: 0
+New implementation/remediation work required: 0
+Tickets to create: 0
+Tickets to update: 0
+Tickets to close/reopen: 0
+```
+
+Reconstruct the proposed manifest from:
+
+1. the exact current `$spec-contract` cell universe;
+2. the exact existing linked-ticket `Spec obligations` / `Architecture obligations` provenance and native relationships;
+3. only source-derived non-ticket dispositions that already have valid durable authority;
+4. the current valid architecture/design source inventory and routing;
+5. deterministic current hashes/counts/identities required by the manifest format.
+
+For every source cell, require the reconciled destination/disposition to equal the already-valid source-derived routing. Removing a row whose ID is not in the current `$spec-contract` is allowed; inventing, reclassifying, or rerouting a real source cell is not manifest-only reconciliation.
+
+Preserve every legitimate ticket mapping exactly. Closed tickets are immutable historical contracts for this path. Do not regenerate their bodies, create replacement tickets, reopen them, rewrite them, or translate their completed work into new remediation tickets.
+
+When the eligibility witness above passes, the only allowed durable mutations are:
+
+* superseding/reconciling the parent `## Ticket Coverage Manifest` so its exact Spec-cell ID set equals the current `$spec-contract`;
+* deterministic manifest identities/counts/hashes needed by that reconciliation;
+* reconciling the applicable `<!-- decomposition-defects:v1 -->` record after successful exact readback.
+
+This is deterministic metadata/decomposition normalization. It does **not** invoke `$to-remediation-tickets`, does not require a new ticket proposal, does not require human approval, and does not require `$verify-ticket-decomposition` because no ticket or routing semantics may change.
+
+Before mutation emit internally:
+
+```text
+MANIFEST RECONCILIATION READINESS: PASS
+Spec: <identity>
+Source cells: <n>
+Reconciled TCM cells: <n>
+Missing source-derived cells: 0
+Extra/non-source-derived cells removed: <n>
+Legitimate routing changes: 0
+Ticket semantic mutations: 0
+Ticket lifecycle/relationship mutations: 0
+New remediation work: 0
+Allowed mutation surface: parent TCM + decomposition-defect bookkeeping only
+```
+
+If **any** eligibility line is non-zero, unknown, or would require changing a real source-cell disposition, ticket body, acceptance/preservation/verification obligation, dependency, lifecycle state, or implementation destination, manifest-only reconciliation is illegal. Fall through to the normal existing-ticket remediation path and its proposal/readiness/independent-certification/human-approval rules.
+
+After manifest-only mutation:
+
+1. re-read the parent TCM and require exact source/TCM Spec-cell set equality and exact expected valid routing;
+2. re-read every linked ticket body, lifecycle state, native parent, and blocking relationship and require equality with the pre-reconciliation snapshot;
+3. require created/updated/closed/reopened tickets = 0;
+4. only then mark the applicable decomposition defect reconciled;
+5. re-read that defect record exactly.
+
+A failed readback restores the defect to unresolved and blocks downstream handoff; do not convert the failure into ticket regeneration.
+
 ### 3. Resolve Ticket Mode
 
 Before drafting:
 
 * source title prefixed `Spec Review: ` → invoke `$to-remediation-tickets`;
-* existing Spec with linked implementation tickets → invoke `$to-remediation-tickets`;
+* ordinary Spec with linked implementation tickets and `MANIFEST RECONCILIATION READINESS: PASS` → execute **Existing-Spec Manifest Reconciliation** above and do not invoke `$to-remediation-tickets`;
+* existing Spec with linked implementation tickets that does not qualify for manifest-only reconciliation → invoke `$to-remediation-tickets`;
 * otherwise → fresh vertical-slice drafting.
 
 `$to-remediation-tickets` owns:
@@ -1047,7 +1127,7 @@ Present only a proposal that has passed both **Proposal Readiness Validation** a
 
 Present the proposed fresh breakdown or remediation delta.
 
-If the delta contains **only deterministic required ticket-metadata normalization** and does not change ticket scope, acceptance criteria, preservation obligations, blocking edges, dependencies, labels, or lifecycle state, skip user approval and continue directly to Step 5. For a metadata-only delta, independent semantic recertification is unnecessary only when deterministic comparison proves there is no semantic candidate change.
+If the delta contains **only deterministic required ticket/decomposition metadata normalization** and does not change ticket scope, acceptance criteria, preservation obligations, blocking edges, dependencies, labels, lifecycle state, or any real source-cell routing, skip user approval and continue directly to Step 5. This includes an eligible **Existing-Spec Manifest Reconciliation** above. For a metadata-only delta, independent semantic recertification is unnecessary only when deterministic comparison proves there is no semantic candidate change.
 
 For fresh Spec tickets, present a **publication-ready proposal**. The approval surface must show the exact semantic ticket bodies that were frozen, hashed, parent-validated, and independently certified—not a summary standing in for those bodies.
 
@@ -1132,6 +1212,10 @@ After the guard succeeds, continue to Step 5. Do not execute branch setup a seco
 
 Apply only the approved changes, or deterministic metadata-only normalization authorized by Step 4.
 
+For **Existing-Spec Manifest Reconciliation**, this publication authority is narrower than the ordinary bullets below: mutate only the parent TCM and applicable decomposition-defect bookkeeping. Ticket creation/update/closure/reopen, ticket body mutation, native relationship mutation, label/status mutation, and dependency mutation are forbidden.
+
+Otherwise:
+
 * **Local files** → create new ticket files and update or retire existing ones as required.
 * **Real issue tracker** → create new issues and apply approved updates or closures to existing open tickets.
 
@@ -1198,6 +1282,19 @@ For every created/updated ticket require exact agreement with the expected durab
 Explicitly fail readback when any structural section contains serialized escape text in place of required formatting, including literal `\n` sequences used as line separators in `Blocked by` or another Markdown section.
 
 For a fresh Spec, re-read the parent `## Ticket Coverage Manifest` and require exactly one active current manifest for the approved decomposition state. Require its Spec/body/contract identities, ticket mappings, architecture/design source identities/anchors/dispositions, architecture-obligation routing, deferred/exclusion rows, and closure counts to equal the expected approved realization.
+
+For **Existing-Spec Manifest Reconciliation**, additionally require:
+
+```text
+Source/TCM Spec-cell ID sets equal: yes
+Missing source-derived cells: 0
+Extra/non-source-derived cells: 0
+Legitimate source-derived routing changes: 0
+Linked ticket body/lifecycle/native-relationship mutations: 0
+Tickets created/updated/closed/reopened: 0
+```
+
+Compare the linked-ticket post-state to the exact pre-reconciliation snapshot, not to a newly rendered ticket proposal.
 
 For remediation, re-read every durable remediation/root coverage artifact changed by publication and require the same exact approved semantics.
 

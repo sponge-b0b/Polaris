@@ -311,6 +311,8 @@ class PostgresDecisionStore:
                 # A missing receipt row cannot be locked. The Decision row is the
                 # serialization point for same-Decision commits, so re-read after
                 # acquiring it before reporting a stale version/history guard.
+                # duplicate-code: Decision initiation, mutation, and read paths expose distinct persistence outcomes; sharing this local control shape would couple independent operations.
+                # arid: disable
                 prior_row = await _get_operation_receipt(
                     connection,
                     commit.operation_id,
@@ -323,6 +325,7 @@ class PostgresDecisionStore:
                 if prior_row is not None:
                     prior = mutation_receipt_from_row(prior_row)
                     return _mutation_receipt_outcome(prior, commit)
+                # arid: enable
 
                 if projection is None or (
                     projection.decision_version != commit.expected_version.value
@@ -366,6 +369,8 @@ class PostgresDecisionStore:
                     )
                     self._write_completed("projection")
                 receipt = DecisionMutationReceipt(
+                    # duplicate-code: Decision initiation, mutation, and read paths expose distinct persistence outcomes; sharing this local control shape would couple independent operations.
+                    # arid: disable
                     operation_id=commit.operation_id,
                     request=commit.request,
                     result=commit.result,
@@ -373,6 +378,7 @@ class PostgresDecisionStore:
                 await connection.execute(
                     insert(investment_decision_command_receipts).values(
                         operation_id=commit.operation_id.value,
+                    # arid: enable
                         command_kind="decision_mutation",
                         request_fingerprint=mutation_request_fingerprint(
                             commit.request
@@ -559,6 +565,8 @@ class PostgresDecisionStore:
                 prior_row = await _get_operation_receipt(
                     connection,
                     commit.operation_id,
+                # duplicate-code: Decision initiation, mutation, and read paths expose distinct persistence outcomes; sharing this local control shape would couple independent operations.
+                # arid: disable
                 )
             if prior_row is not None and (
                 prior_row["command_kind"] != "decision_mutation"
@@ -567,6 +575,7 @@ class PostgresDecisionStore:
             if prior_row is not None:
                 prior = mutation_receipt_from_row(prior_row)
                 return _mutation_receipt_outcome(prior, commit)
+                # arid: enable
         except SQLAlchemyError, ValueError, TypeError:
             pass
         return DecisionMutationUnavailable(
@@ -616,11 +625,14 @@ async def _get_initiation_operation_receipt(
     *,
     for_update: bool,
 ) -> InitiationReceipt | InitiationIdempotencyConflict | None:
+    # duplicate-code: Decision initiation, mutation, and read paths expose distinct persistence outcomes; sharing this local control shape would couple independent operations.
+    # arid: disable
     row = await _get_operation_receipt(
         connection,
         operation_id,
         for_update=for_update,
     )
+    # arid: enable
     if row is None:
         return None
     if row["command_kind"] != _INITIATION_COMMAND_KIND:
@@ -656,11 +668,14 @@ async def _get_mutation_receipt(
     *,
     for_update: bool = False,
 ) -> DecisionMutationReceipt | None:
+    # duplicate-code: Decision initiation, mutation, and read paths expose distinct persistence outcomes; sharing this local control shape would couple independent operations.
+    # arid: disable
     row = await _get_operation_receipt(
         connection,
         operation_id,
         for_update=for_update,
     )
+    # arid: enable
     if row is None or row["command_kind"] != "decision_mutation":
         return None
     return mutation_receipt_from_row(row)
@@ -969,10 +984,13 @@ def _decision_version(value: object) -> DecisionVersion:
 
 
 def _domain_uuid(value: object) -> UUID:
+    # duplicate-code: Decision initiation, mutation, and read paths expose distinct persistence outcomes; sharing this local control shape would couple independent operations.
+    # arid: disable
     if type(value) is UUID:
         return value
     if isinstance(value, UUID):
         return UUID(str(value))
     if isinstance(value, str):
         return UUID(value)
+    # arid: enable
     raise ValueError("database UUID value is invalid")

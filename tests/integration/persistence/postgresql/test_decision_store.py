@@ -674,15 +674,12 @@ def test_subject_and_scope_no_ops_persist_receipts_without_changing_decision(
         decision_id = InvestmentDecisionId(DECISION_ID)
 
         def envelope(operation_id: UUID) -> DecisionCommandEnvelope:
-            return DecisionCommandEnvelope(
-                operation_id=OperationId(operation_id),
-                actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "no-op"),
+            return _test_envelope(
+                operation_id,
+                reference="no-op",
                 effective_at=MUTATION_RECORDED_AT,
-                technical_provenance=TechnicalProvenance(),
-                expected_versions=frozenset(
-                    {ExpectedDecisionVersion(decision_id, DecisionVersion(1))}
-                ),
+                decision_id=decision_id,
+                expected_version=DecisionVersion(1),
             )
 
         subject_command = ReviseDecisionSubjectCommand(
@@ -1093,18 +1090,12 @@ def test_concurrent_same_operation_replays_or_reports_idempotency_conflict(
 
         def command(subject: str) -> ReviseDecisionSubjectCommand:
             return ReviseDecisionSubjectCommand(
-                DecisionCommandEnvelope(
-                    operation_id=OperationId(MUTATION_OPERATION_ID),
-                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                    trigger=TriggerProvenance(
-                        TriggerKind.HUMAN_REQUEST,
-                        "same-operation-race",
-                    ),
+                _test_envelope(
+                    MUTATION_OPERATION_ID,
+                    reference="same-operation-race",
                     effective_at=MUTATION_RECORDED_AT,
-                    technical_provenance=TechnicalProvenance(),
-                    expected_versions=frozenset(
-                        {ExpectedDecisionVersion(decision_id, DecisionVersion(1))}
-                    ),
+                    decision_id=decision_id,
+                    expected_version=DecisionVersion(1),
                 ),
                 decision_id,
                 DecisionSubject(subject),
@@ -1405,18 +1396,12 @@ def test_concurrent_future_corrections_use_history_tail_when_version_does_not_ad
         )
         await resolution_service.apply_substantive_resolution(
             ApplySubstantiveResolutionCommand(
-                DecisionCommandEnvelope(
-                    operation_id=OperationId(MUTATION_OPERATION_ID),
-                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                    trigger=TriggerProvenance(
-                        TriggerKind.HUMAN_REQUEST,
-                        "resolution",
-                    ),
+                _test_envelope(
+                    MUTATION_OPERATION_ID,
+                    reference="resolution",
                     effective_at=MUTATION_RECORDED_AT,
-                    technical_provenance=TechnicalProvenance(),
-                    expected_versions=frozenset(
-                        {ExpectedDecisionVersion(decision_id, DecisionVersion(1))}
-                    ),
+                    decision_id=decision_id,
+                    expected_version=DecisionVersion(1),
                 ),
                 decision_id,
                 resolution,
@@ -1436,18 +1421,12 @@ def test_concurrent_future_corrections_use_history_tail_when_version_does_not_ad
             operation: UUID, reference: str
         ) -> RecordDecisionLifecycleCorrectionCommand:
             return RecordDecisionLifecycleCorrectionCommand(
-                envelope=DecisionCommandEnvelope(
-                    operation_id=OperationId(operation),
-                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                    trigger=TriggerProvenance(
-                        TriggerKind.HUMAN_REQUEST,
-                        reference,
-                    ),
+                envelope=_test_envelope(
+                    operation,
+                    reference=reference,
                     effective_at=correction_effective_at,
-                    technical_provenance=TechnicalProvenance(),
-                    expected_versions=frozenset(
-                        {ExpectedDecisionVersion(decision_id, DecisionVersion(2))}
-                    ),
+                    decision_id=decision_id,
+                    expected_version=DecisionVersion(2),
                 ),
                 decision_id=decision_id,
                 target_fact_id=resolution_fact_id,
@@ -1545,18 +1524,12 @@ def test_concurrent_same_operation_future_correction_replays_after_tail_wait(
         correction_recorded_at = MUTATION_RECORDED_AT + timedelta(hours=1)
         correction_effective_at = correction_recorded_at + timedelta(hours=2)
         command = RecordDecisionLifecycleCorrectionCommand(
-            envelope=DecisionCommandEnvelope(
-                operation_id=OperationId(correction_operation_id),
-                actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                trigger=TriggerProvenance(
-                    TriggerKind.HUMAN_REQUEST,
-                    "same-correction-race",
-                ),
+            envelope=_test_envelope(
+                correction_operation_id,
+                reference="same-correction-race",
                 effective_at=correction_effective_at,
-                technical_provenance=TechnicalProvenance(),
-                expected_versions=frozenset(
-                    {ExpectedDecisionVersion(decision_id, DecisionVersion(2))}
-                ),
+                decision_id=decision_id,
+                expected_version=DecisionVersion(2),
             ),
             decision_id=decision_id,
             target_fact_id=DecisionLifecycleFactId(MUTATION_FACT_ID),
@@ -1614,18 +1587,12 @@ def test_unsupported_need_retraction_and_disconfirmation_round_trip(
         )
         retracted = await correction_service.retract_unsupported_decision_need(
             RetractUnsupportedDecisionNeedCommand(
-                envelope=DecisionCommandEnvelope(
-                    operation_id=OperationId(MUTATION_OPERATION_ID),
-                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                    trigger=TriggerProvenance(
-                        TriggerKind.HUMAN_REQUEST,
-                        "unsupported-need",
-                    ),
+                envelope=_test_envelope(
+                    MUTATION_OPERATION_ID,
+                    reference="unsupported-need",
                     effective_at=MUTATION_RECORDED_AT,
-                    technical_provenance=TechnicalProvenance(),
-                    expected_versions=frozenset(
-                        {ExpectedDecisionVersion(decision_id, DecisionVersion(1))}
-                    ),
+                    decision_id=decision_id,
+                    expected_version=DecisionVersion(1),
                 ),
                 decision_id=decision_id,
                 correction_basis=DecisionLifecycleCorrectionBasis("need-correction"),
@@ -1644,18 +1611,12 @@ def test_unsupported_need_retraction_and_disconfirmation_round_trip(
             new_uuid=lambda: restored_fact_id,
         ).record_lifecycle_correction(
             RecordDecisionLifecycleCorrectionCommand(
-                envelope=DecisionCommandEnvelope(
-                    operation_id=OperationId(restored_operation_id),
-                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                    trigger=TriggerProvenance(
-                        TriggerKind.HUMAN_REQUEST,
-                        "restore-need",
-                    ),
+                envelope=_test_envelope(
+                    restored_operation_id,
+                    reference="restore-need",
                     effective_at=restored_at,
-                    technical_provenance=TechnicalProvenance(),
-                    expected_versions=frozenset(
-                        {ExpectedDecisionVersion(decision_id, DecisionVersion(2))}
-                    ),
+                    decision_id=decision_id,
+                    expected_version=DecisionVersion(2),
                 ),
                 decision_id=decision_id,
                 target_fact_id=DecisionLifecycleFactId(MUTATION_FACT_ID),
@@ -1801,18 +1762,12 @@ def test_decision_memory_reconstructs_late_sibling_corrections_after_restart(
             new_uuid=lambda: MUTATION_FACT_ID,
         ).apply_substantive_resolution(
             ApplySubstantiveResolutionCommand(
-                DecisionCommandEnvelope(
-                    operation_id=OperationId(MUTATION_OPERATION_ID),
-                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                    trigger=TriggerProvenance(
-                        TriggerKind.HUMAN_REQUEST,
-                        "initial-resolution",
-                    ),
+                _test_envelope(
+                    MUTATION_OPERATION_ID,
+                    reference="initial-resolution",
                     effective_at=MUTATION_RECORDED_AT,
-                    technical_provenance=TechnicalProvenance(),
-                    expected_versions=frozenset(
-                        {ExpectedDecisionVersion(decision_id, DecisionVersion(1))}
-                    ),
+                    decision_id=decision_id,
+                    expected_version=DecisionVersion(1),
                 ),
                 decision_id,
                 TrustedHumanInvestmentDecisionBasis(
@@ -1837,18 +1792,12 @@ def test_decision_memory_reconstructs_late_sibling_corrections_after_restart(
             new_uuid=lambda: external_fact,
         ).record_lifecycle_correction(
             RecordDecisionLifecycleCorrectionCommand(
-                envelope=DecisionCommandEnvelope(
-                    operation_id=OperationId(external_operation),
-                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                    trigger=TriggerProvenance(
-                        TriggerKind.HUMAN_REQUEST,
-                        "late-external-qualification",
-                    ),
+                envelope=_test_envelope(
+                    external_operation,
+                    reference="late-external-qualification",
                     effective_at=RECORDED_AT + timedelta(minutes=30),
-                    technical_provenance=TechnicalProvenance(),
-                    expected_versions=frozenset(
-                        {ExpectedDecisionVersion(decision_id, DecisionVersion(2))}
-                    ),
+                    decision_id=decision_id,
+                    expected_version=DecisionVersion(2),
                 ),
                 decision_id=decision_id,
                 target_fact_id=resolution_fact_id,
@@ -1870,18 +1819,12 @@ def test_decision_memory_reconstructs_late_sibling_corrections_after_restart(
             new_uuid=lambda: equivalent_fact,
         ).record_lifecycle_correction(
             RecordDecisionLifecycleCorrectionCommand(
-                envelope=DecisionCommandEnvelope(
-                    operation_id=OperationId(equivalent_operation),
-                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                    trigger=TriggerProvenance(
-                        TriggerKind.HUMAN_REQUEST,
-                        "equivalent-substantive-qualification",
-                    ),
+                envelope=_test_envelope(
+                    equivalent_operation,
+                    reference="equivalent-substantive-qualification",
                     effective_at=MUTATION_RECORDED_AT,
-                    technical_provenance=TechnicalProvenance(),
-                    expected_versions=frozenset(
-                        {ExpectedDecisionVersion(decision_id, external.version)}
-                    ),
+                    decision_id=decision_id,
+                    expected_version=external.version,
                 ),
                 decision_id=decision_id,
                 target_fact_id=resolution_fact_id,
@@ -1906,18 +1849,12 @@ def test_decision_memory_reconstructs_late_sibling_corrections_after_restart(
             new_uuid=lambda: restoration_fact,
         ).record_lifecycle_correction(
             RecordDecisionLifecycleCorrectionCommand(
-                envelope=DecisionCommandEnvelope(
-                    operation_id=OperationId(restoration_operation),
-                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                    trigger=TriggerProvenance(
-                        TriggerKind.HUMAN_REQUEST,
-                        "restore-external-branch",
-                    ),
+                envelope=_test_envelope(
+                    restoration_operation,
+                    reference="restore-external-branch",
                     effective_at=restoration_recorded_at,
-                    technical_provenance=TechnicalProvenance(),
-                    expected_versions=frozenset(
-                        {ExpectedDecisionVersion(decision_id, equivalent.version)}
-                    ),
+                    decision_id=decision_id,
+                    expected_version=equivalent.version,
                 ),
                 decision_id=decision_id,
                 target_fact_id=DecisionLifecycleFactId(external_fact),
@@ -2047,18 +1984,12 @@ def test_decision_memory_restores_deferred_posture_after_disconfirmation(
             new_uuid=lambda: deferral_fact,
         ).apply_human_deferral(
             ApplyHumanDeferralCommand(
-                DecisionCommandEnvelope(
-                    operation_id=OperationId(deferral_operation),
-                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                    trigger=TriggerProvenance(
-                        TriggerKind.HUMAN_REQUEST,
-                        "defer-before-resolution",
-                    ),
+                _test_envelope(
+                    deferral_operation,
+                    reference="defer-before-resolution",
                     effective_at=deferred_at,
-                    technical_provenance=TechnicalProvenance(),
-                    expected_versions=frozenset(
-                        {ExpectedDecisionVersion(decision_id, DecisionVersion(1))}
-                    ),
+                    decision_id=decision_id,
+                    expected_version=DecisionVersion(1),
                 ),
                 decision_id,
                 TrustedHumanInvestmentDecisionBasis(
@@ -2074,18 +2005,12 @@ def test_decision_memory_restores_deferred_posture_after_disconfirmation(
             new_uuid=lambda: resolution_fact,
         ).apply_substantive_resolution(
             ApplySubstantiveResolutionCommand(
-                DecisionCommandEnvelope(
-                    operation_id=OperationId(resolution_operation),
-                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                    trigger=TriggerProvenance(
-                        TriggerKind.HUMAN_REQUEST,
-                        "resolve-after-deferral",
-                    ),
+                _test_envelope(
+                    resolution_operation,
+                    reference="resolve-after-deferral",
                     effective_at=resolved_at,
-                    technical_provenance=TechnicalProvenance(),
-                    expected_versions=frozenset(
-                        {ExpectedDecisionVersion(decision_id, deferred.version)}
-                    ),
+                    decision_id=decision_id,
+                    expected_version=deferred.version,
                 ),
                 decision_id,
                 TrustedHumanInvestmentDecisionBasis(
@@ -2101,18 +2026,12 @@ def test_decision_memory_restores_deferred_posture_after_disconfirmation(
             new_uuid=lambda: correction_fact,
         ).record_lifecycle_correction(
             RecordDecisionLifecycleCorrectionCommand(
-                envelope=DecisionCommandEnvelope(
-                    operation_id=OperationId(correction_operation),
-                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                    trigger=TriggerProvenance(
-                        TriggerKind.HUMAN_REQUEST,
-                        "disconfirm-resolution",
-                    ),
+                envelope=_test_envelope(
+                    correction_operation,
+                    reference="disconfirm-resolution",
                     effective_at=corrected_at,
-                    technical_provenance=TechnicalProvenance(),
-                    expected_versions=frozenset(
-                        {ExpectedDecisionVersion(decision_id, resolved.version)}
-                    ),
+                    decision_id=decision_id,
+                    expected_version=resolved.version,
                 ),
                 decision_id=decision_id,
                 target_fact_id=DecisionLifecycleFactId(resolution_fact),

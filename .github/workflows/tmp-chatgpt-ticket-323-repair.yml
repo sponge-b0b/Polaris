@@ -33,12 +33,12 @@ jobs:
       POLARIS_TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/polaris_test
       DISABLE_SQLALCHEMY_CEXT_RUNTIME: '1'
       TICKET_BASELINE: d7c7010b6db7ed3ee96888e2a983e48e06415153
-      TICKET_CANDIDATE: 4836f4b38bebf0be22158cfecb51107fa9712455
+      TICKET_CANDIDATE: 56c90eeef54ca5148aac1b766019b16ea5865065
 
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 4836f4b38bebf0be22158cfecb51107fa9712455
+          ref: 56c90eeef54ca5148aac1b766019b16ea5865065
           fetch-depth: 0
 
       - uses: actions/setup-python@v5

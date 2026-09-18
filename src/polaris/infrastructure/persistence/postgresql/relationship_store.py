@@ -985,25 +985,11 @@ def _relationship_fact_groups(
         tuple[InvestmentDecisionId, DecisionRelationshipType, InvestmentDecisionId],
     ] = {}
     for fact in history:
-        current = fact
-        seen: set[DecisionRelationshipFactId] = set()
-        while isinstance(current, DecisionRelationshipCorrected):
-            identity = current.metadata.relationship_fact_id
-            if identity in seen:
-                raise ValueError("relationship correction ancestry must be acyclic")
-            seen.add(identity)
-            target = by_id.get(current.target_relationship_fact_id)
-            if target is None:
-                raise ValueError("relationship correction ancestry is incomplete")
-            current = target
-        if not isinstance(current, DecisionRelationshipFact):
-            raise ValueError(
-                "relationship correction ancestry must root in a base fact"
-            )
+        root = _relationship_root_fact(fact, by_id)
         groups[fact.metadata.relationship_fact_id] = (
-            current.source_decision_id,
-            current.relationship_type,
-            current.target_decision_id,
+            root.source_decision_id,
+            root.relationship_type,
+            root.target_decision_id,
         )
     return groups
 
@@ -1148,11 +1134,10 @@ def _topological_new_facts(
     return tuple(ordered)
 
 
-def _relationship_group(
+def _relationship_root_fact(
     fact: DecisionRelationshipHistoryFact,
-    history: Iterable[DecisionRelationshipHistoryFact],
-) -> tuple[InvestmentDecisionId, DecisionRelationshipType, InvestmentDecisionId]:
-    by_id = _history_map(history)
+    by_id: Mapping[DecisionRelationshipFactId, DecisionRelationshipHistoryFact],
+) -> DecisionRelationshipFact:
     current = fact
     seen: set[DecisionRelationshipFactId] = set()
     while isinstance(current, DecisionRelationshipCorrected):
@@ -1166,10 +1151,18 @@ def _relationship_group(
         current = target
     if not isinstance(current, DecisionRelationshipFact):
         raise ValueError("relationship correction ancestry must root in a base fact")
+    return current
+
+
+def _relationship_group(
+    fact: DecisionRelationshipHistoryFact,
+    history: Iterable[DecisionRelationshipHistoryFact],
+) -> tuple[InvestmentDecisionId, DecisionRelationshipType, InvestmentDecisionId]:
+    root = _relationship_root_fact(fact, _history_map(history))
     return (
-        current.source_decision_id,
-        current.relationship_type,
-        current.target_decision_id,
+        root.source_decision_id,
+        root.relationship_type,
+        root.target_decision_id,
     )
 
 

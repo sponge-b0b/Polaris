@@ -21,7 +21,7 @@ use a stale guide entry to bypass the `AGENTS.md` preflight.
 
 ## Current test surface
 
-The greenfield suite is currently small and infrastructure-free.
+The greenfield suite is currently small, with PostgreSQL as its only established external test service.
 
 | Scope | Purpose | External services |
 | --- | --- | --- |
@@ -106,7 +106,6 @@ Add operational detail only when the greenfield platform actually introduces the
 corresponding test boundary. Useful future sections include:
 
 - unit, integration, database/migration, end-to-end, property, and evaluation suites;
-- PostgreSQL and projection-store integration tests;
 - model/provider and evaluation tests, including explicit live/non-live separation;
 - observability and telemetry integration tests;
 - API, CLI, MCP, or other interface contract tests;

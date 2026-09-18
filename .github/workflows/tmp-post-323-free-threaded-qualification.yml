@@ -1,4 +1,4 @@
-name: Temporary post-323 free-threaded greenlet stress
+name: Temporary post-323 pure-SQLAlchemy stress
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 jobs:
-  stress:
+  pure-stress:
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -40,6 +40,7 @@ jobs:
     env:
       POLARIS_TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/polaris_test
       UV_PYTHON_PREFERENCE: only-managed
+      DISABLE_SQLALCHEMY_CEXT_RUNTIME: '1'
 
     steps:
       - name: Checkout exact qualification ref
@@ -61,67 +62,47 @@ jobs:
           uv sync --locked --python 3.14t
           uv run --python 3.14t python -X gil=0 scripts/verify_free_threaded_runtime.py
           uv run --python 3.14t python -X gil=0 - <<'PY'
+          import os
           import sys
           import sqlalchemy
           import greenlet
 
           print(f"SQLALCHEMY_VERSION={sqlalchemy.__version__}")
           print(f"GREENLET_VERSION={greenlet.__version__}")
+          print(f"DISABLE_SQLALCHEMY_CEXT_RUNTIME={os.environ.get('DISABLE_SQLALCHEMY_CEXT_RUNTIME')}")
           print(f"GIL_AFTER_IMPORT={sys._is_gil_enabled()}")
           if sys._is_gil_enabled():
               raise SystemExit("GIL enabled after SQLAlchemy/greenlet import")
           PY
 
-      - name: Repeated native trials
-        id: native
+      - name: Repeated pure-Python SQLAlchemy trials
+        id: pure
         shell: bash
         run: |
           set +e
           set -u
           failures=0
           for i in 1 2 3 4 5; do
-            echo "NATIVE_TRIAL_${i}_BEGIN"
+            echo "PURE_TRIAL_${i}_BEGIN"
             PYTHONFAULTHANDLER=1               uv run --python 3.14t python -X gil=0 -m pytest -q                 tests/integration/persistence/postgresql
             rc=$?
-            echo "NATIVE_TRIAL_${i}_EXIT=$rc"
+            echo "PURE_TRIAL_${i}_EXIT=$rc"
             if [ "$rc" -ne 0 ]; then
               failures=$((failures + 1))
             fi
           done
-          echo "NATIVE_FAILURES=$failures"
+          echo "PURE_FAILURES=$failures"
           echo "failures=$failures" >> "$GITHUB_OUTPUT"
           exit 0
 
-      - name: Repeated TLBC-disabled trials
-        id: tlbc
-        shell: bash
-        run: |
-          set +e
-          set -u
-          failures=0
-          for i in 1 2 3 4 5; do
-            echo "TLBC0_TRIAL_${i}_BEGIN"
-            PYTHONFAULTHANDLER=1               uv run --python 3.14t python -X gil=0 -X tlbc=0 -m pytest -q                 tests/integration/persistence/postgresql
-            rc=$?
-            echo "TLBC0_TRIAL_${i}_EXIT=$rc"
-            if [ "$rc" -ne 0 ]; then
-              failures=$((failures + 1))
-            fi
-          done
-          echo "TLBC0_FAILURES=$failures"
-          echo "failures=$failures" >> "$GITHUB_OUTPUT"
-          exit 0
-
-      - name: Stress summary
+      - name: Pure stress summary
         env:
           LABEL: ${{ matrix.label }}
           TARGET_REF: ${{ matrix.target_ref }}
-          NATIVE_FAILURES: ${{ steps.native.outputs.failures }}
-          TLBC0_FAILURES: ${{ steps.tlbc.outputs.failures }}
+          PURE_FAILURES: ${{ steps.pure.outputs.failures }}
         run: |
           set -euo pipefail
-          echo "STRESS_LABEL=$LABEL"
-          echo "STRESS_REF=$TARGET_REF"
-          echo "STRESS_NATIVE_FAILURES=$NATIVE_FAILURES"
-          echo "STRESS_TLBC0_FAILURES=$TLBC0_FAILURES"
-          test "$TLBC0_FAILURES" = "0"
+          echo "PURE_STRESS_LABEL=$LABEL"
+          echo "PURE_STRESS_REF=$TARGET_REF"
+          echo "PURE_STRESS_FAILURES=$PURE_FAILURES"
+          test "$PURE_FAILURES" = "0"

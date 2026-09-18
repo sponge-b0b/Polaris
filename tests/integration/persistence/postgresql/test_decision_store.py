@@ -274,12 +274,15 @@ def test_no_candidate_initiation_round_trips_after_restart(
         assert result.decision_id == InvestmentDecisionId(DECISION_ID)
         assert result.need_id == DecisionNeedId(NEED_ID)
         assert result.kind is InitiationResultKind.CREATED
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         await store._engine.dispose()
 
         async with postgres_engine_store(postgres_target) as (
             restarted_engine,
             restarted,
         ):
+            # arid: enable
             receipt = await restarted.get_initiation_receipt(OperationId(OPERATION_ID))
             assert receipt is not None
             assert receipt.request.scope == scope
@@ -397,12 +400,15 @@ def test_explicit_create_new_persists_complete_candidate_basis(
             new_uuid=lambda: next(third_identities),
         ).initiate(third_command)
         assert result.decision_id == InvestmentDecisionId(third_decision_id)
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         await store._engine.dispose()
 
         async with postgres_engine_store(postgres_target) as (
             restarted_engine,
             restarted,
         ):
+            # arid: enable
             history = await restarted.load_decision_history(result.decision_id)
             assert history is not None
             initiation = history[0]
@@ -492,12 +498,15 @@ def test_continuation_persists_only_a_restart_safe_receipt(
         assert result.kind is InitiationResultKind.CONTINUED
         assert result.decision_id == InvestmentDecisionId(DECISION_ID)
         assert result.need_id is None
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         await store._engine.dispose()
 
         async with postgres_engine_store(postgres_target) as (
             restarted_engine,
             restarted,
         ):
+            # arid: enable
             replayed = await DecisionInitiationService(
                 reader=restarted,
                 store=restarted,
@@ -601,12 +610,15 @@ def test_subject_revision_commits_fact_projection_and_receipt_before_restart(
         result = await service.revise_subject(command)
         assert result.kind is DecisionMutationResultKind.APPLIED
         assert result.version == DecisionVersion(2)
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         await store._engine.dispose()
 
         async with postgres_engine_store(postgres_target) as (
             restarted_engine,
             restarted,
         ):
+            # arid: enable
             receipt = await restarted.get_mutation_receipt(
                 OperationId(MUTATION_OPERATION_ID)
             )
@@ -1223,12 +1235,15 @@ def test_all_ordinary_lifecycle_mutations_round_trip_with_distinct_redeferral(
             )
         )
         assert result.version == DecisionVersion(10)
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         await store._engine.dispose()
 
         async with postgres_engine_store(postgres_target) as (
             restarted_engine,
             restarted,
         ):
+            # arid: enable
             state = await restarted.load_decision_for_command(
                 decision_id,
                 known_at=instants[-1],
@@ -2144,12 +2159,15 @@ def test_restart_detects_projection_drift_without_trusting_projection(
                     scope_portfolio_ids=[PORTFOLIO_B],
                 )
             )
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         await store._engine.dispose()
 
         async with postgres_engine_store(postgres_target) as (
             restarted_engine,
             restarted,
         ):
+            # arid: enable
             with pytest.raises(PersistenceUnavailable):
                 await DecisionMemoryService(
                     reader=restarted,

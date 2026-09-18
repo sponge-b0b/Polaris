@@ -29,66 +29,47 @@ A direct user requirement or documented repository rule overrides a design prefe
 
 ## Polaris Non-Negotiables
 
-### Data-Contract Boundaries
+### Contract Boundaries
 
-When changing application-service, intelligence, runtime, persistence, or other data-contract boundaries, read:
+When changing domain, application, infrastructure, interface, persistence, runtime, or other contract boundaries, read:
 
 ```text
-docs/current/domain-contracts-data-semantics-contract-semantics.md
+docs/current/platform-architecture-0.2.0.md
 ```
 
-Follow its canonical classification and boundary rules.
+and the current Spec, accepted ADR/design source, or domain contract that owns the concrete semantics being changed.
 
-In particular:
+Follow current **greenfield** authority:
 
-* exchange stable internal semantics through typed objects;
-* use mappings only at approved serialization, vendor, telemetry, persistence, report, artifact, runtime, or transport boundaries;
-* do not hide stable business dimensions in generic metadata or undifferentiated mappings;
-* promote stabilized semantics from extension mappings into explicit typed fields;
-* distinguish fallback or unavailable values from canonical observations.
+* inward-owned ports express the semantics Polaris requires rather than mirroring vendor APIs;
+* vendor, ORM, driver, transport, and other replaceable implementation types stay behind their owning adapter boundary unless current authority explicitly makes the representation semantic;
+* externally sourced facts are normalized into Polaris-owned contracts with their required identity, time, provenance, and authority meaning;
+* application/domain contracts remain independent of incidental runtime or infrastructure mechanics.
 
-For AI-adjacent outputs, preserve the applicable `RiskAuthorityContract` requirements defined by the same authoritative source.
+Do not treat `legacy/v0_1/`, quarantined historical documents, or a removed pre-greenfield contract inventory as current semantic authority.
+
+If a concrete representation, range, polarity, fallback meaning, authority meaning, or other material contract is not established by current authority and reasonable implementations could differ materially, surface a design/authority gap instead of reviving a legacy rule or inventing one locally.
 
 ### Score Semantics and Precision
 
-When creating, modifying, or reviewing scoring code, read:
+The current greenfield architecture does **not** define one repository-wide canonical score-family table. Do not resurrect the retired pre-greenfield score inventory or infer score direction, range, sign, normalization, or meaning from a field name.
 
-```text
-docs/current/domain-contracts-data-semantics-contract-semantics.md
-```
+When creating, modifying, or reviewing scoring code:
 
-That document owns canonical score semantics.
+1. identify the current Spec/domain/ADR authority that owns the score or quantitative contract;
+2. preserve and validate that field's exact range, polarity, units, neutral/default meaning, and unresolved/fallback semantics;
+3. convert between materially different quantitative meanings only through an explicit formula whose intent is evident at the boundary.
 
-Preserve those semantics exactly.
+Current product authority also requires:
 
-New or changed scoring code must:
+* Portfolio Risk to remain multidimensional; a single generic Risk Score is not the universal Portfolio Risk representation (`PRT-006`);
+* materially unknown Portfolio consequence or risk to remain unresolved rather than manufacturing precision (`PRT-012`).
 
-* identify the canonical score family explicitly;
-* validate its defined range at the typed boundary;
-* convert between score families only through an explicit formula.
+If the exact semantics required by new scoring code are absent from current authority, treat that as a design gap rather than choosing a legacy or conventional score family during implementation.
 
-Do not rely on naming, convention, or implicit arithmetic to establish score semantics.
+As a coding-policy precision rule, preserve full numerical precision internally. Use rounding only in human-facing presentation or where an explicit external contract requires fixed precision.
 
-Do not infer score direction, range, sign, normalization, interpretation, or meaning from field names or incidental implementation.
-
-Do not introduce alternate score interpretations, inversions, normalization, or representations without an authoritative contract permitting them.
-
-Do not use `round()` in:
-
-* application logic;
-* intelligence or analysis logic;
-* regime logic;
-* calibration logic;
-* persistence logic.
-
-Preserve full numerical precision internally.
-
-Round only:
-
-* in human-facing renderers; or
-* where an explicit external contract requires fixed precision.
-
-Changing canonical score semantics is a contract/architecture change, not a local coding decision.
+Changing established score semantics is a contract/design change, not a local implementation decision.
 
 ### Typing and Internal Models
 

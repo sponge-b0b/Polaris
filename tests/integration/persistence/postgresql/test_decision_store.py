@@ -453,23 +453,29 @@ def test_continuation_persists_only_a_restart_safe_receipt(
     async def scenario() -> None:
         store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
         operation_id = OperationId(UUID("00000000-0000-4000-8000-00000000000c"))
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         command = InitiateDecisionCommand(
             envelope=_test_envelope(
                 operation_id,
                 reference="request-323",
                 decision_id=None,
             ),
+        # arid: enable
             need_statement="Recognize the existing coherent choice",
             subject=DecisionSubject("Whether to establish the position"),
             scope=DecisionScope.unresolved(),
             continuity=ContinuityDetermination.continue_existing(
                 InvestmentDecisionId(DECISION_ID)
+            # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+            # arid: disable
             ),
         )
         service = DecisionInitiationService(
             reader=store,
             store=store,
             now=lambda: MUTATION_RECORDED_AT,
+            # arid: enable
             new_uuid=lambda: (_ for _ in ()).throw(
                 AssertionError("continuation must not allocate identity")
             ),
@@ -532,11 +538,14 @@ def test_initiation_with_expected_version_commits_nothing(
                 ).initiate(command)
             counts = await postgres_row_counts(
                 engine,
+                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # arid: disable
                 decision_needs,
                 investment_decisions,
                 investment_decision_lifecycle_facts,
                 investment_decision_command_receipts,
             )
+                # arid: enable
             assert counts == (0, 0, 0, 0)
         finally:
             await engine.dispose()
@@ -680,12 +689,15 @@ def test_subject_and_scope_no_ops_persist_receipts_without_changing_decision(
         assert subject_result.kind is DecisionMutationResultKind.NO_OP
         assert scope_result.kind is DecisionMutationResultKind.NO_OP
         assert subject_result.version == scope_result.version == DecisionVersion(1)
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         await store._engine.dispose()
 
         restarted_engine = create_postgres_engine(
             postgres_target.database_url,
             schema=postgres_target.schema,
         )
+        # arid: enable
         restarted_store = PostgresDecisionStore(restarted_engine)
         restarted_service = DecisionOrdinaryWorkService(
             store=restarted_store,
@@ -714,6 +726,8 @@ def test_subject_and_scope_no_ops_persist_receipts_without_changing_decision(
                 )
                 is not None
             )
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         finally:
             await restarted_engine.dispose()
 
@@ -730,6 +744,7 @@ def test_mutation_rejects_operation_id_already_used_by_initiation(
             now=lambda: MUTATION_RECORDED_AT,
             new_uuid=lambda: MUTATION_FACT_ID,
         )
+        # arid: enable
         command = _subject_revision_command(operation_id=OPERATION_ID)
         try:
             with pytest.raises(IdempotencyConflict):
@@ -757,12 +772,15 @@ def test_initiation_rejects_mutation_operation_id_after_restart(
             now=lambda: MUTATION_RECORDED_AT,
             new_uuid=lambda: MUTATION_FACT_ID,
         ).revise_subject(mutation)
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         await store._engine.dispose()
 
         restarted_engine = create_postgres_engine(
             postgres_target.database_url,
             schema=postgres_target.schema,
         )
+        # arid: enable
         restarted = PostgresDecisionStore(restarted_engine)
         initiation_at = MUTATION_RECORDED_AT + timedelta(minutes=1)
         base_command = _command(DecisionScope.unresolved())
@@ -874,12 +892,15 @@ def test_no_op_receipt_failure_rolls_back_receipt_only_transaction(
     postgres_target: PostgresTestTarget,
 ) -> None:
     async def scenario() -> None:
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
         await store._engine.dispose()
         engine = create_postgres_engine(
             postgres_target.database_url,
             schema=postgres_target.schema,
         )
+        # arid: enable
         failing = _FailAfterMutationReceiptStore(engine)
         decision_id = InvestmentDecisionId(DECISION_ID)
         command = _subject_revision_command(
@@ -899,12 +920,15 @@ def test_no_op_receipt_failure_rolls_back_receipt_only_transaction(
                 is None
             )
             state = await failing.load_decision_for_command(
+                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # arid: disable
                 decision_id,
                 known_at=MUTATION_RECORDED_AT,
             )
             assert state is not None
             assert state.decision.version == DecisionVersion(1)
             assert len(state.decision.history) == 1
+                # arid: enable
         finally:
             await engine.dispose()
 
@@ -934,12 +958,15 @@ def test_concurrent_expected_version_mutations_commit_exactly_once(
     postgres_target: PostgresTestTarget,
 ) -> None:
     async def scenario() -> None:
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
         await store._engine.dispose()
         engine = create_postgres_engine(
             postgres_target.database_url,
             schema=postgres_target.schema,
         )
+        # arid: enable
         concurrent_store = _ConcurrentLoadStore(engine, asyncio.Barrier(2))
 
         def command(operation_id: UUID, subject: str) -> ReviseDecisionSubjectCommand:
@@ -992,6 +1019,8 @@ def test_concurrent_same_operation_replays_or_reports_idempotency_conflict(
     same_request: bool,
 ) -> None:
     async def scenario() -> None:
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
         await store._engine.dispose()
         engine = create_postgres_engine(
@@ -999,6 +1028,7 @@ def test_concurrent_same_operation_replays_or_reports_idempotency_conflict(
             schema=postgres_target.schema,
         )
         concurrent_store = _ConcurrentLoadStore(engine, asyncio.Barrier(2))
+        # arid: enable
         decision_id = InvestmentDecisionId(DECISION_ID)
 
         def command(subject: str) -> ReviseDecisionSubjectCommand:
@@ -1006,22 +1036,28 @@ def test_concurrent_same_operation_replays_or_reports_idempotency_conflict(
                 subject=subject,
                 decision_id=decision_id,
                 reference="same-operation-race",
+            # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+            # arid: disable
             )
 
         first = DecisionOrdinaryWorkService(
             store=concurrent_store,
             now=lambda: MUTATION_RECORDED_AT,
             new_uuid=lambda: MUTATION_FACT_ID,
+            # arid: enable
         ).revise_subject(command("Whether to increase the position"))
         second_subject = (
             "Whether to increase the position"
             if same_request
             else "Whether to decrease the position"
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         )
         second = DecisionOrdinaryWorkService(
             store=concurrent_store,
             now=lambda: MUTATION_RECORDED_AT,
             new_uuid=lambda: CONCURRENT_FACT_ID,
+        # arid: enable
         ).revise_subject(command(second_subject))
         try:
             outcomes = await asyncio.gather(first, second, return_exceptions=True)
@@ -1040,6 +1076,8 @@ def test_concurrent_same_operation_replays_or_reports_idempotency_conflict(
                 )
             state = await PostgresDecisionStore(engine).load_decision_for_command(
                 decision_id,
+                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # arid: disable
                 known_at=MUTATION_RECORDED_AT,
             )
             assert state is not None
@@ -1056,6 +1094,7 @@ def test_all_ordinary_lifecycle_mutations_round_trip_with_distinct_redeferral(
 ) -> None:
     async def scenario() -> None:
         store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+                # arid: enable
         mutation_times = iter(
             MUTATION_RECORDED_AT + timedelta(hours=offset) for offset in range(9)
         )
@@ -1186,10 +1225,13 @@ def test_all_ordinary_lifecycle_mutations_round_trip_with_distinct_redeferral(
                 range(1, 11)
             )
             assert [type(fact) for fact in history[1:]] == [
+                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # arid: disable
                 DecisionSubjectRevised,
                 DecisionScopeEstablished,
                 DecisionScopeRevised,
                 DecisionDeferred,
+                # arid: enable
                 DecisionDeferred,
                 DecisionWorkResumed,
                 DecisionWorkWithdrawn,
@@ -1240,10 +1282,13 @@ def test_ordinary_mutation_rejects_unwitnessed_projection_version_ahead_of_histo
             )
         try:
             with pytest.raises(ConcurrencyConflict):
+                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # arid: disable
                 await DecisionOrdinaryWorkService(
                     store=store,
                     now=lambda: MUTATION_RECORDED_AT,
                     new_uuid=lambda: MUTATION_FACT_ID,
+                # arid: enable
                 ).revise_subject(
                     _subject_revision_command(
                         decision_id=decision_id,
@@ -1251,6 +1296,8 @@ def test_ordinary_mutation_rejects_unwitnessed_projection_version_ahead_of_histo
                         expected_version=DecisionVersion(2),
                     )
                 )
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         finally:
             await store._engine.dispose()
 
@@ -1262,6 +1309,7 @@ def test_concurrent_future_corrections_use_history_tail_when_version_does_not_ad
 ) -> None:
     async def scenario() -> None:
         store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        # arid: enable
         decision_id = InvestmentDecisionId(DECISION_ID)
         resolution_fact_id = DecisionLifecycleFactId(MUTATION_FACT_ID)
         resolution = TrustedHumanInvestmentDecisionBasis(
@@ -1286,6 +1334,8 @@ def test_concurrent_future_corrections_use_history_tail_when_version_does_not_ad
                 resolution,
             )
         )
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         await store._engine.dispose()
 
         engine = create_postgres_engine(
@@ -1293,6 +1343,7 @@ def test_concurrent_future_corrections_use_history_tail_when_version_does_not_ad
             schema=postgres_target.schema,
         )
         concurrent_store = _ConcurrentLoadStore(engine, asyncio.Barrier(2))
+        # arid: enable
         correction_recorded_at = MUTATION_RECORDED_AT + timedelta(hours=1)
         correction_effective_at = correction_recorded_at + timedelta(hours=2)
 
@@ -1332,11 +1383,14 @@ def test_concurrent_future_corrections_use_history_tail_when_version_does_not_ad
             now=lambda: correction_recorded_at,
             new_uuid=lambda: second_fact,
         ).record_lifecycle_correction(command(second_operation, "correction-b"))
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         try:
             outcomes = await asyncio.gather(first, second, return_exceptions=True)
             assert sum(not isinstance(item, Exception) for item in outcomes) == 1
             assert sum(isinstance(item, ConcurrencyConflict) for item in outcomes) == 1
             state = await PostgresDecisionStore(engine).load_decision_for_command(
+        # arid: enable
                 decision_id,
                 known_at=correction_recorded_at,
             )
@@ -1360,6 +1414,8 @@ def test_concurrent_future_corrections_use_history_tail_when_version_does_not_ad
             receipts = [
                 await concurrent_store.get_mutation_receipt(OperationId(operation))
                 for operation in (CONCURRENT_OPERATION_ID, second_operation)
+            # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+            # arid: disable
             ]
             assert sum(receipt is not None for receipt in receipts) == 1
         finally:
@@ -1373,16 +1429,23 @@ def test_concurrent_same_operation_future_correction_replays_after_tail_wait(
 ) -> None:
     async def scenario() -> None:
         store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+            # arid: enable
         decision_id = InvestmentDecisionId(DECISION_ID)
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         await DecisionOrdinaryWorkService(
             store=store,
             now=lambda: MUTATION_RECORDED_AT,
             new_uuid=lambda: MUTATION_FACT_ID,
+        # arid: enable
         ).apply_substantive_resolution(
+            # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+            # arid: disable
             ApplySubstantiveResolutionCommand(
                 _test_envelope(
                     MUTATION_OPERATION_ID,
                     reference="resolution",
+            # arid: enable
                     decision_id=decision_id,
                 ),
                 decision_id,
@@ -1390,6 +1453,8 @@ def test_concurrent_same_operation_future_correction_replays_after_tail_wait(
                     "human-resolution",
                     HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING,
                 ),
+            # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+            # arid: disable
             )
         )
         await store._engine.dispose()
@@ -1399,6 +1464,7 @@ def test_concurrent_same_operation_future_correction_replays_after_tail_wait(
             schema=postgres_target.schema,
         )
         concurrent_store = _ConcurrentLoadStore(engine, asyncio.Barrier(2))
+            # arid: enable
         correction_operation_id = UUID("00000000-0000-4000-8000-00000000000c")
         correction_recorded_at = MUTATION_RECORDED_AT + timedelta(hours=1)
         correction_effective_at = correction_recorded_at + timedelta(hours=2)
@@ -1406,17 +1472,22 @@ def test_concurrent_same_operation_future_correction_replays_after_tail_wait(
             envelope=_test_envelope(
                 correction_operation_id,
                 reference="same-correction-race",
+                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # arid: disable
                 effective_at=correction_effective_at,
                 decision_id=decision_id,
                 expected_version=DecisionVersion(2),
             ),
             decision_id=decision_id,
+                # arid: enable
             target_fact_id=DecisionLifecycleFactId(MUTATION_FACT_ID),
             effect=DecisionLifecycleCorrectionEffect.QUALIFY,
             correction_basis=DecisionLifecycleCorrectionBasis("correction"),
             replacement_disposition=DecisionLifecycleDisposition.SUBSTANTIVELY_RESOLVED,
             replacement_basis=TrustedHumanInvestmentDecisionBasis(
                 "replacement",
+                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # arid: disable
                 HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING,
             ),
         )
@@ -1424,6 +1495,7 @@ def test_concurrent_same_operation_future_correction_replays_after_tail_wait(
             store=concurrent_store,
             now=lambda: correction_recorded_at,
             new_uuid=lambda: CONCURRENT_FACT_ID,
+                # arid: enable
         ).record_lifecycle_correction(command)
         second = DecisionLifecycleCorrectionService(
             store=concurrent_store,
@@ -1438,15 +1510,20 @@ def test_concurrent_same_operation_future_correction_replays_after_tail_wait(
             ]
             assert sum(result.replayed for result in results) == 1
             assert all(result.version == DecisionVersion(2) for result in results)
+            # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+            # arid: disable
             state = await PostgresDecisionStore(engine).load_decision_for_command(
                 decision_id,
                 known_at=correction_recorded_at,
             )
             assert state is not None
+            # arid: enable
             assert len(state.decision.history) == 3
             assert [
                 fact.metadata.decision_version.value for fact in state.decision.history
             ] == [1, 2, 2]
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         finally:
             await engine.dispose()
 
@@ -1459,6 +1536,7 @@ def test_unsupported_need_retraction_and_disconfirmation_round_trip(
     async def scenario() -> None:
         store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
         decision_id = InvestmentDecisionId(DECISION_ID)
+        # arid: enable
         correction_service = DecisionLifecycleCorrectionService(
             store=store,
             now=lambda: MUTATION_RECORDED_AT,
@@ -1494,11 +1572,14 @@ def test_unsupported_need_retraction_and_disconfirmation_round_trip(
                     restored_operation_id,
                     reference="restore-need",
                     effective_at=restored_at,
+                    # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                    # arid: disable
                     decision_id=decision_id,
                     expected_version=DecisionVersion(2),
                 ),
                 decision_id=decision_id,
                 target_fact_id=DecisionLifecycleFactId(MUTATION_FACT_ID),
+                    # arid: enable
                 effect=DecisionLifecycleCorrectionEffect.DISCONFIRM,
                 correction_basis=DecisionLifecycleCorrectionBasis(
                     "restore-need-correction"
@@ -1506,12 +1587,17 @@ def test_unsupported_need_retraction_and_disconfirmation_round_trip(
             )
         )
         assert restored.version == DecisionVersion(3)
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         await store._engine.dispose()
 
         async with postgres_engine_store(postgres_target) as (restarted_engine, restarted):
             state = await restarted.load_decision_for_command(
                 decision_id,
+        # arid: enable
                 known_at=restored_at,
+            # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+            # arid: disable
             )
             assert state is not None
             assert [
@@ -1521,6 +1607,7 @@ def test_unsupported_need_retraction_and_disconfirmation_round_trip(
                 2,
                 3,
             ]
+            # arid: enable
             first_correction = state.decision.history[-2]
             second_correction = state.decision.history[-1]
             assert isinstance(first_correction, DecisionLifecycleCorrected)
@@ -1541,6 +1628,8 @@ def test_unsupported_need_retraction_and_disconfirmation_round_trip(
             assert receipt is not None
             assert receipt.result == restored
 
+    # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+    # arid: disable
     asyncio.run(scenario())
 
 
@@ -1553,6 +1642,7 @@ def test_decision_memory_distinguishes_knowledge_and_effective_boundaries(
             schema=postgres_target.schema,
         )
         store = PostgresDecisionStore(engine)
+    # arid: enable
         identities = _uuids(DECISION_ID, NEED_ID, FACT_ID)
         future_effective_at = RECORDED_AT + timedelta(hours=2)
         command = _command(DecisionScope.unresolved())
@@ -1560,11 +1650,14 @@ def test_decision_memory_distinguishes_knowledge_and_effective_boundaries(
             command,
             envelope=replace(command.envelope, effective_at=future_effective_at),
         )
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         await DecisionInitiationService(
             reader=store,
             store=store,
             now=lambda: RECORDED_AT,
             new_uuid=lambda: next(identities),
+        # arid: enable
         ).initiate(command)
         await engine.dispose()
 
@@ -1622,6 +1715,8 @@ def test_decision_memory_distinguishes_knowledge_and_effective_boundaries(
                 known_at=future_effective_at,
             )
             assert as_known == effective
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         finally:
             await restarted_engine.dispose()
 
@@ -1643,12 +1738,16 @@ def test_decision_memory_reconstructs_late_sibling_corrections_after_restart(
             ApplySubstantiveResolutionCommand(
                 _test_envelope(
                     MUTATION_OPERATION_ID,
+        # arid: enable
                     reference="initial-resolution",
+                    # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                    # arid: disable
                     effective_at=MUTATION_RECORDED_AT,
                     decision_id=decision_id,
                     expected_version=DecisionVersion(1),
                 ),
                 decision_id,
+                    # arid: enable
                 TrustedHumanInvestmentDecisionBasis(
                     "initial-resolution",
                     HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING,
@@ -1675,12 +1774,15 @@ def test_decision_memory_reconstructs_late_sibling_corrections_after_restart(
                     external_operation,
                     reference="late-external-qualification",
                     effective_at=RECORDED_AT + timedelta(minutes=30),
+                    # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                    # arid: disable
                     decision_id=decision_id,
                     expected_version=DecisionVersion(2),
                 ),
                 decision_id=decision_id,
                 target_fact_id=resolution_fact_id,
                 effect=DecisionLifecycleCorrectionEffect.QUALIFY,
+                    # arid: enable
                 correction_basis=DecisionLifecycleCorrectionBasis(
                     "late-external-qualification"
                 ),
@@ -1704,11 +1806,14 @@ def test_decision_memory_reconstructs_late_sibling_corrections_after_restart(
                     effective_at=MUTATION_RECORDED_AT,
                     decision_id=decision_id,
                     expected_version=external.version,
+                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # arid: disable
                 ),
                 decision_id=decision_id,
                 target_fact_id=resolution_fact_id,
                 effect=DecisionLifecycleCorrectionEffect.QUALIFY,
                 correction_basis=DecisionLifecycleCorrectionBasis(
+                # arid: enable
                     "equivalent-substantive-qualification"
                 ),
                 replacement_disposition=(
@@ -1744,6 +1849,8 @@ def test_decision_memory_reconstructs_late_sibling_corrections_after_restart(
             )
         )
         assert restored.version == DecisionVersion(5)
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         await store._engine.dispose()
 
         restarted_engine = create_postgres_engine(
@@ -1752,6 +1859,7 @@ def test_decision_memory_reconstructs_late_sibling_corrections_after_restart(
         )
         memory = DecisionMemoryService(
             reader=PostgresDecisionStore(restarted_engine),
+        # arid: enable
             now=lambda: restoration_recorded_at,
         )
         try:
@@ -1836,6 +1944,8 @@ def test_decision_memory_reconstructs_late_sibling_corrections_after_restart(
                         decision_id
                     )
                 )[1]
+            # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+            # arid: disable
             )
         finally:
             await restarted_engine.dispose()
@@ -1849,6 +1959,7 @@ def test_decision_memory_restores_deferred_posture_after_disconfirmation(
     async def scenario() -> None:
         store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
         decision_id = InvestmentDecisionId(DECISION_ID)
+            # arid: enable
         deferred_at = RECORDED_AT + timedelta(minutes=30)
         deferral_operation = UUID("00000000-0000-4000-8000-000000000012")
         deferral_fact = UUID("00000000-0000-4000-8000-000000000013")
@@ -1867,11 +1978,14 @@ def test_decision_memory_restores_deferred_posture_after_disconfirmation(
                     deferral_operation,
                     reference="defer-before-resolution",
                     effective_at=deferred_at,
+                    # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                    # arid: disable
                     decision_id=decision_id,
                     expected_version=DecisionVersion(1),
                 ),
                 decision_id,
                 TrustedHumanInvestmentDecisionBasis(
+                    # arid: enable
                     "defer-before-resolution",
                     HumanInvestmentDecisionEffect.DEFERRING,
                 ),
@@ -1921,22 +2035,28 @@ def test_decision_memory_restores_deferred_posture_after_disconfirmation(
             )
         )
         assert corrected.version == DecisionVersion(4)
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         await store._engine.dispose()
 
         restarted_engine = create_postgres_engine(
             postgres_target.database_url,
             schema=postgres_target.schema,
         )
+        # arid: enable
         try:
             current = await DecisionMemoryService(
                 reader=PostgresDecisionStore(restarted_engine),
                 now=lambda: corrected_at,
             ).current(decision_id)
+            # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+            # arid: disable
             assert isinstance(
                 current.lifecycle_interpretation,
                 DeterminateDecisionLifecycleInterpretation,
             )
             assert current.lifecycle_interpretation.disposition is (
+            # arid: enable
                 DecisionLifecycleDisposition.UNRESOLVED
             )
             assert current.work_posture is DecisionWorkPosture.DEFERRED
@@ -1945,6 +2065,8 @@ def test_decision_memory_restores_deferred_posture_after_disconfirmation(
                     DecisionLifecycleFactId(FACT_ID),
                     DecisionLifecycleFactId(correction_fact),
                 }
+            # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+            # arid: disable
             )
         finally:
             await restarted_engine.dispose()
@@ -1963,6 +2085,7 @@ def test_initiation_receipt_rejects_changed_request_reuse(
             postgres_target.database_url,
             schema=postgres_target.schema,
         )
+            # arid: enable
         restarted = PostgresDecisionStore(engine)
         service = DecisionInitiationService(
             reader=restarted,
@@ -2031,6 +2154,8 @@ def test_restart_detects_version_only_projection_drift(
         async with store._engine.begin() as connection:
             await connection.execute(
                 investment_decisions.update().values(decision_version=2)
+            # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+            # arid: disable
             )
         await store._engine.dispose()
 
@@ -2044,8 +2169,11 @@ def test_restart_detects_version_only_projection_drift(
                 InvestmentDecisionId(DECISION_ID)
             )
             assert history is not None
+            # arid: enable
             assert history[-1].metadata.decision_version == DecisionVersion(1)
 
+    # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+    # arid: disable
     asyncio.run(scenario())
 
 
@@ -2060,6 +2188,7 @@ def test_commit_revalidates_stale_empty_candidate_basis(
             postgres_target.database_url,
             schema=postgres_target.schema,
         )
+    # arid: enable
         stale_store = _StaleCandidateReadStore(engine)
         identities = _uuids(
             UUID("00000000-0000-4000-8000-000000000008"),
@@ -2099,6 +2228,8 @@ def test_commit_revalidates_stale_empty_candidate_basis(
         finally:
             await engine.dispose()
 
+    # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+    # arid: disable
     asyncio.run(scenario())
 
 
@@ -2110,17 +2241,21 @@ def test_concurrent_different_operations_create_at_most_one_decision_and_need(
             postgres_target.database_url,
             schema=postgres_target.schema,
         )
+    # arid: enable
         store = _ConcurrentCandidateReadStore(engine, asyncio.Barrier(2))
         shared_need_id = UUID("00000000-0000-4000-8000-000000000010")
 
         def service(*, decision_id: UUID, fact_id: UUID) -> DecisionInitiationService:
             identities = _uuids(decision_id, shared_need_id, fact_id)
             return DecisionInitiationService(
+                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # arid: disable
                 reader=store,
                 store=store,
                 now=lambda: RECORDED_AT,
                 new_uuid=lambda: next(identities),
             )
+                # arid: enable
 
         def command(operation_id: UUID, label: str) -> InitiateDecisionCommand:
             return InitiateDecisionCommand(
@@ -2147,6 +2282,8 @@ def test_concurrent_different_operations_create_at_most_one_decision_and_need(
             outcomes = await asyncio.gather(first, second, return_exceptions=True)
             assert sum(not isinstance(item, Exception) for item in outcomes) == 1
             assert sum(isinstance(item, ContinuityConflict) for item in outcomes) == 1
+            # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+            # arid: disable
             counts = await postgres_row_counts(
                 engine,
                 decision_needs,
@@ -2154,7 +2291,10 @@ def test_concurrent_different_operations_create_at_most_one_decision_and_need(
                 investment_decision_lifecycle_facts,
                 investment_decision_command_receipts,
             )
+            # arid: enable
             assert counts == (1, 1, 1, 1)
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         finally:
             await engine.dispose()
 
@@ -2166,6 +2306,7 @@ def test_need_can_ground_only_one_decision(
 ) -> None:
     async def scenario() -> None:
         store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        # arid: enable
         first_id = InvestmentDecisionId(DECISION_ID)
         second_operation = OperationId(UUID("00000000-0000-4000-8000-000000000008"))
         second_id = InvestmentDecisionId(UUID("00000000-0000-4000-8000-000000000009"))
@@ -2284,12 +2425,17 @@ def test_injected_failure_rolls_back_every_semantic_write(
         )
         try:
             assert await postgres_row_counts(
+                # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+                # arid: disable
                 engine,
                 decision_needs,
                 investment_decisions,
                 investment_decision_lifecycle_facts,
                 investment_decision_command_receipts,
+                # arid: enable
             ) == (0, 0, 0, 0)
+        # duplicate-code: independent Decision persistence falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct restart, rollback, concurrency, or temporal assertions.
+        # arid: disable
         finally:
             await engine.dispose()
 
@@ -2301,6 +2447,7 @@ def test_need_and_lifecycle_facts_are_database_immutable(
 ) -> None:
     async def scenario() -> None:
         store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        # arid: enable
         try:
             async with store._engine.begin() as connection:
                 with pytest.raises(SQLAlchemyError):

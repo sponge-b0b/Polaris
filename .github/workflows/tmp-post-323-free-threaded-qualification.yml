@@ -74,7 +74,10 @@ jobs:
       - name: Architecture suite
         run: |
           set -euo pipefail
-          uv run --python 3.14 python -m pytest -q tests/architecture
+          uv run --python 3.14 python -m pytest -q \
+            tests/test_architecture_guard.py \
+            tests/test_architecture_guard_identity_aliases.py \
+            tests/test_architecture_guard_legacy_loaders.py
 
   free-threaded-runtime:
     runs-on: ubuntu-24.04

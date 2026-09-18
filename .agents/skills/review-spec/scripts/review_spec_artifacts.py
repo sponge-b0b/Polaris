@@ -74,6 +74,13 @@ def _contract_encoding(value: Any, label: str = "Spec Contract Encoding") -> str
     return encoding
 
 
+def _persisted_contract_encoding(lines: list[str], label: str) -> str:
+    encoding = _optional_field(lines, "Spec Contract Encoding")
+    if encoding is None:
+        return "legacy-unversioned"
+    return _contract_encoding(encoding, label)
+
+
 def _plain_field(lines: list[str], label: str) -> str:
     prefix = f"{label}: "
     matches = [line[len(prefix) :] for line in lines if line.startswith(prefix)]
@@ -432,7 +439,10 @@ def parse_finding_ledger(body: str) -> dict[str, Any]:
     _require(review.startswith("#") and review[1:].isdigit(), "invalid Spec Review")
     head = _sha(_field(lines, "Reviewed HEAD"), "finding ledger Reviewed HEAD")
     body_hash = _digest(_field(lines, "Spec Body Hash"), "finding ledger Spec Body Hash")
-    contract_encoding = _contract_encoding(_field(lines, "Spec Contract Encoding"), "finding ledger Spec Contract Encoding")
+    contract_encoding = _persisted_contract_encoding(
+        lines,
+        "finding ledger Spec Contract Encoding",
+    )
     contract_hash = _digest(_field(lines, "Spec Contract Hash"), "finding ledger Spec Contract Hash")
     try:
         start = lines.index("```json") + 1
@@ -466,6 +476,22 @@ def render_finding_ledger(raw: Any, prior_body: str | None = None) -> str:
         prior = parse_finding_ledger(prior_body)
         _require(prior["parent_spec"] == parent_spec, "finding ledger Parent Spec changed")
         _require(prior["spec_review"] == spec_review, "finding ledger Spec Review changed")
+        _require(prior["head"] == head, "finding ledger Reviewed HEAD changed")
+        _require(
+            prior["spec_body_hash"] == body_hash,
+            "finding ledger Spec Body Hash changed",
+        )
+        _require(
+            prior["spec_contract_hash"] == contract_hash,
+            "finding ledger Spec Contract Hash changed",
+        )
+        _require(
+            prior["spec_contract_encoding"] in {
+                "legacy-unversioned",
+                SPEC_CONTRACT_ENCODING,
+            },
+            "finding ledger Spec Contract Encoding is incompatible",
+        )
         current_by_id = {row["id"]: row for row in rows}
         prior_rows = prior["findings"]
         prior_max = max((int(row["id"].split("-", 1)[1]) for row in prior_rows), default=0)
@@ -798,6 +824,24 @@ def self_test() -> None:
         ],
     }
     open_ledger = render_finding_ledger(ledger_input)
+    legacy_open_ledger = open_ledger.replace(
+        f"**Spec Contract Encoding:** {SPEC_CONTRACT_ENCODING}\n",
+        "",
+    )
+    migrated_open_ledger = render_finding_ledger(ledger_input, legacy_open_ledger)
+    assert f"**Spec Contract Encoding:** {SPEC_CONTRACT_ENCODING}" in migrated_open_ledger
+
+    mismatched_legacy = legacy_open_ledger.replace(
+        f"**Spec Contract Hash:** {'c' * 64}",
+        f"**Spec Contract Hash:** {'9' * 64}",
+    )
+    try:
+        render_finding_ledger(ledger_input, mismatched_legacy)
+    except ArtifactError:
+        pass
+    else:
+        raise AssertionError("legacy finding ledger with a different hash was migrated")
+
     exit_input = {
         "parent_spec": 1,
         "spec_review": 2,

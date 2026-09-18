@@ -602,6 +602,8 @@ The checkpoint utility fails closed unless the newest verification receipt is pa
 
 A missing/unversioned TCM encoding or any body/hash mismatch is a **review-input contract-coherence failure**, even when manifest cell counts and cell-ID sets match. Do not infer equivalence. Route the parent Spec to `$to-tickets` for deterministic contract-identity reconciliation when eligible; after reconciliation, require a fresh `$verify-spec` receipt before review resumes.
 
+Historical review-owned artifacts created before the encoding field may be read as `legacy-unversioned` only for migration. After the coherent checkpoint above exists, a review-owned finding/proof artifact may be rewritten with `Spec Contract Encoding: V2` only when its exact Reviewed HEAD, Spec Body Hash, and bare Spec Contract Hash already equal that checkpoint and no semantic finding/proof content changes. A different hash is never migrated by inference; it is stale/conflicting review state.
+
 Do **not** independently parse receipt Markdown, walk backward to an older receipt, or rebuild the source-unit/manifest proof inside review. Any checkpoint failure routes back to fresh `$verify-spec`.
 
 The checkpoint JSON is the immutable review contract for this invocation. Retain exactly its baseline, Spec Contract Encoding, body/contract hashes, manifest, verification hash, and receipt identity.

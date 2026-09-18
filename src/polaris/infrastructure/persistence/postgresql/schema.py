@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -40,7 +42,7 @@ def _uuid_array() -> ARRAY:
     return ARRAY(UUID(as_uuid=True))
 
 
-def _command_provenance_columns() -> tuple[Column[object], ...]:
+def _command_provenance_columns() -> tuple[Column[Any], ...]:
     return (
         Column("operation_id", UUID(as_uuid=True), nullable=False),
         Column("actor_attribution_kind", String(16), nullable=False),

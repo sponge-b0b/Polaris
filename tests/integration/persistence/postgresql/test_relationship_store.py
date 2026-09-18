@@ -851,7 +851,6 @@ def test_ordinary_and_renewal_initiation_share_one_continuity_guard(
     asyncio.run(scenario())
 
 
-
 class _FailAfterRenewalWriteStore(PostgresDecisionStore):
     def __init__(self, engine: AsyncEngine, fail_step: str) -> None:
         super().__init__(engine)

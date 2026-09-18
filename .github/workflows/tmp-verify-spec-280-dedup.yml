@@ -12,7 +12,7 @@ jobs:
   dedup:
     runs-on: ubuntu-latest
     env:
-      CANDIDATE_SHA: aa570d2133bdccfb891a0a57d1ad599d81286e4b
+      CANDIDATE_SHA: 144da03a8fe9f22cfcd0ce0ee7a9568d1dbf5d17
       BASELINE_SHA: 23f7a2df40557b87754fd62e3f70164f60b18788
     steps:
       - name: Checkout transport branch for workflow

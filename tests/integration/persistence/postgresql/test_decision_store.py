@@ -5,7 +5,7 @@ import inspect
 from collections.abc import Iterator
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import func, select
@@ -31,6 +31,7 @@ from polaris.application.decisions import (
     ExpectedDecisionVersion,
     IdempotencyConflict,
     InitiateDecisionCommand,
+    InvalidDecisionCommand,
     PersistenceUnavailable,
     ResumeDecisionWorkCommand,
     ReviseDecisionSubjectCommand,
@@ -159,6 +160,21 @@ class _StaleCandidateReadStore(PostgresDecisionStore):
         return ()
 
 
+class _ConcurrentCandidateReadStore(PostgresDecisionStore):
+    def __init__(self, engine: AsyncEngine, barrier: asyncio.Barrier) -> None:
+        super().__init__(engine)
+        self._barrier = barrier
+
+    async def find_unresolved_continuity_candidates(
+        self, *, known_at: datetime
+    ) -> tuple[InvestmentDecisionId, ...]:
+        candidates = await super().find_unresolved_continuity_candidates(
+            known_at=known_at
+        )
+        await self._barrier.wait()
+        return candidates
+
+
 async def _initiate(
     target: PostgresTestTarget,
     scope: DecisionScope,
@@ -264,6 +280,250 @@ def test_no_candidate_initiation_round_trips_after_restart(
             assert projection["rebuild_required"] is False
         finally:
             await restarted_engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_explicit_create_new_persists_complete_candidate_basis(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        second_decision_id = UUID("00000000-0000-4000-8000-00000000000c")
+        second_need_id = UUID("00000000-0000-4000-8000-00000000000d")
+        second_fact_id = UUID("00000000-0000-4000-8000-00000000000e")
+        operation_id = UUID("00000000-0000-4000-8000-00000000000f")
+        identities = _uuids(second_decision_id, second_need_id, second_fact_id)
+        command = InitiateDecisionCommand(
+            envelope=DecisionCommandEnvelope(
+                operation_id=OperationId(operation_id),
+                actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "request-323"),
+                effective_at=MUTATION_RECORDED_AT,
+                technical_provenance=TechnicalProvenance(),
+            ),
+            need_statement="Review an independent durable choice",
+            subject=DecisionSubject("Whether to reduce the position"),
+            scope=DecisionScope.unresolved(),
+            continuity=ContinuityDetermination.create_new(
+                "The candidate addresses a different coherent choice"
+            ),
+        )
+        service = DecisionInitiationService(
+            reader=store,
+            store=store,
+            now=lambda: MUTATION_RECORDED_AT,
+            new_uuid=lambda: next(identities),
+        )
+        second = await service.initiate(command)
+        assert second.decision_id == InvestmentDecisionId(second_decision_id)
+
+        third_at = MUTATION_RECORDED_AT + timedelta(minutes=1)
+        third_decision_id = UUID("00000000-0000-4000-8000-000000000020")
+        third_need_id = UUID("00000000-0000-4000-8000-000000000021")
+        third_fact_id = UUID("00000000-0000-4000-8000-000000000022")
+        third_identities = _uuids(
+            third_decision_id,
+            third_need_id,
+            third_fact_id,
+        )
+        third_command = replace(
+            command,
+            envelope=replace(
+                command.envelope,
+                operation_id=OperationId(UUID("00000000-0000-4000-8000-000000000023")),
+                effective_at=third_at,
+            ),
+            need_statement="Review another independent durable choice",
+            subject=DecisionSubject("Whether to maintain the position"),
+            continuity=ContinuityDetermination.create_new(
+                "Both candidates address different coherent choices"
+            ),
+        )
+        result = await DecisionInitiationService(
+            reader=store,
+            store=store,
+            now=lambda: third_at,
+            new_uuid=lambda: next(third_identities),
+        ).initiate(third_command)
+        assert result.decision_id == InvestmentDecisionId(third_decision_id)
+        await store._engine.dispose()
+
+        restarted_engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        restarted = PostgresDecisionStore(restarted_engine)
+        try:
+            history = await restarted.load_decision_history(result.decision_id)
+            assert history is not None
+            initiation = history[0]
+            assert isinstance(initiation, DecisionInitiated)
+            assert initiation.continuity.determination is (
+                DecisionInitiationDetermination.EXPLICIT_CREATE_NEW
+            )
+            assert initiation.continuity.candidate_decision_ids == frozenset(
+                {
+                    InvestmentDecisionId(DECISION_ID),
+                    InvestmentDecisionId(second_decision_id),
+                }
+            )
+            assert initiation.continuity.known_at == third_at
+            assert initiation.continuity.rationale == (
+                "Both candidates address different coherent choices"
+            )
+            assert initiation.metadata.actor_attribution == (
+                KnownActorAttribution(ActorId(ACTOR_ID))
+            )
+            async with restarted_engine.connect() as connection:
+                persisted = (
+                    (
+                        await connection.execute(
+                            select(investment_decision_lifecycle_facts).where(
+                                investment_decision_lifecycle_facts.c.fact_id
+                                == third_fact_id
+                            )
+                        )
+                    )
+                    .mappings()
+                    .one()
+                )
+            assert persisted["continuity_determination"] == "explicit_create_new"
+            assert set(persisted["continuity_candidate_ids"]) == {
+                DECISION_ID,
+                second_decision_id,
+            }
+            assert persisted["continuity_known_at"] == third_at
+            assert persisted["continuity_rationale"] == (
+                "Both candidates address different coherent choices"
+            )
+            assert {
+                "continuity_lock_id",
+                "continuity_token",
+                "advisory_lock_key",
+                "generation_token",
+            }.isdisjoint(persisted)
+        finally:
+            await restarted_engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_continuation_persists_only_a_restart_safe_receipt(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        operation_id = OperationId(UUID("00000000-0000-4000-8000-00000000000c"))
+        command = InitiateDecisionCommand(
+            envelope=DecisionCommandEnvelope(
+                operation_id=operation_id,
+                actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "request-323"),
+                effective_at=MUTATION_RECORDED_AT,
+                technical_provenance=TechnicalProvenance(),
+            ),
+            need_statement="Recognize the existing coherent choice",
+            subject=DecisionSubject("Whether to establish the position"),
+            scope=DecisionScope.unresolved(),
+            continuity=ContinuityDetermination.continue_existing(
+                InvestmentDecisionId(DECISION_ID)
+            ),
+        )
+        service = DecisionInitiationService(
+            reader=store,
+            store=store,
+            now=lambda: MUTATION_RECORDED_AT,
+            new_uuid=lambda: (_ for _ in ()).throw(
+                AssertionError("continuation must not allocate identity")
+            ),
+        )
+        result = await service.initiate(command)
+        assert result.kind is InitiationResultKind.CONTINUED
+        assert result.decision_id == InvestmentDecisionId(DECISION_ID)
+        assert result.need_id is None
+        await store._engine.dispose()
+
+        restarted_engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        restarted = PostgresDecisionStore(restarted_engine)
+        try:
+            replayed = await DecisionInitiationService(
+                reader=restarted,
+                store=restarted,
+                now=lambda: MUTATION_RECORDED_AT,
+            ).initiate(command)
+            assert replayed == replace(result, replayed=True)
+            async with restarted_engine.connect() as connection:
+                counts = []
+                for table in (
+                    decision_needs,
+                    investment_decisions,
+                    investment_decision_lifecycle_facts,
+                ):
+                    counts.append(
+                        await connection.scalar(select(func.count()).select_from(table))
+                    )
+                receipt_count = await connection.scalar(
+                    select(func.count()).select_from(
+                        investment_decision_command_receipts
+                    )
+                )
+            assert counts == [1, 1, 1]
+            assert receipt_count == 2
+        finally:
+            await restarted_engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_initiation_with_expected_version_commits_nothing(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        store = PostgresDecisionStore(engine)
+        command = _command(DecisionScope.unresolved())
+        command = replace(
+            command,
+            envelope=replace(
+                command.envelope,
+                expected_versions=frozenset(
+                    {
+                        ExpectedDecisionVersion(
+                            InvestmentDecisionId(DECISION_ID),
+                            DecisionVersion(1),
+                        )
+                    }
+                ),
+            ),
+        )
+        try:
+            with pytest.raises(InvalidDecisionCommand):
+                await DecisionInitiationService(
+                    reader=store,
+                    store=store,
+                    now=lambda: RECORDED_AT,
+                ).initiate(command)
+            async with engine.connect() as connection:
+                counts = []
+                for table in (
+                    decision_needs,
+                    investment_decisions,
+                    investment_decision_lifecycle_facts,
+                    investment_decision_command_receipts,
+                ):
+                    counts.append(
+                        await connection.scalar(select(func.count()).select_from(table))
+                    )
+            assert counts == [0, 0, 0, 0]
+        finally:
+            await engine.dispose()
 
     asyncio.run(scenario())
 
@@ -536,6 +796,82 @@ def test_mutation_rejects_operation_id_already_used_by_initiation(
             assert len(state.decision.history) == 1
         finally:
             await store._engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_initiation_rejects_mutation_operation_id_after_restart(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
+        mutation = ReviseDecisionSubjectCommand(
+            envelope=DecisionCommandEnvelope(
+                operation_id=OperationId(MUTATION_OPERATION_ID),
+                actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "request-322"),
+                effective_at=MUTATION_RECORDED_AT,
+                technical_provenance=TechnicalProvenance(),
+                expected_versions=frozenset(
+                    {
+                        ExpectedDecisionVersion(
+                            InvestmentDecisionId(DECISION_ID),
+                            DecisionVersion(1),
+                        )
+                    }
+                ),
+            ),
+            decision_id=InvestmentDecisionId(DECISION_ID),
+            subject=DecisionSubject("Whether to increase the position"),
+            continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+        )
+        await DecisionOrdinaryWorkService(
+            store=store,
+            now=lambda: MUTATION_RECORDED_AT,
+            new_uuid=lambda: MUTATION_FACT_ID,
+        ).revise_subject(mutation)
+        await store._engine.dispose()
+
+        restarted_engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        restarted = PostgresDecisionStore(restarted_engine)
+        initiation_at = MUTATION_RECORDED_AT + timedelta(minutes=1)
+        base_command = _command(DecisionScope.unresolved())
+        command = replace(
+            base_command,
+            envelope=replace(
+                base_command.envelope,
+                operation_id=OperationId(MUTATION_OPERATION_ID),
+                effective_at=initiation_at,
+            ),
+            continuity=ContinuityDetermination.create_new(
+                "A distinct unresolved choice"
+            ),
+        )
+        identities = _uuids(uuid4(), uuid4(), uuid4())
+        try:
+            with pytest.raises(IdempotencyConflict):
+                await DecisionInitiationService(
+                    reader=restarted,
+                    store=restarted,
+                    now=lambda: initiation_at,
+                    new_uuid=lambda: next(identities),
+                ).initiate(command)
+            async with restarted_engine.connect() as connection:
+                decision_count = await connection.scalar(
+                    select(func.count()).select_from(investment_decisions)
+                )
+                receipt_count = await connection.scalar(
+                    select(func.count()).select_from(
+                        investment_decision_command_receipts
+                    )
+                )
+            assert decision_count == 1
+            assert receipt_count == 2
+        finally:
+            await restarted_engine.dispose()
 
     asyncio.run(scenario())
 
@@ -2042,6 +2378,73 @@ def test_commit_revalidates_stale_empty_candidate_basis(
     asyncio.run(scenario())
 
 
+def test_concurrent_different_operations_create_at_most_one_decision_and_need(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        store = _ConcurrentCandidateReadStore(engine, asyncio.Barrier(2))
+        shared_need_id = UUID("00000000-0000-4000-8000-000000000010")
+
+        def service(*, decision_id: UUID, fact_id: UUID) -> DecisionInitiationService:
+            identities = _uuids(decision_id, shared_need_id, fact_id)
+            return DecisionInitiationService(
+                reader=store,
+                store=store,
+                now=lambda: RECORDED_AT,
+                new_uuid=lambda: next(identities),
+            )
+
+        def command(operation_id: UUID, label: str) -> InitiateDecisionCommand:
+            return InitiateDecisionCommand(
+                envelope=DecisionCommandEnvelope(
+                    operation_id=OperationId(operation_id),
+                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
+                    trigger=TriggerProvenance(
+                        TriggerKind.HUMAN_REQUEST,
+                        f"request-{label}",
+                    ),
+                    effective_at=RECORDED_AT,
+                    technical_provenance=TechnicalProvenance(),
+                ),
+                need_statement=f"Concurrent Need {label}",
+                subject=DecisionSubject(f"Concurrent choice {label}"),
+                scope=DecisionScope.unresolved(),
+            )
+
+        first = service(
+            decision_id=UUID("00000000-0000-4000-8000-000000000011"),
+            fact_id=UUID("00000000-0000-4000-8000-000000000012"),
+        ).initiate(command(UUID("00000000-0000-4000-8000-000000000013"), "first"))
+        second = service(
+            decision_id=UUID("00000000-0000-4000-8000-000000000014"),
+            fact_id=UUID("00000000-0000-4000-8000-000000000015"),
+        ).initiate(command(UUID("00000000-0000-4000-8000-000000000016"), "second"))
+        try:
+            outcomes = await asyncio.gather(first, second, return_exceptions=True)
+            assert sum(not isinstance(item, Exception) for item in outcomes) == 1
+            assert sum(isinstance(item, ContinuityConflict) for item in outcomes) == 1
+            async with engine.connect() as connection:
+                counts = []
+                for table in (
+                    decision_needs,
+                    investment_decisions,
+                    investment_decision_lifecycle_facts,
+                    investment_decision_command_receipts,
+                ):
+                    counts.append(
+                        await connection.scalar(select(func.count()).select_from(table))
+                    )
+            assert counts == [1, 1, 1, 1]
+        finally:
+            await engine.dispose()
+
+    asyncio.run(scenario())
+
+
 def test_need_can_ground_only_one_decision(
     postgres_target: PostgresTestTarget,
 ) -> None:
@@ -2115,21 +2518,49 @@ def test_need_can_ground_only_one_decision(
     asyncio.run(scenario())
 
 
-class _FailAfterProjectionStore(PostgresDecisionStore):
+class _FailAfterInitiationNeedStore(PostgresDecisionStore):
+    def _write_completed(self, step: str) -> None:
+        if step == "need":
+            raise RuntimeError("injected transaction failure")
+
+
+class _FailAfterInitiationProjectionStore(PostgresDecisionStore):
     def _write_completed(self, step: str) -> None:
         if step == "projection":
             raise RuntimeError("injected transaction failure")
 
 
+class _FailAfterInitiationFactStore(PostgresDecisionStore):
+    def _write_completed(self, step: str) -> None:
+        if step == "lifecycle_fact":
+            raise RuntimeError("injected transaction failure")
+
+
+class _FailAfterInitiationReceiptStore(PostgresDecisionStore):
+    def _write_completed(self, step: str) -> None:
+        if step == "receipt":
+            raise RuntimeError("injected transaction failure")
+
+
+@pytest.mark.parametrize(
+    "store_type",
+    [
+        _FailAfterInitiationNeedStore,
+        _FailAfterInitiationProjectionStore,
+        _FailAfterInitiationFactStore,
+        _FailAfterInitiationReceiptStore,
+    ],
+)
 def test_injected_failure_rolls_back_every_semantic_write(
     postgres_target: PostgresTestTarget,
+    store_type: type[PostgresDecisionStore],
 ) -> None:
     async def scenario() -> None:
         with pytest.raises(PersistenceUnavailable):
             await _initiate(
                 postgres_target,
                 DecisionScope.unresolved(),
-                store_type=_FailAfterProjectionStore,
+                store_type=store_type,
             )
         engine = create_postgres_engine(
             postgres_target.database_url,

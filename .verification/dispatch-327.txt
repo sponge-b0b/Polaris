@@ -1,0 +1,99 @@
+Source artifact: Spec Review #327 — Spec Review: Implement durable PostgreSQL Investment Decision persistence
+Mode: remediation
+Source state identity:
+- Parent Spec: #280
+- Reviewed source HEAD: af9937141acdec7ca463b9a825be7fdb5715232c
+- Spec baseline: 23f7a2df40557b87754fd62e3f70164f60b18788
+- Spec Body Hash: e509e637817f42c07c336ec3d928010cf7bd382251f269cf961991a58450a388
+- Spec Contract Encoding: V2
+- Spec Contract Hash: 05f413670a51cd98c2d1c45af748aec63abd75ae6670f47dcc3cfc59717acab6
+- Active Root Blockers: RB-1, RB-2
+- Finding Continuity Ledger: issue #327 comment 5727938223
+- Pending Review Remediation: issue #327 comment 5727945895
+- Review Proof Reuse Ledger: issue #327 comment 5728111147
+
+Parent TCM identity:
+- Parent Spec #280 comment 5708818969
+- Spec Body Hash: e509e637817f42c07c336ec3d928010cf7bd382251f269cf961991a58450a388
+- Spec Contract Encoding: V2
+- Spec Contract Hash: 05f413670a51cd98c2d1c45af748aec63abd75ae6670f47dcc3cfc59717acab6
+- Source Spec cells: 130
+- TCM Spec cells: 130
+- Missing: 0
+- Extra: 0
+- Duplicate: 0
+- Linked-ticket Spec-obligation mapping differences: 0
+- Linked-ticket Architecture-obligation mapping differences: 0
+
+Proposal identity: 3299a8d6041cd460ecfa1e9435d4c7958eb97838477386826fb7ea00f3d29e49
+Exact proposal: .verification/proposal-327.txt
+
+Spec obligation routing:
+- US-30, ID-21 -> proposed RB-1 ticket
+- RB-2 proposed ticket carries no direct Spec cells; root authority is ARCHSRC-1
+
+Architecture/design routing:
+- ARCHSRC-1 -> proposed RB-2 ticket
+- RB-1 has no direct ARCHSRC implementation mapping
+- Parent TCM ARCHSRC-2..10 remain historical/current decomposition state but are not active remediation obligations of #327
+
+Root Delta Coverage:
+- RB-1 / Candidate discovery at knowledge boundary | status satisfied | preservation | proposed RB-1 ticket | preserve authoritative temporal candidate reconstruction
+- RB-1 / Commit-time basis revalidation | status open | remediation | proposed RB-1 ticket | replace stale projection authority with authoritative temporal basis
+- RB-1 / Lifecycle clock passage | status open | remediation | proposed RB-1 ticket | prove known future-effective lifecycle aging cannot create false conflict
+- RB-1 / Relationship/applicability clock passage | status open | remediation | proposed RB-1 ticket | prove temporal relationship/applicability aging is reconstructed authoritatively
+- RB-1 / Genuine concurrent candidate change | status satisfied | preservation | proposed RB-1 ticket | real basis change must still fail closed with zero partial creation
+- RB-1 / Cross-command serialization | status satisfied | preservation | proposed RB-1 ticket | preserve ordinary/ordinary and ordinary/renewal race protection
+- RB-2 / Product adapter construction | status satisfied | preservation | proposed RB-2 ticket | preserve existing GIL-disabled pre-engine fail-fast
+- RB-2 / Online Alembic construction | status open | remediation | proposed RB-2 ticket | bring online migration engine construction under ADR 0005 boundary
+- RB-2 / Ordinary migration invocation | status open | remediation | proposed RB-2 ticket | supported migration command must select qualified runtime or fail before engine construction
+- RB-2 / Qualified standard-CPython migration behavior | status satisfied | preservation | proposed RB-2 ticket | preserve fresh/current/check/downgrade/re-upgrade behavior
+- RB-2 / Inward runtime neutrality | status satisfied | preservation | proposed RB-2 ticket | keep runtime qualification outside application/domain contracts
+
+Root Delta Coverage totals:
+- Active root cells: 11
+- Root delta rows: 11
+- Remediation: 5
+- Verification-only: 0
+- Preservation: 6
+- Missing cells: 0
+- Unknown cells: 0
+- Unclassified obligation types: 0
+- Required remediation without active proposed coverage: 0
+- Satisfied same-root cells omitted from preservation: 0
+- Rows without reason/authority: 0
+
+Existing ticket lineage:
+- #321–#326 are closed historical implementation tickets under Spec #280.
+- They must not be reopened or rewritten.
+- No current open implementation/remediation ticket already covers RB-1 or RB-2.
+
+Design-delegation result:
+- Material design choices delegated to implementation: 0
+- RB-1 is a missed-prior-finding/in-domain falsifier under existing Spec/design authority.
+- RB-2 is an existing-authority implementation miss under ADR 0005 / ARCHSRC-1.
+- Architecture decisions required: 0
+
+Parent readiness:
+TICKET PROPOSAL READINESS: PASS
+Source: Spec Review #327
+Mode: remediation
+Proposal identity: 3299a8d6041cd460ecfa1e9435d4c7958eb97838477386826fb7ea00f3d29e49
+Validation owner: $to-tickets
+Required independent verifier: $verify-ticket-decomposition
+Design delegation: 0
+Coverage: 11/11; missing 0; ambiguous 0; unclassified 0
+Spec-cell identity: source 130; TCM 130; missing 0; extra 0; exact-set-equality yes
+Mechanics: template/lineage/branch/baseline/status/dependencies valid
+Repository-policy conflicts: 0
+Human verification required: no
+
+Verifier instructions:
+- Execute the current .agents/skills/verify-ticket-decomposition/SKILL.md exactly.
+- Treat this packet as retrieval/binding state, not proof.
+- Independently read GitHub issues #327 and #280 and parent TCM comment 5708818969.
+- Read current governing architecture/design sources as needed.
+- For source-code evidence, inspect the exact reviewed candidate using git show af9937141acdec7ca463b9a825be7fdb5715232c:<path>.
+- The workflow branch and .verification transport files are verifier transport only; they are not Spec #280 candidate state.
+- Do not mutate repository or tracker state.
+- Return exactly one complete TICKET DECOMPOSITION: PASS or FAIL verdict bound to proposal identity above.

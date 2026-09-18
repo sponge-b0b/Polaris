@@ -1,0 +1,65 @@
+name: Fresh ticket decomposition verifier 327
+
+on:
+  push:
+    branches:
+      - chatgpt/verify-ticket-decomposition-327-v2
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+  copilot-requests: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Verify transport binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum .verification/proposal-327.txt | awk '{print $1}')" = "3299a8d6041cd460ecfa1e9435d4c7958eb97838477386826fb7ea00f3d29e49"
+          git cat-file -e af9937141acdec7ca463b9a825be7fdb5715232c^{commit}
+
+      - name: Install Copilot CLI
+        run: npm install -g @github/copilot
+
+      - name: Run fresh independent verifier
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          PROMPT=$(cat <<'EOF'
+          You are the one genuinely fresh, independent, non-mutating verifier for Polaris $to-tickets.
+          Execute .agents/skills/verify-ticket-decomposition/SKILL.md exactly.
+          First read AGENTS.md, the verifier skill, .verification/dispatch-327.txt, and .verification/proposal-327.txt.
+          Independently recover the authoritative source/root and architecture state using read-only git/gh commands.
+          Use git show af9937141acdec7ca463b9a825be7fdb5715232c:<path> whenever implementation evidence must be inspected at the exact reviewed Spec candidate.
+          Treat this workflow branch and .verification files only as transport; do not treat them as Spec candidate mutations.
+          Do not write to the repository, do not change GitHub tracker state, do not spawn another semantic verifier, and do not redesign the proposal.
+          Return exactly one complete verdict in the skill's required format, beginning with either:
+          TICKET DECOMPOSITION: PASS
+          or
+          TICKET DECOMPOSITION: FAIL
+          Bind the verdict to proposal identity 3299a8d6041cd460ecfa1e9435d4c7958eb97838477386826fb7ea00f3d29e49.
+          EOF
+          )
+          copilot -s -p "$PROMPT" --no-ask-user             --allow-tool=read             --allow-tool='shell(git:*)'             --allow-tool='shell(gh:*)'             --allow-tool='shell(cat:*)'             --allow-tool='shell(sed:*)'             --allow-tool='shell(grep:*)'             --allow-tool='shell(pwd:*)'             --allow-tool='shell(find:*)'             | tee /tmp/verdict.txt
+          test "$(grep -Ec '^TICKET DECOMPOSITION: (PASS|FAIL)$' /tmp/verdict.txt)" -eq 1
+          grep -q '3299a8d6041cd460ecfa1e9435d4c7958eb97838477386826fb7ea00f3d29e49' /tmp/verdict.txt
+
+      - name: Upload verifier verdict
+        uses: actions/upload-artifact@v4
+        with:
+          name: ticket-decomposition-327-verdict
+          path: /tmp/verdict.txt
+          if-no-files-found: error
+          retention-days: 1

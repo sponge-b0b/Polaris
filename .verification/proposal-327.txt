@@ -1,0 +1,154 @@
+Source artifact: Spec Review #327 — Spec Review: Implement durable PostgreSQL Investment Decision persistence
+Mode: remediation
+Source state: Parent Spec #280 body e509e637817f42c07c336ec3d928010cf7bd382251f269cf961991a58450a388; Spec Contract Encoding V2; Spec Contract Hash 05f413670a51cd98c2d1c45af748aec63abd75ae6670f47dcc3cfc59717acab6; reviewed HEAD af9937141acdec7ca463b9a825be7fdb5715232c; active roots RB-1 and RB-2.
+
+Publication actions:
+- Create two open Review Remediation Tickets as native children of Spec Review #327.
+- Apply label `ready-for-agent` to both.
+- Add no blocking dependencies; both tickets are independent frontier work.
+- Do not update, reopen, or rewrite closed tickets #321–#326.
+
+---
+
+# Revalidate initiation continuity from authoritative temporal history
+
+## Parent
+
+Remediation parent: Spec Review #327
+Parent Spec: #280
+
+## Spec obligations
+
+US-30, ID-21
+
+## Architecture obligations
+
+None
+
+## Root blocker
+
+RB-1 — Continuity revalidation must use authoritative temporal candidate state
+
+## Architecture context
+
+Spec #280 US-30 and ID-21; `docs/proposed/application-use-cases-investment-decision-lifecycle.md` §3.4; `docs/proposed/durable-persistence-investment-decision-history.md` §4.6; and the certified #323 AC-6 / ND-6 continuity-revalidation domain. All architecture and material design decisions currently required by this ticket are accepted; no known implementation-readiness blocker remains unresolved.
+
+## What to build
+
+Make commit-time Decision initiation revalidation derive the authoritative unresolved-operative candidate basis from immutable lifecycle and relationship history at the captured temporal boundary, using the same semantic basis as candidate discovery. Clock passage over already-known future-effective facts must not masquerade as a basis change, while a genuinely committed lifecycle or relationship change before commit must still fail closed. Preserve the existing transaction, idempotency, cross-command serialization, restart, and provenance boundaries.
+
+## Acceptance criteria
+
+* [ ] Candidate discovery and commit-time revalidation derive the same authoritative unresolved-operative basis from durable lifecycle and relationship history for the relevant captured boundary; cached projection fields are not the semantic authority for the revalidation result.
+* [ ] A known future-effective lifecycle fact aging across wall-clock time without an intervening write does not create a false `ContinuityConflict`, and the equivalent relationship/applicability case is interpreted from authoritative history rather than a stale projection.
+* [ ] A genuinely committed candidate-basis change before initiation commit still returns `ContinuityConflict` and commits no Need, Decision, lifecycle fact, relationship fact, projection, or receipt.
+* [ ] Ordinary/ordinary and ordinary/renewal races remain protected by the established shared PostgreSQL continuity serialization, create at most one coherent identity, and keep locks, tokens, or refresh mechanics out of lifecycle/domain provenance.
+* [ ] Same-operation replay and changed-request conflict remain restart-safe; injected failures remain atomic; restart reconstructs the same temporal candidate and conflict result without workflow replay.
+* [ ] Real PostgreSQL regression evidence covers lifecycle clock passage, relationship/applicability clock passage, genuine concurrent basis change, ordinary/renewal protection, zero-partial-write failure, and restart reconstruction.
+* [ ] The root-complete sweep covers every active RB-1 surface and explicitly reports any remaining verification-only work; `$verify-ticket-closure` must certify the combined ordinary and remediation acceptance universe.
+
+## Preservation obligations
+
+* Candidate discovery at a requested knowledge boundary continues to reconstruct unresolved-operative state from authoritative lifecycle and relationship history.
+* A real committed basis change continues to produce `ContinuityConflict` with zero partial creation.
+* Existing ordinary/ordinary and ordinary/renewal serialization, one-Need/one-Decision protection, idempotency, atomicity, restart recovery, and adapter-only guard mechanics remain satisfied.
+
+## Verification obligations
+
+* `$verify-ticket-closure` independently certifies RB-1 across the production path, negative/fail-closed paths, preservation obligations, and the root-complete invariant sweep.
+* After all #327 remediation tickets close, a fresh `$verify-spec` must certify the repaired exact `spec-280` HEAD before `$review-spec` re-review.
+
+## Root-complete sweep required for closure
+
+Re-evaluate candidate discovery, commit revalidation, lifecycle clock passage, relationship/applicability clock passage, genuine committed change, cross-command races, idempotency, rollback, restart, and provenance insulation as one RB-1 domain. Closure requires zero violated or unproven implementation obligations; any later integrated verification obligation must remain explicit.
+
+## Blocked by
+
+None — can start immediately
+
+## Ticket branch
+
+spec-280
+
+## Ticket baseline
+
+Pending
+
+Required label/status: `ready-for-agent`; open
+
+---
+
+# Enforce PostgreSQL runtime qualification for online migrations
+
+## Parent
+
+Remediation parent: Spec Review #327
+Parent Spec: #280
+
+## Spec obligations
+
+None
+
+## Architecture obligations
+
+ARCHSRC-1
+
+## Root blocker
+
+RB-2 — Every PostgreSQL-owning runtime path must honor ADR 0005 qualification
+
+## Architecture context
+
+Accepted ADR 0005; ADR 0004's GIL-independent correctness and process-isolation boundary; `docs/current/platform-architecture-0.2.0.md` §§4, 18, and 19; and Spec #280's current ARCHSRC-1 runtime-qualification supersession. All architecture and material design decisions currently required by this ticket are accepted; no known implementation-readiness blocker remains unresolved.
+
+## What to build
+
+Bring the online Alembic PostgreSQL engine path and the ordinary repository migration workflow under ADR 0005's qualified-role/fail-fast boundary. Every SQLAlchemy/greenlet-backed PostgreSQL-owning path must either run in the qualified standard GIL-enabled CPython 3.14+ role or reject a GIL-disabled runtime before constructing or using an engine, without changing application/domain contracts or relying on GIL serialization for correctness.
+
+## Acceptance criteria
+
+* [ ] Online Alembic execution crosses the ADR 0005 qualification boundary before SQLAlchemy/greenlet PostgreSQL engine construction or use; a GIL-disabled process fails deterministically before the unsafe dependency path begins.
+* [ ] The ordinary `$database-migrations` commands cannot silently enter the PostgreSQL stack under the repository's default free-threaded `3.14t` runtime: the supported workflow either selects the qualified standard-CPython role or rejects the unqualified runtime before engine construction.
+* [ ] The existing `create_postgres_engine()` fail-fast behavior remains intact, no path silently re-enables the GIL, and runtime qualification remains infrastructure/deployment policy rather than application or domain contract.
+* [ ] Under qualified standard CPython, real PostgreSQL migration behavior remains valid for fresh root-to-head, `current`, `check`, downgrade, and re-upgrade operations.
+* [ ] Runtime evidence exercises the actual online Alembic entrypoint and ordinary migration invocation under qualified standard CPython and genuine GIL-disabled CPython; a helper-only or adapter-constructor-only test is insufficient.
+* [ ] The root-complete sweep covers every active RB-2 path and explicitly reports any remaining verification-only work; `$verify-ticket-closure` must certify the combined ordinary and remediation acceptance universe.
+
+## Preservation obligations
+
+* Product adapter construction continues to fail before unsafe PostgreSQL use under GIL-disabled CPython.
+* Qualified standard-CPython migration lifecycle behavior remains valid.
+* Application/domain persistence contracts and database atomicity, idempotency, continuity, CAS, and graph/concurrency correctness remain runtime-neutral and GIL-independent.
+
+## Verification obligations
+
+* `$verify-ticket-closure` independently certifies RB-2 across the adapter and migration production paths, negative/fail-fast behavior, preservation obligations, and the root-complete invariant sweep.
+* After all #327 remediation tickets close, a fresh `$verify-spec` must certify the repaired exact `spec-280` HEAD before `$review-spec` re-review.
+
+## Root-complete sweep required for closure
+
+Re-evaluate product engine construction, online Alembic construction, ordinary migration invocation, qualified migration lifecycle behavior, GIL-disabled rejection, and inward runtime neutrality as one RB-2 domain. Closure requires zero violated or unproven implementation obligations; any later integrated verification obligation must remain explicit.
+
+## Blocked by
+
+None — can start immediately
+
+## Ticket branch
+
+spec-280
+
+## Ticket baseline
+
+Pending
+
+Required label/status: `ready-for-agent`; open
+
+Coverage summary:
+- Active root cells: 11.
+- Remediation cells: 5.
+- Preservation cells: 6.
+- Verification-only cells: 0.
+- Required remediation without proposed ticket coverage: 0.
+- Satisfied same-root cells omitted from preservation: 0.
+- Architecture-blocked roots: 0.
+- Material design choices delegated to implementation: 0.

@@ -66,7 +66,7 @@ from polaris.infrastructure.persistence.postgresql.schema import (
     investment_decisions,
 )
 
-from .conftest import PostgresTestTarget, postgres_engine_store
+from .conftest import PostgresTestTarget, postgres_engine_store, postgres_row_counts
 from .test_relationship_store import (
     BASE,
     _create_decision,
@@ -382,12 +382,7 @@ def test_many_target_supersession_failure_rolls_back_complete_command(
                 investment_decision_relationships,
                 investment_decision_command_receipts,
             )
-            async with engine.connect() as connection:
-                before_counts = []
-                for table in tables:
-                    before_counts.append(
-                        await connection.scalar(select(func.count()).select_from(table))
-                    )
+            before_counts = await postgres_row_counts(engine, *tables)
             before_versions = {
                 identity: await _version(setup, identity, command_at)
                 for identity in (source, first, second)
@@ -403,12 +398,7 @@ def test_many_target_supersession_failure_rolls_back_complete_command(
                     reference=f"rollback-{fail_step}",
                 )
 
-            async with engine.connect() as connection:
-                after_counts = []
-                for table in tables:
-                    after_counts.append(
-                        await connection.scalar(select(func.count()).select_from(table))
-                    )
+            after_counts = await postgres_row_counts(engine, *tables)
             assert after_counts == before_counts
             assert await setup.load_relationship_history() == ()
             assert {

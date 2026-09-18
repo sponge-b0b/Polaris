@@ -1,0 +1,206 @@
+name: Temporary post-323 free-threaded SQLAlchemy qualification
+
+on:
+  push:
+    branches:
+      - chatgpt/post-323-runtime-qualification
+    paths:
+      - '.github/workflows/tmp-post-323-free-threaded-qualification.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: ticket-baseline
+            target_ref: d7c7010b6db7ed3ee96888e2a983e48e06415153
+          - label: ticket-final
+            target_ref: 79e9a2a825977b1689bf336ec2c272deb969d2f1
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: polaris_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d polaris_test"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+
+    env:
+      POLARIS_TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/polaris_test
+      UV_PYTHON_PREFERENCE: only-managed
+
+    steps:
+      - name: Checkout exact qualification ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.target_ref }}
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install repository free-threaded interpreter
+        run: |
+          set -euo pipefail
+          uv python install 3.14t
+          uv python find 3.14t
+          test "$(cat .python-version)" = "3.14t"
+
+      - name: Sync exact locked environment
+        run: |
+          set -euo pipefail
+          uv sync --locked --python 3.14t
+
+      - name: Verify repository free-threaded contract before SQLAlchemy
+        run: |
+          set -euo pipefail
+          uv run --python 3.14t python -X gil=0 scripts/verify_free_threaded_runtime.py
+
+      - name: Native extension import and GIL probe
+        id: native_import
+        shell: bash
+        run: |
+          set +e
+          uv run --python 3.14t python -X gil=0 - <<'PY'
+          import importlib
+          import sys
+          import sysconfig
+
+          print(f"PYTHON={sys.version}")
+          print(f"PY_GIL_DISABLED={sysconfig.get_config_var('Py_GIL_DISABLED')}")
+          print(f"GIL_BEFORE_IMPORT={sys._is_gil_enabled()}")
+
+          import sqlalchemy
+          import greenlet
+
+          print(f"SQLALCHEMY_VERSION={sqlalchemy.__version__}")
+          print(f"GREENLET_VERSION={greenlet.__version__}")
+          print(f"GIL_AFTER_IMPORT={sys._is_gil_enabled()}")
+
+          for name in (
+              "sqlalchemy.cyextension.collections",
+              "sqlalchemy.cyextension.immutabledict",
+              "sqlalchemy.cyextension.processors",
+              "sqlalchemy.cyextension.resultproxy",
+              "sqlalchemy.cyextension.util",
+          ):
+              try:
+                  module = importlib.import_module(name)
+              except Exception as exc:
+                  print(f"NATIVE_MODULE={name}:ERROR:{type(exc).__name__}:{exc}")
+              else:
+                  print(f"NATIVE_MODULE={name}:{getattr(module, '__file__', None)}")
+
+          if sys._is_gil_enabled():
+              raise SystemExit("GIL enabled after native SQLAlchemy/greenlet import")
+          PY
+          rc=$?
+          echo "NATIVE_IMPORT_EXIT=$rc"
+          echo "native_import_exit=$rc" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Native extension PostgreSQL persistence suite
+        id: native_pg
+        shell: bash
+        run: |
+          set +e
+          uv run --python 3.14t python -X gil=0 -m pytest -q             tests/integration/persistence/postgresql
+          rc=$?
+          echo "NATIVE_PG_EXIT=$rc"
+          echo "native_pg_exit=$rc" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Pure-Python SQLAlchemy import and GIL probe
+        id: pure_import
+        shell: bash
+        env:
+          DISABLE_SQLALCHEMY_CEXT_RUNTIME: '1'
+        run: |
+          set +e
+          uv run --python 3.14t python -X gil=0 - <<'PY'
+          import importlib
+          import os
+          import sys
+          import sysconfig
+
+          print(f"PYTHON={sys.version}")
+          print(f"PY_GIL_DISABLED={sysconfig.get_config_var('Py_GIL_DISABLED')}")
+          print(f"GIL_BEFORE_IMPORT={sys._is_gil_enabled()}")
+          print(f"DISABLE_SQLALCHEMY_CEXT_RUNTIME={os.environ.get('DISABLE_SQLALCHEMY_CEXT_RUNTIME')}")
+
+          import sqlalchemy
+          import greenlet
+
+          print(f"SQLALCHEMY_VERSION={sqlalchemy.__version__}")
+          print(f"GREENLET_VERSION={greenlet.__version__}")
+          print(f"GIL_AFTER_IMPORT={sys._is_gil_enabled()}")
+
+          for name in (
+              "sqlalchemy.cyextension.collections",
+              "sqlalchemy.cyextension.immutabledict",
+              "sqlalchemy.cyextension.processors",
+              "sqlalchemy.cyextension.resultproxy",
+              "sqlalchemy.cyextension.util",
+          ):
+              try:
+                  module = importlib.import_module(name)
+              except Exception as exc:
+                  print(f"PURE_MODULE={name}:ERROR:{type(exc).__name__}:{exc}")
+              else:
+                  print(f"PURE_MODULE={name}:{getattr(module, '__file__', None)}")
+
+          if sys._is_gil_enabled():
+              raise SystemExit("GIL enabled after pure-Python SQLAlchemy path")
+          PY
+          rc=$?
+          echo "PURE_IMPORT_EXIT=$rc"
+          echo "pure_import_exit=$rc" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Pure-Python SQLAlchemy PostgreSQL persistence suite
+        id: pure_pg
+        shell: bash
+        env:
+          DISABLE_SQLALCHEMY_CEXT_RUNTIME: '1'
+        run: |
+          set +e
+          uv run --python 3.14t python -X gil=0 -m pytest -q             tests/integration/persistence/postgresql
+          rc=$?
+          echo "PURE_PG_EXIT=$rc"
+          echo "pure_pg_exit=$rc" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Qualification summary
+        shell: bash
+        env:
+          LABEL: ${{ matrix.label }}
+          TARGET_REF: ${{ matrix.target_ref }}
+          NATIVE_IMPORT: ${{ steps.native_import.outputs.native_import_exit }}
+          NATIVE_PG: ${{ steps.native_pg.outputs.native_pg_exit }}
+          PURE_IMPORT: ${{ steps.pure_import.outputs.pure_import_exit }}
+          PURE_PG: ${{ steps.pure_pg.outputs.pure_pg_exit }}
+        run: |
+          set -euo pipefail
+          echo "QUAL_LABEL=$LABEL"
+          echo "QUAL_REF=$TARGET_REF"
+          echo "QUAL_NATIVE_IMPORT_EXIT=$NATIVE_IMPORT"
+          echo "QUAL_NATIVE_PG_EXIT=$NATIVE_PG"
+          echo "QUAL_PURE_IMPORT_EXIT=$PURE_IMPORT"
+          echo "QUAL_PURE_PG_EXIT=$PURE_PG"
+
+          test "$PURE_IMPORT" = "0"
+          test "$PURE_PG" = "0"

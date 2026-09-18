@@ -480,7 +480,21 @@ A verifier-integrity failure, handoff-digest mismatch, or incomplete saturation 
 
 `$verify-spec` is the integrated decomposition backstop.
 
-Recover the parent Spec's current `Ticket Coverage Manifest`, including the complete Architecture/Design Obligation Disposition Manifest, and the exact `Architecture obligations` IDs on all relevant implementation/remediation tickets.
+Recover the exact current `$spec-contract` manifest and the parent Spec's current `Ticket Coverage Manifest`. For a conventional fresh-Spec decomposition, mechanically compare the Spec-cell ID sets before trusting any routing row:
+
+```text
+source Spec-cell IDs = exact IDs from the current bound $spec-contract manifest
+TCM Spec-cell IDs = exact Spec-cell IDs in the Ticket Coverage Manifest
+
+missing source-derived cells = source - TCM
+extra/non-source-derived cells = TCM - source
+```
+
+Require both differences to be empty and the counts equal. A TCM containing every real source cell plus one synthetic cell is a decomposition defect even when all implementation tickets are closed and semantically valid.
+
+A Spec-cell identity mismatch blocks certification and routes to the current `$to-tickets` decomposition owner, but it does **not** terminate independently actionable repair-capable verification under **Outstanding-owner blockers do not end repair-capable verification**.
+
+Then recover the complete Architecture/Design Obligation Disposition Manifest and the exact `Architecture obligations` IDs on all relevant implementation/remediation tickets.
 
 Before semantic PASS, independently validate the bounded governing architecture/design sources for the completed Spec against that manifest and ticket routing. The manifest is reused as accounting state; it is not trusted as proof of its own completeness.
 

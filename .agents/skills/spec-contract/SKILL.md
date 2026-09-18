@@ -456,7 +456,7 @@ A historical persisted `Spec Contract Hash` with no accompanying encoding is `le
 
 Current builders emit only `SPEC_CONTRACT_ENCODING = V2` using the authoritative **Reproducible Contract Identity** encoding above.
 
-## 3. Classify Change Ownership## 3. Classify Change Ownership
+## 3. Classify Change Ownership
 
 The fixed Spec baseline remains the integration origin, but it does not by itself establish ownership.
 

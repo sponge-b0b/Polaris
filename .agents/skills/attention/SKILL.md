@@ -13,6 +13,8 @@ It exists to prevent an agent from silently proceeding past something material m
 
 The always-on duty lives in `AGENTS.md`. This skill provides a deliberate sweep for formal workflow checkpoints.
 
+A formal sweep result is a **checkpoint-local snapshot**, not a terminal state for Attention. `ATTENTION: CLEAR` means only that the completed bounded sweep found no material concern at that checkpoint. It never suspends, satisfies, or exhausts the standing duty to notice and surface material concerns during later analysis, mutation, verification, or handoff.
+
 ## Polaris-Wide Scope
 
 The current artifact, diff, ticket, Spec, or workflow checkpoint is the **immediate work surface, not the boundary of Attention**.
@@ -79,13 +81,14 @@ At a formal checkpoint:
 
 1. Recover the exact current artifact/change and the authority already loaded by the owning workflow.
 2. Treat that artifact as the starting point, then look outward across the smallest materially implicated Polaris surface rather than only inward from the diff or checklist.
-3. Compare the current observation with relevant upstream, downstream, sibling, product, domain, architecture, persistence, public-contract, documentation/wiki, workflow, and tracker/governance assumptions where a material dependency is plausible.
-4. Ask what a competent architect, reviewer, downstream consumer, domain owner, or future maintainer could reasonably find surprising, ambiguous, inconsistent, under-specified, unsafe, unnecessarily constraining, or product-wrong.
-5. Check whether the observation exposes drift, duplicate truth, stale authority, missing ownership, a repeated symptom of an earlier defect, or a material opportunity outside the immediate task.
-6. Apply the mandate test to any contemplated broader change: could the explicit requirement be satisfied correctly without that structural/refactor/design change? If yes, surface the broader change as optional and do not treat Attention as authorization to perform it.
-7. For every candidate concern, determine whether current authority already resolves it.
-8. Do not invent a resolution when authority is silent.
-9. Report every material concern before the owning workflow crosses the checkpoint, and route/defer it without silently expanding mutation scope.
+3. Before a pre-mutation `ATTENTION: CLEAR`, inspect the smallest bounded set of sibling production paths and governing authorities that the current observation makes materially plausible. When a sibling may participate in the same invariant, namespace, transaction, lifecycle, or public/shared contract, inspect enough of that sibling path to rule out a material interaction before declaring CLEAR. This is not permission or a requirement to perform a whole-repository audit.
+4. Compare the current observation with relevant upstream, downstream, sibling, product, domain, architecture, persistence, public-contract, documentation/wiki, workflow, and tracker/governance assumptions where a material dependency is plausible.
+5. Ask what a competent architect, reviewer, downstream consumer, domain owner, or future maintainer could reasonably find surprising, ambiguous, inconsistent, under-specified, unsafe, unnecessarily constraining, or product-wrong.
+6. Check whether the observation exposes drift, duplicate truth, stale authority, missing ownership, a repeated symptom of an earlier defect, or a material opportunity outside the immediate task.
+7. Apply the mandate test to any contemplated broader change: could the explicit requirement be satisfied correctly without that structural/refactor/design change? If yes, surface the broader change as optional and do not treat Attention as authorization to perform it.
+8. For every candidate concern, determine whether current authority already resolves it.
+9. Do not invent a resolution when authority is silent.
+10. Report every material concern before the owning workflow crosses the checkpoint, and route/defer it without silently expanding mutation scope.
 
 Useful challenge questions include:
 
@@ -161,6 +164,8 @@ ATTENTION: CLEAR
 Checkpoint: <workflow/stage or direct task>
 Material concerns: 0
 ```
+
+`ATTENTION: CLEAR` certifies only that bounded sweep. Continue the always-on Attention duty immediately after the checkpoint and surface any later material observation even when it contradicts an earlier CLEAR.
 
 When concerns exist:
 

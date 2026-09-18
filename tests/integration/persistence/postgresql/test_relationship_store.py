@@ -78,7 +78,7 @@ from polaris.infrastructure.persistence.postgresql.schema import (
     investment_decisions,
 )
 
-from .conftest import PostgresTestTarget, postgres_engine_store
+from .conftest import PostgresTestTarget, postgres_engine_store, postgres_row_counts
 
 BASE = datetime(2026, 9, 17, 12, 0, tzinfo=UTC)
 
@@ -474,17 +474,12 @@ def test_initiation_rejects_relationship_operation_id_after_restart(
                     now=lambda: initiation_at,
                     new_uuid=lambda: next(identities),
                 ).initiate(command)
-            async with restarted_engine.connect() as connection:
-                decision_count = await connection.scalar(
-                    select(func.count()).select_from(investment_decisions)
-                )
-                receipt_count = await connection.scalar(
-                    select(func.count()).select_from(
-                        investment_decision_command_receipts
-                    )
-                )
-            assert decision_count == 2
-            assert receipt_count == 3
+            counts = await postgres_row_counts(
+                restarted_engine,
+                investment_decisions,
+                investment_decision_command_receipts,
+            )
+            assert counts == (2, 3)
         finally:
             await restarted_engine.dispose()
 
@@ -800,11 +795,10 @@ def test_ordinary_and_renewal_initiation_share_one_continuity_guard(
             )
             assert sum(not isinstance(item, Exception) for item in outcomes) == 1
             assert sum(isinstance(item, ContinuityConflict) for item in outcomes) == 1
-            async with engine.connect() as connection:
-                decision_count = await connection.scalar(
-                    select(func.count()).select_from(investment_decisions)
-                )
-            assert decision_count == 2
+            assert await postgres_row_counts(
+                engine,
+                investment_decisions,
+            ) == (2,)
 
     asyncio.run(scenario())
 
@@ -846,12 +840,7 @@ def test_renewal_initial_lineage_failure_rolls_back_entire_creation(
                 investment_decision_relationships,
                 investment_decision_command_receipts,
             )
-            async with engine.connect() as connection:
-                before_counts = []
-                for table in tables:
-                    before_counts.append(
-                        await connection.scalar(select(func.count()).select_from(table))
-                    )
+            before_counts = await postgres_row_counts(engine, *tables)
             before_history = await setup.load_decision_history(predecessor)
             before_relationships = await setup.load_relationship_history()
 
@@ -885,12 +874,7 @@ def test_renewal_initial_lineage_failure_rolls_back_entire_creation(
                     )
                 )
 
-            async with engine.connect() as connection:
-                after_counts = []
-                for table in tables:
-                    after_counts.append(
-                        await connection.scalar(select(func.count()).select_from(table))
-                    )
+            after_counts = await postgres_row_counts(engine, *tables)
             assert after_counts == before_counts
             assert await setup.load_decision_history(predecessor) == before_history
             assert await setup.load_relationship_history() == before_relationships

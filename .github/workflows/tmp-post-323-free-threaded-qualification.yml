@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: fde6d6e1830d2f824dc9bf348c63e0e268d1e716
+          ref: b11df2d1029e4b6715c55acbb455e6e4b7afa5f7
           fetch-depth: 0
 
       - uses: astral-sh/setup-uv@v6
@@ -87,7 +87,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: fde6d6e1830d2f824dc9bf348c63e0e268d1e716
+          ref: b11df2d1029e4b6715c55acbb455e6e4b7afa5f7
           fetch-depth: 0
 
       - uses: astral-sh/setup-uv@v6

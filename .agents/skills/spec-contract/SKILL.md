@@ -129,6 +129,8 @@ A decomposition-only build does not return or claim `Build isolation: PASS`, bec
 
 This section is authoritative and supersedes later preserved wording that includes model-authored display prose in `SPEC_CONTRACT_HASH` or requires byte-identical explanatory manifest wording across independent builds.
 
+A durable Spec contract identity is the ordered pair `(SPEC_CONTRACT_ENCODING, SPEC_CONTRACT_HASH)`. The current and only writable encoding is exactly `V2`. Every new handoff, verification receipt, Ticket Coverage Manifest, review artifact, or other durable consumer that persists the hash must also persist `Spec Contract Encoding: V2` (or the equivalent structured `spec_contract_encoding: "V2"`). A bare historical hash with no encoding is `legacy-unversioned`; it is not comparable to V2 from the hash value alone. Different or unversioned hashes must never be declared equivalent merely because the Spec body, cell count, or cell-ID set matches.
+
 A valid contract must be reproducible from the unchanged originating Spec and the same semantic source-unit classification/mapping after all ephemeral handoff files have been lost. Contract identity therefore contains only deterministic source-derived identity plus semantic classification/mapping state; explanatory prose is never identity.
 
 For contract identity, canonicalize every Source Unit Inventory row as exactly:
@@ -198,7 +200,7 @@ The parent supplies:
 * current Spec branch;
 * current `HEAD`;
 * mode: `build` or `validate`;
-* in `validate` mode, the persisted manifest/counts/hash from the current passing **Spec Verification Receipt**;
+* in `validate` mode, the persisted manifest/counts/hash/encoding from the current passing **Spec Verification Receipt**, which must declare `Spec Contract Encoding: V2`;
 * optionally in `build` mode, a caller-owned temporary `handoff-output` path for the finalizer-facing contract handoff.
 
 The helper resolves the repository default branch and immutable default-branch head from GitHub, not from a possibly stale remote-tracking ref. If that exact commit object is absent locally, it may fetch the default branch over the repository's canonical HTTPS URL into `FETCH_HEAD` only. It must not depend on the configured `origin` transport, switch branches, change the index/worktree, edit tracked files, commit, push, or mutate tracker state.
@@ -218,6 +220,7 @@ Write exactly one compact JSON object with these keys and no others:
   "baseline": "<40-char baseline>",
   "branch": "spec-68",
   "spec_body_hash": "<sha256>",
+  "spec_contract_encoding": "V2",
   "spec_contract_hash": "<sha256>",
   "default_branch": "main",
   "default_head": "<40-char default HEAD>",
@@ -445,47 +448,15 @@ Also require:
 
 A contract with unresolved source-unit classification, counting, missing source items, missing mappings, or ambiguous mapping is invalid. Do not return a partial inventory or manifest as complete.
 
-### Deterministic Contract Hash Encoding
+### Legacy V1 Contract Hash Encoding — Historical Only
 
-The human-readable inventory and manifest row forms above are display forms. They are not the byte serialization used for `SPEC_CONTRACT_HASH`.
+The former V1 encoding is retained only as historical context for artifacts created before V2. It is not a writable or validatable current contract encoding and must not be used to construct a new contract, force a current hash to match an old artifact, or infer semantic equivalence across versions.
 
-For hashing, represent each Source Unit Inventory row as this five-element array, preserving the exact already-classified values:
+A historical persisted `Spec Contract Hash` with no accompanying encoding is `legacy-unversioned`. Treat it as incomparable to V2 until an owning lifecycle workflow rebuilds the current V2 contract from authoritative Spec state and reconciles the consumer artifact under that workflow's deterministic migration rules. Matching Spec body, manifest cell count, or exact cell-ID set is not proof that a legacy/unversioned hash and a V2 hash denote the same structural contract.
 
-```text
-[Source Unit, Source, Text Hash, Classification, Manifest cells]
-```
+Current builders emit only `SPEC_CONTRACT_ENCODING = V2` using the authoritative **Reproducible Contract Identity** encoding above.
 
-`Manifest cells` is JSON `null` when the display value is `None`; otherwise it is an array of cell IDs sorted in stable cell-ID order.
-
-Represent each persisted Spec Contract Manifest row as this three-element array:
-
-```text
-[Cell, Source, Requirement]
-```
-
-This is intentionally the exact `cell` / `source` / `requirement` projection persisted in the build handoff and Spec Verification Receipt. `Named surfaces` remains working scope-discovery metadata and is not part of `SPEC_CONTRACT_HASH`; do not make hash validation depend on state the receipt does not persist.
-
-Stable cell-ID order is defined by the tuple `(family_rank, number, suffix)`, where `family_rank` is exactly `US=0`, `ID=1`, `TD=2`, `OOS=3`, `NORM=4`; `number` is the base-10 integer after the family prefix; and `suffix` is the text after the first dot, with the unsuffixed parent sorting before any suffixed child and suffixed children ordered lexicographically by Unicode code point. A cell ID outside these five families or not matching `<family>-<positive integer>[.<non-empty suffix>]` makes the contract invalid rather than creating an implicit new ordering rule. Use this same order for manifest rows and for every non-null `Manifest cells` array.
-
-Serialize every array independently with Python `json.dumps(value, ensure_ascii=False, separators=(",", ":"))`. Do not pretty-print, add a BOM, normalize Unicode code points, or otherwise rewrite field text. Then construct exactly this Unicode payload:
-
-```python
-payload = (
-    "SPEC-CONTRACT-V1\n"
-    + "\n".join(inventory_json_rows)
-    + "\n--MANIFEST--\n"
-    + "\n".join(manifest_json_rows)
-    + "\n"
-)
-```
-
-Encode `payload` as UTF-8 and compute `hashlib.sha256(payload.encode("utf-8")).hexdigest()`.
-
-This encoding is the only canonical byte form for `SPEC_CONTRACT_HASH`. Inventory rows remain ordered by `SU-*`; manifest rows remain ordered by stable cell-ID order. A contract is invalid if an inventory/manifest value needed by this encoding is unresolved.
-
-The contract hash therefore binds both **what the Spec said** and **how every semantic source unit was dispositioned into or outside the normative contract**, including the exact persisted manifest obligation, without binding incidental explanatory `Reason` prose or non-persisted scope-discovery metadata.
-
-## 3. Classify Change Ownership
+## 3. Classify Change Ownership## 3. Classify Change Ownership
 
 The fixed Spec baseline remains the integration origin, but it does not by itself establish ownership.
 
@@ -569,6 +540,7 @@ SPEC CONTRACT: VALID
 
 Spec: #<n>
 Spec Body Hash: <sha256>
+Spec Contract Encoding: V2
 Spec Contract Hash: <sha256>
 Baseline: <sha>
 Branch: <branch>
@@ -619,4 +591,4 @@ Do not return `SPEC CONTRACT: VALID` when any source-universe, manifest-integrit
 
 `$to-tickets` is also an authorized internal caller of `$spec-contract` in `build` mode for the sole purpose of constructing the exact current Spec obligation universe before ticket decomposition.
 
-This does not make `$spec-contract` a ticketing lifecycle owner and does not verify implementation. `$to-tickets` supplies the same required Spec/baseline/branch/HEAD inputs and consumes the returned Source Unit Inventory, manifest, hashes, and integrity counts as decomposition source state. All existing fail-closed source-universe and ownership requirements apply unchanged. `$to-tickets` does not request or consume the `$verify-spec` contract handoff unless its own workflow explicitly gains such a need.
+This does not make `$spec-contract` a ticketing lifecycle owner and does not verify implementation. `$to-tickets` supplies the same required Spec/baseline/branch/HEAD inputs and consumes the returned Source Unit Inventory, manifest, `Spec Contract Encoding: V2`, hash, and integrity counts as decomposition source state. All existing fail-closed source-universe and ownership requirements apply unchanged. `$to-tickets` does not request or consume the `$verify-spec` contract handoff unless its own workflow explicitly gains such a need.

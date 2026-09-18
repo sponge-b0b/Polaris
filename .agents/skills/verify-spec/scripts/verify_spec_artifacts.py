@@ -22,7 +22,9 @@ DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
 WORKSPACE_METADATA_HEADER = "## Workspace Metadata"
 BASELINE_LINE_RE = re.compile(r"^\*\*Baseline Commit Hash:\*\* (?P<sha>[0-9a-f]{40})$")
 RECEIPT_HEADER = "## Spec Verification Receipt"
+TCM_HEADER = "## Ticket Coverage Manifest"
 RECEIPT_FORMAT = "manifest-table-v2"
+SPEC_CONTRACT_ENCODING = "V2"
 PROOF_STATES = {"proven", "not-applicable", "unresolved"}
 GATE_STATES = {"PASS", "NOT APPLICABLE"}
 CONTRACT_HANDOFF_KEYS = {
@@ -31,6 +33,7 @@ CONTRACT_HANDOFF_KEYS = {
     "baseline",
     "branch",
     "spec_body_hash",
+    "spec_contract_encoding",
     "spec_contract_hash",
     "default_branch",
     "default_head",
@@ -72,6 +75,15 @@ def _digest_text(value: Any, label: str) -> str:
     return text
 
 
+def _contract_encoding(value: Any, label: str = "Spec Contract Encoding") -> str:
+    encoding = _text(value, label)
+    _require(
+        encoding == SPEC_CONTRACT_ENCODING,
+        f"{label} must be {SPEC_CONTRACT_ENCODING}",
+    )
+    return encoding
+
+
 def _digest(value: Any) -> str:
     encoded = json.dumps(
         value,
@@ -84,6 +96,13 @@ def _digest(value: Any) -> str:
 
 def _read_json(path: str | Path) -> Any:
     return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def _tcm_field(lines: list[str], label: str) -> str:
+    prefix = f"{label}: "
+    matches = [line[len(prefix) :] for line in lines if line.startswith(prefix)]
+    _require(len(matches) == 1, f"TCM must contain exactly one {label} field")
+    return matches[0].strip()
 
 
 def _strings(value: Any, label: str) -> list[str]:
@@ -144,6 +163,7 @@ def _require_contract_digest(path: str | Path, expected: str) -> None:
 
 
 def _validate_contract_identity(contract: dict[str, Any]) -> None:
+    _contract_encoding(contract.get("spec_contract_encoding"), "spec_contract_encoding")
     identity = contract.get("contract_identity")
     _require(isinstance(identity, dict), "contract_identity must be an object")
     _require(
@@ -323,22 +343,87 @@ def comments_summary(raw: Any) -> dict[str, Any]:
     )
     metadata = _workspace_metadata(comments)
     receipts: list[dict[str, Any]] = []
+    ticket_coverage_manifests: list[dict[str, Any]] = []
     for comment in comments:
         body = str(comment.get("body") or "")
+        record = {
+            "id": comment.get("id"),
+            "created_at": comment.get("created_at"),
+            "html_url": comment.get("html_url") or comment.get("url"),
+            "body": body,
+        }
         if RECEIPT_HEADER in body:
-            receipts.append(
-                {
-                    "id": comment.get("id"),
-                    "created_at": comment.get("created_at"),
-                    "html_url": comment.get("html_url") or comment.get("url"),
-                    "body": body,
-                }
-            )
+            receipts.append(record)
+        if TCM_HEADER in body.splitlines():
+            ticket_coverage_manifests.append(record)
     return {
         "comment_count": len(comments),
         "workspace_metadata": metadata,
         "baseline_commit": metadata["baseline_commit"],
         "latest_receipt": receipts[-1] if receipts else None,
+        "ticket_coverage_manifest": (
+            ticket_coverage_manifests[0]
+            if len(ticket_coverage_manifests) == 1
+            else None
+        ),
+        "ticket_coverage_manifest_count": len(ticket_coverage_manifests),
+    }
+
+
+def contract_coherence(summary: Any, contract: Any) -> dict[str, str]:
+    _require(isinstance(summary, dict), "comments summary must be an object")
+    _require(isinstance(contract, dict), "contract handoff must be an object")
+    keys = set(contract)
+    _require(
+        keys == CONTRACT_HANDOFF_KEYS,
+        "contract handoff keys mismatch: "
+        f"missing={sorted(CONTRACT_HANDOFF_KEYS - keys)}, "
+        f"extra={sorted(keys - CONTRACT_HANDOFF_KEYS)}",
+    )
+    _validate_contract_identity(contract)
+
+    _require(
+        summary.get("ticket_coverage_manifest_count") == 1,
+        "exactly one current Ticket Coverage Manifest is required",
+    )
+    tcm = summary.get("ticket_coverage_manifest")
+    _require(isinstance(tcm, dict), "current Ticket Coverage Manifest is missing")
+    tcm_body = _text(tcm.get("body"), "Ticket Coverage Manifest body")
+    lines = tcm_body.splitlines()
+    _require(TCM_HEADER in lines, "invalid Ticket Coverage Manifest")
+
+    contract_body_hash = _digest_text(
+        contract.get("spec_body_hash"),
+        "contract spec_body_hash",
+    )
+    contract_encoding = _contract_encoding(
+        contract.get("spec_contract_encoding"),
+        "contract spec_contract_encoding",
+    )
+    contract_hash = _digest_text(
+        contract.get("spec_contract_hash"),
+        "contract spec_contract_hash",
+    )
+    tcm_body_hash = _digest_text(_tcm_field(lines, "Spec Body Hash"), "TCM Spec Body Hash")
+    tcm_encoding = _contract_encoding(
+        _tcm_field(lines, "Spec Contract Encoding"),
+        "TCM Spec Contract Encoding",
+    )
+    tcm_hash = _digest_text(
+        _tcm_field(lines, "Spec Contract Hash"),
+        "TCM Spec Contract Hash",
+    )
+
+    _require(tcm_body_hash == contract_body_hash, "TCM Spec Body Hash mismatch")
+    _require(tcm_encoding == contract_encoding, "TCM Spec Contract Encoding mismatch")
+    _require(tcm_hash == contract_hash, "TCM Spec Contract Hash mismatch")
+
+    return {
+        "status": "PASS",
+        "spec_body_hash": contract_body_hash,
+        "spec_contract_encoding": contract_encoding,
+        "spec_contract_hash": contract_hash,
+        "ticket_coverage_manifest_id": str(tcm.get("id") or ""),
     }
 
 
@@ -465,6 +550,7 @@ def finalize(raw: Any) -> dict[str, Any]:
         "mode": _text(raw.get("mode"), "mode"),
         "prior_checkpoint": raw.get("prior_checkpoint"),
         "spec_body_hash": _digest_text(raw.get("spec_body_hash"), "spec_body_hash"),
+        "spec_contract_encoding": _contract_encoding(raw.get("spec_contract_encoding"), "spec_contract_encoding"),
         "spec_contract_hash": _digest_text(
             raw.get("spec_contract_hash"),
             "spec_contract_hash",
@@ -556,6 +642,7 @@ def render_receipt(state: dict[str, Any]) -> str:
         f"**Verification mode:** {state['mode']}",
         f"**Prior verified checkpoint:** {state.get('prior_checkpoint') or 'None'}",
         f"**Spec Body Hash:** {state['spec_body_hash']}",
+        f"**Spec Contract Encoding:** {state['spec_contract_encoding']}",
         f"**Spec Contract Hash:** {state['spec_contract_hash']}",
         f"**Verification Hash:** {state['verification_hash']}",
         (
@@ -636,10 +723,22 @@ def self_test() -> None:
                 f"## Implementation Tickets\n**Baseline Commit Hash:** `{'a' * 40}`"
             ),
         },
+        {
+            "id": 3,
+            "created_at": "2026-08-31T00:02:00Z",
+            "body": (
+                "## Ticket Coverage Manifest\n"
+                f"Spec Body Hash: {'b' * 64}\n"
+                f"Spec Contract Encoding: {SPEC_CONTRACT_ENCODING}\n"
+                f"Spec Contract Hash: {'c' * 64}"
+            ),
+        },
     ]
     summary = comments_summary(canonical_comments)
     assert summary["baseline_commit"] == "a" * 40
     assert summary["workspace_metadata"]["comment_id"] == 1
+    assert summary["ticket_coverage_manifest_count"] == 1
+    assert summary["ticket_coverage_manifest"]["id"] == 3
 
     invalid_comments = [
         [
@@ -708,6 +807,7 @@ def self_test() -> None:
         "mode": "full",
         "prior_checkpoint": None,
         "spec_body_hash": body_hash,
+        "spec_contract_encoding": SPEC_CONTRACT_ENCODING,
         "spec_contract_hash": contract_hash,
         "default_branch": "main",
         "default_head": "e" * 40,
@@ -757,6 +857,45 @@ def self_test() -> None:
         "source_units": source_identity,
         "manifest": manifest_identity,
     }
+    coherent_tcm = {
+        "id": 99,
+        "body": (
+            "## Ticket Coverage Manifest\n"
+            f"Spec Body Hash: {body_hash}\n"
+            f"Spec Contract Encoding: {SPEC_CONTRACT_ENCODING}\n"
+            f"Spec Contract Hash: {contract_hash}\n"
+            "US-1 -> implementation ticket #1\n"
+            "US-2 -> implementation ticket #1\n"
+            "OOS-1 -> authoritative-exclusion"
+        ),
+    }
+    coherence_summary = {
+        "ticket_coverage_manifest": coherent_tcm,
+        "ticket_coverage_manifest_count": 1,
+    }
+    coherent = contract_coherence(coherence_summary, contract)
+    assert coherent["status"] == "PASS"
+    for bad_body in (
+        coherent_tcm["body"].replace(
+            f"Spec Contract Hash: {contract_hash}",
+            f"Spec Contract Hash: {'9' * 64}",
+        ),
+        coherent_tcm["body"].replace(
+            f"Spec Contract Encoding: {SPEC_CONTRACT_ENCODING}\n",
+            "",
+        ),
+    ):
+        broken_summary = {
+            "ticket_coverage_manifest": {"id": 99, "body": bad_body},
+            "ticket_coverage_manifest_count": 1,
+        }
+        try:
+            contract_coherence(broken_summary, contract)
+        except ValidationError:
+            pass
+        else:
+            raise AssertionError("contract-incoherent TCM was accepted")
+
     assembled = finalize_parts(
         contract,
         raw["proofs"],
@@ -770,6 +909,7 @@ def self_test() -> None:
 
     receipt = render_receipt(state)
     assert f"**Receipt format:** {RECEIPT_FORMAT}" in receipt
+    assert f"**Spec Contract Encoding:** {SPEC_CONTRACT_ENCODING}" in receipt
     assert "### Spec Contract Manifest" in receipt
     assert "### Spec Proof Objects" not in receipt
     assert "- proven: US-1, US-2" in receipt
@@ -827,6 +967,9 @@ def _args() -> argparse.Namespace:
     sub = parser.add_subparsers(dest="command", required=True)
     comments = sub.add_parser("comments")
     comments.add_argument("--input", required=True)
+    coherence = sub.add_parser("contract-coherence")
+    coherence.add_argument("--comments-summary", required=True)
+    coherence.add_argument("--contract-input", required=True)
     parts = sub.add_parser("finalize-parts")
     parts.add_argument("--contract-input", required=True)
     parts.add_argument("--contract-digest", required=True)
@@ -846,6 +989,12 @@ def main() -> int:
     try:
         if args.command == "comments":
             result = comments_summary(_read_json(args.input))
+            print(json.dumps(result, indent=2, sort_keys=True))
+        elif args.command == "contract-coherence":
+            result = contract_coherence(
+                _read_json(args.comments_summary),
+                _read_json(args.contract_input),
+            )
             print(json.dumps(result, indent=2, sort_keys=True))
         elif args.command == "finalize-parts":
             _require_contract_digest(args.contract_input, args.contract_digest)

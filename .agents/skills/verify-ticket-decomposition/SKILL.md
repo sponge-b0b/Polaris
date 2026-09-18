@@ -38,7 +38,8 @@ The parent supplies a compact retrieval packet containing:
 ```text
 Source artifact: <durable identity>
 Mode: fresh | remediation
-Source state identity: <Spec body/contract/root hashes or equivalent durable identities>
+Source state identity: <Spec Body Hash + Spec Contract Encoding + Spec Contract Hash + root hashes or equivalent durable identities>
+Parent TCM identity: <Spec Body Hash + Spec Contract Encoding + Spec Contract Hash when a TCM exists>
 Proposal identity: <sha256 of exact rendered proposal>
 Exact proposed ticket bodies/actions: <complete candidate>
 Parent coverage candidate: <exact rendered manifest/delta>
@@ -62,6 +63,8 @@ Read the originating Spec/remediation authority and every architecture/design so
 Independently check that:
 
 * the implementation-ready source contract is the one bound to the proposal;
+* for **every mode** with a parent Ticket Coverage Manifest, the bound current Spec contract and TCM both declare `Spec Contract Encoding: V2`, their Spec Body Hash values are equal, and their Spec Contract Hash values are equal;
+* a missing/unversioned TCM encoding, non-V2 encoding, or different hash is contradictory dispatch state and invalidates verification before PASS/FAIL; matching body text, cell counts, cell-ID sets, or routing counts may not be used to infer contract equivalence;
 * for a fresh Spec proposal, the exact Spec-cell ID set rendered in the parent Ticket Coverage Manifest is **identical** to the exact Spec-cell ID set emitted by the bound `$spec-contract` manifest;
 * for that equality check, independently compute both directional differences and require missing source-derived cells = 0 and extra/non-source-derived cells = 0; a proposal containing every source cell plus one synthetic cell must FAIL;
 * every disposition in a fresh-Spec Ticket Coverage Manifest refers to an existing source Spec cell; workflow/lifecycle/publication mechanics may not appear as synthetic Spec cells unless `$spec-contract` itself emits them;

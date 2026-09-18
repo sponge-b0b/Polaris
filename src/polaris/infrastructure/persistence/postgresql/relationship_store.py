@@ -68,6 +68,7 @@ from .decisions import (
     _get_operation_receipt,
     _load_decision_history,
     _load_decision_projection,
+    _repeatable_read,
 )
 from .relationship_codec import (
     relationship_fact_from_row,
@@ -113,23 +114,19 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
     ) -> DecisionRelationshipState:
         _aware(known_at, "known_at")
         try:
-            async with self._engine.connect() as raw_connection:
-                connection = await raw_connection.execution_options(
-                    isolation_level="REPEATABLE READ"
+            async with _repeatable_read(self._engine) as connection:
+                history = await _load_relationship_history(
+                    connection, known_at=known_at
                 )
-                async with connection.begin():
-                    history = await _load_relationship_history(
-                        connection, known_at=known_at
-                    )
-                    loaded = await _load_decisions(
-                        connection,
-                        known_at=known_at,
-                        relationship_history=history,
-                    )
-                    return DecisionRelationshipState(
-                        history,
-                        {identity: value[0] for identity, value in loaded.items()},
-                    )
+                loaded = await _load_decisions(
+                    connection,
+                    known_at=known_at,
+                    relationship_history=history,
+                )
+                return DecisionRelationshipState(
+                    history,
+                    {identity: value[0] for identity, value in loaded.items()},
+                )
         except (
             SQLAlchemyError,
             DecisionApplicationError,
@@ -164,24 +161,20 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
     ) -> DecisionCommandState | None:
         _aware(known_at, "known_at")
         try:
-            async with self._engine.connect() as raw_connection:
-                connection = await raw_connection.execution_options(
-                    isolation_level="REPEATABLE READ"
+            async with _repeatable_read(self._engine) as connection:
+                relationships = await _load_relationship_history(
+                    connection, known_at=known_at
                 )
-                async with connection.begin():
-                    relationships = await _load_relationship_history(
-                        connection, known_at=known_at
-                    )
-                    loaded = await _load_decision(
-                        connection,
-                        decision_id,
-                        known_at=known_at,
-                        relationship_history=relationships,
-                    )
-                    if loaded is None:
-                        return None
-                    decision, applicability = loaded
-                    return DecisionCommandState(decision, applicability)
+                loaded = await _load_decision(
+                    connection,
+                    decision_id,
+                    known_at=known_at,
+                    relationship_history=relationships,
+                )
+                if loaded is None:
+                    return None
+                decision, applicability = loaded
+                return DecisionCommandState(decision, applicability)
         except (
             SQLAlchemyError,
             DecisionApplicationError,
@@ -200,52 +193,48 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
     ) -> DecisionMemoryCurrentState | None:
         _aware(known_at, "known_at")
         try:
-            async with self._engine.connect() as raw_connection:
-                connection = await raw_connection.execution_options(
-                    isolation_level="REPEATABLE READ"
+            async with _repeatable_read(self._engine) as connection:
+                projection = await _load_decision_projection(
+                    connection, decision_id
                 )
-                async with connection.begin():
-                    projection = await _load_decision_projection(
-                        connection, decision_id
+                if projection is None:
+                    return None
+                all_relationships = await _load_relationship_history(connection)
+                all_history = await _load_decision_history(connection, decision_id)
+                if not all_history:
+                    raise ValueError(
+                        "Decision projection requires lifecycle history"
                     )
-                    if projection is None:
-                        return None
-                    all_relationships = await _load_relationship_history(connection)
-                    all_history = await _load_decision_history(connection, decision_id)
-                    if not all_history:
-                        raise ValueError(
-                            "Decision projection requires lifecycle history"
-                        )
-                    projection_version = await _authoritative_decision_version(
-                        connection, decision_id
-                    )
-                    _validate_projection(
-                        projection,
-                        all_history,
-                        all_relationships,
-                        version=projection_version,
-                    )
+                projection_version = await _authoritative_decision_version(
+                    connection, decision_id
+                )
+                _validate_projection(
+                    projection,
+                    all_history,
+                    all_relationships,
+                    version=projection_version,
+                )
 
-                    history = tuple(
-                        fact
-                        for fact in all_history
-                        if fact.metadata.recorded_at <= known_at
-                    )
-                    if not history:
-                        return None
-                    relationships = tuple(
-                        fact
-                        for fact in all_relationships
-                        if fact.metadata.recorded_at <= known_at
-                    )
-                    version = await _authoritative_decision_version(
-                        connection, decision_id, known_at=known_at
-                    )
-                    return DecisionMemoryCurrentState(
-                        lifecycle_facts=history,
-                        version=version,
-                        relationship_history=relationships,
-                    )
+                history = tuple(
+                    fact
+                    for fact in all_history
+                    if fact.metadata.recorded_at <= known_at
+                )
+                if not history:
+                    return None
+                relationships = tuple(
+                    fact
+                    for fact in all_relationships
+                    if fact.metadata.recorded_at <= known_at
+                )
+                version = await _authoritative_decision_version(
+                    connection, decision_id, known_at=known_at
+                )
+                return DecisionMemoryCurrentState(
+                    lifecycle_facts=history,
+                    version=version,
+                    relationship_history=relationships,
+                )
         except (
             SQLAlchemyError,
             DecisionApplicationError,
@@ -261,37 +250,33 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
     ) -> tuple[InvestmentDecisionId, ...]:
         _aware(known_at, "known_at")
         try:
-            async with self._engine.connect() as raw_connection:
-                connection = await raw_connection.execution_options(
-                    isolation_level="REPEATABLE READ"
+            async with _repeatable_read(self._engine) as connection:
+                relationships = await _load_relationship_history(
+                    connection, known_at=known_at
                 )
-                async with connection.begin():
-                    relationships = await _load_relationship_history(
-                        connection, known_at=known_at
+                decisions = await _load_decisions(
+                    connection,
+                    known_at=known_at,
+                    relationship_history=relationships,
+                )
+                return tuple(
+                    sorted(
+                        (
+                            identity
+                            for identity, (decision, applicability) in (
+                                decisions.items()
+                            )
+                            if isinstance(
+                                decision.lifecycle_interpretation,
+                                DeterminateDecisionLifecycleInterpretation,
+                            )
+                            and decision.lifecycle_interpretation.disposition.value
+                            == "unresolved"
+                            and applicability is DecisionApplicability.OPERATIVE
+                        ),
+                        key=lambda identity: identity.value.int,
                     )
-                    decisions = await _load_decisions(
-                        connection,
-                        known_at=known_at,
-                        relationship_history=relationships,
-                    )
-                    return tuple(
-                        sorted(
-                            (
-                                identity
-                                for identity, (decision, applicability) in (
-                                    decisions.items()
-                                )
-                                if isinstance(
-                                    decision.lifecycle_interpretation,
-                                    DeterminateDecisionLifecycleInterpretation,
-                                )
-                                and decision.lifecycle_interpretation.disposition.value
-                                == "unresolved"
-                                and applicability is DecisionApplicability.OPERATIVE
-                            ),
-                            key=lambda identity: identity.value.int,
-                        )
-                    )
+                )
         except (
             SQLAlchemyError,
             DecisionApplicationError,

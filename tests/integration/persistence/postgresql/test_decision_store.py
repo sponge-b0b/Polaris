@@ -319,12 +319,10 @@ def test_explicit_create_new_persists_complete_candidate_basis(
         operation_id = UUID("00000000-0000-4000-8000-00000000000f")
         identities = _uuids(second_decision_id, second_need_id, second_fact_id)
         command = InitiateDecisionCommand(
-            envelope=DecisionCommandEnvelope(
-                operation_id=OperationId(operation_id),
-                actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "request-323"),
-                effective_at=MUTATION_RECORDED_AT,
-                technical_provenance=TechnicalProvenance(),
+            envelope=_test_envelope(
+                operation_id,
+                reference="request-323",
+                decision_id=None,
             ),
             need_statement="Review an independent durable choice",
             subject=DecisionSubject("Whether to reduce the position"),
@@ -433,12 +431,10 @@ def test_continuation_persists_only_a_restart_safe_receipt(
         store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
         operation_id = OperationId(UUID("00000000-0000-4000-8000-00000000000c"))
         command = InitiateDecisionCommand(
-            envelope=DecisionCommandEnvelope(
-                operation_id=operation_id,
-                actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "request-323"),
-                effective_at=MUTATION_RECORDED_AT,
-                technical_provenance=TechnicalProvenance(),
+            envelope=_test_envelope(
+                operation_id,
+                reference="request-323",
+                decision_id=None,
             ),
             need_statement="Recognize the existing coherent choice",
             subject=DecisionSubject("Whether to establish the position"),
@@ -613,20 +609,9 @@ def test_subject_revision_replays_and_rejects_changed_request_after_restart(
 ) -> None:
     async def scenario() -> None:
         store, _ = await _initiate(postgres_target, DecisionScope.unresolved())
-        envelope = DecisionCommandEnvelope(
-            operation_id=OperationId(MUTATION_OPERATION_ID),
-            actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-            trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "request-322"),
-            effective_at=MUTATION_RECORDED_AT,
-            technical_provenance=TechnicalProvenance(),
-            expected_versions=frozenset(
-                {
-                    ExpectedDecisionVersion(
-                        InvestmentDecisionId(DECISION_ID),
-                        DecisionVersion(1),
-                    )
-                }
-            ),
+        envelope = _test_envelope(
+            MUTATION_OPERATION_ID,
+            reference="request-322",
         )
         command = ReviseDecisionSubjectCommand(
             envelope=envelope,
@@ -755,20 +740,9 @@ def test_mutation_rejects_operation_id_already_used_by_initiation(
             new_uuid=lambda: MUTATION_FACT_ID,
         )
         command = ReviseDecisionSubjectCommand(
-            envelope=DecisionCommandEnvelope(
-                operation_id=OperationId(OPERATION_ID),
-                actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "request-322"),
-                effective_at=MUTATION_RECORDED_AT,
-                technical_provenance=TechnicalProvenance(),
-                expected_versions=frozenset(
-                    {
-                        ExpectedDecisionVersion(
-                            InvestmentDecisionId(DECISION_ID),
-                            DecisionVersion(1),
-                        )
-                    }
-                ),
+            envelope=_test_envelope(
+                OPERATION_ID,
+                reference="request-322",
             ),
             decision_id=InvestmentDecisionId(DECISION_ID),
             subject=DecisionSubject("Whether to increase the position"),
@@ -1013,23 +987,9 @@ def test_concurrent_expected_version_mutations_commit_exactly_once(
 
         def command(operation_id: UUID, subject: str) -> ReviseDecisionSubjectCommand:
             return ReviseDecisionSubjectCommand(
-                envelope=DecisionCommandEnvelope(
-                    operation_id=OperationId(operation_id),
-                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                    trigger=TriggerProvenance(
-                        TriggerKind.HUMAN_REQUEST,
-                        f"request-{operation_id}",
-                    ),
-                    effective_at=MUTATION_RECORDED_AT,
-                    technical_provenance=TechnicalProvenance(),
-                    expected_versions=frozenset(
-                        {
-                            ExpectedDecisionVersion(
-                                InvestmentDecisionId(DECISION_ID),
-                                DecisionVersion(1),
-                            )
-                        }
-                    ),
+                envelope=_test_envelope(
+                    operation_id,
+                    reference=f"request-{operation_id}",
                 ),
                 decision_id=InvestmentDecisionId(DECISION_ID),
                 subject=DecisionSubject(subject),
@@ -1350,22 +1310,11 @@ def test_ordinary_mutation_rejects_unwitnessed_projection_version_ahead_of_histo
                     new_uuid=lambda: MUTATION_FACT_ID,
                 ).revise_subject(
                     ReviseDecisionSubjectCommand(
-                        DecisionCommandEnvelope(
-                            operation_id=OperationId(MUTATION_OPERATION_ID),
-                            actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                            trigger=TriggerProvenance(
-                                TriggerKind.HUMAN_REQUEST,
-                                "after-unwitnessed-projection-version",
-                            ),
-                            effective_at=MUTATION_RECORDED_AT,
-                            technical_provenance=TechnicalProvenance(),
-                            expected_versions=frozenset(
-                                {
-                                    ExpectedDecisionVersion(
-                                        decision_id, DecisionVersion(2)
-                                    )
-                                }
-                            ),
+                        _test_envelope(
+                            MUTATION_OPERATION_ID,
+                            reference="after-unwitnessed-projection-version",
+                            decision_id=decision_id,
+                            expected_version=DecisionVersion(2),
                         ),
                         decision_id,
                         DecisionSubject("Whether to increase the position"),
@@ -2195,12 +2144,11 @@ def test_commit_revalidates_stale_empty_candidate_basis(
         )
         second_command = _command(DecisionScope.unresolved())
         second_command = InitiateDecisionCommand(
-            envelope=DecisionCommandEnvelope(
-                operation_id=OperationId(UUID("00000000-0000-4000-8000-00000000000b")),
-                actor_attribution=second_command.envelope.actor_attribution,
-                trigger=second_command.envelope.trigger,
-                effective_at=second_command.envelope.effective_at,
-                technical_provenance=(second_command.envelope.technical_provenance),
+            envelope=replace(
+                second_command.envelope,
+                operation_id=OperationId(
+                    UUID("00000000-0000-4000-8000-00000000000b")
+                ),
             ),
             need_statement="Attempt a stale-basis initiation",
             subject=DecisionSubject("A concurrent choice"),
@@ -2251,15 +2199,11 @@ def test_concurrent_different_operations_create_at_most_one_decision_and_need(
 
         def command(operation_id: UUID, label: str) -> InitiateDecisionCommand:
             return InitiateDecisionCommand(
-                envelope=DecisionCommandEnvelope(
-                    operation_id=OperationId(operation_id),
-                    actor_attribution=KnownActorAttribution(ActorId(ACTOR_ID)),
-                    trigger=TriggerProvenance(
-                        TriggerKind.HUMAN_REQUEST,
-                        f"request-{label}",
-                    ),
+                envelope=_test_envelope(
+                    operation_id,
+                    reference=f"request-{label}",
                     effective_at=RECORDED_AT,
-                    technical_provenance=TechnicalProvenance(),
+                    decision_id=None,
                 ),
                 need_statement=f"Concurrent Need {label}",
                 subject=DecisionSubject(f"Concurrent choice {label}"),

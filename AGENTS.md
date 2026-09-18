@@ -98,6 +98,10 @@ Before broadening a repository mutation, apply this test:
 
 If **yes**, the additional change is optional and outside the current mandate unless the owner explicitly authorizes it.
 
+Required participation in an already-authoritative **shared invariant** is not scope expansion merely because other components, command families, or surfaces also participate in that invariant. If the current authorized path cannot be correct without satisfying that established invariant, the smallest change necessary to make the current path conform is necessary correctness work.
+
+This does **not** authorize cleanup, harmonization, refactoring, or redesign of unaffected participants. If the shared invariant itself is missing, contradictory, or materially unresolved, treat that as an upstream design/authority gap rather than choosing a new cross-cutting rule during implementation.
+
 Treat the following as material structural changes when they affect canonical skill, process, governance, architecture, policy, or comparable authority artifacts:
 
 * creating or deleting an artifact;

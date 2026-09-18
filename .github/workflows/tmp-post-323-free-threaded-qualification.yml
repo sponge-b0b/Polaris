@@ -1,4 +1,4 @@
-name: Temporary post-323 standard-CPython persistence stress
+name: Temporary post-323 runtime-boundary verification
 
 on:
   push:
@@ -11,17 +11,8 @@ permissions:
   contents: read
 
 jobs:
-  standard-stress:
+  standard-runtime:
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - label: ticket-baseline
-            target_ref: d7c7010b6db7ed3ee96888e2a983e48e06415153
-          - label: ticket-final
-            target_ref: 79e9a2a825977b1689bf336ec2c272deb969d2f1
-
     services:
       postgres:
         image: postgres:18
@@ -44,12 +35,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ matrix.target_ref }}
+          ref: 8da1b7b0ac2a03724e91c7cd86db47267e6f70f2
           fetch-depth: 0
 
       - uses: astral-sh/setup-uv@v6
 
-      - name: Prepare standard CPython environment
+      - name: Prepare standard CPython
         run: |
           set -euo pipefail
           uv python install 3.14
@@ -57,47 +48,81 @@ jobs:
           uv run --python 3.14 python - <<'PY'
           import sys
           import sysconfig
-          import sqlalchemy
-          import greenlet
-
-          print(f"PYTHON={sys.version}")
           print(f"PY_GIL_DISABLED={sysconfig.get_config_var('Py_GIL_DISABLED')}")
-          is_gil_enabled = getattr(sys, "_is_gil_enabled", None)
-          print(f"GIL_ENABLED={None if is_gil_enabled is None else is_gil_enabled()}")
-          print(f"SQLALCHEMY_VERSION={sqlalchemy.__version__}")
-          print(f"GREENLET_VERSION={greenlet.__version__}")
-          if sysconfig.get_config_var("Py_GIL_DISABLED") == 1:
-              raise SystemExit("expected standard GIL-enabled CPython build")
+          print(f"GIL_ENABLED={sys._is_gil_enabled()}")
+          assert sysconfig.get_config_var("Py_GIL_DISABLED") == 0
+          assert sys._is_gil_enabled()
           PY
 
-      - name: Repeated standard-runtime persistence trials
-        id: standard
-        shell: bash
-        run: |
-          set +e
-          set -u
-          failures=0
-          for i in 1 2 3 4 5; do
-            echo "STANDARD_TRIAL_${i}_BEGIN"
-            PYTHONFAULTHANDLER=1               uv run --python 3.14 python -m pytest -q                 tests/integration/persistence/postgresql
-            rc=$?
-            echo "STANDARD_TRIAL_${i}_EXIT=$rc"
-            if [ "$rc" -ne 0 ]; then
-              failures=$((failures + 1))
-            fi
-          done
-          echo "STANDARD_FAILURES=$failures"
-          echo "failures=$failures" >> "$GITHUB_OUTPUT"
-          exit 0
-
-      - name: Standard runtime summary
-        env:
-          LABEL: ${{ matrix.label }}
-          TARGET_REF: ${{ matrix.target_ref }}
-          STANDARD_FAILURES: ${{ steps.standard.outputs.failures }}
+      - name: Static checks
         run: |
           set -euo pipefail
-          echo "STANDARD_STRESS_LABEL=$LABEL"
-          echo "STANDARD_STRESS_REF=$TARGET_REF"
-          echo "STANDARD_STRESS_FAILURES=$STANDARD_FAILURES"
-          test "$STANDARD_FAILURES" = "0"
+          uv run --python 3.14 ruff format --check             src/polaris/infrastructure/persistence/postgresql/decisions.py             tests/runtime/test_postgresql_runtime_qualification.py
+          uv run --python 3.14 ruff check             src/polaris/infrastructure/persistence/postgresql/decisions.py             tests/runtime/test_postgresql_runtime_qualification.py
+          uv run --python 3.14 mypy             src/polaris/infrastructure/persistence/postgresql/decisions.py
+
+      - name: Runtime-boundary test
+        run: |
+          set -euo pipefail
+          uv run --python 3.14 python -m pytest -q             tests/runtime/test_postgresql_runtime_qualification.py
+
+      - name: PostgreSQL adapter contract suite
+        run: |
+          set -euo pipefail
+          uv run --python 3.14 python -m pytest -q             tests/integration/persistence/postgresql
+
+      - name: Architecture suite
+        run: |
+          set -euo pipefail
+          uv run --python 3.14 python -m pytest -q tests/architecture
+
+  free-threaded-runtime:
+    runs-on: ubuntu-24.04
+    env:
+      UV_PYTHON_PREFERENCE: only-managed
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 8da1b7b0ac2a03724e91c7cd86db47267e6f70f2
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Prepare free-threaded CPython
+        run: |
+          set -euo pipefail
+          uv python install 3.14t
+          uv sync --locked --python 3.14t
+          uv run --python 3.14t python -X gil=0 scripts/verify_free_threaded_runtime.py
+          uv run --python 3.14t python -X gil=0 - <<'PY'
+          import sys
+          import sysconfig
+          print(f"PY_GIL_DISABLED={sysconfig.get_config_var('Py_GIL_DISABLED')}")
+          print(f"GIL_ENABLED={sys._is_gil_enabled()}")
+          assert sysconfig.get_config_var("Py_GIL_DISABLED") == 1
+          assert not sys._is_gil_enabled()
+          PY
+
+      - name: Runtime-boundary test rejects PostgreSQL adapter
+        run: |
+          set -euo pipefail
+          uv run --python 3.14t python -X gil=0 -m pytest -q             tests/runtime/test_postgresql_runtime_qualification.py
+
+      - name: Explicit engine-construction fail-fast
+        run: |
+          set -euo pipefail
+          uv run --python 3.14t python -X gil=0 - <<'PY'
+          from polaris.infrastructure.persistence.postgresql import create_postgres_engine
+
+          try:
+              create_postgres_engine(
+                  "postgresql+asyncpg://user:pass@localhost/polaris"
+              )
+          except RuntimeError as exc:
+              message = str(exc)
+              print(message)
+              assert "not qualified for GIL-disabled CPython" in message
+          else:
+              raise SystemExit("PostgreSQL engine construction did not fail closed")
+          PY

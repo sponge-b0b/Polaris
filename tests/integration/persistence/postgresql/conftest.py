@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import os
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from uuid import uuid4
 
@@ -10,13 +11,31 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+
+from polaris.infrastructure.persistence.postgresql import (
+    PostgresDecisionStore,
+    create_postgres_engine,
+)
 
 
 @dataclass(frozen=True, slots=True)
 class PostgresTestTarget:
     database_url: str
     schema: str
+
+
+@asynccontextmanager
+async def postgres_engine_store(
+    target: PostgresTestTarget,
+    *,
+    store_type: type[PostgresDecisionStore] = PostgresDecisionStore,
+) -> AsyncIterator[tuple[AsyncEngine, PostgresDecisionStore]]:
+    engine = create_postgres_engine(target.database_url, schema=target.schema)
+    try:
+        yield engine, store_type(engine)
+    finally:
+        await engine.dispose()
 
 
 async def _create_schema(database_url: str, schema: str) -> None:

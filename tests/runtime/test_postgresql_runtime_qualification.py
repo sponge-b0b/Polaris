@@ -18,7 +18,5 @@ def test_postgresql_runtime_matches_qualification_boundary() -> None:
             create_postgres_engine("postgresql+asyncpg://user:pass@localhost/polaris")
         return
 
-    engine = create_postgres_engine(
-        "postgresql+asyncpg://user:pass@localhost/polaris"
-    )
+    engine = create_postgres_engine("postgresql+asyncpg://user:pass@localhost/polaris")
     asyncio.run(engine.dispose())

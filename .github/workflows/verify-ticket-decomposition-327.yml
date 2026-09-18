@@ -52,7 +52,7 @@ jobs:
           Bind the verdict to proposal identity 3299a8d6041cd460ecfa1e9435d4c7958eb97838477386826fb7ea00f3d29e49.
           EOF
           )
-          copilot -s -p "$PROMPT" --no-ask-user             --allow-tool=read             --allow-tool='shell(git:*)'             --allow-tool='shell(gh:*)'             --allow-tool='shell(cat:*)'             --allow-tool='shell(sed:*)'             --allow-tool='shell(grep:*)'             --allow-tool='shell(pwd:*)'             --allow-tool='shell(find:*)'             | tee /tmp/verdict.txt
+          copilot -s -p "$PROMPT" --model=claude-haiku-4.5 --no-ask-user             --allow-tool=read             --allow-tool='shell(git:*)'             --allow-tool='shell(gh:*)'             --allow-tool='shell(cat:*)'             --allow-tool='shell(sed:*)'             --allow-tool='shell(grep:*)'             --allow-tool='shell(pwd:*)'             --allow-tool='shell(find:*)'             | tee /tmp/verdict.txt
           test "$(grep -Ec '^TICKET DECOMPOSITION: (PASS|FAIL)$' /tmp/verdict.txt)" -eq 1
           grep -q '3299a8d6041cd460ecfa1e9435d4c7958eb97838477386826fb7ea00f3d29e49' /tmp/verdict.txt
 

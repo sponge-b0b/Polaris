@@ -15,15 +15,99 @@ The hardening sections immediately below add the fresh-Spec obligation-coverage 
 
 The remediation path remains owned by `$to-remediation-tickets`; do not replace its Root Blocker delta contract with the fresh-Spec mapping below.
 
+## Mandatory Mode Preflight — Run Before All Other Composition
+
+Resolve the cheapest legally sufficient workflow mode **before** loading remediation logic, closing architecture/design source universes, running `$attention`, building Ticket Semantic Carry, or dispatching `$verify-ticket-decomposition`.
+
+This preflight is the first substantive operation after recovering the source artifact identity.
+
+### Minimal current-state recovery
+
+Recover only the current durable facts needed to classify mode:
+
+```text
+Source type/title/state
+Current branch/head and required Spec baseline metadata
+Existing linked implementation-ticket identities/states
+Whether exactly one current Ticket Coverage Manifest exists
+Whether a current decomposition-defects:v1 record applies
+```
+
+Do not inspect historical commits, old issue generations, prior ticket proposals, or unrelated architecture sources merely to classify mode.
+
+### Manifest-reconciliation fast-path probe
+
+When the source is an ordinary Spec with existing linked implementation tickets **and** exactly one current Ticket Coverage Manifest:
+
+1. attempt **Existing-Spec Manifest Reconciliation** before invoking `$to-remediation-tickets`;
+2. build the exact current `$spec-contract` once in the owning context;
+3. parse the exact current TCM Spec-cell ID set;
+4. compute mechanically:
+
+```text
+missing = SOURCE_SPEC_CELL_IDS - TCM_SPEC_CELL_IDS
+extra   = TCM_SPEC_CELL_IDS - SOURCE_SPEC_CELL_IDS
+```
+
+5. snapshot only the current linked-ticket bodies, Spec/Architecture obligation provenance, lifecycle states, native parents, blocking relationships, branch/baseline metadata, labels/status, and other state required by **Existing-Spec Manifest Reconciliation** to prove zero ticket-semantic/lifecycle delta;
+6. test the complete `MANIFEST RECONCILIATION READINESS` witness.
+
+If that witness passes, set:
+
+```text
+Mode: manifest-reconciliation
+```
+
+and execute **Existing-Spec Manifest Reconciliation** directly.
+
+In `manifest-reconciliation` mode, skip all machinery whose only purpose is substantive ticket decomposition:
+
+* do **not** invoke `$to-remediation-tickets`;
+* do **not** construct a new ticket proposal;
+* do **not** rediscover/close the full architecture/design source universe when the current valid TCM/source identities needed for zero-delta proof are sufficient;
+* do **not** build a Ticket Semantic Carry Matrix for unchanged closed-ticket contracts;
+* do **not** run the proposal-oriented `$attention` checkpoint;
+* do **not** dispatch `$verify-ticket-decomposition`;
+* do **not** request human decomposition approval.
+
+The current-state deterministic reconciliation/readback contract is the proof boundary for this mode.
+
+If the manifest-reconciliation witness fails because any required value is non-zero, unknown, stale, or semantically changed, leave the fast path and continue through the normal existing-ticket remediation path. Do not weaken the witness to stay on the cheap path.
+
+### Anti-archaeology rule
+
+For manifest reconciliation, current authoritative state is sufficient unless a current-state ambiguity prevents one of the required readiness fields from being decided.
+
+Once exact current `$spec-contract` identity, exact TCM identity, exact linked-ticket snapshots, and the set differences establish the mismatch and zero semantic/lifecycle delta:
+
+* do not run `git log`, `git show`, commit searches, old issue searches, or historical text searches merely to determine who/when introduced the bad row;
+* do not rebuild adjacent source-unit inventories with ad hoc scripts when the canonical `$spec-contract` already supplies the required source-cell universe;
+* do not search for historical occurrences of the bad cell ID merely to gain confidence;
+* do not broaden into architecture/document history unless current authority is genuinely ambiguous and that ambiguity blocks a required reconciliation field.
+
+Historical causation is not required to repair current decomposition metadata.
+
+### Budget guard
+
+Efficiency is a correctness constraint for this fast path.
+
+If an execution/token/time budget warning appears after manifest-reconciliation eligibility is plausible, stop optional investigation immediately and complete only the deterministic current-state proof/mutation/readback steps required by this mode.
+
+Do not spend the remaining budget on provenance archaeology, repeated equivalent queries, or confidence-seeking searches.
+
 ## Execution Budget and Independence Boundary
 
-`$to-tickets` is a decomposition workflow with exactly one independent semantic certification boundary over the frozen final proposal.
+For **substantive fresh-ticket or existing-ticket remediation decomposition**, `$to-tickets` has exactly one independent semantic certification boundary over the frozen final proposal.
 
-Automatic semantic subagents for this skill: **1 verifier context**.
+Automatic semantic subagents for substantive decomposition: **1 verifier context**.
 
-The owning `$to-tickets` agent must recover authority, construct the Spec contract, close the bounded architecture/design obligation universe, draft the ticket slices, validate proposal mechanics, run `$attention`, build the Ticket Semantic Carry Matrix, and produce the parent-owned `TICKET PROPOSAL READINESS: PASS` itself. The owning agent may not certify the semantic completeness of its own frozen proposal as the final authority.
+Automatic semantic subagents for `manifest-reconciliation`: **0**.
 
-After parent-owned readiness PASS, automatically dispatch exactly one genuinely fresh, non-mutating `$verify-ticket-decomposition` verifier for the exact proposal identity. The verifier independently re-reads the supplied durable authority within the already-bounded source universe and returns one `TICKET DECOMPOSITION: PASS | FAIL` verdict. It does not redesign, mutate, publish, or spawn another model/subagent.
+Only after the **Mandatory Mode Preflight** selects substantive fresh/remediation decomposition must the owning `$to-tickets` agent close the bounded architecture/design obligation universe, draft ticket slices, validate proposal mechanics, run proposal-oriented `$attention`, build the Ticket Semantic Carry Matrix, and produce the parent-owned `TICKET PROPOSAL READINESS: PASS`. The owning agent may not certify the semantic completeness of its own substantive proposal as the final authority.
+
+After parent-owned readiness PASS for a substantive proposal, automatically dispatch exactly one genuinely fresh, non-mutating `$verify-ticket-decomposition` verifier for the exact proposal identity. The verifier independently re-reads the supplied durable authority within the already-bounded source universe and returns one `TICKET DECOMPOSITION: PASS | FAIL` verdict. It does not redesign, mutate, publish, or spawn another model/subagent.
+
+`manifest-reconciliation` is explicitly exempt from that proposal/verifier boundary because eligibility requires zero ticket/routing semantic change and its proof is deterministic current-state reconstruction plus exact readback.
 
 When `$to-tickets` invokes `$spec-contract` solely for decomposition, use the explicit `$to-tickets` decomposition exception in that skill and execute it in the owning context. Do not create a separate fresh `$spec-contract` builder merely for ticketing.
 
@@ -35,6 +119,7 @@ Downstream `$implement-ticket`, `$verify-spec`, and `$review-spec` retain their 
 
 Efficiency is part of correctness here:
 
+0. resolve **Mandatory Mode Preflight** first and skip every later phase that does not apply to the selected mode;
 1. recover lifecycle/governance state once and reuse it while its durable identities are unchanged;
 2. establish the Spec branch/baseline needed by the final contract before final decomposition;
 3. build the complete `$spec-contract` universe before final ticket prose;
@@ -966,6 +1051,8 @@ Use project domain vocabulary and respect applicable ADRs.
 Look for useful prefactoring: make the change easy, then make the easy change.
 
 ### Existing-Spec Manifest Reconciliation
+
+This section is entered through **Mandatory Mode Preflight — Run Before All Other Composition**. Do not repeat already-complete preflight discovery, architecture archaeology, or historical-causation searches after entering this mode.
 
 Before routing an ordinary Spec with existing linked implementation tickets into `$to-remediation-tickets`, first determine whether the invocation is a **manifest-reconciliation-only** repair.
 

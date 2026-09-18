@@ -1,0 +1,104 @@
+name: Temporary verify Spec 280 gates
+
+on:
+  push:
+    branches:
+      - chatgpt/verify-spec-280-gates
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: polaris
+          POSTGRES_PASSWORD: polaris_test
+          POSTGRES_DB: polaris
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U polaris -d polaris"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      CANDIDATE_SHA: 90218aaed68a74d59e588b345458f97ee25fb6b5
+      BASELINE_SHA: 23f7a2df40557b87754fd62e3f70164f60b18788
+      POLARIS_TEST_DATABASE_URL: postgresql+asyncpg://polaris:polaris_test@127.0.0.1:5432/polaris
+      POLARIS_BROAD_VERIFY_AUTHORIZED: verify-spec-280
+    steps:
+      - name: Checkout transport branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install Python runtimes
+        run: |
+          uv python install 3.14
+          uv python install 3.14t
+
+      - name: Checkout exact candidate
+        run: |
+          git checkout --detach "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$(git status --porcelain)" = ""
+
+      - name: Diff hygiene
+        run: git diff --check "$BASELINE_SHA"...HEAD
+
+      - name: Ruff format
+        run: |
+          uv run --python 3.14 --locked ruff format --check             migrations/env.py             migrations/versions/0001_decision_persistence_foundation.py             src/polaris/domain/decisions/model.py             src/polaris/domain/decisions/relationships.py             src/polaris/infrastructure/__init__.py             src/polaris/infrastructure/persistence/__init__.py             src/polaris/infrastructure/persistence/postgresql/__init__.py             src/polaris/infrastructure/persistence/postgresql/codec.py             src/polaris/infrastructure/persistence/postgresql/decisions.py             src/polaris/infrastructure/persistence/postgresql/relationship_codec.py             src/polaris/infrastructure/persistence/postgresql/relationship_store.py             src/polaris/infrastructure/persistence/postgresql/schema.py             tests/integration/__init__.py             tests/integration/persistence/__init__.py             tests/integration/persistence/postgresql/__init__.py             tests/integration/persistence/postgresql/conftest.py             tests/integration/persistence/postgresql/test_decision_store.py             tests/integration/persistence/postgresql/test_migrations.py             tests/integration/persistence/postgresql/test_relationship_store.py             tests/integration/persistence/postgresql/test_relationship_store_closure.py             tests/runtime/test_postgresql_runtime_qualification.py
+
+      - name: Ruff lint
+        run: |
+          uv run --python 3.14 --locked ruff check             migrations/env.py             migrations/versions/0001_decision_persistence_foundation.py             src/polaris/domain/decisions/model.py             src/polaris/domain/decisions/relationships.py             src/polaris/infrastructure/__init__.py             src/polaris/infrastructure/persistence/__init__.py             src/polaris/infrastructure/persistence/postgresql/__init__.py             src/polaris/infrastructure/persistence/postgresql/codec.py             src/polaris/infrastructure/persistence/postgresql/decisions.py             src/polaris/infrastructure/persistence/postgresql/relationship_codec.py             src/polaris/infrastructure/persistence/postgresql/relationship_store.py             src/polaris/infrastructure/persistence/postgresql/schema.py             tests/integration/__init__.py             tests/integration/persistence/__init__.py             tests/integration/persistence/postgresql/__init__.py             tests/integration/persistence/postgresql/conftest.py             tests/integration/persistence/postgresql/test_decision_store.py             tests/integration/persistence/postgresql/test_migrations.py             tests/integration/persistence/postgresql/test_relationship_store.py             tests/integration/persistence/postgresql/test_relationship_store_closure.py             tests/runtime/test_postgresql_runtime_qualification.py
+
+      - name: Mypy
+        run: |
+          uv run --python 3.14 --locked mypy --explicit-package-bases             migrations/env.py             migrations/versions/0001_decision_persistence_foundation.py             src/polaris/domain/decisions/model.py             src/polaris/domain/decisions/relationships.py             src/polaris/infrastructure/__init__.py             src/polaris/infrastructure/persistence/__init__.py             src/polaris/infrastructure/persistence/postgresql/__init__.py             src/polaris/infrastructure/persistence/postgresql/codec.py             src/polaris/infrastructure/persistence/postgresql/decisions.py             src/polaris/infrastructure/persistence/postgresql/relationship_codec.py             src/polaris/infrastructure/persistence/postgresql/relationship_store.py             src/polaris/infrastructure/persistence/postgresql/schema.py             tests/integration/__init__.py             tests/integration/persistence/__init__.py             tests/integration/persistence/postgresql/__init__.py             tests/integration/persistence/postgresql/conftest.py             tests/integration/persistence/postgresql/test_decision_store.py             tests/integration/persistence/postgresql/test_migrations.py             tests/integration/persistence/postgresql/test_relationship_store.py             tests/integration/persistence/postgresql/test_relationship_store_closure.py             tests/runtime/test_postgresql_runtime_qualification.py
+
+      - name: PostgreSQL service preflight
+        run: |
+          uv run --python 3.14 --locked python - <<'PY'
+          import asyncio
+          import os
+          import asyncpg
+
+          async def main() -> None:
+              url = os.environ["POLARIS_TEST_DATABASE_URL"]
+              dsn = url.replace("postgresql+asyncpg://", "postgresql://", 1)
+              conn = await asyncpg.connect(dsn)
+              try:
+                  value = await conn.fetchval("SELECT 1")
+                  if value != 1:
+                      raise RuntimeError("PostgreSQL readiness probe returned unexpected value")
+              finally:
+                  await conn.close()
+
+          asyncio.run(main())
+          print("PostgreSQL readiness: PASS")
+          PY
+
+      - name: Decision domain tests
+        run: uv run --python 3.14 --locked pytest -q tests/domain/decisions/
+
+      - name: PostgreSQL persistence acceptance
+        run: uv run --python 3.14 --locked pytest -q tests/integration/persistence/postgresql/
+
+      - name: Standard runtime qualification boundary
+        run: uv run --python 3.14 --locked pytest -q tests/runtime/test_postgresql_runtime_qualification.py
+
+      - name: Free-threaded runtime qualification boundary
+        run: uv run --python 3.14t --locked pytest -q tests/runtime/test_postgresql_runtime_qualification.py
+
+      - name: Architecture invariant suite
+        run: |
+          POLARIS_BROAD_VERIFY_AUTHORIZED=verify-architecture             uv run --python 3.14 --locked pytest -q               tests/test_architecture_guard.py               tests/test_architecture_guard_identity_aliases.py               tests/test_architecture_guard_legacy_loaders.py

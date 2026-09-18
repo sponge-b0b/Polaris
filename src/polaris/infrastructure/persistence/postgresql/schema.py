@@ -40,6 +40,41 @@ def _uuid_array() -> ARRAY:
     return ARRAY(UUID(as_uuid=True))
 
 
+def _command_provenance_columns() -> tuple[Column[object], ...]:
+    return (
+        Column("operation_id", UUID(as_uuid=True), nullable=False),
+        Column("actor_attribution_kind", String(16), nullable=False),
+        Column("actor_id", UUID(as_uuid=True)),
+        Column("actor_candidate_ids", _uuid_array()),
+        Column("trigger_kind", String(32), nullable=False),
+        Column("trigger_reference", Text, nullable=False),
+        Column(
+            "technical_provenance",
+            JSONB,
+            nullable=False,
+            server_default=text("'[]'::jsonb"),
+        ),
+    )
+
+
+def _actor_attribution_constraints() -> tuple[CheckConstraint, ...]:
+    return (
+        CheckConstraint(
+            "actor_attribution_kind IN ('known', 'unknown', 'contested')",
+            name="actor_attribution_kind",
+        ),
+        CheckConstraint(
+            "(actor_attribution_kind = 'known' AND actor_id IS NOT NULL "
+            "AND actor_candidate_ids IS NULL) OR "
+            "(actor_attribution_kind = 'unknown' AND actor_id IS NULL "
+            "AND actor_candidate_ids IS NULL) OR "
+            "(actor_attribution_kind = 'contested' AND actor_id IS NULL "
+            "AND cardinality(actor_candidate_ids) > 0)",
+            name="actor_attribution_shape",
+        ),
+    )
+
+
 decision_needs = Table(
     "decision_needs",
     metadata,
@@ -48,32 +83,9 @@ decision_needs = Table(
     Column("statement", Text, nullable=False),
     Column("effective_at", DateTime(timezone=True), nullable=False),
     Column("recorded_at", DateTime(timezone=True), nullable=False),
-    Column("operation_id", UUID(as_uuid=True), nullable=False),
-    Column("actor_attribution_kind", String(16), nullable=False),
-    Column("actor_id", UUID(as_uuid=True)),
-    Column("actor_candidate_ids", _uuid_array()),
-    Column("trigger_kind", String(32), nullable=False),
-    Column("trigger_reference", Text, nullable=False),
-    Column(
-        "technical_provenance",
-        JSONB,
-        nullable=False,
-        server_default=text("'[]'::jsonb"),
-    ),
+    *_command_provenance_columns(),
     CheckConstraint("btrim(statement) <> ''", name="statement_nonempty"),
-    CheckConstraint(
-        "actor_attribution_kind IN ('known', 'unknown', 'contested')",
-        name="actor_attribution_kind",
-    ),
-    CheckConstraint(
-        "(actor_attribution_kind = 'known' AND actor_id IS NOT NULL "
-        "AND actor_candidate_ids IS NULL) OR "
-        "(actor_attribution_kind = 'unknown' AND actor_id IS NULL "
-        "AND actor_candidate_ids IS NULL) OR "
-        "(actor_attribution_kind = 'contested' AND actor_id IS NULL "
-        "AND cardinality(actor_candidate_ids) > 0)",
-        name="actor_attribution_shape",
-    ),
+    *_actor_attribution_constraints(),
     CheckConstraint(
         "btrim(trigger_reference) <> ''", name="trigger_reference_nonempty"
     ),
@@ -159,18 +171,7 @@ investment_decision_lifecycle_facts = Table(
     Column("lifecycle_sequence", Integer, nullable=False),
     Column("decision_version", Integer, nullable=False),
     Column("fact_kind", String(48), nullable=False),
-    Column("operation_id", UUID(as_uuid=True), nullable=False),
-    Column("actor_attribution_kind", String(16), nullable=False),
-    Column("actor_id", UUID(as_uuid=True)),
-    Column("actor_candidate_ids", _uuid_array()),
-    Column("trigger_kind", String(32), nullable=False),
-    Column("trigger_reference", Text, nullable=False),
-    Column(
-        "technical_provenance",
-        JSONB,
-        nullable=False,
-        server_default=text("'[]'::jsonb"),
-    ),
+    *_command_provenance_columns(),
     Column("effective_at", DateTime(timezone=True), nullable=False),
     Column("recorded_at", DateTime(timezone=True), nullable=False),
     Column(
@@ -209,19 +210,7 @@ investment_decision_lifecycle_facts = Table(
     ),
     CheckConstraint("lifecycle_sequence >= 1", name="sequence_positive"),
     CheckConstraint("decision_version >= 1", name="version_positive"),
-    CheckConstraint(
-        "actor_attribution_kind IN ('known', 'unknown', 'contested')",
-        name="actor_attribution_kind",
-    ),
-    CheckConstraint(
-        "(actor_attribution_kind = 'known' AND actor_id IS NOT NULL "
-        "AND actor_candidate_ids IS NULL) OR "
-        "(actor_attribution_kind = 'unknown' AND actor_id IS NULL "
-        "AND actor_candidate_ids IS NULL) OR "
-        "(actor_attribution_kind = 'contested' AND actor_id IS NULL "
-        "AND cardinality(actor_candidate_ids) > 0)",
-        name="actor_attribution_shape",
-    ),
+    *_actor_attribution_constraints(),
     CheckConstraint("btrim(trigger_reference) <> ''", name="trigger_nonempty"),
     CheckConstraint(
         "scope_completeness IS NULL OR "
@@ -276,18 +265,7 @@ investment_decision_relationships = Table(
             name="fk_relationship_correction_target",
         ),
     ),
-    Column("operation_id", UUID(as_uuid=True), nullable=False),
-    Column("actor_attribution_kind", String(16), nullable=False),
-    Column("actor_id", UUID(as_uuid=True)),
-    Column("actor_candidate_ids", _uuid_array()),
-    Column("trigger_kind", String(32), nullable=False),
-    Column("trigger_reference", Text, nullable=False),
-    Column(
-        "technical_provenance",
-        JSONB,
-        nullable=False,
-        server_default=text("'[]'::jsonb"),
-    ),
+    *_command_provenance_columns(),
     Column("effective_at", DateTime(timezone=True), nullable=False),
     Column("recorded_at", DateTime(timezone=True), nullable=False),
     Column("correction_effect", String(16)),
@@ -298,19 +276,7 @@ investment_decision_relationships = Table(
     CheckConstraint(
         "source_decision_id <> target_decision_id", name="distinct_endpoints"
     ),
-    CheckConstraint(
-        "actor_attribution_kind IN ('known', 'unknown', 'contested')",
-        name="actor_attribution_kind",
-    ),
-    CheckConstraint(
-        "(actor_attribution_kind = 'known' AND actor_id IS NOT NULL "
-        "AND actor_candidate_ids IS NULL) OR "
-        "(actor_attribution_kind = 'unknown' AND actor_id IS NULL "
-        "AND actor_candidate_ids IS NULL) OR "
-        "(actor_attribution_kind = 'contested' AND actor_id IS NULL "
-        "AND cardinality(actor_candidate_ids) > 0)",
-        name="actor_attribution_shape",
-    ),
+    *_actor_attribution_constraints(),
     CheckConstraint(
         "btrim(trigger_reference) <> ''", name="trigger_reference_nonempty"
     ),

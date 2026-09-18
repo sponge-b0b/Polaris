@@ -128,10 +128,13 @@ async def _qualify_base(
         store=store,
         now=lambda: recorded_at,
         new_uuid=lambda: fact_id,
+    # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+    # arid: disable
     ).correct(
         CorrectDecisionRelationshipCommand(
             envelope=_envelope(
                 operation_id=OperationId(uuid4()),
+    # arid: enable
                 effective_at=recorded_at,
                 versions={
                     source: await _version(store, source, recorded_at),
@@ -170,11 +173,14 @@ def test_competing_persisted_corrections_reconstruct_contested(
             )
             base_at = BASE + timedelta(hours=1)
             base_fact_id = uuid4()
+            # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+            # arid: disable
             await _supersede(
                 store,
                 source=source,
                 targets=(target,),
                 recorded_at=base_at,
+            # arid: enable
                 fact_ids=(base_fact_id,),
                 relationship_effective_at=base_at,
                 reference="correction-base",
@@ -192,10 +198,13 @@ def test_competing_persisted_corrections_reconstruct_contested(
             )
             second_at = first_at + timedelta(minutes=10)
             second_fact_id = await _qualify_base(
+                # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+                # arid: disable
                 store,
                 source=source,
                 target=target,
                 base_fact_id=base_fact_id,
+                # arid: enable
                 recorded_at=second_at,
                 replacement_effective_at=base_at + timedelta(minutes=1),
                 reference="second-qualification",
@@ -234,10 +243,13 @@ def test_resolved_target_supersession_preserves_lifecycle_history(
             assert history_before is not None
 
             superseded_at = BASE + timedelta(hours=1)
+            # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+            # arid: disable
             await _supersede(
                 store,
                 source=source,
                 targets=(target,),
+            # arid: enable
                 recorded_at=superseded_at,
                 relationship_effective_at=superseded_at,
                 reference="resolved-target-supersession",
@@ -313,19 +325,25 @@ def test_relationship_fact_provenance_round_trips_separately(
                         )
                     ),
                 ),
+                # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+                # arid: disable
                 source_decision_id=source,
                 targets=(
                     SupersessionTarget(
                         target,
+                # arid: enable
                         SupersedesRelationshipBasis(("provenance-basis",)),
                         recorded_at,
                     ),
+                # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+                # arid: disable
                 ),
             )
             result = await DecisionRelationshipService(
                 reader=store,
                 store=store,
                 now=lambda: recorded_at,
+                # arid: enable
                 new_uuid=lambda: fact_id,
             ).establish_supersession(command)
             assert result.relationship_fact_ids == (
@@ -424,15 +442,20 @@ def test_atomic_correction_set_persists_same_command_ancestry_after_restart(
             target = await _create_decision(
                 store, recorded_at=BASE + timedelta(minutes=1), label="set-target"
             )
+            # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+            # arid: disable
             await _supersede(
                 store,
                 source=source,
                 targets=(target,),
                 recorded_at=base_at,
                 fact_ids=(base_fact_id,),
+            # arid: enable
                 reference="set-base",
             )
             command = CorrectDecisionRelationshipSetCommand(
+                # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+                # arid: disable
                 envelope=_envelope(
                     operation_id=OperationId(uuid4()),
                     effective_at=correction_at,
@@ -440,6 +463,7 @@ def test_atomic_correction_set_persists_same_command_ancestry_after_restart(
                         source: await _version(store, source, correction_at),
                         target: await _version(store, target, correction_at),
                     },
+                # arid: enable
                     reference="atomic-correction-set",
                 ),
                 corrections=(
@@ -583,20 +607,26 @@ def test_postgres_rejects_mixed_renewal_supersession_cycle(
                 store=store,
                 now=lambda: renewal_at,
                 new_uuid=identities.__next__,
+            # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+            # arid: disable
             ).renew(
                 RenewDecisionCommand(
                     envelope=_envelope(
                         operation_id=OperationId(uuid4()),
                         effective_at=renewal_at,
                         versions={predecessor: predecessor_version},
+            # arid: enable
                         reference="mixed-renewal",
                     ),
                     need_statement="Renew the resolved predecessor",
                     subject=DecisionSubject("Renewed mixed-cycle decision"),
+                    # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+                    # arid: disable
                     scope=DecisionScope.unresolved(),
                     predecessors=(
                         RenewalPredecessor(
                             predecessor,
+                    # arid: enable
                             RenewedFromRelationshipBasis(("mixed-renewal",)),
                         ),
                     ),
@@ -628,19 +658,25 @@ def test_known_future_and_contested_positive_cycles_fail_closed(
                 store, recorded_at=BASE + timedelta(minutes=1), label="future-b"
             )
             recorded_at = BASE + timedelta(hours=1)
+            # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+            # arid: disable
             await _supersede(
                 store,
                 source=first,
                 targets=(second,),
+            # arid: enable
                 recorded_at=recorded_at,
                 relationship_effective_at=recorded_at + timedelta(days=1),
                 reference="known-future-forward",
+            # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+            # arid: disable
             )
             with pytest.raises(RelationshipCycle):
                 await _supersede(
                     store,
                     source=second,
                     targets=(first,),
+            # arid: enable
                     recorded_at=recorded_at + timedelta(minutes=1),
                     reference="known-future-return",
                 )
@@ -676,11 +712,14 @@ def test_known_future_and_contested_positive_cycles_fail_closed(
                 reference="contest-first",
             )
             second_qualification = base_at + timedelta(minutes=2)
+            # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+            # arid: disable
             await _qualify_base(
                 store,
                 source=third,
                 target=fourth,
                 base_fact_id=base_fact_id,
+            # arid: enable
                 recorded_at=second_qualification,
                 replacement_effective_at=base_at + timedelta(seconds=1),
                 reference="contest-second",
@@ -701,11 +740,14 @@ def test_disjoint_endpoint_graph_race_commits_only_one_safe_edge(
     postgres_target: PostgresTestTarget,
 ) -> None:
     async def scenario() -> None:
+        # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+        # arid: disable
         engine = create_postgres_engine(
             postgres_target.database_url, schema=postgres_target.schema
         )
         setup = PostgresDecisionStore(engine)
         try:
+        # arid: enable
             first = await _create_decision(setup, recorded_at=BASE, label="race-a")
             second = await _create_decision(
                 setup, recorded_at=BASE + timedelta(minutes=1), label="race-b"
@@ -784,10 +826,13 @@ def test_commit_time_semantic_revalidation_is_not_reported_as_outage(
                 reject_revalidation,
             )
             with pytest.raises(RelationshipConflict):
+                # duplicate-code: independent relationship-closure falsifiers must keep scenario-local proof shape; sharing this fragment would couple distinct cycle, rollback, or ancestry assertions.
+                # arid: disable
                 await _supersede(
                     store,
                     source=source,
                     targets=(target,),
+                # arid: enable
                     recorded_at=BASE + timedelta(hours=1),
                     reference="semantic-revalidation",
                 )

@@ -10,7 +10,7 @@ from uuid import uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import text
+from sqlalchemy import Table, func, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from polaris.infrastructure.persistence.postgresql import (
@@ -36,6 +36,20 @@ async def postgres_engine_store(
         yield engine, store_type(engine)
     finally:
         await engine.dispose()
+
+
+async def postgres_row_counts(
+    engine: AsyncEngine,
+    *tables: Table,
+) -> tuple[int, ...]:
+    async with engine.connect() as connection:
+        counts: list[int] = []
+        for table in tables:
+            count = await connection.scalar(select(func.count()).select_from(table))
+            if count is None:
+                raise AssertionError("PostgreSQL row count query returned no result")
+            counts.append(count)
+    return tuple(counts)
 
 
 async def _create_schema(database_url: str, schema: str) -> None:

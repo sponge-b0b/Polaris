@@ -1,4 +1,4 @@
-name: Temporary post-323 free-threaded SQLAlchemy qualification
+name: Temporary post-323 free-threaded greenlet stress
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 jobs:
-  qualify:
+  stress:
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -53,154 +53,73 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install repository free-threaded interpreter
+      - name: Prepare exact free-threaded environment
         run: |
           set -euo pipefail
           uv python install 3.14t
-          uv python find 3.14t
           test "$(cat .python-version)" = "3.14t"
-
-      - name: Sync exact locked environment
-        run: |
-          set -euo pipefail
           uv sync --locked --python 3.14t
-
-      - name: Verify repository free-threaded contract before SQLAlchemy
-        run: |
-          set -euo pipefail
           uv run --python 3.14t python -X gil=0 scripts/verify_free_threaded_runtime.py
-
-      - name: Native extension import and GIL probe
-        id: native_import
-        shell: bash
-        run: |
-          set +e
           uv run --python 3.14t python -X gil=0 - <<'PY'
-          import importlib
           import sys
-          import sysconfig
-
-          print(f"PYTHON={sys.version}")
-          print(f"PY_GIL_DISABLED={sysconfig.get_config_var('Py_GIL_DISABLED')}")
-          print(f"GIL_BEFORE_IMPORT={sys._is_gil_enabled()}")
-
           import sqlalchemy
           import greenlet
 
           print(f"SQLALCHEMY_VERSION={sqlalchemy.__version__}")
           print(f"GREENLET_VERSION={greenlet.__version__}")
           print(f"GIL_AFTER_IMPORT={sys._is_gil_enabled()}")
-
-          for name in (
-              "sqlalchemy.cyextension.collections",
-              "sqlalchemy.cyextension.immutabledict",
-              "sqlalchemy.cyextension.processors",
-              "sqlalchemy.cyextension.resultproxy",
-              "sqlalchemy.cyextension.util",
-          ):
-              try:
-                  module = importlib.import_module(name)
-              except Exception as exc:
-                  print(f"NATIVE_MODULE={name}:ERROR:{type(exc).__name__}:{exc}")
-              else:
-                  print(f"NATIVE_MODULE={name}:{getattr(module, '__file__', None)}")
-
           if sys._is_gil_enabled():
-              raise SystemExit("GIL enabled after native SQLAlchemy/greenlet import")
+              raise SystemExit("GIL enabled after SQLAlchemy/greenlet import")
           PY
-          rc=$?
-          echo "NATIVE_IMPORT_EXIT=$rc"
-          echo "native_import_exit=$rc" >> "$GITHUB_OUTPUT"
-          exit 0
 
-      - name: Native extension PostgreSQL persistence suite
-        id: native_pg
+      - name: Repeated native trials
+        id: native
         shell: bash
         run: |
-          set +e
-          uv run --python 3.14t python -X gil=0 -m pytest -q             tests/integration/persistence/postgresql
-          rc=$?
-          echo "NATIVE_PG_EXIT=$rc"
-          echo "native_pg_exit=$rc" >> "$GITHUB_OUTPUT"
+          set -u
+          failures=0
+          for i in 1 2 3 4 5; do
+            echo "NATIVE_TRIAL_${i}_BEGIN"
+            PYTHONFAULTHANDLER=1               uv run --python 3.14t python -X gil=0 -m pytest -q                 tests/integration/persistence/postgresql
+            rc=$?
+            echo "NATIVE_TRIAL_${i}_EXIT=$rc"
+            if [ "$rc" -ne 0 ]; then
+              failures=$((failures + 1))
+            fi
+          done
+          echo "NATIVE_FAILURES=$failures"
+          echo "failures=$failures" >> "$GITHUB_OUTPUT"
           exit 0
 
-      - name: Pure-Python SQLAlchemy import and GIL probe
-        id: pure_import
+      - name: Repeated TLBC-disabled trials
+        id: tlbc
         shell: bash
-        env:
-          DISABLE_SQLALCHEMY_CEXT_RUNTIME: '1'
         run: |
-          set +e
-          uv run --python 3.14t python -X gil=0 - <<'PY'
-          import importlib
-          import os
-          import sys
-          import sysconfig
-
-          print(f"PYTHON={sys.version}")
-          print(f"PY_GIL_DISABLED={sysconfig.get_config_var('Py_GIL_DISABLED')}")
-          print(f"GIL_BEFORE_IMPORT={sys._is_gil_enabled()}")
-          print(f"DISABLE_SQLALCHEMY_CEXT_RUNTIME={os.environ.get('DISABLE_SQLALCHEMY_CEXT_RUNTIME')}")
-
-          import sqlalchemy
-          import greenlet
-
-          print(f"SQLALCHEMY_VERSION={sqlalchemy.__version__}")
-          print(f"GREENLET_VERSION={greenlet.__version__}")
-          print(f"GIL_AFTER_IMPORT={sys._is_gil_enabled()}")
-
-          for name in (
-              "sqlalchemy.cyextension.collections",
-              "sqlalchemy.cyextension.immutabledict",
-              "sqlalchemy.cyextension.processors",
-              "sqlalchemy.cyextension.resultproxy",
-              "sqlalchemy.cyextension.util",
-          ):
-              try:
-                  module = importlib.import_module(name)
-              except Exception as exc:
-                  print(f"PURE_MODULE={name}:ERROR:{type(exc).__name__}:{exc}")
-              else:
-                  print(f"PURE_MODULE={name}:{getattr(module, '__file__', None)}")
-
-          if sys._is_gil_enabled():
-              raise SystemExit("GIL enabled after pure-Python SQLAlchemy path")
-          PY
-          rc=$?
-          echo "PURE_IMPORT_EXIT=$rc"
-          echo "pure_import_exit=$rc" >> "$GITHUB_OUTPUT"
+          set -u
+          failures=0
+          for i in 1 2 3 4 5; do
+            echo "TLBC0_TRIAL_${i}_BEGIN"
+            PYTHONFAULTHANDLER=1               uv run --python 3.14t python -X gil=0 -X tlbc=0 -m pytest -q                 tests/integration/persistence/postgresql
+            rc=$?
+            echo "TLBC0_TRIAL_${i}_EXIT=$rc"
+            if [ "$rc" -ne 0 ]; then
+              failures=$((failures + 1))
+            fi
+          done
+          echo "TLBC0_FAILURES=$failures"
+          echo "failures=$failures" >> "$GITHUB_OUTPUT"
           exit 0
 
-      - name: Pure-Python SQLAlchemy PostgreSQL persistence suite
-        id: pure_pg
-        shell: bash
-        env:
-          DISABLE_SQLALCHEMY_CEXT_RUNTIME: '1'
-        run: |
-          set +e
-          uv run --python 3.14t python -X gil=0 -m pytest -q             tests/integration/persistence/postgresql
-          rc=$?
-          echo "PURE_PG_EXIT=$rc"
-          echo "pure_pg_exit=$rc" >> "$GITHUB_OUTPUT"
-          exit 0
-
-      - name: Qualification summary
-        shell: bash
+      - name: Stress summary
         env:
           LABEL: ${{ matrix.label }}
           TARGET_REF: ${{ matrix.target_ref }}
-          NATIVE_IMPORT: ${{ steps.native_import.outputs.native_import_exit }}
-          NATIVE_PG: ${{ steps.native_pg.outputs.native_pg_exit }}
-          PURE_IMPORT: ${{ steps.pure_import.outputs.pure_import_exit }}
-          PURE_PG: ${{ steps.pure_pg.outputs.pure_pg_exit }}
+          NATIVE_FAILURES: ${{ steps.native.outputs.failures }}
+          TLBC0_FAILURES: ${{ steps.tlbc.outputs.failures }}
         run: |
           set -euo pipefail
-          echo "QUAL_LABEL=$LABEL"
-          echo "QUAL_REF=$TARGET_REF"
-          echo "QUAL_NATIVE_IMPORT_EXIT=$NATIVE_IMPORT"
-          echo "QUAL_NATIVE_PG_EXIT=$NATIVE_PG"
-          echo "QUAL_PURE_IMPORT_EXIT=$PURE_IMPORT"
-          echo "QUAL_PURE_PG_EXIT=$PURE_PG"
-
-          test "$PURE_IMPORT" = "0"
-          test "$PURE_PG" = "0"
+          echo "STRESS_LABEL=$LABEL"
+          echo "STRESS_REF=$TARGET_REF"
+          echo "STRESS_NATIVE_FAILURES=$NATIVE_FAILURES"
+          echo "STRESS_TLBC0_FAILURES=$TLBC0_FAILURES"
+          test "$TLBC0_FAILURES" = "0"

@@ -400,17 +400,8 @@ class PostgresDecisionStore:
                     isolation_level="REPEATABLE READ"
                 )
                 async with connection.begin():
-                    projection = (
-                        (
-                            await connection.execute(
-                                select(investment_decisions).where(
-                                    investment_decisions.c.decision_id
-                                    == decision_id.value
-                                )
-                            )
-                        )
-                        .mappings()
-                        .one_or_none()
+                    projection = await _load_decision_projection(
+                        connection, decision_id
                     )
                     if projection is None:
                         return None
@@ -830,6 +821,23 @@ def _mutation_projection_values(decision: InvestmentDecision) -> dict[str, objec
         (identity.value for identity in decision.scope.portfolio_ids), key=str
     )
     return values
+
+
+async def _load_decision_projection(
+    connection: AsyncConnection,
+    decision_id: InvestmentDecisionId,
+) -> RowMapping | None:
+    return (
+        (
+            await connection.execute(
+                select(investment_decisions).where(
+                    investment_decisions.c.decision_id == decision_id.value
+                )
+            )
+        )
+        .mappings()
+        .one_or_none()
+    )
 
 
 async def _load_decision_history(

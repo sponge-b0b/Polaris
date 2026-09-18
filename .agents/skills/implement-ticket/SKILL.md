@@ -50,6 +50,26 @@ persist / commit / close only after PASS
 
 Implementation checks such as `$verify-code`, documentation validation, database proof, tracker rereads, and targeted tests remain required where applicable. They provide evidence; they do not give the implementer semantic closure authority.
 
+### Shared-invariant mandate classification
+
+Apply the repository Mandate Boundary before deciding that a required correction is outside ticket scope.
+
+When the current ticket path intersects behavior shared with other paths, classify the contemplated work as exactly one of:
+
+```text
+optional adjacent cleanup/refactor
+current path must satisfy an already-authoritative shared invariant
+shared invariant missing/contradictory/materially unresolved
+```
+
+Route them as follows:
+
+* **optional adjacent cleanup/refactor** → outside the ticket mandate unless separately authorized;
+* **current path must satisfy an already-authoritative shared invariant** → necessary correctness work for this ticket, limited to the smallest change required to make the owned path conform;
+* **shared invariant missing/contradictory/materially unresolved** → design/authority gap; fail closed and route to the owning upstream authority before implementation chooses a rule.
+
+Do not classify required conformance as scope expansion merely because the invariant also governs other command families, adapters, namespaces, or consumers. Conversely, required conformance does not authorize modifying unaffected participants for consistency.
+
 ## Invocation Termination
 
 This invocation may stop only at:
@@ -331,7 +351,8 @@ After creating or recovering a valid `awaiting-closure-verification` checkpoint 
 5. require the subagent to execute `$verify-ticket-closure` as a non-mutating leaf;
 6. receive the result;
 7. recompute `TICKET_CLOSURE_STATE` with the exact hash procedure above, re-read applicable tracker state, and validate verifier integrity;
-8. consume only a valid `TICKET CLOSURE: PASS` or `TICKET CLOSURE: FAIL`.
+8. mechanically validate that the returned verdict contains every transition witness required by the current `$verify-ticket-closure` PASS or FAIL contract; do not interpret semantic sufficiency;
+9. consume only a structurally valid `TICKET CLOSURE: PASS` or `TICKET CLOSURE: FAIL`.
 
 The parent must not inspect toward its own closure verdict, execute `$verify-ticket-closure` itself, mutate the candidate, repair findings, or delegate further while the verifier runs.
 
@@ -341,10 +362,37 @@ The parent must not inspect toward its own closure verdict, execute `$verify-tic
 
 `TICKET CLOSURE: FAIL` is non-terminal.
 
-Before leaving dispatcher-only mode:
+Before accepting a returned FAIL as a valid verifier result, mechanically require the current `$verify-ticket-closure` FAIL witness shape. At minimum require:
+
+```text
+Failure saturation: complete
+Prior-attempt findings: <accounting>
+Cumulative Retry State:
+  Authority identity
+  Acceptance/proof-plan identity
+  Domain construction state
+  Candidate-dependent proof dependencies
+  Reusable prior dispositions
+  Mandatory falsifiers for next attempt
+Findings:
+```
+
+This is structural validation only. The parent may verify presence, exact bindings, and mechanically checkable counts/fields; it may not decide that the verifier's semantic construction or evidence is sufficient.
+
+If any required FAIL witness is missing or malformed:
+
+1. do **not** set `Stage: verifier-failed`;
+2. do **not** mutate or repair the candidate from that output;
+3. append the attempt to `Attempt history` as `invalid` with the missing witness identified;
+4. keep the exact candidate/bindings immutable, advance to a new `awaiting-closure-verification` attempt, and dispatch a genuinely fresh verifier;
+5. do not reuse semantic dispositions from the malformed result.
+
+A malformed verifier output is not a semantic PASS or FAIL.
+
+Before leaving dispatcher-only mode with a structurally valid FAIL:
 
 1. persist the exact valid verdict into the v2 checkpoint as `verifier-failed`;
-2. preserve every returned finding and the exact candidate/binding state in `Last verifier result`;
+2. preserve every returned finding, complete `Cumulative Retry State`, and the exact candidate/binding state in `Last verifier result`;
 3. append the attempt/candidate/result to `Attempt history`;
 4. re-read and verify the checkpoint.
 

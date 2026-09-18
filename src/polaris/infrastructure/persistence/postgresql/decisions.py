@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import re
 import sys
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import datetime
 from uuid import UUID
 
@@ -124,6 +126,16 @@ def create_postgres_engine(
     )
 
 
+@asynccontextmanager
+async def _repeatable_read(engine: AsyncEngine) -> AsyncIterator[AsyncConnection]:
+    async with engine.connect() as raw_connection:
+        connection = await raw_connection.execution_options(
+            isolation_level="REPEATABLE READ"
+        )
+        async with connection.begin():
+            yield connection
+
+
 class PostgresDecisionStore:
     """Satisfy the foundational Decision command and memory-reader ports."""
 
@@ -232,36 +244,32 @@ class PostgresDecisionStore:
         known_at: datetime,
     ) -> DecisionCommandState | None:
         try:
-            async with self._engine.connect() as raw_connection:
-                connection = await raw_connection.execution_options(
-                    isolation_level="REPEATABLE READ"
-                )
-                async with connection.begin():
-                    projection = (
-                        await connection.execute(
-                            select(
-                                investment_decisions.c.applicability,
-                                investment_decisions.c.decision_version,
-                            ).where(
-                                investment_decisions.c.decision_id == decision_id.value
-                            )
+            async with _repeatable_read(self._engine) as connection:
+                projection = (
+                    await connection.execute(
+                        select(
+                            investment_decisions.c.applicability,
+                            investment_decisions.c.decision_version,
+                        ).where(
+                            investment_decisions.c.decision_id == decision_id.value
                         )
-                    ).one_or_none()
-                    if projection is None:
-                        return None
-                    history = await _load_decision_history(connection, decision_id)
-                    applicability = DecisionApplicability(projection.applicability)
-                    return DecisionCommandState(
-                        decision=reconstruct_decision(
-                            history,
-                            observed_at=known_at,
-                            applicability=applicability,
-                            decision_version=_decision_version(
-                                projection.decision_version
-                            ),
-                        ),
-                        applicability=applicability,
                     )
+                ).one_or_none()
+                if projection is None:
+                    return None
+                history = await _load_decision_history(connection, decision_id)
+                applicability = DecisionApplicability(projection.applicability)
+                return DecisionCommandState(
+                    decision=reconstruct_decision(
+                        history,
+                        observed_at=known_at,
+                        applicability=applicability,
+                        decision_version=_decision_version(
+                            projection.decision_version
+                        ),
+                    ),
+                    applicability=applicability,
+                )
         except (SQLAlchemyError, ValueError, TypeError) as error:
             raise DecisionCommandReadUnavailable(
                 "Decision command-state read is unavailable"
@@ -395,28 +403,24 @@ class PostgresDecisionStore:
     ) -> DecisionMemoryCurrentState | None:
         del known_at
         try:
-            async with self._engine.connect() as raw_connection:
-                connection = await raw_connection.execution_options(
-                    isolation_level="REPEATABLE READ"
+            async with _repeatable_read(self._engine) as connection:
+                projection = await _load_decision_projection(
+                    connection, decision_id
                 )
-                async with connection.begin():
-                    projection = await _load_decision_projection(
-                        connection, decision_id
-                    )
-                    if projection is None:
-                        return None
-                    history = await _load_decision_history(connection, decision_id)
-                    relationships = await _load_empty_relationship_history(connection)
-                    _validate_lifecycle_projection(
-                        projection,
-                        history,
-                        relationships,
-                    )
-                    return DecisionMemoryCurrentState(
-                        lifecycle_facts=history,
-                        version=_decision_version(projection["decision_version"]),
-                        relationship_history=relationships,
-                    )
+                if projection is None:
+                    return None
+                history = await _load_decision_history(connection, decision_id)
+                relationships = await _load_empty_relationship_history(connection)
+                _validate_lifecycle_projection(
+                    projection,
+                    history,
+                    relationships,
+                )
+                return DecisionMemoryCurrentState(
+                    lifecycle_facts=history,
+                    version=_decision_version(projection["decision_version"]),
+                    relationship_history=relationships,
+                )
         except (SQLAlchemyError, ValueError, TypeError) as error:
             raise DecisionCommandReadUnavailable(
                 "Decision current-state read is unavailable"

@@ -67,6 +67,7 @@ from .decisions import (
     _domain_uuid,
     _get_operation_receipt,
     _load_decision_history,
+    _load_decision_projection,
 )
 from .relationship_codec import (
     relationship_fact_from_row,
@@ -204,17 +205,8 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
                     isolation_level="REPEATABLE READ"
                 )
                 async with connection.begin():
-                    projection = (
-                        (
-                            await connection.execute(
-                                select(investment_decisions).where(
-                                    investment_decisions.c.decision_id
-                                    == decision_id.value
-                                )
-                            )
-                        )
-                        .mappings()
-                        .one_or_none()
+                    projection = await _load_decision_projection(
+                        connection, decision_id
                     )
                     if projection is None:
                         return None

@@ -402,9 +402,7 @@ _RELATIONSHIP_CONFLICT_OUTCOMES = (
 
 _RELATIONSHIP_REVALIDATION_ERRORS = (
     DecisionRelationshipAdmissionRejected,
-    DecisionRelationshipCommandResult,
     DecisionLifecycleLineageCycle,
-    DecisionLifecycleFactId,
     DecisionLifecycleLineageSafetyIndeterminate,
     InvalidDecisionRelationshipBasis,
     InvalidDecisionRelationshipHistory,

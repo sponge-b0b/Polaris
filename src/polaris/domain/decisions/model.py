@@ -468,14 +468,21 @@ def reconstruct_decision(
         raise InvalidDecisionHistory(
             "aggregate DecisionVersion cannot precede lifecycle history"
         )
+    return _with_version(view, decision_version)
+
+
+def _with_version(
+    decision: InvestmentDecision,
+    version: DecisionVersion,
+) -> InvestmentDecision:
     return InvestmentDecision._from_validated(
-        view._history,
-        view._subject,
-        view._scope,
-        decision_version,
-        view.lifecycle_interpretation,
-        view._applicability,
-        view._work_posture,
+        decision._history,
+        decision._subject,
+        decision._scope,
+        version,
+        decision.lifecycle_interpretation,
+        decision._applicability,
+        decision._work_posture,
     )
 
 
@@ -529,15 +536,7 @@ def _at_recording(
     )
     if view.version.value >= decision.version.value:
         return view
-    return InvestmentDecision._from_validated(
-        view._history,
-        view._subject,
-        view._scope,
-        decision.version,
-        view.lifecycle_interpretation,
-        view._applicability,
-        view._work_posture,
-    )
+    return _with_version(view, decision.version)
 
 
 def _append_ordinary(

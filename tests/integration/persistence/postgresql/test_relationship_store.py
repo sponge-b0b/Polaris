@@ -896,9 +896,7 @@ def test_renewal_initial_lineage_failure_rolls_back_entire_creation(
                 before_counts = []
                 for table in tables:
                     before_counts.append(
-                        await connection.scalar(
-                            select(func.count()).select_from(table)
-                        )
+                        await connection.scalar(select(func.count()).select_from(table))
                     )
             before_history = await setup.load_decision_history(predecessor)
             before_relationships = await setup.load_relationship_history()
@@ -937,9 +935,7 @@ def test_renewal_initial_lineage_failure_rolls_back_entire_creation(
                 after_counts = []
                 for table in tables:
                     after_counts.append(
-                        await connection.scalar(
-                            select(func.count()).select_from(table)
-                        )
+                        await connection.scalar(select(func.count()).select_from(table))
                     )
             assert after_counts == before_counts
             assert await setup.load_decision_history(predecessor) == before_history

@@ -1,0 +1,50 @@
+name: ChatGPT fresh Spec 280 post-remediation contract
+
+on:
+  push:
+    branches:
+      - chatgpt/verify-spec-280-post-remediation
+    paths:
+      - '.github/workflows/tmp-chatgpt-spec-280-fresh-contract-current.yml'
+
+permissions:
+  contents: read
+  issues: read
+  copilot-requests: write
+
+jobs:
+  build-contract:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout transport
+        uses: actions/checkout@v4
+        with:
+          path: transport
+          fetch-depth: 1
+
+      - name: Checkout exact Spec candidate
+        uses: actions/checkout@v4
+        with:
+          ref: 10d4227b1011c6dbd32ff9864374acf2cbda65ff
+          path: candidate
+          fetch-depth: 0
+
+      - name: Install current Copilot CLI
+        run: npm install --global @github/copilot
+
+      - name: Run genuinely fresh isolated contract builder
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          COPILOT_AUTO_UPDATE: 'false'
+          COPILOT_MCP_TOOL_CACHE: 'false'
+        run: python transport/.github/tmp/verify_spec_280_fresh_contract_current.py
+
+      - name: Upload exact fresh contract handoff
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spec-280-post-remediation-fresh-contract
+          path: ${{ env.CONTRACT_ROOT }}
+          if-no-files-found: warn
+          retention-days: 1

@@ -979,6 +979,7 @@ Immediately before Step 5 publication, require all of the following together:
 * every ticket's `Spec obligations` and `Architecture obligations` sets equal their approved mappings when applicable;
 * material design choices delegated to implementation remain zero;
 * every ticket still satisfies its frozen Context-Fit Manifest, with oversized slices 0;
+* every published ticket body contains the exact independently certified `Context fit` disposition and exception reason when applicable;
 * blocking edges/hierarchy still match the approved proposal.
 
 A changed proposal, source contract/root/readiness state, branch/baseline authority, Spec body/contract, or source identity invalidates parent readiness, independent certification, and approval as applicable.
@@ -1298,6 +1299,7 @@ For each proposed fresh ticket show:
 * **Spec obligations**;
 * **Architecture obligations**;
 * **Architecture context**;
+* **Context fit**;
 * **What to build**;
 * **Acceptance criteria**;
 * **Blocked by**;
@@ -1316,6 +1318,7 @@ For Spec Review remediation tickets, present a **publication-ready proposal**. F
 
 * **Title**;
 * **Root Blocker**;
+* **Context fit**;
 * **Blocked by**;
 * **Remediation obligations / What it delivers**;
 * **Verification obligations**;
@@ -1514,6 +1517,8 @@ More generally, state only what the workflow has established. Do not turn curren
 
 **Architecture context:** affected entities and governing ADR/doc references relevant to this ticket, or "None". Do not copy invariant text. Scope any readiness statement according to **Architecture and Design Readiness Language**.
 
+**Context fit:** `one-window`, or `indivisible-two-window-exception — <exact durable authority/green-state reason>` when the independently certified exception applies.
+
 **What to build:** the end-to-end behaviour this ticket makes work. It must execute the frozen upstream contract rather than delegate a material design choice.
 
 **Blocked by:** ticket numbers/titles, or "None — can start immediately".
@@ -1570,6 +1575,22 @@ For Spec Review remediation tickets only: `RB-<n>` and the stable root invariant
 ## Architecture context
 
 Affected entities and governing ADR/doc references relevant to this ticket, or "None". Do not copy invariant text. Scope any readiness statement according to **Architecture and Design Readiness Language**.
+
+## Context fit
+
+Use exactly one durable disposition:
+
+```text
+one-window
+```
+
+or, only for the independently certified exception:
+
+```text
+indivisible-two-window-exception — <exact durable authority/green-state reason>
+```
+
+Do not publish `oversized`, an ambiguous disposition, or a two-window exception without its exact justification.
 
 ## What to build
 

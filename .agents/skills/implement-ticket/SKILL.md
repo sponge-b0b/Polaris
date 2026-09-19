@@ -506,6 +506,7 @@ Read the full ticket and capture:
 
 * **Ticket branch**
 * **Ticket baseline**
+* **Context fit**
 * parent Spec
 * Architecture context when present
 
@@ -563,6 +564,19 @@ Reason: <missing, ambiguous, or contradictory hierarchy>
 `$implement-ticket` validates hierarchy only. It must not create, remove, or repair native parent/sub-issue relationships. Formal ticket publication/reconciliation remains owned by `$to-tickets`; `$github-issue-dependencies` remains the mechanical relationship helper for that owner.
 
 A correctly published ticket continues through the existing guards and lifecycle unchanged.
+
+### Ticket Context-Fit Re-entry Guard
+
+Before persisting a pending Ticket baseline or making any other substantive tracker/repository mutation, recover the ticket's durable `Context fit` field from the ticket body.
+
+Require exactly one:
+
+* `one-window`; or
+* `indivisible-two-window-exception — <exact durable authority/green-state reason>`.
+
+`oversized`, ambiguous, malformed, or missing Context-fit state is a decomposition/readiness defect. For a ticket published before this invariant, do not let `$implement-ticket` self-certify a replacement disposition from convenience or current implementation shape; route the ticket back through `$to-tickets` reconciliation so the disposition is independently certified and durably published.
+
+The implementation actor may still discover evidence that falsifies the published sizing assumption. The proof-plan guard below independently challenges whether the actual authoritative work still matches that durable disposition.
 
 ### Project Delivery Actionability Guard
 
@@ -653,22 +667,9 @@ Use these classes as needed:
 
 Record an applicability plan before substantive implementation. Every helper/check considered below must be either `applicable` or `not-applicable` with a concrete reason. Do not invoke a helper merely because it exists in the repository.
 
-### Ticket Context-Fit Re-entry Guard
-
-Before the first substantive implementation or tracker mutation after required entry/baseline guards, recover the ticket's durable `Context fit` field from the ticket body.
-
-Require exactly one:
-
-* `one-window`; or
-* `indivisible-two-window-exception — <exact durable authority/green-state reason>`.
-
-`oversized`, ambiguous, malformed, or missing Context-fit state is a decomposition/readiness defect. For a ticket published before this invariant, do not let `$implement-ticket` self-certify a replacement disposition from convenience or current implementation shape; route the ticket back through `$to-tickets` reconciliation so the disposition is independently certified and durably published.
-
-The implementation actor may still discover evidence that falsifies the published sizing assumption. The proof-plan guard below independently challenges whether the actual authoritative work still matches that durable disposition.
-
 ### Pre-Implementation Acceptance Proof Plan
 
-Before the first substantive implementation or tracker mutation after required entry/baseline guards, derive the implementer's proof plan from the **ticket contract and governing authority**, not from the implementation shape you expect to write.
+After the required entry and Ticket-baseline guards pass, but before substantive implementation, derive the implementer's proof plan from the **ticket contract and governing authority**, not from the implementation shape you expect to write.
 
 For every explicit ticket acceptance criterion, record compactly:
 

@@ -23,37 +23,25 @@ NONCANONICAL: dict[str, tuple[str, list[str] | None, str]] = {
         "normative-represented",
         [
             "US-1",
-            "US-3",
             "US-7",
-            "US-8",
             "US-18",
             "US-24",
             "US-26",
-            "US-30",
-            "US-32",
-            "US-35",
             "US-36",
             "US-37",
             "US-38",
-            "US-39",
             "US-42",
+            "ID-1",
             "ID-28",
-            "TD-32",
         ],
-        "The Problem Statement summarizes durability, retry/concurrency/correction, "
-        "historical reconstruction, and inward technology-neutrality obligations "
-        "that are established concretely by the mapped canonical cells.",
+        "The Problem Statement summarizes durability, correction, historical "
+        "reconstruction, and inward technology-neutrality obligations that are "
+        "fully established by the mapped canonical cells.",
     ),
     "SU-0002": (
         "normative-represented",
         [
-            "US-2",
             "US-3",
-            "US-6",
-            "US-7",
-            "US-9",
-            "US-14",
-            "US-15",
             "US-16",
             "US-17",
             "US-18",
@@ -61,64 +49,53 @@ NONCANONICAL: dict[str, tuple[str, list[str] | None, str]] = {
             "US-20",
             "US-21",
             "US-22",
+            "US-23",
             "US-24",
             "US-25",
             "US-26",
-            "US-30",
             "US-32",
             "US-35",
             "US-36",
             "US-37",
-            "US-38",
             "US-39",
             "US-42",
             "US-43",
         ],
-        "The detailed Problem Statement requirement list is fully decomposed by "
-        "the mapped cardinality, atomicity, retry/concurrency, relationship, "
-        "dual-time, contested-state, migration, and inward-boundary cells.",
+        "The detailed persistence Problem Statement is fully represented by the "
+        "mapped canonical cardinality, atomicity, retry/concurrency, relationship, "
+        "temporal, contested-state, migration, and inward-boundary obligations.",
     ),
     "SU-0003": (
         "normative-represented",
         ["ID-1"],
-        "The Solution's adapter directive is the same purpose-specific Decisions "
-        "command-store and Decision Memory reader adapter obligation in ID-1.",
+        "The Solution's adapter directive is represented by ID-1.",
     ),
     "SU-0004": (
         "normative-represented",
-        ["US-42", "US-43", "ID-2", "ID-21", "ID-22", "ID-28"],
-        "The greenfield schema, continuity mechanism, PostgreSQL-internal-use, "
-        "and technology-neutral-boundary requirements are fully represented by "
-        "the mapped cells.",
+        ["ID-2", "ID-21", "ID-22", "ID-28"],
+        "The greenfield schema, continuity strategy, and PostgreSQL-internal-use "
+        "requirements are represented by the mapped implementation decisions.",
     ),
     "SU-0005": (
         "normative-represented",
         [
-            "US-8",
-            "US-21",
-            "US-22",
-            "US-23",
-            "US-24",
-            "US-36",
-            "US-37",
             "ID-17",
             "ID-18",
             "ID-19",
+            "ID-21",
+            "ID-22",
             "ID-23",
             "ID-24",
             "ID-25",
             "ID-28",
-            "ID-33",
         ],
-        "Transactional atomicity, restart-safe history/query behavior, and "
-        "permitted PostgreSQL implementation techniques are represented by the "
-        "mapped atomicity, reconstruction, idempotency, dual-time, and "
-        "infrastructure-only implementation cells.",
+        "Atomic mutations, restart-safe query behavior, and permitted PostgreSQL "
+        "mechanisms are represented by the mapped implementation decisions.",
     ),
     "SU-0006": (
         "non-normative",
         None,
-        "Implementation-readiness status; it does not add an acceptance obligation.",
+        "Implementation-readiness status only.",
     ),
     "SU-0007": (
         "normative-new",
@@ -146,10 +123,10 @@ NONCANONICAL: dict[str, tuple[str, list[str] | None, str]] = {
         "Enumerates the synchronized design inputs required by NORM-1.",
     ),
     "SU-0012": (
-        "normative-new",
-        ["NORM-2"],
-        "Establishes the workflow-owned fixed-baseline publication requirement "
-        "and its readiness disposition.",
+        "non-normative",
+        None,
+        "Readiness/dependency/workflow metadata; it does not establish an "
+        "implementation acceptance obligation.",
     ),
     "SU-0063": (
         "non-normative",
@@ -163,15 +140,15 @@ NONCANONICAL: dict[str, tuple[str, list[str] | None, str]] = {
     ),
     "SU-0065": (
         "normative-represented",
-        ["US-1", "US-6", "US-7", "US-8", "US-42", "US-43", "ID-28", "OOS-10", "NORM-1"],
-        "The governing-constraints summary is fully represented by the mapped "
-        "durability/history, inward-boundary, greenfield-migration, no-universal-"
-        "event-sourcing, and synchronized-authority cells.",
+        ["ID-1", "ID-2", "ID-28", "OOS-10"],
+        "The governing-constraints summary is represented by the purpose-specific "
+        "adapter, greenfield schema, infrastructure-only PostgreSQL use, and "
+        "no-universal-event-sourcing cells.",
     ),
     "SU-0066": (
         "non-normative",
         None,
-        "Records already-resolved architecture authority; it does not add a new Spec obligation.",
+        "Records already-resolved architecture authority.",
     ),
     "SU-0067": (
         "non-normative",
@@ -189,14 +166,15 @@ NONCANONICAL: dict[str, tuple[str, list[str] | None, str]] = {
         "Reports implementation-readiness status only.",
     ),
     "SU-0149": (
-        "normative-new",
-        ["NORM-3"],
-        "Establishes the canonical native dependency record and required satisfied dependency state.",
+        "non-normative",
+        None,
+        "Dependency-status metadata; the native relationship is workflow state, "
+        "not a new implementation acceptance obligation.",
     ),
     "SU-0150": (
         "non-normative",
         None,
-        "Historical planning-source provenance; it does not add an acceptance obligation.",
+        "Historical planning-source provenance.",
     ),
     "SU-0151": (
         "normative-represented",
@@ -205,13 +183,13 @@ NONCANONICAL: dict[str, tuple[str, list[str] | None, str]] = {
     ),
     "SU-0152": (
         "normative-represented",
-        ["US-42", "ID-28"],
-        "Restates PostgreSQL's infrastructure-only role behind inward-owned contracts.",
+        ["ID-1", "ID-28"],
+        "Restates PostgreSQL's adapter role behind inward-owned contracts.",
     ),
     "SU-0153": (
         "normative-represented",
         ["US-50", "ID-31"],
-        "Restates the donor-only legacy-mechanics constraint in US-50 and ID-31.",
+        "Restates the donor-only legacy-mechanics constraint.",
     ),
 }
 
@@ -223,21 +201,6 @@ NORM_MANIFEST = {
             "and synchronized #279, the R2 foundation public contract, and the "
             "synchronized lifecycle, relationship, application, and durable-"
             "persistence designs."
-        ),
-    },
-    "NORM-2": {
-        "source": "Implementation readiness paragraph 3",
-        "requirement": (
-            "$to-tickets must own first-use creation of spec-280 and record the "
-            "fixed Spec baseline before ticket publication; absence of that baseline "
-            "before $to-tickets is not an implementation-readiness blocker."
-        ),
-    },
-    "NORM-3": {
-        "source": "Dependency context paragraph 1",
-        "requirement": (
-            "The native GitHub dependency on #279 is the canonical dependency record "
-            "and must be satisfied for this Spec."
         ),
     },
 }

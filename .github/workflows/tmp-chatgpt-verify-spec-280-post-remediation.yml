@@ -47,7 +47,7 @@ jobs:
       - name: Install Python runtimes
         run: |
           set -euo pipefail
-          uv python install '3.14+gil'
+          uv python install 3.14
           uv python install 3.14t
 
       - name: Pin exact Spec candidate
@@ -175,7 +175,7 @@ jobs:
         uses: astral-sh/setup-uv@v6
 
       - name: Install standard Python
-        run: uv python install '3.14+gil'
+        run: uv python install 3.14
 
       - name: Pin exact candidate and baseline
         run: |

@@ -24,7 +24,6 @@ BASELINE_LINE_RE = re.compile(r"^\*\*Baseline Commit Hash:\*\* (?P<sha>[0-9a-f]{
 RECEIPT_HEADER = "## Spec Verification Receipt"
 TCM_HEADER = "## Ticket Coverage Manifest"
 RECEIPT_FORMAT = "manifest-table-v2"
-SPEC_CONTRACT_ENCODING = "V2"
 PROOF_STATES = {"proven", "not-applicable", "unresolved"}
 GATE_STATES = {"PASS", "NOT APPLICABLE"}
 CONTRACT_HANDOFF_KEYS = {
@@ -33,7 +32,6 @@ CONTRACT_HANDOFF_KEYS = {
     "baseline",
     "branch",
     "spec_body_hash",
-    "spec_contract_encoding",
     "spec_contract_hash",
     "default_branch",
     "default_head",
@@ -75,15 +73,7 @@ def _digest_text(value: Any, label: str) -> str:
     return text
 
 
-def _contract_encoding(value: Any, label: str = "Spec Contract Encoding") -> str:
-    encoding = _text(value, label)
-    _require(
-        encoding == SPEC_CONTRACT_ENCODING,
-        f"{label} must be {SPEC_CONTRACT_ENCODING}",
-    )
-    return encoding
-
-
+def _digest(value: Any) -> str:
 def _digest(value: Any) -> str:
     encoded = json.dumps(
         value,
@@ -163,7 +153,6 @@ def _require_contract_digest(path: str | Path, expected: str) -> None:
 
 
 def _validate_contract_identity(contract: dict[str, Any]) -> None:
-    _contract_encoding(contract.get("spec_contract_encoding"), "spec_contract_encoding")
     identity = contract.get("contract_identity")
     _require(isinstance(identity, dict), "contract_identity must be an object")
     _require(
@@ -272,7 +261,7 @@ def _validate_contract_identity(contract: dict[str, Any]) -> None:
     )
 
     payload = (
-        "SPEC-CONTRACT-V2\n"
+        "SPEC-CONTRACT\n"
         + body_hash
         + "\n--SOURCE-UNITS--\n"
         + "\n".join(
@@ -396,18 +385,13 @@ def contract_coherence(summary: Any, contract: Any) -> dict[str, str]:
         contract.get("spec_body_hash"),
         "contract spec_body_hash",
     )
-    contract_encoding = _contract_encoding(
-        contract.get("spec_contract_encoding"),
-        "contract spec_contract_encoding",
-    )
     contract_hash = _digest_text(
         contract.get("spec_contract_hash"),
         "contract spec_contract_hash",
     )
-    tcm_body_hash = _digest_text(_tcm_field(lines, "Spec Body Hash"), "TCM Spec Body Hash")
-    tcm_encoding = _contract_encoding(
-        _tcm_field(lines, "Spec Contract Encoding"),
-        "TCM Spec Contract Encoding",
+    tcm_body_hash = _digest_text(
+        _tcm_field(lines, "Spec Body Hash"),
+        "TCM Spec Body Hash",
     )
     tcm_hash = _digest_text(
         _tcm_field(lines, "Spec Contract Hash"),
@@ -415,18 +399,17 @@ def contract_coherence(summary: Any, contract: Any) -> dict[str, str]:
     )
 
     _require(tcm_body_hash == contract_body_hash, "TCM Spec Body Hash mismatch")
-    _require(tcm_encoding == contract_encoding, "TCM Spec Contract Encoding mismatch")
     _require(tcm_hash == contract_hash, "TCM Spec Contract Hash mismatch")
 
     return {
         "status": "PASS",
         "spec_body_hash": contract_body_hash,
-        "spec_contract_encoding": contract_encoding,
         "spec_contract_hash": contract_hash,
         "ticket_coverage_manifest_id": str(tcm.get("id") or ""),
     }
 
 
+def _manifest(raw: Any) -> tuple[list[dict[str, str]], list[str]]:
 def _manifest(raw: Any) -> tuple[list[dict[str, str]], list[str]]:
     _require(bool(isinstance(raw, list) and raw), "manifest must be non-empty")
     rows: list[dict[str, str]] = []
@@ -550,7 +533,6 @@ def finalize(raw: Any) -> dict[str, Any]:
         "mode": _text(raw.get("mode"), "mode"),
         "prior_checkpoint": raw.get("prior_checkpoint"),
         "spec_body_hash": _digest_text(raw.get("spec_body_hash"), "spec_body_hash"),
-        "spec_contract_encoding": _contract_encoding(raw.get("spec_contract_encoding"), "spec_contract_encoding"),
         "spec_contract_hash": _digest_text(
             raw.get("spec_contract_hash"),
             "spec_contract_hash",
@@ -642,7 +624,6 @@ def render_receipt(state: dict[str, Any]) -> str:
         f"**Verification mode:** {state['mode']}",
         f"**Prior verified checkpoint:** {state.get('prior_checkpoint') or 'None'}",
         f"**Spec Body Hash:** {state['spec_body_hash']}",
-        f"**Spec Contract Encoding:** {state['spec_contract_encoding']}",
         f"**Spec Contract Hash:** {state['spec_contract_hash']}",
         f"**Verification Hash:** {state['verification_hash']}",
         (
@@ -729,7 +710,6 @@ def self_test() -> None:
             "body": (
                 "## Ticket Coverage Manifest\n"
                 f"Spec Body Hash: {'b' * 64}\n"
-                f"Spec Contract Encoding: {SPEC_CONTRACT_ENCODING}\n"
                 f"Spec Contract Hash: {'c' * 64}"
             ),
         },
@@ -783,7 +763,7 @@ def self_test() -> None:
     ]
     body_hash = "c" * 64
     contract_payload = (
-        "SPEC-CONTRACT-V2\n"
+        "SPEC-CONTRACT\n"
         + body_hash
         + "\n--SOURCE-UNITS--\n"
         + "\n".join(
@@ -807,7 +787,6 @@ def self_test() -> None:
         "mode": "full",
         "prior_checkpoint": None,
         "spec_body_hash": body_hash,
-        "spec_contract_encoding": SPEC_CONTRACT_ENCODING,
         "spec_contract_hash": contract_hash,
         "default_branch": "main",
         "default_head": "e" * 40,
@@ -862,7 +841,6 @@ def self_test() -> None:
         "body": (
             "## Ticket Coverage Manifest\n"
             f"Spec Body Hash: {body_hash}\n"
-            f"Spec Contract Encoding: {SPEC_CONTRACT_ENCODING}\n"
             f"Spec Contract Hash: {contract_hash}\n"
             "US-1 -> implementation ticket #1\n"
             "US-2 -> implementation ticket #1\n"
@@ -875,27 +853,22 @@ def self_test() -> None:
     }
     coherent = contract_coherence(coherence_summary, contract)
     assert coherent["status"] == "PASS"
-    for bad_body in (
-        coherent_tcm["body"].replace(
-            f"Spec Contract Hash: {contract_hash}",
-            f"Spec Contract Hash: {'9' * 64}",
-        ),
-        coherent_tcm["body"].replace(
-            f"Spec Contract Encoding: {SPEC_CONTRACT_ENCODING}\n",
-            "",
-        ),
-    ):
-        broken_summary = {
-            "ticket_coverage_manifest": {"id": 99, "body": bad_body},
-            "ticket_coverage_manifest_count": 1,
-        }
-        try:
-            contract_coherence(broken_summary, contract)
-        except ValidationError:
-            pass
-        else:
-            raise AssertionError("contract-incoherent TCM was accepted")
+    bad_body = coherent_tcm["body"].replace(
+        f"Spec Contract Hash: {contract_hash}",
+        f"Spec Contract Hash: {'9' * 64}",
+    )
+    broken_summary = {
+        "ticket_coverage_manifest": {"id": 99, "body": bad_body},
+        "ticket_coverage_manifest_count": 1,
+    }
+    try:
+        contract_coherence(broken_summary, contract)
+    except ValidationError:
+        pass
+    else:
+        raise AssertionError("contract-incoherent TCM was accepted")
 
+    assembled = finalize_parts(
     assembled = finalize_parts(
         contract,
         raw["proofs"],
@@ -909,7 +882,6 @@ def self_test() -> None:
 
     receipt = render_receipt(state)
     assert f"**Receipt format:** {RECEIPT_FORMAT}" in receipt
-    assert f"**Spec Contract Encoding:** {SPEC_CONTRACT_ENCODING}" in receipt
     assert "### Spec Contract Manifest" in receipt
     assert "### Spec Proof Objects" not in receipt
     assert "- proven: US-1, US-2" in receipt

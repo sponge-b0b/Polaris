@@ -25,7 +25,6 @@ TERMINAL_FINDING_STATUSES = FINDING_STATUSES - {"open"}
 FINDING_SEVERITIES = {"blocking", "advisory"}
 FINDING_ROUTINGS = {"ordinary-remediation", "decomposition-defect", "architecture-remediation", "advisory"}
 RECEIPT_FORMAT_V2 = "manifest-table-v2"
-SPEC_CONTRACT_ENCODING = "V2"
 TCM_HEADER = "## Ticket Coverage Manifest"
 SOURCE_LABELS = {
     "User Stories": "user_stories",
@@ -65,22 +64,7 @@ def _digest(value: Any, label: str) -> str:
     return value
 
 
-def _contract_encoding(value: Any, label: str = "Spec Contract Encoding") -> str:
-    encoding = _text(value, label)
-    _require(
-        encoding == SPEC_CONTRACT_ENCODING,
-        f"{label} must be {SPEC_CONTRACT_ENCODING}",
-    )
-    return encoding
-
-
-def _persisted_contract_encoding(lines: list[str], label: str) -> str:
-    encoding = _optional_field(lines, "Spec Contract Encoding")
-    if encoding is None:
-        return "legacy-unversioned"
-    return _contract_encoding(encoding, label)
-
-
+def _plain_field(lines: list[str], label: str) -> str:
 def _plain_field(lines: list[str], label: str) -> str:
     prefix = f"{label}: "
     matches = [line[len(prefix) :] for line in lines if line.startswith(prefix)]
@@ -274,10 +258,6 @@ def checkpoint(
         _digest(_field(lines, "Spec Body Hash"), "Spec Body Hash") == body_hash,
         "Spec body changed after verification",
     )
-    contract_encoding = _contract_encoding(
-        _field(lines, "Spec Contract Encoding"),
-        "verification receipt Spec Contract Encoding",
-    )
     contract_hash = _digest(
         _field(lines, "Spec Contract Hash"),
         "Spec Contract Hash",
@@ -294,18 +274,11 @@ def checkpoint(
         "Ticket Coverage Manifest Spec Body Hash mismatch",
     )
     _require(
-        _contract_encoding(
-            _plain_field(tcm_lines, "Spec Contract Encoding"),
-            "TCM Spec Contract Encoding",
-        )
-        == contract_encoding,
-        "Ticket Coverage Manifest Spec Contract Encoding mismatch",
-    )
-    _require(
         _digest(_plain_field(tcm_lines, "Spec Contract Hash"), "TCM Spec Contract Hash")
         == contract_hash,
         "Ticket Coverage Manifest Spec Contract Hash mismatch",
     )
+    verification_hash = _digest(
     verification_hash = _digest(
         _field(lines, "Verification Hash"),
         "Verification Hash",
@@ -340,7 +313,6 @@ def checkpoint(
         "baseline": baseline,
         "branch": branch,
         "spec_body_hash": body_hash,
-        "spec_contract_encoding": contract_encoding,
         "spec_contract_hash": contract_hash,
         "verification_hash": verification_hash,
         "default_branch_at_verification": default_branch,
@@ -439,10 +411,7 @@ def parse_finding_ledger(body: str) -> dict[str, Any]:
     _require(review.startswith("#") and review[1:].isdigit(), "invalid Spec Review")
     head = _sha(_field(lines, "Reviewed HEAD"), "finding ledger Reviewed HEAD")
     body_hash = _digest(_field(lines, "Spec Body Hash"), "finding ledger Spec Body Hash")
-    contract_encoding = _persisted_contract_encoding(
-        lines,
-        "finding ledger Spec Contract Encoding",
-    )
+    contract_hash = _digest(_field(lines, "Spec Contract Hash"), "finding ledger Spec Contract Hash")
     contract_hash = _digest(_field(lines, "Spec Contract Hash"), "finding ledger Spec Contract Hash")
     try:
         start = lines.index("```json") + 1
@@ -456,7 +425,6 @@ def parse_finding_ledger(body: str) -> dict[str, Any]:
         "spec_review": int(review[1:]),
         "head": head,
         "spec_body_hash": body_hash,
-        "spec_contract_encoding": contract_encoding,
         "spec_contract_hash": contract_hash,
         "findings": rows,
     }
@@ -468,7 +436,6 @@ def render_finding_ledger(raw: Any, prior_body: str | None = None) -> str:
     spec_review = _positive_int(raw.get("spec_review"), "spec_review")
     head = _sha(raw.get("head"), "finding ledger reviewed HEAD")
     body_hash = _digest(raw.get("spec_body_hash"), "finding ledger Spec Body Hash")
-    contract_encoding = _contract_encoding(raw.get("spec_contract_encoding"), "finding ledger Spec Contract Encoding")
     contract_hash = _digest(raw.get("spec_contract_hash"), "finding ledger Spec Contract Hash")
     rows = _finding_rows(raw.get("findings"))
 
@@ -483,13 +450,6 @@ def render_finding_ledger(raw: Any, prior_body: str | None = None) -> str:
         _require(
             prior["spec_contract_hash"] == contract_hash,
             "finding ledger Spec Contract Hash changed",
-        )
-        _require(
-            prior["spec_contract_encoding"] in {
-                "legacy-unversioned",
-                SPEC_CONTRACT_ENCODING,
-            },
-            "finding ledger Spec Contract Encoding is incompatible",
         )
         current_by_id = {row["id"]: row for row in rows}
         prior_rows = prior["findings"]
@@ -514,7 +474,6 @@ def render_finding_ledger(raw: Any, prior_body: str | None = None) -> str:
         f"**Spec Review:** #{spec_review}",
         f"**Reviewed HEAD:** {head}",
         f"**Spec Body Hash:** {body_hash}",
-        f"**Spec Contract Encoding:** {contract_encoding}",
         f"**Spec Contract Hash:** {contract_hash}",
         "",
         "```json",
@@ -529,7 +488,6 @@ def render_pending(raw: Any) -> str:
     baseline = _sha(raw.get("baseline"), "reviewed baseline")
     branch = _text(raw.get("branch"), "branch")
     body_hash = _digest(raw.get("spec_body_hash"), "Spec Body Hash")
-    contract_encoding = _contract_encoding(raw.get("spec_contract_encoding"))
     contract_hash = _digest(raw.get("spec_contract_hash"), "Spec Contract Hash")
     execution = _text(raw.get("reviewer_execution"), "reviewer execution")
     override = _text(
@@ -560,7 +518,6 @@ def render_pending(raw: Any) -> str:
         f"**Reviewed Baseline:** {baseline}",
         f"**Branch:** {branch}",
         f"**Spec Body Hash:** {body_hash}",
-        f"**Spec Contract Encoding:** {contract_encoding}",
         f"**Spec Contract Hash:** {contract_hash}",
         f"**Reviewer execution:** {execution}",
         f"**Reviewer execution override:** {override}",
@@ -606,7 +563,6 @@ def render_exit(raw: Any, finding_ledger_body: str) -> str:
     baseline = _sha(raw.get("baseline"), "reviewed baseline")
     branch = _text(raw.get("branch"), "branch")
     body_hash = _digest(raw.get("spec_body_hash"), "Spec Body Hash")
-    contract_encoding = _contract_encoding(raw.get("spec_contract_encoding"))
     contract_hash = _digest(raw.get("spec_contract_hash"), "Spec Contract Hash")
     parent_spec = _positive_int(raw.get("parent_spec"), "parent_spec")
     spec_review = _positive_int(raw.get("spec_review"), "spec_review")
@@ -615,7 +571,6 @@ def render_exit(raw: Any, finding_ledger_body: str) -> str:
     _require(ledger["spec_review"] == spec_review, "finding ledger Spec Review mismatch")
     _require(ledger["head"] == head, "finding ledger HEAD mismatch")
     _require(ledger["spec_body_hash"] == body_hash, "finding ledger Spec Body Hash mismatch")
-    _require(ledger["spec_contract_encoding"] == contract_encoding, "finding ledger Spec Contract Encoding mismatch")
     _require(ledger["spec_contract_hash"] == contract_hash, "finding ledger Spec Contract Hash mismatch")
 
     open_blocking = [
@@ -652,7 +607,6 @@ def render_exit(raw: Any, finding_ledger_body: str) -> str:
         f"**Reviewed Baseline:** {baseline}",
         f"**Branch:** {branch}",
         f"**Spec Body Hash:** {body_hash}",
-        f"**Spec Contract Encoding:** {contract_encoding}",
         f"**Spec Contract Hash:** {contract_hash}",
         f"**Finding Ledger Hash:** {ledger_hash}",
         "**Blocking findings:** 0",
@@ -739,7 +693,6 @@ def self_test() -> None:
             f"**Verified Baseline:** {'d' * 40}",
             "**Branch:** spec-1",
             f"**Spec Body Hash:** {body_hash}",
-            f"**Spec Contract Encoding:** {SPEC_CONTRACT_ENCODING}",
             f"**Spec Contract Hash:** {contract_hash}",
             f"**Verification Hash:** {'f' * 64}",
             f"**Default ownership point:** main@{'e' * 40}",
@@ -770,7 +723,6 @@ def self_test() -> None:
         [
             TCM_HEADER,
             f"Spec Body Hash: {body_hash}",
-            f"Spec Contract Encoding: {SPEC_CONTRACT_ENCODING}",
             f"Spec Contract Hash: {contract_hash}",
             "US-1 -> implementation ticket #1",
         ]
@@ -781,30 +733,30 @@ def self_test() -> None:
         "ticket_coverage_manifest": {"id": 8, "body": tcm},
     }
     coherent = checkpoint(summary, spec_body, 1, "a" * 40, "spec-1")
-    assert coherent["spec_contract_encoding"] == SPEC_CONTRACT_ENCODING
+    assert coherent["spec_contract_hash"] == contract_hash
 
-    for incoherent_tcm in (
-        tcm.replace(f"Spec Contract Hash: {contract_hash}", f"Spec Contract Hash: {'9' * 64}"),
-        tcm.replace(f"Spec Contract Encoding: {SPEC_CONTRACT_ENCODING}\n", ""),
-    ):
-        broken = json.loads(json.dumps(summary))
-        broken["ticket_coverage_manifest"]["body"] = incoherent_tcm
-        try:
-            checkpoint(broken, spec_body, 1, "a" * 40, "spec-1")
-        except ArtifactError:
-            pass
-        else:
-            raise AssertionError(
-                "contract-incoherent TCM was accepted despite matching Spec body/cell universe"
-            )
+    incoherent_tcm = tcm.replace(
+        f"Spec Contract Hash: {contract_hash}",
+        f"Spec Contract Hash: {'9' * 64}",
+    )
+    broken = json.loads(json.dumps(summary))
+    broken["ticket_coverage_manifest"]["body"] = incoherent_tcm
+    try:
+        checkpoint(broken, spec_body, 1, "a" * 40, "spec-1")
+    except ArtifactError:
+        pass
+    else:
+        raise AssertionError(
+            "contract-incoherent TCM was accepted despite matching Spec body/cell universe"
+        )
 
 
+    ledger_input = {
     ledger_input = {
         "parent_spec": 1,
         "spec_review": 2,
         "head": "a" * 40,
         "spec_body_hash": "b" * 64,
-        "spec_contract_encoding": SPEC_CONTRACT_ENCODING,
         "spec_contract_hash": "c" * 64,
         "findings": [
             {
@@ -823,29 +775,13 @@ def self_test() -> None:
         ],
     }
     open_ledger = render_finding_ledger(ledger_input)
-    legacy_open_ledger = open_ledger.replace(
-        f"**Spec Contract Encoding:** {SPEC_CONTRACT_ENCODING}\n",
-        "",
-    )
-    migrated_open_ledger = render_finding_ledger(ledger_input, legacy_open_ledger)
-    assert f"**Spec Contract Encoding:** {SPEC_CONTRACT_ENCODING}" in migrated_open_ledger
-
+    advanced_input = json.loads(json.dumps(ledger_input))
     advanced_input = json.loads(json.dumps(ledger_input))
     advanced_input["head"] = "e" * 40
     advanced_open_ledger = render_finding_ledger(advanced_input, open_ledger)
     assert f"**Reviewed HEAD:** {'e' * 40}" in advanced_open_ledger
 
-    mismatched_legacy = legacy_open_ledger.replace(
-        f"**Spec Contract Hash:** {'c' * 64}",
-        f"**Spec Contract Hash:** {'9' * 64}",
-    )
-    try:
-        render_finding_ledger(ledger_input, mismatched_legacy)
-    except ArtifactError:
-        pass
-    else:
-        raise AssertionError("legacy finding ledger with a different hash was migrated")
-
+    exit_input = {
     exit_input = {
         "parent_spec": 1,
         "spec_review": 2,
@@ -853,7 +789,6 @@ def self_test() -> None:
         "baseline": "d" * 40,
         "branch": "spec-1",
         "spec_body_hash": "b" * 64,
-        "spec_contract_encoding": SPEC_CONTRACT_ENCODING,
         "spec_contract_hash": "c" * 64,
         "unaccounted_prior_findings": 0,
         "unresolved_continuity_cells": 0,

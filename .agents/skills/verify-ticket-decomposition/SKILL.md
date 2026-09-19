@@ -47,6 +47,7 @@ Spec obligation routing: <IDs + dispositions>
 Architecture/design source inventory: <durable source identities + anchors + dispositions>
 Normative source-unit / ARCHSRC routing: <IDs + source anchors + dispositions>
 Parent semantic-carry evidence: <compact rows/pointers>
+Parent Context-Fit Manifest: <per-ticket scenario/domain/modality/proof-family summary + disposition>
 Design-delegation result: <compact rows/pointers>
 ```
 
@@ -109,6 +110,39 @@ Check that:
 
 Tracker formatting, labels, exact native relationship persistence, and branch mechanics remain parent-owned deterministic checks unless they change semantic meaning.
 
+### 4. Independently certify ticket context fit
+
+Treat the parent Context-Fit Manifest as a falsifiable claim, not authority.
+
+For every proposed implementation/remediation ticket, independently derive the smallest authoritative set of:
+
+* independently implementable semantic scenario families;
+* material semantic closure domains;
+* required proof modalities or runtime/service boundaries;
+* proof/invalidation families that require materially different evidence.
+
+Then challenge the proposed slice:
+
+* if two subsets can each be implemented and semantically verified while leaving a green intermediate state, require separate tracer bullets unless durable authority requires atomic co-delivery;
+* do not infer small scope from file count, line count, a single test module, or absence of production-code changes;
+* do not multiply complexity merely because one semantic predicate carries several provenance IDs; equivalent authority may map to one scenario family;
+* conversely, do not hide several lifecycle transitions, authority boundaries, failure families, temporal modes, or correction paths inside one broad acceptance criterion and count them as one family;
+* normal PASS requires a credible one-fresh-context implementation/verification/closure lifecycle;
+* an `indivisible-two-window-exception` is valid only when the verifier can identify durable authority or unavoidable green-state coupling that makes a smaller split invalid, and the resulting slice still plausibly fits within two fresh contexts;
+* if context fit is ambiguous, treat the ticket as oversized rather than relying on the implementation agent to discover the split later.
+
+This is a decomposition gate, not a performance benchmark. Do not FAIL merely because a difficult defect could be discovered during implementation; FAIL when the **ordinary authorized slice itself** is knowingly too semantically dense.
+
+Require:
+
+```text
+Tickets assessed for context fit: <n>
+One-window tickets: <n>
+Validated indivisible two-window exceptions: <n>
+Oversized tickets: 0
+Ambiguous context-fit dispositions: 0
+```
+
 ## Verdict
 
 Return exactly one complete verdict to the `$to-tickets` parent.
@@ -125,6 +159,7 @@ Verifier: fresh-independent
 Source closure: complete; missing material sources/units 0
 Spec-cell identity: exact; source <n>; manifest <n>; missing 0; extra 0
 Semantic carry: complete; incomplete 0; ambiguous 0
+Context fit: one-window <n>; validated indivisible two-window exceptions <n>; oversized 0; ambiguous 0
 Design delegation: 0
 Dependency/slice semantic defects: 0
 Findings: 0
@@ -139,12 +174,12 @@ Mode: fresh | remediation
 Source state identity: <identity/hash>
 Proposal identity: <sha256>
 Findings:
-1. Classification: missing-source | invented-source-cell | missing-predicate | incomplete-carry | misrouted | dependency-safety | design-delegation | contradiction
+1. Classification: missing-source | invented-source-cell | missing-predicate | incomplete-carry | misrouted | dependency-safety | oversized-slice | design-delegation | contradiction
    Governing source: <durable source + anchor>
    Authoritative requirement: <compact requirement>
    Affected proposal element: <ticket/manifest/dependency>
    Defect: <exact omission/contradiction>
-   Required closure condition: <what must become true; do not redesign the ticket set>
+   Required closure condition: <what must become true; identify the semantic condition without drafting replacement tickets>
 ...
 ```
 

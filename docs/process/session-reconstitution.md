@@ -227,6 +227,22 @@ Use the workflow's required merge method and guards. Do not hand ordinary PR cre
 
 Use GitHub Actions when the required command can be reproduced from the exact durable candidate/ref. Bind the candidate first, execute the complete owning-skill semantics rather than a convenient subset, inspect the run/jobs/logs, and treat the result as verification evidence unless the workflow explicitly promotes generated repository content. Use an already-registered/proven Actions path or the current capability playbook; do not assume a newly introduced scratch-only workflow will schedule.
 
+#### ChatGPT ticket verification transport and churn control
+
+The repository skills define **semantic workflow behavior** for Codex, Claude Code, ChatGPT, and other supported agents. This section defines only how a ChatGPT-hosted session maps those semantics onto connector/GitHub Actions capabilities. Codex/Claude Code should use their own native/local execution capabilities under the skill contract; they do not inherit this ChatGPT transport procedure. Do not copy these mechanics into workflow skills as though every agent must work the same way.
+
+For ChatGPT-hosted `$implement-ticket` runs:
+
+1. Use direct Git-data construction/update for exact candidate bytes when safe. GitHub Actions is command-execution transport, not the normal edit loop.
+2. Prefer an already-registered/reusable verification workflow. When no reusable workflow exists, create at most one ticket-scoped temporary candidate-verification branch/workflow family and reuse it across candidate repairs; do not create a new transport branch/workflow for each formatting, lint, dedup, or assertion edit. This does not replace a separate fresh-verifier transport when the owning skill requires independent model identity/context.
+3. Keep **semantic candidate identity** separate from transport commits. Workflow YAML commits, temporary branch heads, and runner plumbing are not ticket candidates. Bind proof to the owning skill's candidate-state identity.
+4. Follow the `$implement-ticket` verification funnel: run the cheapest failing/preflight gate until it is clean; do not rerun PostgreSQL/architecture/broad suites while a formatter, runtime-selection, duplicate-code, or stale-suppression preflight is still red; once focused repair loops are green, run one complete applicable candidate-bound matrix.
+5. Reuse candidate-bound evidence when the owning skill permits it. If two Git commits have deterministically identical baseline-relative final path state and therefore the same required candidate-state identity, do not rerun a gate solely because transport/commit representation changed.
+6. If two complete candidate-matrix runs fail only for mechanical/transport/format/runtime-selection/dedup reasons, treat continued full-matrix looping as a process defect: surface Attention, isolate the failed gate with a focused preflight, and resume the full matrix only after that preflight is green.
+7. A connection interruption does not reset the funnel. Recover the known ticket-scoped transport branch, candidate-state/checkpoint, and already-valid evidence; do not reconstruct or rerun completed gates from conversational memory.
+
+This is cost-control and recovery policy, never permission to skip an applicable owning-skill gate.
+
 #### Run a genuinely fresh or independent model pass
 
 When a Polaris workflow requires a genuinely fresh or independent model context and the active ChatGPT runtime does not expose a native fresh-agent primitive, use the **proven GitHub Actions + GitHub Copilot CLI transport** before falling back to the reduced-independence in-session substitute authorized later in this document.
@@ -802,7 +818,7 @@ At each event below, recompute the current continuation state. If it differs fro
 | Workflow owner changes | Synchronize |
 | Active branch changes | Synchronize |
 | Baseline/anchor becomes known or changes | Synchronize |
-| Durable candidate commit/`HEAD` changes | Synchronize |
+| Selected/frozen workflow candidate commit/`HEAD` becomes current or changes | Synchronize |
 | Workflow checkpoint materially advances | Synchronize |
 | Expected next transition changes | Synchronize |
 | A workflow completes and another becomes next | Synchronize |
@@ -817,6 +833,10 @@ At each event below, recompute the current continuation state. If it differs fro
 | No meaningful ephemeral continuation state remains | Synchronize to the minimal current durable coordinates |
 
 A state transition that matches a Mandatory Synchronization Point is the trigger. Do not replace this table with a subjective test such as “worth preserving,” “important enough,” or “session seems nearly finished.”
+
+A scratch/preflight candidate that changes repeatedly on a **known durable ticket-scoped transport branch** does not by itself require one ledger generation per mechanical edit. Record the transport branch once when it first becomes continuation-relevant; after that, the branch itself is the durable recovery handle while the workflow checkpoint is unchanged. Synchronize again when that candidate becomes the selected/frozen workflow candidate, when the workflow checkpoint/next transition changes, when returning control, or when the scratch state would otherwise be fragile/unrecoverable.
+
+This exception does not apply to unreferenced Git objects, owner-local/unpushed state, or any candidate whose exact recovery still depends on conversation-only identifiers; those remain immediate-checkpoint state under the Fragile-State rule below.
 
 ### Fragile-State Immediate Checkpoint
 

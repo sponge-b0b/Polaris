@@ -24,16 +24,12 @@ jobs:
         run: |
           set -euo pipefail
           gh --version
-          version="$(gh version --json version -q .version)"
-          python - "$version" <<'PY'
-          import sys
-          from packaging.version import Version
-          got = Version(sys.argv[1])
-          required = Version("2.94.0")
-          if got < required:
-              raise SystemExit(f"gh_version_too_old={got}; required={required}")
-          print(f"gh_relationship_capability=PASS version={got}")
-          PY
+          version="$(gh --version | awk 'NR == 1 {print $3}')"
+          if [ "$(printf '%s\n' "2.94.0" "$version" | sort -V | head -n1)" != "2.94.0" ]; then
+            echo "gh_version_too_old=$version; required=2.94.0"
+            exit 1
+          fi
+          echo "gh_relationship_capability=PASS version=$version"
 
           git fetch --no-tags origin refs/heads/spec-281:refs/remotes/origin/spec-281
           git checkout -B spec-281 --track origin/spec-281

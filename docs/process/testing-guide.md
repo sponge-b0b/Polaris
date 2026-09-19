@@ -58,10 +58,13 @@ uv run --locked pytest -q tests/domain/decisions/
 ```
 
 The PostgreSQL Decision persistence contract uses an explicit test target and
-isolates every test in a temporary schema:
+isolates every test in a temporary schema. ADR 0005 qualifies this
+SQLAlchemy/greenlet-backed path only under standard GIL-enabled CPython, so
+the service-backed suite explicitly selects `3.14+gil` rather than inheriting
+the repository's free-threaded default:
 
 ```bash
-uv run --locked --env-file .env pytest -q tests/integration/persistence/postgresql/
+uv run --locked --python 3.14+gil --env-file .env pytest -q tests/integration/persistence/postgresql/
 ```
 
 Required configuration: `POLARIS_TEST_DATABASE_URL`. The URL must use the

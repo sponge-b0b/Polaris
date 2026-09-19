@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -73,6 +72,7 @@ from .codec import (
     technical_payload,
     trigger_columns,
 )
+from .runtime_qualification import require_qualified_postgres_runtime
 from .schema import (
     decision_needs,
     investment_decision_command_receipts,
@@ -95,23 +95,13 @@ _CONTINUITY_NEUTRAL_MUTATIONS = frozenset(
 )
 
 
-def _require_qualified_postgres_runtime() -> None:
-    is_gil_enabled = getattr(sys, "_is_gil_enabled", None)
-    if is_gil_enabled is not None and not is_gil_enabled():
-        raise RuntimeError(
-            "PostgreSQL persistence is not qualified for GIL-disabled CPython; "
-            "run the persistence-owning role under standard CPython until ADR 0005 "
-            "requalification succeeds"
-        )
-
-
 def create_postgres_engine(
     database_url: str,
     *,
     schema: str | None = None,
 ) -> AsyncEngine:
     """Create the async engine owned by the PostgreSQL adapter boundary."""
-    _require_qualified_postgres_runtime()
+    require_qualified_postgres_runtime()
     if not database_url.startswith("postgresql+asyncpg://"):
         raise ValueError("database_url must use the postgresql+asyncpg driver")
     connect_args: dict[str, object] = {}
@@ -140,6 +130,7 @@ class PostgresDecisionStore:
     """Satisfy the foundational Decision command and memory-reader ports."""
 
     def __init__(self, engine: AsyncEngine) -> None:
+        require_qualified_postgres_runtime()
         self._engine = engine
 
     async def get_initiation_receipt(

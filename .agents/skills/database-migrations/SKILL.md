@@ -33,10 +33,19 @@ prerequisites leave required verification unresolved.
 
 For local PostgreSQL-backed work, `.env` is the canonical local environment
 input. Run database preflights, migrations, database-backed pytest, and Python
-database probes through `uv run --locked --env-file .env ...`. Do not manually source
+database probes through `uv run --locked --python 3.14+gil --env-file .env ...`. Do not manually source
 `.env` merely to populate the current shell, and never use bare `python` for a
-database preflight; use `uv run --locked --env-file .env python ...` so project
+database preflight; use `uv run --locked --python 3.14+gil --env-file .env python ...` so project
 dependencies and database configuration are established by the same command.
+
+ADR 0005 qualifies the SQLAlchemy/greenlet-backed PostgreSQL stack only for
+standard GIL-enabled CPython 3.14+. The repository default remains `3.14t`, so
+every PostgreSQL-owning `uv run` command in this skill must select
+`--python 3.14+gil`; never rely on `.python-version` or the caller's active
+free-threaded interpreter for these commands. The online Alembic entrypoint
+must also reject GIL-disabled execution before engine construction as defense
+in depth. CI must explicitly provision and select a qualified standard CPython
+3.14+ runtime for PostgreSQL-owning commands.
 
 CI must provide its database environment explicitly at the job level. CI does
 not depend on a developer `.env` file.
@@ -111,8 +120,8 @@ Preserve persisted data unless an explicitly authorized migration says otherwise
 Inspect current history:
 
 ```bash id="8ymxg6"
-uv run --locked --env-file .env alembic heads
-uv run --locked --env-file .env alembic history
+uv run --locked --python 3.14+gil --env-file .env alembic heads
+uv run --locked --python 3.14+gil --env-file .env alembic history
 git status --short migrations/versions
 git log --oneline -- migrations/versions
 ```
@@ -127,7 +136,7 @@ Autogenerate may assist with the diff, but audit the result. Preserve intentiona
 If intentionally regenerating a mutable revision with its existing ID:
 
 ```bash id="bb3jra"
-uv run --locked --env-file .env alembic revision --autogenerate -m "<description>" --rev-id=<EXISTING_REVISION_ID>
+uv run --locked --python 3.14+gil --env-file .env alembic revision --autogenerate -m "<description>" --rev-id=<EXISTING_REVISION_ID>
 ```
 
 Audit the complete generated revision before keeping it.
@@ -160,10 +169,10 @@ For local work, load canonical local PostgreSQL configuration from `.env` throug
 `uv` without exporting secrets into the current shell:
 
 ```bash id="tg0jp5"
-uv run --locked --env-file .env alembic current
-uv run --locked --env-file .env alembic upgrade head
-uv run --locked --env-file .env alembic check
-uv run --locked --env-file .env polaris inspect persistence
+uv run --locked --python 3.14+gil --env-file .env alembic current
+uv run --locked --python 3.14+gil --env-file .env alembic upgrade head
+uv run --locked --python 3.14+gil --env-file .env alembic check
+uv run --locked --python 3.14+gil --env-file .env polaris inspect persistence
 ```
 
 `alembic current` verifies the revision stamp only.
@@ -173,14 +182,14 @@ Always run `alembic check` after migration application.
 When local PostgreSQL is available, also run:
 
 ```bash id="g4f58m"
-uv run --locked --env-file .env polaris inspect persistence
+uv run --locked --python 3.14+gil --env-file .env polaris inspect persistence
 ```
 
 ### PostgreSQL Test Target
 
 If targeted tests require `POLARIS_TEST_DATABASE_URL`, require that explicit test
 target from the active environment source. For local development, load `.env`
-with `uv run --locked --env-file .env ...`. Do not derive a replacement from
+with `uv run --locked --python 3.14+gil --env-file .env ...`. Do not derive a replacement from
 `POLARIS_DATABASE_URL`, `POLARIS_POSTGRES_*`, `docker-compose.yml`, or other
 repository defaults.
 
@@ -202,7 +211,7 @@ For a bounded Python connectivity or metadata probe, always use the project
 environment and local env file:
 
 ```bash id="database-python-preflight"
-uv run --locked --env-file .env python <probe-script-or--c-expression>
+uv run --locked --python 3.14+gil --env-file .env python <probe-script-or--c-expression>
 ```
 
 Never run a database preflight with bare `python`.
@@ -216,7 +225,7 @@ If `alembic current` references a revision removed or rewritten on the current b
 Do not blindly use:
 
 ```bash id="h4mzt1"
-uv run --locked --env-file .env alembic stamp head
+uv run --locked --python 3.14+gil --env-file .env alembic stamp head
 ```
 
 because stamping can hide unapplied schema operations.
@@ -226,10 +235,10 @@ because stamping can hide unapplied schema operations.
 For a stale or incompatible local development/test schema, reset and rebuild:
 
 ```bash id="lis3ya"
-uv run --locked --env-file .env python scripts/reset_local_postgres_schema.py --confirm-destroy-local-db
-uv run --locked --env-file .env alembic upgrade head
-uv run --locked --env-file .env alembic check
-uv run --locked --env-file .env polaris inspect persistence
+uv run --locked --python 3.14+gil --env-file .env python scripts/reset_local_postgres_schema.py --confirm-destroy-local-db
+uv run --locked --python 3.14+gil --env-file .env alembic upgrade head
+uv run --locked --python 3.14+gil --env-file .env alembic check
+uv run --locked --python 3.14+gil --env-file .env polaris inspect persistence
 ```
 
 Do this without additional user confirmation when the target is clearly the repository's local development/test database.
@@ -246,15 +255,15 @@ Stop and report the migration/schema mismatch and required remediation.
 
 For migrations changed by the current work, run the applicable round trip against a disposable/isolated database:
 
-1. `uv run --locked --env-file .env alembic upgrade head`
-2. `uv run --locked --env-file .env alembic check`
-3. `uv run --locked --env-file .env polaris inspect persistence` when available
+1. `uv run --locked --python 3.14+gil --env-file .env alembic upgrade head`
+2. `uv run --locked --python 3.14+gil --env-file .env alembic check`
+3. `uv run --locked --python 3.14+gil --env-file .env polaris inspect persistence` when available
 4. inspect affected tables, columns, constraints, and indexes
-5. `uv run --locked --env-file .env alembic downgrade -1`
+5. `uv run --locked --python 3.14+gil --env-file .env alembic downgrade -1`
 6. verify the intended prior schema
-7. `uv run --locked --env-file .env alembic upgrade head`
-8. `uv run --locked --env-file .env alembic check`
-9. run targeted migration-contract and PostgreSQL integration tests through `uv run --locked --env-file .env pytest ...`
+7. `uv run --locked --python 3.14+gil --env-file .env alembic upgrade head`
+8. `uv run --locked --python 3.14+gil --env-file .env alembic check`
+9. run targeted migration-contract and PostgreSQL integration tests through `uv run --locked --python 3.14+gil --env-file .env pytest ...`
 
 Before 1.0, reset/rebuild the disposable database whenever mutable migration history makes an in-place round trip invalid or misleading.
 

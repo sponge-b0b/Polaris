@@ -11,6 +11,9 @@ from alembic import context
 from sqlalchemy import Connection, pool, text
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+from polaris.infrastructure.persistence.postgresql.runtime_qualification import (
+    require_qualified_postgres_runtime,
+)
 from polaris.infrastructure.persistence.postgresql.schema import metadata
 
 config = context.config
@@ -65,6 +68,7 @@ def _run_migrations(connection: Connection) -> None:
 
 
 async def run_migrations_online() -> None:
+    require_qualified_postgres_runtime()
     section = config.get_section(config.config_ini_section, {})
     section["sqlalchemy.url"] = _database_url()
     connectable = async_engine_from_config(

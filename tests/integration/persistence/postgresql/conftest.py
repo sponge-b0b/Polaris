@@ -17,6 +17,9 @@ from polaris.infrastructure.persistence.postgresql import (
     PostgresDecisionStore,
     create_postgres_engine,
 )
+from polaris.infrastructure.persistence.postgresql.runtime_qualification import (
+    require_qualified_postgres_runtime,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,22 +55,25 @@ async def postgres_row_counts(
     return tuple(counts)
 
 
-async def _create_schema(database_url: str, schema: str) -> None:
+async def _execute_schema_ddl(database_url: str, statement: str) -> None:
+    require_qualified_postgres_runtime()
     engine = create_async_engine(database_url)
     try:
         async with engine.begin() as connection:
-            await connection.execute(text(f'CREATE SCHEMA "{schema}"'))
+            await connection.execute(text(statement))
     finally:
         await engine.dispose()
+
+
+async def _create_schema(database_url: str, schema: str) -> None:
+    await _execute_schema_ddl(database_url, f'CREATE SCHEMA "{schema}"')
 
 
 async def _drop_schema(database_url: str, schema: str) -> None:
-    engine = create_async_engine(database_url)
-    try:
-        async with engine.begin() as connection:
-            await connection.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
-    finally:
-        await engine.dispose()
+    await _execute_schema_ddl(
+        database_url,
+        f'DROP SCHEMA IF EXISTS "{schema}" CASCADE',
+    )
 
 
 @pytest.fixture

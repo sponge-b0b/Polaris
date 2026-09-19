@@ -38,39 +38,37 @@ Do not inspect historical commits, old issue generations, prior ticket proposals
 
 ### Parent Spec Contract Coherence Gate
 
-Before mode routing, whenever the originating/parent Spec already has a Ticket Coverage Manifest — including when the public source is a `Spec Review: ...` — build the exact current `$spec-contract` once in the owning `$to-tickets` context and reconcile its versioned identity with the current TCM.
+Before mode routing, whenever the originating/parent Spec already has a Ticket Coverage Manifest — including when the public source is a `Spec Review: ...` — build the exact current `$spec-contract` once in the owning `$to-tickets` context and reconcile its current identity with the current TCM.
 
 Require the fresh contract to return:
 
 ```text
 Spec Body Hash: <hash>
-Spec Contract Encoding: V2
 Spec Contract Hash: <hash>
 ```
 
-Require the TCM to persist the same three fields. Then require exact equality of body hash, encoding, and contract hash.
+Require the TCM to persist the same two fields. Then require exact equality of body hash and contract hash.
 
-A missing TCM encoding is `legacy-unversioned`. Any non-V2 encoding or different hash is incompatible with the current V2 identity. **Equal body text, manifest counts, exact cell-ID sets, ticket mappings, or architecture-routing counts do not prove hash equivalence and may not suppress the conflict.**
-
-When the TCM identity is missing/legacy/stale, one narrow deterministic identity reconciliation is permitted before mode routing only when current authority independently proves all of the following:
+When the TCM identity is stale, one narrow deterministic current-contract reconciliation is permitted before mode routing only when current authority independently proves all of the following:
 
 ```text
-Fresh current $spec-contract: VALID; encoding V2
+Fresh current $spec-contract: VALID
 Source/TCM Spec-cell ID sets equal: yes
 Existing source-derived Spec routing still valid: yes
 Existing Architecture/Design routing still valid: yes
 Legitimate routing changes required: 0
 Ticket semantic mutations required: 0
 Ticket lifecycle/native-relationship mutations required: 0
-Only stale/missing identity metadata differs: yes
+Only current contract identity metadata differs: yes
 ```
 
-This witness does **not** declare the old hash equivalent to V2. It proves that the TCM's decomposition semantics are still current, then migrates only the TCM identity metadata to the freshly rebuilt canonical V2 identity. Update the existing current TCM in place with the fresh `Spec Body Hash`, `Spec Contract Encoding: V2`, and `Spec Contract Hash`; GET that exact comment and require exact readback before continuing. No human decomposition approval or independent semantic verifier is needed for this identity-only normalization because ticket/routing semantics are unchanged.
+This witness does not infer equivalence from the stale hash. It proves that the TCM's decomposition semantics are still current, then updates only the TCM identity metadata to the freshly rebuilt current contract. Update the existing current TCM in place with the fresh `Spec Body Hash` and `Spec Contract Hash`; GET that exact comment and require exact readback before continuing. No human decomposition approval or independent semantic verifier is needed for this identity-only normalization because ticket/routing semantics are unchanged.
 
 If any witness row is false, unknown, or requires semantic rerouting, do not normalize the hash and do not continue to proposal readiness. Fall through to the applicable substantive decomposition/remediation path with the identity conflict explicit; no PASS may infer equivalence from matching subsets.
 
-Reuse the same freshly built V2 contract for later decomposition steps while the Spec body/baseline/branch/HEAD remain unchanged.
+Reuse the same freshly built contract for later decomposition steps while the Spec body/baseline/branch/HEAD remain unchanged.
 
+### Manifest-reconciliation fast-path probe
 ### Manifest-reconciliation fast-path probe
 
 When the source is an ordinary Spec with existing linked implementation tickets **and** exactly one current Ticket Coverage Manifest:
@@ -541,7 +539,7 @@ Bind the candidate to:
 ```text
 Source artifact: <durable identity>
 Ticket mode: fresh | remediation
-Source contract/root state: <durable identity including Spec Contract Encoding + hash where available>
+Source contract/root state: <durable identity including Spec Contract Hash where available>
 Proposal identity: <SHA-256 of the exact rendered proposal candidate>
 ```
 
@@ -606,8 +604,6 @@ At minimum require:
 ```text
 Source implementation readiness: pass
 Parent Spec contract coherence: pass
-Current Spec Contract Encoding: V2
-TCM Spec Contract Encoding: V2 when a TCM exists
 Current/TCM Spec Body Hash equal: yes when a TCM exists
 Current/TCM Spec Contract Hash equal: yes when a TCM exists
 Material design choices delegated to implementation: 0
@@ -944,7 +940,6 @@ Include:
 
 ```text
 Spec Body Hash: <hash>
-Spec Contract Encoding: V2
 Spec Contract Hash: <hash>
 Spec branch: <branch>
 
@@ -967,7 +962,7 @@ The manifest is provenance and coverage authority for decomposition. It is **not
 Immediately before Step 5 publication, require all of the following together:
 
 * source Spec/remediation authority is still implementation-ready;
-* the Parent Spec Contract Coherence Gate still passes for the exact current V2 identity and current TCM when one exists;
+* the Parent Spec Contract Coherence Gate still passes for the exact current contract identity and current TCM when one exists;
 * exact approved ticket proposal still matches planned semantics;
 * the latest `TICKET PROPOSAL READINESS: PASS` binds to the exact approved proposal identity and current source state;
 * the latest `TICKET DECOMPOSITION: PASS` from `$verify-ticket-decomposition` binds to that same exact proposal identity and current source/root state;

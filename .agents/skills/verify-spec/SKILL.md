@@ -15,17 +15,16 @@ This `SKILL.md` is the single authoritative procedure for `$verify-spec`. The pr
 
 This section is authoritative for contract reconstruction and supersedes preserved wording that treats model-authored manifest display prose as contract identity.
 
-`$spec-contract` owns structural contract identity. Its current durable identity is the pair `SPEC_CONTRACT_ENCODING = V2` plus `SPEC_CONTRACT_HASH`; the hash binds the exact Spec body plus deterministic Source Unit identity/classification and source-unit-to-cell mapping. Manifest `Source`, `Requirement`, `Named surfaces`, and inventory `Reason` prose are not contract identity.
+`$spec-contract` owns structural contract identity. Its durable identity is `SPEC_CONTRACT_HASH`; the hash binds the exact Spec body plus deterministic Source Unit identity/classification and source-unit-to-cell mapping. Manifest `Source`, `Requirement`, `Named surfaces`, and inventory `Reason` prose are not contract identity.
 
 Consequences for `$verify-spec`:
 
 * loss of the ephemeral `CONTRACT_HANDOFF` is not loss of durable verification state;
 * after interruption, rebuild the handoff by invoking `$spec-contract` against the same durable Spec/baseline/branch/HEAD rather than recovering or recreating old model-authored display wording;
-* an unchanged Spec with the same source-unit boundaries, classifications, and cell mappings must reproduce the same V2 `SPEC_CONTRACT_HASH` even when explanatory/display wording differs;
+* an unchanged Spec with the same source-unit boundaries, classifications, and cell mappings must reproduce the same `SPEC_CONTRACT_HASH` even when explanatory/display wording differs;
 * a differing hash is meaningful only when structural contract identity changed or `$spec-contract` is invalid; do not attribute staleness to display-prose differences;
-* an old V1 contract hash is not comparable to V2 identity and must be rebuilt before semantic certification/finalization;
-* once a fresh V2 handoff is valid, use that exact handoff for the current invocation's certifier dispatch and finalizer; do not merge display rows from an older handoff or receipt into it;
-* require the handoff to carry the deterministic V2 `contract_identity` rows and retain the `CONTRACT_HANDOFF_DIGEST` returned by that exact `$spec-contract` build.
+* once a fresh handoff is valid, use that exact handoff for the current invocation's certifier dispatch and finalizer; do not merge display rows from an older handoff or receipt into it;
+* require the handoff to carry the deterministic `contract_identity` rows and retain the `CONTRACT_HANDOFF_DIGEST` returned by that exact `$spec-contract` build.
 
 Before consuming a rebuilt handoff after interruption require:
 
@@ -35,12 +34,11 @@ Source-unit universe: complete
 Unclassified source units: 0
 Normative source units without manifest mapping: 0
 Cell/source-unit mapping: complete and reconciled
-SPEC_CONTRACT_HASH encoding: V2
 ```
 
 Keep these identities separate:
 
-1. `SPEC_CONTRACT_HASH` — durable cross-run semantic/structural identity, reproduced only from deterministic V2 structural rows plus `SPEC_BODY_HASH`. Human-readable display/evidence prose never participates.
+1. `SPEC_CONTRACT_HASH` — durable cross-run semantic/structural identity, reproduced only from deterministic structural rows plus `SPEC_BODY_HASH`. Human-readable display/evidence prose never participates.
 2. `CONTRACT_HANDOFF_DIGEST` — SHA-256 of the exact ephemeral handoff bytes used in one certification/finalization transaction. It is invocation-local only, is never persisted as contract authority, and must never be compared across independent builds.
 3. `Verification Hash` — checksum of one finalized verification record. Because that record includes human-readable evidence, it may legitimately differ across independent valid verification runs and is not cross-run contract identity.
 
@@ -457,7 +455,7 @@ It may only:
 3. pass:
    * Spec issue/body identity;
    * exact baseline/branch/HEAD;
-   * deterministic `$spec-contract` handoff/manifest, deterministic V2 structural identity rows, and hashes;
+   * deterministic `$spec-contract` handoff/manifest, deterministic structural identity rows, and hashes;
    * the invocation-local `CONTRACT_HANDOFF_DIGEST` for those exact handoff bytes;
    * change-provenance and Verification Scope Manifest state;
    * the current parent-Spec `Ticket Coverage Manifest`, including the Architecture/Design Obligation Disposition Manifest and exact ticket `Architecture obligations` mappings;
@@ -482,20 +480,18 @@ A verifier-integrity failure, handoff-digest mismatch, or incomplete saturation 
 
 ### Spec Contract Coherence Gate
 
-Before trusting Ticket Coverage Manifest routing, dispatching the semantic certifier, or persisting a passing Spec Verification Receipt, mechanically reconcile the fresh current V2 contract with the parent Spec's current Ticket Coverage Manifest.
+Before trusting Ticket Coverage Manifest routing, dispatching the semantic certifier, or persisting a passing Spec Verification Receipt, mechanically reconcile the fresh current contract with the parent Spec's current Ticket Coverage Manifest.
 
 Require:
 
 ```text
-Current Spec Contract Encoding: V2
-TCM Spec Contract Encoding: V2
 Spec Body Hash equal: yes
 Spec Contract Hash equal: yes
 ```
 
-The TCM must persist all three identity fields explicitly: `Spec Body Hash`, `Spec Contract Encoding`, and `Spec Contract Hash`. A missing encoding is `legacy-unversioned`; any non-V2 encoding is incompatible with the current contract. A different or unversioned hash is never made coherent by equal manifest counts, equal cell-ID sets, equal ticket mappings, or apparently equivalent display prose.
+The TCM must persist both identity fields explicitly: `Spec Body Hash` and `Spec Contract Hash`. A different hash is never made coherent by equal manifest counts, equal cell-ID sets, equal ticket mappings, or apparently equivalent display prose.
 
-If this gate fails, **no Spec Verification Receipt is legal**. Continue independently actionable verification-owned repair that does not depend on the conflict, but route the contract-identity defect to the current `$to-tickets` decomposition owner. When current contract cells/routing are otherwise unchanged, `$to-tickets` may perform its deterministic contract-identity reconciliation; otherwise ordinary decomposition remediation applies. After reconciliation, obtain a fresh exact-HEAD V2 contract build and semantic certification before finalization.
+If this gate fails, **no Spec Verification Receipt is legal**. Continue independently actionable verification-owned repair that does not depend on the conflict, but route the contract-identity defect to the current `$to-tickets` decomposition owner. When current contract cells/routing are otherwise unchanged, `$to-tickets` may perform its deterministic current-contract reconciliation; otherwise ordinary decomposition remediation applies. After reconciliation, obtain a fresh exact-HEAD contract build and semantic certification before finalization.
 
 Recover the exact current `$spec-contract` manifest and the parent Spec's current `Ticket Coverage Manifest`. For a conventional fresh-Spec decomposition, mechanically compare the Spec-cell ID sets before trusting any routing row:
 
@@ -712,7 +708,7 @@ It owns only:
 - paginated Spec-comment normalization, canonical Workspace Metadata parsing, and latest-receipt extraction;
 - contract/proof/gate final-state assembly from the exact `$spec-contract` handoff;
 - exact handoff-byte digest validation for finalization;
-- independent reproduction of V2 `SPEC_CONTRACT_HASH` from deterministic structural identity rows;
+- independent reproduction of `SPEC_CONTRACT_HASH` from deterministic structural identity rows;
 - compact finalization validation;
 - complete manifest-to-proof coverage validation;
 - one canonical per-receipt Verification Hash;
@@ -773,9 +769,9 @@ A tracker-only Spec may have an empty diff only when durable evidence proves no 
 
 Invoke `$spec-contract` in `build` mode with the Spec, baseline, branch, current `HEAD`, and `handoff-output = CONTRACT_HANDOFF`. Require `SPEC CONTRACT: VALID`, a non-empty `CONTRACT_HANDOFF`, and retain exactly the returned:
 
-- `SPEC_BODY_HASH`, `SPEC_CONTRACT_ENCODING = V2`, and `SPEC_CONTRACT_HASH`;
+- `SPEC_BODY_HASH` and `SPEC_CONTRACT_HASH`;
 - `CONTRACT_HANDOFF_DIGEST` for the exact handoff bytes from this build;
-- deterministic V2 `contract_identity` rows embedded in `CONTRACT_HANDOFF`;
+- deterministic `contract_identity` rows embedded in `CONTRACT_HANDOFF`;
 - ordered manifest;
 - source counts/integrity counts;
 - ownership classifications;
@@ -1029,7 +1025,7 @@ python "$ARTIFACT_TOOL" finalize-parts \
   [--inherited-finding <finding>]...
 ```
 
-`finalize-parts` first requires the exact contract-input bytes to match the certifier-bound `CONTRACT_HANDOFF_DIGEST`, independently recomputes V2 `SPEC_CONTRACT_HASH` from deterministic `contract_identity` rows, then assembles the already-owned proof/gate pieces, validates bindings/coverage/gates, rejects unresolved cells, computes one Verification Hash, renders the human-readable receipt, and requires the rendered manifest to round-trip exactly through the current `$review-spec` parser before writing the receipt file. The parent must already have rerun deterministic TCM/contract coherence against those same handoff bytes immediately before this operation. There is no model-authored wrapper, reconstructed manifest, separate packet admission, or second receipt renderer.
+`finalize-parts` first requires the exact contract-input bytes to match the certifier-bound `CONTRACT_HANDOFF_DIGEST`, independently recomputes `SPEC_CONTRACT_HASH` from deterministic `contract_identity` rows, then assembles the already-owned proof/gate pieces, validates bindings/coverage/gates, rejects unresolved cells, computes one Verification Hash, renders the human-readable receipt, and requires the rendered manifest to round-trip exactly through the current `$review-spec` parser before writing the receipt file. The parent must already have rerun deterministic TCM/contract coherence against those same handoff bytes immediately before this operation. There is no model-authored wrapper, reconstructed manifest, separate packet admission, or second receipt renderer.
 
 Direct `finalize` is not a valid lifecycle path.
 

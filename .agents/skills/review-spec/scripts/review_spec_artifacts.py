@@ -65,7 +65,6 @@ def _digest(value: Any, label: str) -> str:
 
 
 def _plain_field(lines: list[str], label: str) -> str:
-def _plain_field(lines: list[str], label: str) -> str:
     prefix = f"{label}: "
     matches = [line[len(prefix) :] for line in lines if line.startswith(prefix)]
     _require(len(matches) == 1, f"TCM must contain exactly one {label} field")
@@ -279,7 +278,6 @@ def checkpoint(
         "Ticket Coverage Manifest Spec Contract Hash mismatch",
     )
     verification_hash = _digest(
-    verification_hash = _digest(
         _field(lines, "Verification Hash"),
         "Verification Hash",
     )
@@ -411,7 +409,6 @@ def parse_finding_ledger(body: str) -> dict[str, Any]:
     _require(review.startswith("#") and review[1:].isdigit(), "invalid Spec Review")
     head = _sha(_field(lines, "Reviewed HEAD"), "finding ledger Reviewed HEAD")
     body_hash = _digest(_field(lines, "Spec Body Hash"), "finding ledger Spec Body Hash")
-    contract_hash = _digest(_field(lines, "Spec Contract Hash"), "finding ledger Spec Contract Hash")
     contract_hash = _digest(_field(lines, "Spec Contract Hash"), "finding ledger Spec Contract Hash")
     try:
         start = lines.index("```json") + 1
@@ -752,7 +749,6 @@ def self_test() -> None:
 
 
     ledger_input = {
-    ledger_input = {
         "parent_spec": 1,
         "spec_review": 2,
         "head": "a" * 40,
@@ -776,12 +772,10 @@ def self_test() -> None:
     }
     open_ledger = render_finding_ledger(ledger_input)
     advanced_input = json.loads(json.dumps(ledger_input))
-    advanced_input = json.loads(json.dumps(ledger_input))
     advanced_input["head"] = "e" * 40
     advanced_open_ledger = render_finding_ledger(advanced_input, open_ledger)
     assert f"**Reviewed HEAD:** {'e' * 40}" in advanced_open_ledger
 
-    exit_input = {
     exit_input = {
         "parent_spec": 1,
         "spec_review": 2,

@@ -74,7 +74,6 @@ def _digest_text(value: Any, label: str) -> str:
 
 
 def _digest(value: Any) -> str:
-def _digest(value: Any) -> str:
     encoded = json.dumps(
         value,
         sort_keys=True,
@@ -409,7 +408,6 @@ def contract_coherence(summary: Any, contract: Any) -> dict[str, str]:
     }
 
 
-def _manifest(raw: Any) -> tuple[list[dict[str, str]], list[str]]:
 def _manifest(raw: Any) -> tuple[list[dict[str, str]], list[str]]:
     _require(bool(isinstance(raw, list) and raw), "manifest must be non-empty")
     rows: list[dict[str, str]] = []
@@ -868,7 +866,6 @@ def self_test() -> None:
     else:
         raise AssertionError("contract-incoherent TCM was accepted")
 
-    assembled = finalize_parts(
     assembled = finalize_parts(
         contract,
         raw["proofs"],

@@ -476,7 +476,6 @@ def render_finding_ledger(raw: Any, prior_body: str | None = None) -> str:
         prior = parse_finding_ledger(prior_body)
         _require(prior["parent_spec"] == parent_spec, "finding ledger Parent Spec changed")
         _require(prior["spec_review"] == spec_review, "finding ledger Spec Review changed")
-        _require(prior["head"] == head, "finding ledger Reviewed HEAD changed")
         _require(
             prior["spec_body_hash"] == body_hash,
             "finding ledger Spec Body Hash changed",
@@ -830,6 +829,11 @@ def self_test() -> None:
     )
     migrated_open_ledger = render_finding_ledger(ledger_input, legacy_open_ledger)
     assert f"**Spec Contract Encoding:** {SPEC_CONTRACT_ENCODING}" in migrated_open_ledger
+
+    advanced_input = json.loads(json.dumps(ledger_input))
+    advanced_input["head"] = "e" * 40
+    advanced_open_ledger = render_finding_ledger(advanced_input, open_ledger)
+    assert f"**Reviewed HEAD:** {'e' * 40}" in advanced_open_ledger
 
     mismatched_legacy = legacy_open_ledger.replace(
         f"**Spec Contract Hash:** {'c' * 64}",

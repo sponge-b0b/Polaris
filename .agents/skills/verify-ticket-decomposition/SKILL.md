@@ -129,7 +129,8 @@ Then challenge the proposed slice:
 * conversely, do not hide several lifecycle transitions, authority boundaries, failure families, temporal modes, or correction paths inside one broad acceptance criterion and count them as one family;
 * normal PASS requires a credible one-fresh-context implementation/verification/closure lifecycle;
 * an `indivisible-two-window-exception` is valid only when the verifier can identify durable authority or unavoidable green-state coupling that makes a smaller split invalid, and the resulting slice still plausibly fits within two fresh contexts;
-* if context fit is ambiguous, treat the ticket as oversized rather than relying on the implementation agent to discover the split later.
+* if context fit is ambiguous, treat the ticket as oversized rather than relying on the implementation agent to discover the split later;
+* require each exact proposed ticket body's durable `Context fit` field to equal the verifier-derived disposition; for an `indivisible-two-window-exception`, require its durable reason to match the independently validated authority/green-state justification without changing meaning.
 
 This is a decomposition gate, not a performance benchmark. Do not FAIL merely because a difficult defect could be discovered during implementation; FAIL when the **ordinary authorized slice itself** is knowingly too semantically dense.
 
@@ -141,6 +142,8 @@ One-window tickets: <n>
 Validated indivisible two-window exceptions: <n>
 Oversized tickets: 0
 Ambiguous context-fit dispositions: 0
+Durable ticket `Context fit` fields matching verifier disposition: <n>/<n>
+Mismatched/missing durable Context-fit fields: 0
 ```
 
 ## Verdict
@@ -159,7 +162,7 @@ Verifier: fresh-independent
 Source closure: complete; missing material sources/units 0
 Spec-cell identity: exact; source <n>; manifest <n>; missing 0; extra 0
 Semantic carry: complete; incomplete 0; ambiguous 0
-Context fit: one-window <n>; validated indivisible two-window exceptions <n>; oversized 0; ambiguous 0
+Context fit: one-window <n>; validated indivisible two-window exceptions <n>; oversized 0; ambiguous 0; durable fields matched <n>/<n>
 Design delegation: 0
 Dependency/slice semantic defects: 0
 Findings: 0

@@ -634,6 +634,7 @@ Duplicate/conflicting active ticket coverage: 0
 Ticket Spec-obligation sets equal routing manifest: yes
 Ticket Architecture-obligation sets equal routing manifest: yes
 Ticket context-fit manifests complete: yes
+Ticket `Context fit` fields equal frozen Context-Fit Manifest dispositions: yes
 One-window tickets: <n>
 Validated indivisible two-window exceptions: <n>
 Oversized slices: 0

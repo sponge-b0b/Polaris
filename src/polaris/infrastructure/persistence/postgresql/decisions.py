@@ -178,7 +178,15 @@ class PostgresDecisionStore:
                 if prior is not None:
                     return _receipt_outcome(prior, commit)
 
-                candidates = await _current_continuity_candidates(connection)
+                known_at = await _continuity_knowledge_boundary(
+                    connection,
+                    minimum=commit.candidate_basis.known_at,
+                )
+                candidates = await self._authoritative_continuity_candidates(
+                    connection,
+                    effective_at=commit.candidate_basis.known_at,
+                    known_at=known_at,
+                )
                 if candidates != commit.candidate_basis.candidate_decision_ids:
                     return InitiationContinuityConflict(candidates)
 
@@ -207,7 +215,12 @@ class PostgresDecisionStore:
                 return InitiationCommitted(receipt)
         except SQLAlchemyError as error:
             return await self._translate_write_failure(commit, error)
-        except (ValueError, TypeError, RuntimeError) as error:
+        except (
+            DecisionCommandReadUnavailable,
+            ValueError,
+            TypeError,
+            RuntimeError,
+        ) as error:
             return InitiationUnavailable(
                 f"Decision initiation transaction failed: {type(error).__name__}"
             )
@@ -218,24 +231,58 @@ class PostgresDecisionStore:
         if known_at.tzinfo is None or known_at.utcoffset() is None:
             raise ValueError("known_at must be timezone-aware")
         try:
-            async with self._engine.connect() as connection:
-                rows = await connection.execute(
-                    select(investment_decisions.c.decision_id)
-                    .where(
-                        investment_decisions.c.created_at <= known_at,
-                        investment_decisions.c.lifecycle_disposition == "unresolved",
-                        investment_decisions.c.applicability == "operative",
-                    )
-                    .order_by(investment_decisions.c.decision_id)
+            async with _repeatable_read(self._engine) as connection:
+                candidates = await self._authoritative_continuity_candidates(
+                    connection,
+                    effective_at=known_at,
+                    known_at=known_at,
                 )
-                return tuple(
-                    InvestmentDecisionId(_domain_uuid(row.decision_id))
-                    for row in rows.fetchall()
-                )
-        except SQLAlchemyError as error:
+                return tuple(sorted(candidates, key=lambda value: value.value.int))
+        except (SQLAlchemyError, ValueError, TypeError) as error:
             raise DecisionCommandReadUnavailable(
                 "Decision continuity candidate read is unavailable"
             ) from error
+
+    async def _authoritative_continuity_candidates(
+        self,
+        connection: AsyncConnection,
+        *,
+        effective_at: datetime,
+        known_at: datetime,
+    ) -> frozenset[InvestmentDecisionId]:
+        """Reconstruct candidates at one effective and knowledge boundary."""
+        await _load_empty_relationship_history(connection)
+        rows = await connection.execute(
+            select(investment_decisions.c.decision_id).where(
+                investment_decisions.c.created_at <= known_at
+            )
+        )
+        candidates: set[InvestmentDecisionId] = set()
+        for row in rows:
+            identity = InvestmentDecisionId(_domain_uuid(row.decision_id))
+            history = tuple(
+                fact
+                for fact in await _load_decision_history(connection, identity)
+                if fact.metadata.recorded_at <= known_at
+            )
+            decision = reconstruct_decision(
+                history,
+                observed_at=known_at,
+                applicability=DecisionApplicability.OPERATIVE,
+            ).effective_at(
+                effective_at,
+                known_at=known_at,
+                applicability=DecisionApplicability.OPERATIVE,
+            )
+            if (
+                isinstance(
+                    decision.lifecycle_interpretation,
+                    DeterminateDecisionLifecycleInterpretation,
+                )
+                and decision.lifecycle_interpretation.disposition.value == "unresolved"
+            ):
+                candidates.add(identity)
+        return frozenset(candidates)
 
     async def load_decision_for_command(
         self,
@@ -689,17 +736,27 @@ async def _get_operation_receipt(
     return (await connection.execute(query)).mappings().one_or_none()
 
 
-async def _current_continuity_candidates(
+async def _continuity_knowledge_boundary(
     connection: AsyncConnection,
-) -> frozenset[InvestmentDecisionId]:
-    rows = await connection.execute(
-        select(investment_decisions.c.decision_id).where(
-            investment_decisions.c.lifecycle_disposition == "unresolved",
-            investment_decisions.c.applicability == "operative",
+    *,
+    minimum: datetime,
+) -> datetime:
+    # Revalidation advances only when durable history advances. Wall-clock passage
+    # alone must not reinterpret the basis captured at ``minimum``.
+    lifecycle_recorded_at = (
+        await connection.execute(
+            select(func.max(investment_decision_lifecycle_facts.c.recorded_at))
         )
-    )
-    return frozenset(
-        InvestmentDecisionId(_domain_uuid(row.decision_id)) for row in rows.fetchall()
+    ).scalar_one()
+    relationship_recorded_at = (
+        await connection.execute(
+            select(func.max(investment_decision_relationships.c.recorded_at))
+        )
+    ).scalar_one()
+    return max(
+        boundary
+        for boundary in (minimum, lifecycle_recorded_at, relationship_recorded_at)
+        if boundary is not None
     )
 
 

@@ -267,34 +267,13 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
         _aware(known_at, "known_at")
         try:
             async with _repeatable_read(self._engine) as connection:
-                relationships = await _load_relationship_history(
-                    connection, known_at=known_at
-                )
-                # arid: enable
-                decisions = await _load_decisions(
+                candidates = await self._authoritative_continuity_candidates(
                     connection,
+                    effective_at=known_at,
                     known_at=known_at,
-                    relationship_history=relationships,
                 )
                 return tuple(
-                    sorted(
-                        (
-                            identity
-                            for identity, (decision, applicability) in (
-                                decisions.items()
-                            )
-                            if isinstance(
-                                decision.lifecycle_interpretation,
-                                DeterminateDecisionLifecycleInterpretation,
-                            )
-                            and decision.lifecycle_interpretation.disposition.value
-                            == "unresolved"
-                            and applicability is DecisionApplicability.OPERATIVE
-                        ),
-                        key=lambda identity: identity.value.int,
-                    )
-                    # duplicate-code: paths require separate transaction semantics.
-                    # arid: disable
+                    sorted(candidates, key=lambda identity: identity.value.int)
                 )
         except (
             SQLAlchemyError,
@@ -305,6 +284,32 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
             raise DecisionCommandReadUnavailable(
                 "Decision continuity candidate read is unavailable"
             ) from error
+
+    async def _authoritative_continuity_candidates(
+        self,
+        connection: AsyncConnection,
+        *,
+        effective_at: datetime,
+        known_at: datetime,
+    ) -> frozenset[InvestmentDecisionId]:
+        """Reconstruct candidates from lifecycle and relationship history."""
+        relationships = await _load_relationship_history(connection, known_at=known_at)
+        decisions = await _load_decisions(
+            connection,
+            effective_at=effective_at,
+            known_at=known_at,
+            relationship_history=relationships,
+        )
+        return frozenset(
+            identity
+            for identity, (decision, applicability) in decisions.items()
+            if isinstance(
+                decision.lifecycle_interpretation,
+                DeterminateDecisionLifecycleInterpretation,
+            )
+            and decision.lifecycle_interpretation.disposition.value == "unresolved"
+            and applicability is DecisionApplicability.OPERATIVE
+        )
 
     async def commit_relationship(
         self, commit: DecisionRelationshipCommit
@@ -764,6 +769,7 @@ async def _load_decision(
     connection: AsyncConnection,
     decision_id: InvestmentDecisionId,
     *,
+    effective_at: datetime | None = None,
     known_at: datetime,
     relationship_history: tuple[DecisionRelationshipHistoryFact, ...],
 ) -> tuple[InvestmentDecision, DecisionApplicability] | None:
@@ -773,18 +779,31 @@ async def _load_decision(
     version = await _authoritative_decision_version(
         connection, decision_id, known_at=known_at
     )
-    applicability = derive_relationship_applicability(
+    current_applicability = derive_relationship_applicability(
         decision_id,
         relationship_history,
         effective_at=known_at,
         known_at=known_at,
     )
+    decision = reconstruct_decision(
+        history,
+        observed_at=known_at,
+        applicability=current_applicability,
+        decision_version=version,
+    )
+    if effective_at is None or effective_at == known_at:
+        return decision, current_applicability
+    applicability = derive_relationship_applicability(
+        decision_id,
+        relationship_history,
+        effective_at=effective_at,
+        known_at=known_at,
+    )
     return (
-        reconstruct_decision(
-            history,
-            observed_at=known_at,
+        decision.effective_at(
+            effective_at,
+            known_at=known_at,
             applicability=applicability,
-            decision_version=version,
         ),
         applicability,
     )
@@ -793,6 +812,7 @@ async def _load_decision(
 async def _load_decisions(
     connection: AsyncConnection,
     *,
+    effective_at: datetime | None = None,
     known_at: datetime,
     relationship_history: tuple[DecisionRelationshipHistoryFact, ...],
 ) -> dict[InvestmentDecisionId, tuple[InvestmentDecision, DecisionApplicability]]:
@@ -809,6 +829,7 @@ async def _load_decisions(
         loaded = await _load_decision(
             connection,
             identity,
+            effective_at=effective_at,
             known_at=known_at,
             relationship_history=relationship_history,
         )

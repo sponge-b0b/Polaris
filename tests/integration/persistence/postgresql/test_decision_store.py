@@ -461,6 +461,87 @@ def test_explicit_create_new_persists_complete_candidate_basis(
                 "generation_token",
             }.isdisjoint(persisted)
 
+    # duplicate-code: adjacent persistence regressions keep independent entry/setup
+    # boundaries so each failure identifies its own temporal contract.
+    # arid: disable
+    asyncio.run(scenario())
+
+
+def test_initiation_revalidation_uses_lifecycle_history_after_clock_passage(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        engine = create_postgres_engine(
+            postgres_target.database_url,
+            schema=postgres_target.schema,
+        )
+        store = PostgresDecisionStore(engine)
+        # arid: enable
+        future_effective_at = RECORDED_AT + timedelta(hours=1)
+        command = _command(DecisionScope.unresolved())
+        first_command = replace(
+            command,
+            envelope=replace(
+                command.envelope,
+                effective_at=future_effective_at,
+            ),
+        )
+        first_identities = _uuids(DECISION_ID, NEED_ID, FACT_ID)
+        # duplicate-code: lifecycle clock-passage setup is independent from command
+        # validation setup; sharing it would couple distinct persistence falsifiers.
+        # arid: disable
+        await DecisionInitiationService(
+            reader=store,
+            store=store,
+            now=lambda: RECORDED_AT,
+            # arid: enable
+            new_uuid=lambda: next(first_identities),
+        ).initiate(first_command)
+        await engine.dispose()
+
+        observed_at = future_effective_at + timedelta(hours=1)
+        second_decision_id = UUID("00000000-0000-4000-8000-000000000024")
+        second_identities = _uuids(
+            second_decision_id,
+            UUID("00000000-0000-4000-8000-000000000025"),
+            UUID("00000000-0000-4000-8000-000000000026"),
+        )
+        second_command = InitiateDecisionCommand(
+            envelope=_test_envelope(
+                UUID("00000000-0000-4000-8000-000000000027"),
+                reference="clock-passage-revalidation",
+                effective_at=observed_at,
+                decision_id=None,
+            ),
+            need_statement="Review another choice after clock passage",
+            subject=DecisionSubject("Whether to establish another position"),
+            scope=DecisionScope.unresolved(),
+            continuity=ContinuityDetermination.create_new(
+                "The future-effective candidate is a different coherent choice"
+            ),
+        )
+
+        async with postgres_engine_store(postgres_target) as (_, restarted):
+            result = await DecisionInitiationService(
+                reader=restarted,
+                store=restarted,
+                now=lambda: observed_at,
+                new_uuid=lambda: next(second_identities),
+            ).initiate(second_command)
+            assert result.decision_id == InvestmentDecisionId(second_decision_id)
+            # duplicate-code: this restart assertion proves temporal continuity basis,
+            # independently of broader initiation-persistence assertions.
+            # arid: disable
+            history = await restarted.load_decision_history(result.decision_id)
+            assert history is not None
+            initiation = history[0]
+            assert isinstance(initiation, DecisionInitiated)
+            # arid: enable
+            assert initiation.continuity.candidate_decision_ids == frozenset(
+                {InvestmentDecisionId(DECISION_ID)}
+            )
+            assert initiation.continuity.known_at == observed_at
+
     asyncio.run(scenario())
 
 

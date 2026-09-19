@@ -42,6 +42,8 @@ from polaris.domain.actors import ActorId, KnownActorAttribution
 from polaris.domain.decisions import (
     DecisionApplicability,
     DecisionContinuity,
+    DecisionInitiated,
+    DecisionInitiationDetermination,
     DecisionLifecycleCorrectionBasis,
     DecisionLifecycleCorrectionEffect,
     DecisionLifecycleFactId,
@@ -300,6 +302,57 @@ def test_many_to_many_supersession_round_trips_after_restart(
             assert current.version == DecisionVersion(3)
             assert current.applicability is DecisionApplicability.NON_OPERATIVE
             assert len(await memory.lineage(target_a, known_at=second_at)) == 2
+
+    asyncio.run(scenario())
+
+
+def test_initiation_revalidation_uses_relationship_history_after_clock_passage(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        future_effective_at = BASE + timedelta(hours=2)
+        async with postgres_engine_store(postgres_target) as (_, store):
+            source = await _create_decision(store, recorded_at=BASE, label="source")
+            target = await _create_decision(
+                store,
+                recorded_at=BASE + timedelta(minutes=1),
+                label="target",
+            )
+            # duplicate-code: future-effective relationship setup is a distinct
+            # temporal falsifier from ordinary projection-drift setup below.
+            # arid: disable
+            await _supersede(
+                store,
+                source=source,
+                targets=(target,),
+                recorded_at=BASE + timedelta(minutes=2),
+                # arid: enable
+                relationship_effective_at=future_effective_at,
+            )
+
+        observed_at = future_effective_at + timedelta(hours=1)
+        async with postgres_engine_store(postgres_target) as (_, restarted):
+            assert await restarted.find_unresolved_continuity_candidates(
+                known_at=observed_at
+            ) == (source,)
+            created = await _create_decision(
+                restarted,
+                recorded_at=observed_at,
+                label="after-relationship-clock-passage",
+            )
+            history = await restarted.load_decision_history(created)
+            # duplicate-code: relationship clock-passage restart proof remains
+            # independent from lifecycle-basis persistence proof.
+            # arid: disable
+            assert history is not None
+            initiation = history[0]
+            assert isinstance(initiation, DecisionInitiated)
+            assert initiation.continuity.determination is (
+                DecisionInitiationDetermination.EXPLICIT_CREATE_NEW
+            )
+            # arid: enable
+            assert initiation.continuity.candidate_decision_ids == frozenset({source})
+            assert initiation.continuity.known_at == observed_at
 
     asyncio.run(scenario())
 

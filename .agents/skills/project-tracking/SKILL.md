@@ -253,10 +253,12 @@ validate supplied projections
 → read schema once
 → read affected current rows once
 → add only missing members
-→ compute field deltas
-→ submit one batched GraphQL mutation
+→ compute one complete deterministic field-delta plan
+→ submit that plan through one or more deterministic bounded GraphQL batches
 → verify affected rows once
 ```
+
+A bounded GraphQL batch is still part of the same reconciliation path and uses the same `gh api graphql` interface. Chunking exists only to stay below GitHub GraphQL resource limits; it does not authorize recomputing semantic projections, changing interfaces, or retrying individual fields.
 
 Do **not**:
 
@@ -395,16 +397,27 @@ Rules:
 
 If delta count is zero, skip Section 5 and verify.
 
-## 5. Apply All Field Deltas in One GraphQL Request
+## 5. Apply the Complete Field-Delta Plan in Bounded GraphQL Batches
 
 Do not use one `gh project item-edit` process per field.
 
-GitHub's `updateProjectV2ItemFieldValue` still updates one field value per mutation field, but a GraphQL mutation operation may contain multiple aliased top-level mutation fields. Batch **all** field deltas for **all supplied artifacts** into one `gh api graphql` request.
+GitHub's `updateProjectV2ItemFieldValue` still updates one field value per mutation field, and a GraphQL mutation operation may contain multiple aliased top-level mutation fields. Build **one complete deterministic ordered delta plan** for all supplied artifacts, then submit that plan through bounded `gh api graphql` batches.
 
 Use:
 
 * `updateProjectV2ItemFieldValue` to set single-select, text, or date values;
 * `clearProjectV2ItemFieldValue` to clear values.
+
+Batching rules:
+
+* preserve one global deterministic alias/order across the complete plan;
+* use at most **20 top-level field mutations per GraphQL request**;
+* split only at alias boundaries; never split or duplicate one field delta;
+* submit batches serially through the same `gh api graphql` interface;
+* require every completed batch to return no GraphQL `errors` and a non-empty `projectV2Item.id` for every alias in that batch;
+* if any batch fails, stop immediately and return `PROJECT TRACKING: DRIFT`; do not continue later batches in that invocation;
+* do not retry the failed batch, shrink it, or switch interfaces in the same invocation;
+* a later authorized reconciliation must re-read current Project rows and recompute the minimal remaining delta from authoritative state, because earlier successful batches or membership additions may already have persisted.
 
 Example shape:
 
@@ -444,23 +457,24 @@ mutation {
 }
 ```
 
-Submit the complete generated operation exactly once:
+Submit each generated bounded operation exactly once, in deterministic order:
 
 ```bash
-gh api graphql -f query="$MUTATION"
+gh api graphql -f query="$MUTATION_BATCH"
 ```
 
-Top-level GraphQL mutation fields execute serially, so preserve a deterministic alias/order.
+Top-level GraphQL mutation fields execute serially within each batch, and batches execute serially in the preserved global plan order.
 
 Requirements:
 
-* one alias per delta;
+* one alias per delta across the complete plan;
+* at most 20 aliases per request;
 * use captured Project/item/field/option IDs rather than field-name discovery during mutation;
 * interpolate only controlled Project values, `RB-n`, and ISO dates; GraphQL-escape any text value;
-* require a successful API response with no GraphQL `errors`;
-* require every mutation alias to return a non-empty `projectV2Item.id`.
+* require every completed request to return no GraphQL `errors`;
+* require every mutation alias in every completed request to return a non-empty `projectV2Item.id`.
 
-If the batch returns any error or incomplete result, report drift. Do not retry failed fields individually through `gh project item-edit`.
+If any batch returns an error or incomplete result, report drift immediately. Do not retry failed fields individually through `gh project item-edit`, do not shrink/replay the batch in the same invocation, and do not assume earlier batches rolled back. A future authorized reconciliation starts with a fresh current-row read and computes only remaining differences.
 
 GitHub Projects v2 does not provide a REST endpoint that replaces this Project-field mutation. Do not use repository issue-field REST endpoints as Project fields.
 

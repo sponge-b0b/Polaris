@@ -653,6 +653,32 @@ Use these classes as needed:
 
 Record an applicability plan before substantive implementation. Every helper/check considered below must be either `applicable` or `not-applicable` with a concrete reason. Do not invoke a helper merely because it exists in the repository.
 
+### Pre-Implementation Acceptance Proof Plan
+
+Before the first substantive repository mutation, derive the implementer's proof plan from the **ticket contract and governing authority**, not from the implementation shape you expect to write.
+
+For every explicit ticket acceptance criterion, record compactly:
+
+```text
+Acceptance: <ticket AC>
+Authoritative predicate/domain: <compact authority-derived claim>
+Falsifier: <concrete state that would make the claim false>
+Required proof modality: <static | unit | integration | real-service | runtime | tracker | other>
+Delegated gate owner: <skill/check owner when applicable>
+Runtime/service prerequisites: <None | exact prerequisites>
+Likely evidence seam: <existing/new test, inspection, receipt, or tracker fact>
+```
+
+This is an implementation plan, not semantic certification and not a duplicate `$verify-ticket-closure` acceptance universe.
+
+Use it to:
+
+* design the implementation and tests once around the real falsifiers rather than discovering material proof requirements only after a green candidate exists;
+* establish runtime/service prerequisites before expensive behavioral verification begins;
+* expose an apparent decomposition defect before code when the actual authorized work contains materially more independent scenario families/closure domains than the ticket's certified context-fit allowed.
+
+If the authority-first plan shows the ticket was materially oversized or omitted a required independently closable slice, fail closed as a decomposition defect and route back to `$to-tickets`; do not silently split or redesign the ticket during implementation.
+
 ### Living Entity Wiki Guard
 
 Invoke `$wiki-sync` before editing only when the change substantively affects a wiki-governed entity/source and the Living Entity Wiki exists.
@@ -744,6 +770,29 @@ Verification is targeted and applicability-driven.
 
 Build the verification set from the ticket acceptance criteria plus the classified change surfaces. Every required check must have identifiable supporting evidence; every omitted candidate check must have a concrete non-applicability reason.
 
+### Verification Funnel and Repair-Loop Control
+
+Completeness of verification does not require rerunning the most expensive complete matrix after every mechanical repair.
+
+Execute applicable delegated gates through their owning skills, but order candidate shaping from cheapest/earliest falsifiers toward broadest proof:
+
+1. **candidate-shaping preflight** — formatting/no-op formatter state, syntax/schema/frontmatter, targeted lint/type/static checks, exact runtime/interpreter/service qualification, and other deterministic prerequisites;
+2. **focused repair gates** — the smallest owning-skill check that can close the currently observed failure, including duplicate-code/stale-suppression health when that is the active defect;
+3. **targeted behavioral proof** — ticket-specific unit/integration/real-service checks and negative paths;
+4. **broader/delegated proof** — architecture, migration/database, repository-wide differential, documentation/workflow, or other wider gates required by the applicability plan;
+5. **final candidate-bound pass** — once all known repair loops are green, execute the complete applicable verification set for the exact candidate before closure evidence is frozen.
+
+Rules:
+
+* format/fix the candidate before treating it as a verification candidate; do not use the complete verification matrix as a formatter;
+* establish required interpreter/runtime/service prerequisites before behavioral tests that depend on them;
+* after a failure and repair, rerun only the failed gate, its prerequisites, and gates whose evidence the repair could invalidate; reuse still-valid exact-candidate evidence under the repository's candidate-bound reuse policy;
+* a broad final pass is required after the repair funnel is green, but already-green broad gates need not be repeatedly rerun during the inner edit loop;
+* every observed required-gate failure remains in the verification universe until it has an explicit causal disposition under the hardening invariant; a narrower later PASS does not erase it;
+* after **two consecutive complete-matrix failures caused only by mechanical, formatting, runtime-selection, duplicate-code, or stale-suppression issues with no product-semantic failure**, raise Attention for verification churn and stop launching complete-matrix reruns until the failing gate is isolated and passes its focused preflight.
+
+The funnel changes execution order and evidence reuse only. It never waives an applicable delegated gate or weakens the final candidate-bound verification set.
+
 Typical routing:
 
 * Code/Tests → invoke `$verify-code` with `TICKET_BASELINE`, plus any ticket-required targeted production-boundary proof;
@@ -781,7 +830,7 @@ Before proposing a criterion proven:
 
 The changed-surface inventory may guide what this ticket edits, but it does not reduce the verification domain of an acceptance criterion.
 
-If required verification fails, fix it within ticket scope and rerun it. Do not persist completion or close while required verification remains unresolved.
+If required verification fails, fix it within ticket scope and rerun the invalidated portion through the **Verification Funnel and Repair-Loop Control** above. Do not persist completion or close while required verification remains unresolved.
 
 ## Spec Review Root Reasoning
 

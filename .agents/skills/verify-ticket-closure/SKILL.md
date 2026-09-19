@@ -282,15 +282,29 @@ On Attempt 2 or later, “build” includes reusing the prior saturated verifier
 
 ### Ordinary cells
 
-Create one `AC-<n>` cell for every distinct normative ticket obligation, including:
+First enumerate every authoritative obligation carried by the ticket, including:
 
 * every explicit acceptance criterion;
 * carried `Spec obligations` applicable to this ticket's promised slice;
+* carried `Architecture obligations` and current-ticket authority units;
 * required build/preservation/negative-path behavior stated by the ticket;
 * required production/authoritative-path proof;
 * verification obligations that determine semantic completion.
 
-Do not merge materially distinct claims merely because they share evidence or a subsystem.
+Then create one `AC-<n>` cell per **distinct semantic predicate**, preserving an explicit reverse mapping from every authoritative obligation to its semantic cell.
+
+Many authoritative IDs may map to one cell only when they are materially equivalent for certification: the same semantic subject, quantifier, domain/membership boundary, predicate, material conditions/exceptions, failure meaning, temporal/order semantics, authority role, and required proof modality. This is semantic entailment, not shared wording or shared evidence.
+
+Examples of valid many-to-one mapping include a ticket acceptance criterion that faithfully restates carried Spec/ARCHSRC obligations at the same boundary, or several provenance IDs that constrain the exact same invariant.
+
+Do **not** merge claims that merely:
+
+* touch the same subsystem or changed file;
+* share a test or evidence source;
+* overlap partially while one adds a material condition, negative rule, temporal boundary, authority distinction, or broader/narrower domain;
+* would require different falsifier families or independently closable semantic domains.
+
+Conversely, do not manufacture duplicate acceptance cells solely because the same predicate has multiple provenance IDs. Traceability is many-to-one when authority is semantically coextensive.
 
 ### Remediation extension
 
@@ -305,14 +319,16 @@ For remediation add to the same universe:
 
 There is still one `AC-*` universe and one verdict.
 
-Before proof require exact authoritative-obligation ↔ acceptance-cell accounting:
+Before proof require exact authoritative-obligation ↔ semantic-acceptance-cell accounting:
 
 ```text
 Authoritative obligations: <n>
-Acceptance cells: <n>
+Semantic acceptance cells: <n>
+Many-to-one authority mappings: <n>
 Unmapped obligations: 0
 Ambiguous mappings: 0
 Merged-distinct obligations: 0
+Duplicate semantic cells: 0
 ```
 
 If the universe cannot be closed, affected cells are `unproven`.
@@ -593,6 +609,7 @@ Mode: ordinary | remediation
 Ticket baseline: <sha>
 Candidate state: <hash>
 Ticket contract identity: <durable identity>
+Authority mapping: obligations <n>; semantic cells <n>; many-to-one <n>; unmapped 0; merged-distinct 0; duplicate cells 0
 Acceptance: <n>; proven <n>; violated 0; unproven 0; unchecked 0
 Proof plans: <n>/<n> authority-first; remaining composition/order seams 0
 Nested domains: <n>; closed <n>; open 0
@@ -621,6 +638,7 @@ Ticket: #<n>
 Mode: ordinary | remediation
 Ticket baseline: <sha>
 Candidate state: <hash>
+Authority mapping: obligations <n>; semantic cells <n>; many-to-one <n>; unmapped 0; merged-distinct 0; duplicate cells 0
 Acceptance: <n>; proven <n>; violated <n>; unproven <n>; unchecked 0
 Proof plans: <n>/<n> authority-first; remaining composition/order seams 0
 Nested domains: <n>; closed <n>; open <n>

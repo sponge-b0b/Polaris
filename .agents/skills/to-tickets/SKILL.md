@@ -518,6 +518,7 @@ Before the user ever sees a publication proposal, `$to-tickets` owns proving tha
 * closed-ticket preservation and duplicate prevention;
 * publication-state consistency with the exact source contract;
 * source implementation readiness and absence of implementation-delegated material design;
+* ticket context-fit and semantic-density bounds, including any justified indivisibility exception;
 * independent certification that the exact ticket bodies faithfully carry the complete bounded source/root universe.
 
 Do not ask the user to validate, repair, or reconstruct those mechanics or semantics.
@@ -632,6 +633,10 @@ Closed tickets reopened/rewritten: 0
 Duplicate/conflicting active ticket coverage: 0
 Ticket Spec-obligation sets equal routing manifest: yes
 Ticket Architecture-obligation sets equal routing manifest: yes
+Ticket context-fit manifests complete: yes
+One-window tickets: <n>
+Validated indivisible two-window exceptions: <n>
+Oversized slices: 0
 Parent Ticket Coverage Manifest render complete: yes
 Unresolved repository-policy conflicts: 0
 ```
@@ -660,6 +665,7 @@ Proposal identity: <sha256>
 Validation owner: $to-tickets
 Required independent verifier: $verify-ticket-decomposition
 Design delegation: 0
+Context fit: one-window <n>; validated indivisible two-window exceptions <n>; oversized 0
 Coverage: <n>/<n>; missing 0; ambiguous 0; unclassified 0
 Spec-cell identity: source <n>; TCM <n>; missing 0; extra 0; exact-set-equality yes
 Mechanics: template/lineage/branch/baseline/status/dependencies valid
@@ -972,6 +978,7 @@ Immediately before Step 5 publication, require all of the following together:
 * Architecture/Design Obligation Disposition Manifest is complete when applicable, with missing/ambiguous obligations 0;
 * every ticket's `Spec obligations` and `Architecture obligations` sets equal their approved mappings when applicable;
 * material design choices delegated to implementation remain zero;
+* every ticket still satisfies its frozen Context-Fit Manifest, with oversized slices 0;
 * blocking edges/hierarchy still match the approved proposal.
 
 A changed proposal, source contract/root/readiness state, branch/baseline authority, Spec body/contract, or source identity invalidates parent readiness, independent certification, and approval as applicable.
@@ -1235,10 +1242,38 @@ Break the work into **tracer-bullet** tickets.
 
 * Each slice cuts a narrow but complete path through the required layers.
 * A completed slice is independently demoable or verifiable.
-* Each slice fits in one fresh context window.
+* Each slice normally fits in one fresh context window; only the **Ticket Context-Fit Guard** below may admit a justified indivisible two-window exception.
 * Necessary prefactoring comes first.
 
 </vertical-slice-rules>
+
+#### Ticket Context-Fit Guard
+
+The one-fresh-context rule is a **semantic/lifecycle budget**, not a file-count or line-count heuristic.
+
+Before proposal readiness, construct one compact Context-Fit Manifest for every proposed ticket:
+
+```text
+Ticket: <proposal ticket identity>
+Independent semantic scenario families: <n> — <compact list>
+Material semantic closure domains predicted: <n> — <compact list>
+Required real-service/runtime proof modalities: <None | compact list>
+Independent proof/invalidation families: <n> — <compact list>
+Context fit: one-window | indivisible-two-window-exception | oversized
+Indivisibility authority/justification: <None | exact reason the slice cannot be split while preserving authoritative semantics and a green intermediate state>
+```
+
+Apply these rules:
+
+* count **semantic scenario families**, not provenance IDs or acceptance-criterion bullets; several Spec/ARCHSRC IDs may constrain one family, while one broad acceptance criterion may contain several independently implementable lifecycle/failure families;
+* a small changed-file set, one test module, no production-code change, or a shared subsystem does **not** establish context fit;
+* if two subsets can each be implemented and independently verified while leaving a semantically valid green intermediate state, they are separate tracer bullets unless durable authority requires atomic co-delivery;
+* multiple material closure domains or proof modalities are a split signal when they can close independently; do not bundle them merely to reduce ticket count;
+* normal readiness requires `one-window`: implementation, targeted verification, proposed closure evidence, and ordinary repair should plausibly fit one fresh implementation context;
+* use `indivisible-two-window-exception` only when an authoritative invariant, atomic cutover, or unavoidable green-state coupling makes a smaller slice invalid. Preserve the exact indivisibility reason. The exception must still plausibly fit within two fresh contexts;
+* a ticket that cannot satisfy either bound is `oversized` and **fails proposal readiness**. Split it before independent certification and human approval.
+
+This guard is predictive rather than a wall-clock promise. Unexpected defects may still consume additional work, but ticketing must not knowingly publish a slice whose ordinary happy-path implementation/verification/closure lifecycle already exceeds the bound.
 
 Give each ticket its **blocking edges**.
 

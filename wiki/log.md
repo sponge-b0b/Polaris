@@ -1,5 +1,10 @@
 # wiki/log.md
 
+## [2026-09-18] R2 durable persistence | #280 implementation realized
+
+Spec #280 established the first greenfield durable PostgreSQL Investment Decision persistence under `src/polaris/infrastructure/persistence/postgresql/` with Alembic migration lineage, immutable lifecycle and relationship history, transactional command receipts, restart-safe idempotency/concurrency protection, temporal reconstruction, and the inward-owned Decision persistence contracts. Updated the active entity registry from `pending` to `present` with the PostgreSQL adapter routing anchor. Recorded ADR 0005's bounded runtime qualification: the PostgreSQL adapter currently runs only under standard GIL-enabled CPython and fails closed under GIL-disabled execution while the rest of Polaris retains its free-threaded default. R2-specific entity-page entries sourced only from proposed design documents remain Planned; implementation realization does not promote those proposals into Strict Invariants.
+
+
 ## [2026-09-13] R2 application use cases | #279 implementation realized
 
 Spec #279 established the first greenfield Application Use Cases implementation under `src/polaris/application/decisions/`, including Decision commands, Decision Memory queries, transaction/idempotency and concurrency contracts, and inward-owned ports. Updated the active entity registry from `pending` to `present` with the coarse application routing anchor. R2-specific entity-page entries remain Planned because their governing architectural documents remain proposed; implementation realization does not promote proposed authority into Strict Invariants.

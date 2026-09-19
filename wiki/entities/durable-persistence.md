@@ -9,6 +9,7 @@
 * Persistence contracts express atomicity, durability, uniqueness, idempotency, historical preservation, concurrency, and reconstruction requirements without exposing PostgreSQL, ORM sessions, SQL expressions, or other adapter-native types. (source: docs/current/platform-architecture-0.2.0.md; docs/adr/0003-platform-insulate-infrastructure-behind-inward-owned-capability-ports.md)
 * PostgreSQL is the initial/reference 0.2.0 persistence adapter, not the architectural identity of persistence. (source: docs/current/platform-architecture-0.2.0.md; docs/adr/0003-platform-insulate-infrastructure-behind-inward-owned-capability-ports.md)
 * Greenfield Polaris uses a fresh persistence and migration lineage; current migrations must not target legacy schema objects because they already exist. (source: docs/current/platform-architecture-0.2.0.md)
+* The SQLAlchemy/greenlet-backed PostgreSQL adapter is currently qualified only under standard GIL-enabled CPython 3.14+ and must fail fast before adapter use under GIL-disabled execution; the platform otherwise retains free-threaded CPython as its default and may isolate the persistence-owning role in a standard-CPython process until repeated requalification succeeds. (source: docs/current/platform-architecture-0.2.0.md; docs/adr/0005-platform-isolate-unqualified-persistence-runtime.md)
 
 ### Planned
 

@@ -443,8 +443,9 @@ def reconstruct_decision(
     *,
     observed_at: datetime,
     applicability: DecisionApplicability,
+    decision_version: DecisionVersion | None = None,
 ) -> InvestmentDecision:
-    """Validate immutable admission history, then observe it at supplied T=K."""
+    """Validate immutable history and observe it with its aggregate version."""
     facts = tuple(history)
     initiation = _history_start(facts)
     _validate_metadata(facts, initiation.metadata.decision_id)
@@ -458,7 +459,31 @@ def reconstruct_decision(
                 _admit_ordinary(prefix, fact)
             except InvalidDecisionTransition as error:
                 raise InvalidDecisionHistory(str(error)) from error
-    return _view(facts, observed_at, observed_at, applicability)
+    view = _view(facts, observed_at, observed_at, applicability)
+    if decision_version is None or decision_version == view.version:
+        return view
+    if type(decision_version) is not DecisionVersion:
+        raise InvalidDecisionHistory("decision_version must be DecisionVersion")
+    if decision_version.value < view.version.value:
+        raise InvalidDecisionHistory(
+            "aggregate DecisionVersion cannot precede lifecycle history"
+        )
+    return _with_version(view, decision_version)
+
+
+def _with_version(
+    decision: InvestmentDecision,
+    version: DecisionVersion,
+) -> InvestmentDecision:
+    return InvestmentDecision._from_validated(
+        decision._history,
+        decision._subject,
+        decision._scope,
+        version,
+        decision.lifecycle_interpretation,
+        decision._applicability,
+        decision._work_posture,
+    )
 
 
 def _view(
@@ -511,15 +536,7 @@ def _at_recording(
     )
     if view.version.value >= decision.version.value:
         return view
-    return InvestmentDecision._from_validated(
-        view._history,
-        view._subject,
-        view._scope,
-        decision.version,
-        view.lifecycle_interpretation,
-        view._applicability,
-        view._work_posture,
-    )
+    return _with_version(view, decision.version)
 
 
 def _append_ordinary(

@@ -21,7 +21,7 @@ use a stale guide entry to bypass the `AGENTS.md` preflight.
 
 ## Current test surface
 
-The greenfield suite is currently small and infrastructure-free.
+The greenfield suite is currently small, with PostgreSQL as its only established external test service.
 
 | Scope | Purpose | External services |
 | --- | --- | --- |
@@ -29,10 +29,11 @@ The greenfield suite is currently small and infrastructure-free.
 | `tests/test_architecture_guard.py` | Repository architecture invariants | None |
 | `tests/test_architecture_guard_identity_aliases.py` | Identity-alias architecture invariants | None |
 | `tests/test_architecture_guard_legacy_loaders.py` | Greenfield/legacy-boundary invariants | None |
+| `tests/integration/persistence/postgresql/` | Greenfield Decision migrations and PostgreSQL adapter contracts | PostgreSQL |
 
-No current greenfield pytest scope requires PostgreSQL, Qdrant, Neo4j, a model
-provider, or another external service. This statement is an inventory fact, not a
-permanent architectural constraint.
+All other currently established greenfield scopes are service-free unless their
+tests and fixtures state otherwise. This inventory is not a permanent architectural
+constraint.
 
 The owning workflow determines the smallest complete test scope for a change. Do not
 run the entire suite merely because this guide lists it, and do not omit a directly
@@ -55,6 +56,21 @@ Current focused Decision-domain verification is:
 ```bash
 uv run --locked pytest -q tests/domain/decisions/
 ```
+
+The PostgreSQL Decision persistence contract uses an explicit test target and
+isolates every test in a temporary schema. ADR 0005 qualifies this
+SQLAlchemy/greenlet-backed path only under standard GIL-enabled CPython, so
+the service-backed suite explicitly selects `3.14+gil` rather than inheriting
+the repository's free-threaded default:
+
+```bash
+uv run --locked --python 3.14+gil --env-file .env pytest -q tests/integration/persistence/postgresql/
+```
+
+Required configuration: `POLARIS_TEST_DATABASE_URL`. The URL must use the
+`postgresql+asyncpg` driver. Before pytest starts, verify the configured target is a
+ready repository-local development/test PostgreSQL database without printing its
+connection string. Tests never fall back to `POLARIS_DATABASE_URL`.
 
 The repository-wide architecture suite is owned by `$verify-architecture`. When that
 skill is applicable, follow its current contract rather than reconstructing its suite
@@ -93,7 +109,6 @@ Add operational detail only when the greenfield platform actually introduces the
 corresponding test boundary. Useful future sections include:
 
 - unit, integration, database/migration, end-to-end, property, and evaluation suites;
-- PostgreSQL and projection-store integration tests;
 - model/provider and evaluation tests, including explicit live/non-live separation;
 - observability and telemetry integration tests;
 - API, CLI, MCP, or other interface contract tests;

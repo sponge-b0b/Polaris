@@ -1,0 +1,62 @@
+name: ChatGPT ticket publication transport
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/chatgpt-ticket-publication.yml"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  branch-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify Spec branch publication guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh --version
+          version="$(gh version --json version -q .version)"
+          python - "$version" <<'PY'
+          import sys
+          from packaging.version import Version
+          got = Version(sys.argv[1])
+          required = Version("2.94.0")
+          if got < required:
+              raise SystemExit(f"gh_version_too_old={got}; required={required}")
+          print(f"gh_relationship_capability=PASS version={got}")
+          PY
+
+          git fetch --no-tags origin refs/heads/spec-281:refs/remotes/origin/spec-281
+          git checkout -B spec-281 --track origin/spec-281
+
+          test "$(git branch --show-current)" = "spec-281"
+          test "$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}')" = "origin/spec-281"
+          test "$(git rev-parse HEAD)" = "4be2f5a77b0c6c626414180ea90d2af500accaf1"
+          git merge-base --is-ancestor c9e1f6bcfddda7eb2715f5ce89acddbae18894bb HEAD
+
+          linked="$(gh issue develop --list 281)"
+          printf 'linked_branches<<EOF\n%s\nEOF\n' "$linked"
+
+          if grep -Fq "spec-281" <<<"$linked"; then
+            echo "development_linkage=PASS linked"
+          else
+            test -z "$(printf '%s' "$linked" | tr -d '[:space:]')"
+            metadata="$(gh issue view 281 --json comments -q '[.comments[].body | select(contains("## Workspace Metadata"))] | if length == 1 then .[0] else "" end')"
+            test -n "$metadata"
+            test "$(printf '%s\n' "$metadata" | grep -c '^\*\*Branch:\*\* ')" -eq 1
+            test "$(printf '%s\n' "$metadata" | grep -c '^\*\*Baseline Commit Hash:\*\* ')" -eq 1
+            test "$(printf '%s\n' "$metadata" | sed -n 's/^\*\*Branch:\*\* //p')" = "spec-281"
+            test "$(printf '%s\n' "$metadata" | sed -n 's/^\*\*Baseline Commit Hash:\*\* //p')" = "c9e1f6bcfddda7eb2715f5ce89acddbae18894bb"
+            echo "development_linkage=PASS legacy-pre-existing"
+          fi
+
+          echo "spec_branch_guard=PASS"

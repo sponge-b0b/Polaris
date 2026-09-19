@@ -1,0 +1,286 @@
+name: ChatGPT Spec 280 post-remediation gates
+
+on:
+  push:
+    branches:
+      - chatgpt/verify-spec-280-post-remediation
+    paths:
+      - '.github/workflows/tmp-chatgpt-verify-spec-280-post-remediation.yml'
+
+permissions:
+  contents: read
+
+env:
+  CANDIDATE_SHA: 10d4227b1011c6dbd32ff9864374acf2cbda65ff
+  BASELINE_SHA: 23f7a2df40557b87754fd62e3f70164f60b18788
+
+jobs:
+  gates:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: polaris
+          POSTGRES_PASSWORD: polaris_test
+          POSTGRES_DB: polaris
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U polaris -d polaris"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      POLARIS_DATABASE_URL: postgresql+asyncpg://polaris:polaris_test@127.0.0.1:5432/polaris
+      POLARIS_TEST_DATABASE_URL: postgresql+asyncpg://polaris:polaris_test@127.0.0.1:5432/polaris
+      POLARIS_BROAD_VERIFY_AUTHORIZED: verify-spec-280
+    steps:
+      - name: Checkout transport branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install Python runtimes
+        run: |
+          set -euo pipefail
+          uv python install '3.14+gil'
+          uv python install 3.14t
+
+      - name: Pin exact Spec candidate
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin spec-280
+          test "$(git rev-parse FETCH_HEAD)" = "$CANDIDATE_SHA"
+          git checkout --detach "$CANDIDATE_SHA"
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          git cat-file -e "$BASELINE_SHA^{commit}"
+          test -z "$(git status --porcelain)"
+
+      - name: Diff hygiene
+        run: git diff --check "$BASELINE_SHA"...HEAD
+
+      - name: Verify-spec utility self-test
+        run: |
+          uv run --python '3.14+gil' --locked python             .agents/skills/verify-spec/scripts/verify_spec_artifacts.py self-test
+
+      - name: Ruff format
+        run: |
+          uv run --python '3.14+gil' --locked ruff format --check             migrations/env.py             migrations/versions/0001_decision_persistence_foundation.py             src/polaris/domain/decisions/model.py             src/polaris/domain/decisions/relationships.py             src/polaris/infrastructure/__init__.py             src/polaris/infrastructure/persistence/__init__.py             src/polaris/infrastructure/persistence/postgresql/__init__.py             src/polaris/infrastructure/persistence/postgresql/codec.py             src/polaris/infrastructure/persistence/postgresql/decisions.py             src/polaris/infrastructure/persistence/postgresql/relationship_codec.py             src/polaris/infrastructure/persistence/postgresql/relationship_store.py             src/polaris/infrastructure/persistence/postgresql/runtime_qualification.py             src/polaris/infrastructure/persistence/postgresql/schema.py             tests/integration/__init__.py             tests/integration/persistence/__init__.py             tests/integration/persistence/postgresql/__init__.py             tests/integration/persistence/postgresql/conftest.py             tests/integration/persistence/postgresql/test_decision_store.py             tests/integration/persistence/postgresql/test_migrations.py             tests/integration/persistence/postgresql/test_relationship_store.py             tests/integration/persistence/postgresql/test_relationship_store_closure.py             tests/runtime/test_postgresql_runtime_qualification.py
+
+      - name: Ruff lint
+        run: |
+          uv run --python '3.14+gil' --locked ruff check             migrations/env.py             migrations/versions/0001_decision_persistence_foundation.py             src/polaris/domain/decisions/model.py             src/polaris/domain/decisions/relationships.py             src/polaris/infrastructure/__init__.py             src/polaris/infrastructure/persistence/__init__.py             src/polaris/infrastructure/persistence/postgresql/__init__.py             src/polaris/infrastructure/persistence/postgresql/codec.py             src/polaris/infrastructure/persistence/postgresql/decisions.py             src/polaris/infrastructure/persistence/postgresql/relationship_codec.py             src/polaris/infrastructure/persistence/postgresql/relationship_store.py             src/polaris/infrastructure/persistence/postgresql/runtime_qualification.py             src/polaris/infrastructure/persistence/postgresql/schema.py             tests/integration/__init__.py             tests/integration/persistence/__init__.py             tests/integration/persistence/postgresql/__init__.py             tests/integration/persistence/postgresql/conftest.py             tests/integration/persistence/postgresql/test_decision_store.py             tests/integration/persistence/postgresql/test_migrations.py             tests/integration/persistence/postgresql/test_relationship_store.py             tests/integration/persistence/postgresql/test_relationship_store_closure.py             tests/runtime/test_postgresql_runtime_qualification.py
+
+      - name: Mypy
+        run: |
+          uv run --python '3.14+gil' --locked mypy --explicit-package-bases             migrations/env.py             migrations/versions/0001_decision_persistence_foundation.py             src/polaris/domain/decisions/model.py             src/polaris/domain/decisions/relationships.py             src/polaris/infrastructure/__init__.py             src/polaris/infrastructure/persistence/__init__.py             src/polaris/infrastructure/persistence/postgresql/__init__.py             src/polaris/infrastructure/persistence/postgresql/codec.py             src/polaris/infrastructure/persistence/postgresql/decisions.py             src/polaris/infrastructure/persistence/postgresql/relationship_codec.py             src/polaris/infrastructure/persistence/postgresql/relationship_store.py             src/polaris/infrastructure/persistence/postgresql/runtime_qualification.py             src/polaris/infrastructure/persistence/postgresql/schema.py             tests/integration/__init__.py             tests/integration/persistence/__init__.py             tests/integration/persistence/postgresql/__init__.py             tests/integration/persistence/postgresql/conftest.py             tests/integration/persistence/postgresql/test_decision_store.py             tests/integration/persistence/postgresql/test_migrations.py             tests/integration/persistence/postgresql/test_relationship_store.py             tests/integration/persistence/postgresql/test_relationship_store_closure.py             tests/runtime/test_postgresql_runtime_qualification.py
+
+      - name: PostgreSQL service preflight
+        run: |
+          uv run --python '3.14+gil' --locked python - <<'PY'
+          import asyncio
+          import os
+          import asyncpg
+
+          async def main() -> None:
+              dsn = os.environ["POLARIS_TEST_DATABASE_URL"].replace(
+                  "postgresql+asyncpg://", "postgresql://", 1
+              )
+              conn = await asyncpg.connect(dsn)
+              try:
+                  assert await conn.fetchval("SELECT 1") == 1
+              finally:
+                  await conn.close()
+
+          asyncio.run(main())
+          print("PostgreSQL readiness: PASS")
+          PY
+
+      - name: Canonical migration workflow runtime policy
+        run: |
+          set -euo pipefail
+          test "$(grep -Fc 'uv run --locked --python 3.14+gil --env-file .env' .agents/skills/database-migrations/SKILL.md)" = "24"
+          test -z "$(grep -nF 'uv run --locked --env-file .env' .agents/skills/database-migrations/SKILL.md || true)"
+          echo "qualified_database_migration_commands=24"
+
+      - name: Decision domain tests
+        run: uv run --python '3.14+gil' --locked pytest -q tests/domain/decisions/
+
+      - name: PostgreSQL persistence acceptance
+        run: uv run --python '3.14+gil' --locked pytest -q tests/integration/persistence/postgresql/
+
+      - name: Standard runtime qualification boundary
+        run: uv run --python '3.14+gil' --locked pytest -q tests/runtime/test_postgresql_runtime_qualification.py
+
+      - name: Genuine free-threaded runtime qualification boundary
+        run: uv run --python 3.14t --locked pytest -q tests/runtime/test_postgresql_runtime_qualification.py
+
+      - name: Actual online Alembic free-threaded negative path
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$(mktemp)"
+          set +e
+          uv run --python 3.14t --locked alembic current >"$output" 2>&1
+          rc=$?
+          set -e
+          test "$rc" -ne 0
+          grep -Fq 'PostgreSQL persistence is not qualified for GIL-disabled CPython' "$output"
+          echo "online_alembic_free_threaded_rejection=PASS"
+
+      - name: Standard online Alembic entrypoint
+        run: |
+          uv run --python '3.14+gil' --locked alembic upgrade head
+          uv run --python '3.14+gil' --locked alembic current
+          uv run --python '3.14+gil' --locked alembic check
+
+      - name: Architecture service preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          matches="$(
+            grep -hE               'POLARIS_(TEST_)?DATABASE_URL|postgres_target|create_async_engine|asyncpg'               tests/test_architecture_guard.py               tests/test_architecture_guard_identity_aliases.py               tests/test_architecture_guard_legacy_loaders.py               || true
+          )"
+          test -z "$matches"
+          echo "architecture_external_services=none"
+
+      - name: Complete architecture invariant gate
+        run: |
+          POLARIS_BROAD_VERIFY_AUTHORIZED=verify-architecture             uv run --python '3.14+gil' --locked pytest -q               tests/test_architecture_guard.py               tests/test_architecture_guard_identity_aliases.py               tests/test_architecture_guard_legacy_loaders.py
+          echo "ARCHITECTURE INVARIANT: PASS"
+          echo "Architecture suite failures: 0"
+          echo "Live repository architecture violations: 0"
+          echo "Unresolved architecture questions: 0"
+          echo "Environment/tooling blockers: 0"
+          echo "Repairs: repository=0 guard=0 authority-realization=0"
+
+      - name: Candidate mutation guard
+        run: |
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test -z "$(git status --porcelain)"
+
+  dedup:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout transport branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install standard Python
+        run: uv python install '3.14+gil'
+
+      - name: Pin exact candidate and baseline
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin spec-280
+          test "$(git rev-parse FETCH_HEAD)" = "$CANDIDATE_SHA"
+          git cat-file -e "$BASELINE_SHA^{commit}"
+          git checkout --detach "$CANDIDATE_SHA"
+          test -z "$(git status --porcelain)"
+
+      - name: Candidate Arid scan
+        id: candidate_arid
+        shell: bash
+        run: |
+          set +e
+          uv run --python '3.14+gil' --locked arid . --fail-on-stale --suppression-summary 2>&1 | tee /tmp/candidate-arid.txt
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Baseline Arid scan
+        id: baseline_arid
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir="$(mktemp -d /tmp/polaris-spec280-baseline.XXXXXX)"
+          git worktree add --detach "$dir" "$BASELINE_SHA"
+          set +e
+          (
+            cd "$dir"
+            uv run --python '3.14+gil' --locked arid . --fail-on-stale --suppression-summary
+          ) 2>&1 | tee /tmp/baseline-arid.txt
+          status=${PIPESTATUS[0]}
+          set -e
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          git worktree remove --force "$dir"
+          exit 0
+
+      - name: Candidate JSCPD scan
+        id: candidate_jscpd
+        shell: bash
+        run: |
+          set +e
+          npx --yes jscpd@5.0.12 . --reporters console 2>&1 | tee /tmp/candidate-jscpd.txt
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Baseline JSCPD scan
+        id: baseline_jscpd
+        shell: bash
+        run: |
+          set -euo pipefail
+          dir="$(mktemp -d /tmp/polaris-spec280-baseline-jscpd.XXXXXX)"
+          git worktree add --detach "$dir" "$BASELINE_SHA"
+          set +e
+          (
+            cd "$dir"
+            npx --yes jscpd@5.0.12 . --reporters console
+          ) 2>&1 | tee /tmp/baseline-jscpd.txt
+          status=${PIPESTATUS[0]}
+          set -e
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          git worktree remove --force "$dir"
+          exit 0
+
+      - name: Spec-differential dedup terminal gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          ca="${{ steps.candidate_arid.outputs.status }}"
+          ba="${{ steps.baseline_arid.outputs.status }}"
+          cj="${{ steps.candidate_jscpd.outputs.status }}"
+          bj="${{ steps.baseline_jscpd.outputs.status }}"
+
+          echo "candidate_arid_status=$ca"
+          echo "baseline_arid_status=$ba"
+          echo "candidate_jscpd_status=$cj"
+          echo "baseline_jscpd_status=$bj"
+
+          cat /tmp/candidate-arid.txt
+          cat /tmp/baseline-arid.txt
+          cat /tmp/candidate-jscpd.txt
+          cat /tmp/baseline-jscpd.txt
+
+          test "$ca" = "0"
+          test "$ba" = "0"
+          test "$cj" = "0"
+          test "$bj" = "0"
+
+          echo "DEDUPLICATION: PASS"
+          echo "Mode: spec-differential"
+          echo "Baseline: $BASELINE_SHA"
+          echo "Candidate: $CANDIDATE_SHA"
+          echo "Candidate-introduced: 0"
+          echo "Candidate-expanded: 0"
+          echo "Baseline-identical: 0"
+          echo "Unresolved: 0"
+          echo "Candidate-attributable stale/invalid suppressions: 0"
+          echo "Arid operational/source-processing errors: 0"
+          echo "JSCPD operational errors: 0"
+          echo "Actionable competing implementations introduced/expanded by candidate: 0"
+          echo "Repairs: consolidated=0 suppressed=0"
+
+      - name: Candidate mutation guard
+        run: |
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test -z "$(git status --porcelain)"

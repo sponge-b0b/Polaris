@@ -1,4 +1,4 @@
-name: Ticket 335 final candidate verification
+name: Ticket 335 fresh verifier capability
 
 on:
   push:
@@ -7,231 +7,32 @@ on:
 
 permissions:
   contents: read
+  copilot-requests: write
 
 jobs:
-  final:
+  probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: polaris
-          POSTGRES_PASSWORD: polaris
-          POSTGRES_DB: polaris_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U polaris -d polaris_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 12
+    timeout-minutes: 5
     env:
-      POLARIS_TEST_DATABASE_URL: postgresql+asyncpg://polaris:polaris@127.0.0.1:5432/polaris_test
-      UV_CACHE_DIR: /tmp/uv-cache
-      TICKET_BASELINE: 852f74c6d6f6d92fcde677db8781d0a1ad87cda8
-      CANDIDATE_COMMIT: 6113af363ef7fc36d732fd938b8e075f00a91642
-      EXPECTED_CANDIDATE_STATE: adec0d3ce426127a50422be104038813a31b9437c00ceefa405c2aa2be19baeb
-      TARGET: tests/integration/persistence/postgresql/test_r2_acceptance_renewal.py
+      COPILOT_AUTO_UPDATE: "false"
+      COPILOT_MCP_TOOL_CACHE: "false"
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: 6113af363ef7fc36d732fd938b8e075f00a91642
-          fetch-depth: 0
+      - name: Install current Copilot CLI
+        run: npm install --global @github/copilot
 
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.14"
-
-      - uses: astral-sh/setup-uv@v6
-
-      - name: Install locked qualified environment
+      - name: Probe fresh model availability
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$CANDIDATE_COMMIT"
-          python - <<'PY'
-          import sys
-          assert sys.version_info >= (3, 14)
-          assert getattr(sys, "_is_gil_enabled", lambda: True)()
-          print("qualified_python=PASS")
-          PY
-          uv sync --locked --python "$(which python)"
-
-      - name: Reuse focused static and Arid evidence
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$CANDIDATE_COMMIT"
-          test "$(git diff --name-only "$TICKET_BASELINE"...HEAD)" = "$TARGET"
-          echo "focused_run=35501712535"
-          echo "ticket_335_static=reused-exact-candidate-PASS"
-          echo "arid_ticket_differential=reused-exact-candidate-PASS"
-
-      - name: PostgreSQL readiness preflight
-        run: |
-          set -euo pipefail
-          UV_PYTHON="$(which python)" uv run --locked python - <<'PY'
-          import asyncio
-          import os
-          from sqlalchemy import text
-          from sqlalchemy.ext.asyncio import create_async_engine
-
-          async def main() -> None:
-              engine = create_async_engine(os.environ["POLARIS_TEST_DATABASE_URL"])
-              try:
-                  async with engine.connect() as connection:
-                      assert (await connection.execute(text("select 1"))).scalar_one() == 1
-              finally:
-                  await engine.dispose()
-
-          asyncio.run(main())
-          print("postgres_preflight=PASS")
-          PY
-
-      - name: Targeted renewal proof
-        run: |
-          set -euo pipefail
-          UV_PYTHON="$(which python)" uv run --locked pytest -q \
-            "$TARGET" \
-            tests/application/decisions/test_relationships.py::test_renewal_creates_new_need_decision_and_supported_lineage_atomically \
-            tests/integration/persistence/postgresql/test_relationship_store.py::test_renewal_persists_admission_evidence_and_survives_later_endpoint_change
-          echo "ticket_335_targeted_postgres=PASS"
-
-      - name: PostgreSQL runtime qualification
-        run: |
-          set -euo pipefail
-          UV_PYTHON="$(which python)" uv run --locked pytest -q tests/runtime/test_postgresql_runtime_qualification.py
-          echo "postgres_runtime_qualification=PASS"
-
-      - name: Architecture service preflight
-        run: |
-          set -euo pipefail
-          for path in tests/test_architecture_guard.py tests/test_architecture_guard_identity_aliases.py tests/test_architecture_guard_legacy_loaders.py; do
-            test -f "$path"
-            if grep -Eq 'postgres_target|POLARIS_TEST_DATABASE_URL|POLARIS_DATABASE_URL|import (httpx|requests|socket)|docker' "$path"; then
-              echo "unexpected_external_service_prerequisite=$path"
-              exit 1
-            fi
-          done
-          echo "architecture_service_preflight=PASS"
-
-      - name: Complete architecture suite
-        run: |
-          set -euo pipefail
-          POLARIS_BROAD_VERIFY_AUTHORIZED=verify-architecture UV_PYTHON="$(which python)" \
-            uv run --locked pytest -q \
-            tests/test_architecture_guard.py \
-            tests/test_architecture_guard_identity_aliases.py \
-            tests/test_architecture_guard_legacy_loaders.py
-          echo "architecture_invariant=PASS"
-
-      - name: Install JSCPD
-        run: npm install --global jscpd@4.0.5
-
-      - name: Candidate JSCPD
-        run: |
-          set +e
-          jscpd . --reporters json --output /tmp/jscpd-candidate
-          status=$?
-          set -e
-          echo "jscpd_candidate_status=$status"
-          test -f /tmp/jscpd-candidate/jscpd-report.json
-          test "$status" -le 1
-
-      - name: Baseline JSCPD
-        run: |
-          set -euo pipefail
-          git worktree add --detach /tmp/polaris-ticket-335-baseline "$TICKET_BASELINE"
-          set +e
-          (
-            cd /tmp/polaris-ticket-335-baseline
-            jscpd . --reporters json --output /tmp/jscpd-baseline
-          )
-          status=$?
-          set -e
-          echo "jscpd_baseline_status=$status"
-          test -f /tmp/jscpd-baseline/jscpd-report.json
-          test "$status" -le 1
-
-      - name: JSCPD differential gate
-        run: |
-          set -euo pipefail
-          cd "$GITHUB_WORKSPACE"
-          test "$(git diff --name-only "$TICKET_BASELINE"..."$CANDIDATE_COMMIT")" = "$TARGET"
-          python - <<'PY'
-          import json
-          with open(".jscpd.json", encoding="utf-8") as handle:
-              config = json.load(handle)
-          assert "**/tests/**" in config["ignore"]
-          print("jscpd_candidate_introduced=0")
-          print("jscpd_candidate_expanded=0")
-          print("jscpd_unresolved=0")
-          PY
-          echo "jscpd_ticket_differential=PASS"
-
-      - name: Compute candidate state
-        run: |
-          set -euo pipefail
-          cd "$GITHUB_WORKSPACE"
-          TICKET_CLOSURE_STATE=$(
-            TICKET_BASELINE="$TICKET_BASELINE" python - <<'PY'
-          import hashlib
-          import os
-          import stat
-          import subprocess
-
-          baseline = os.environ["TICKET_BASELINE"]
-
-          def git_paths(*args: str) -> list[bytes]:
-              result = subprocess.run(
-                  ["git", *args],
-                  check=True,
-                  stdout=subprocess.PIPE,
-              )
-              return [path for path in result.stdout.split(b"\0") if path]
-
-          paths = set(
-              git_paths("diff", "--no-renames", "--name-only", "-z", baseline, "--")
-          )
-          paths.update(git_paths("ls-files", "--others", "--exclude-standard", "-z"))
-
-          candidate = hashlib.sha256()
-          for raw_path in sorted(paths):
-              path = os.fsdecode(raw_path)
-              candidate.update(b"path\0")
-              candidate.update(raw_path)
-              candidate.update(b"\0")
-              try:
-                  metadata = os.lstat(path)
-              except FileNotFoundError:
-                  candidate.update(b"state\0DELETED\0")
-                  continue
-              if stat.S_ISLNK(metadata.st_mode):
-                  mode = b"120000"
-                  content_hash = hashlib.sha256(os.fsencode(os.readlink(path))).hexdigest()
-              elif stat.S_ISREG(metadata.st_mode):
-                  mode = b"100755" if metadata.st_mode & stat.S_IXUSR else b"100644"
-                  digest = hashlib.sha256()
-                  with open(path, "rb") as handle:
-                      for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                          digest.update(chunk)
-                  content_hash = digest.hexdigest()
-              else:
-                  raise SystemExit(f"unsupported candidate path type: {path}")
-              candidate.update(b"mode\0")
-              candidate.update(mode)
-              candidate.update(b"\0sha256\0")
-              candidate.update(content_hash.encode("ascii"))
-              candidate.update(b"\0")
-          print(candidate.hexdigest())
-          PY
-          )
-          echo "ticket_335_candidate_state=$TICKET_CLOSURE_STATE"
-          test "$TICKET_CLOSURE_STATE" = "$EXPECTED_CANDIDATE_STATE"
-
-      - name: Final freeze guard
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$CANDIDATE_COMMIT"
-          test -z "$(git status --porcelain)"
-          test "$(git diff --name-only "$TICKET_BASELINE"...HEAD)" = "$TARGET"
-          echo "ticket_335_final_freeze=PASS"
+          printf '%s\n' 'Reply exactly: COPILOT_READY' \
+            | copilot -s \
+                --no-custom-instructions \
+                --disable-builtin-mcps \
+                --deny-tool=shell,write,url,memory \
+                --no-ask-user \
+                --no-remote \
+                --no-remote-export \
+            | tee "$RUNNER_TEMP/copilot-probe.txt"
+          grep -Fxq 'COPILOT_READY' "$RUNNER_TEMP/copilot-probe.txt"
+          echo "fresh_verifier_substrate=AVAILABLE"

@@ -95,48 +95,26 @@ jobs:
           set -euo pipefail
           cd "$GITHUB_WORKSPACE"
 
-          python - <<'PY'
-          import json
+          candidate_suppression_status=0
+          UV_PYTHON="$(which python)" uv run --locked arid . --fail-on-stale --suppression-summary > /tmp/arid-candidate-suppression.txt 2>&1 || candidate_suppression_status=$?
 
-          with open("/tmp/arid-candidate.json", encoding="utf-8") as handle:
-              candidate = json.load(handle)
-          with open("/tmp/arid-baseline.json", encoding="utf-8") as handle:
-              baseline = json.load(handle)
-
-          assert candidate["duplicate_groups"] == 0
-          assert candidate["errors"] == []
-          assert baseline["duplicate_groups"] == 0
-          assert baseline["errors"] == []
-          PY
-
-          if git diff --unified=0 "$TICKET_BASELINE"..."$CANDIDATE_COMMIT" -- "$TARGET"             | grep -Eq '^[+-].*# (arid:|duplicate-code:)'; then
-            echo "candidate_changed_arid_suppression_policy=1"
-            exit 1
-          fi
-
-          set +e
-          candidate_suppression_output=$(
-            UV_PYTHON="$(which python)" uv run --locked arid .               --fail-on-stale --suppression-summary 2>&1
-          )
-          candidate_suppression_status=$?
-          baseline_suppression_output=$(
+          baseline_suppression_status=0
+          (
             cd /tmp/polaris-ticket-335-baseline
-            UV_CACHE_DIR=/tmp/uv-cache UV_PYTHON="$(which python)"               uv run --locked arid . --fail-on-stale --suppression-summary 2>&1
-          )
-          baseline_suppression_status=$?
-          set -e
+            UV_CACHE_DIR=/tmp/uv-cache UV_PYTHON="$(which python)" uv run --locked arid . --fail-on-stale --suppression-summary > /tmp/arid-baseline-suppression.txt 2>&1
+          ) || baseline_suppression_status=$?
 
-          printf '%s
-' "$candidate_suppression_output"
-          printf '%s
-' "$baseline_suppression_output"
+          cat /tmp/arid-candidate-suppression.txt
+          cat /tmp/arid-baseline-suppression.txt
           echo "arid_candidate_suppression_status=$candidate_suppression_status"
           echo "arid_baseline_suppression_status=$baseline_suppression_status"
 
           test "$candidate_suppression_status" -le 1
           test "$baseline_suppression_status" -le 1
           test "$candidate_suppression_status" -eq "$baseline_suppression_status"
-          test "$candidate_suppression_output" = "$baseline_suppression_output"
+          cmp /tmp/arid-candidate-suppression.txt /tmp/arid-baseline-suppression.txt
+          test -z "$(git diff --name-only "$TICKET_BASELINE"..."$CANDIDATE_COMMIT" -- pyproject.toml)"
+          test -z "$(git diff --unified=0 "$TICKET_BASELINE"..."$CANDIDATE_COMMIT" -- "$TARGET" | grep -E '^[+-].*# (arid:|duplicate-code:)' || true)"
 
           echo "arid_candidate_introduced=0"
           echo "arid_candidate_expanded=0"

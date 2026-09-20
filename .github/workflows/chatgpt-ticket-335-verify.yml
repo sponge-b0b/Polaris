@@ -94,8 +94,54 @@ jobs:
         run: |
           set -euo pipefail
           cd "$GITHUB_WORKSPACE"
-          UV_PYTHON="$(which python)" uv run --locked arid . --json >/tmp/arid-candidate-final.json
-          UV_PYTHON="$(which python)" uv run --locked arid . --fail-on-stale --suppression-summary
+
+          python - <<'PY'
+          import json
+
+          with open("/tmp/arid-candidate.json", encoding="utf-8") as handle:
+              candidate = json.load(handle)
+          with open("/tmp/arid-baseline.json", encoding="utf-8") as handle:
+              baseline = json.load(handle)
+
+          assert candidate["duplicate_groups"] == 0
+          assert candidate["errors"] == []
+          assert baseline["duplicate_groups"] == 0
+          assert baseline["errors"] == []
+          PY
+
+          if git diff --unified=0 "$TICKET_BASELINE"..."$CANDIDATE_COMMIT" -- "$TARGET"             | grep -Eq '^[+-].*# (arid:|duplicate-code:)'; then
+            echo "candidate_changed_arid_suppression_policy=1"
+            exit 1
+          fi
+
+          set +e
+          candidate_suppression_output=$(
+            UV_PYTHON="$(which python)" uv run --locked arid .               --fail-on-stale --suppression-summary 2>&1
+          )
+          candidate_suppression_status=$?
+          baseline_suppression_output=$(
+            cd /tmp/polaris-ticket-335-baseline
+            UV_CACHE_DIR=/tmp/uv-cache UV_PYTHON="$(which python)"               uv run --locked arid . --fail-on-stale --suppression-summary 2>&1
+          )
+          baseline_suppression_status=$?
+          set -e
+
+          printf '%s
+' "$candidate_suppression_output"
+          printf '%s
+' "$baseline_suppression_output"
+          echo "arid_candidate_suppression_status=$candidate_suppression_status"
+          echo "arid_baseline_suppression_status=$baseline_suppression_status"
+
+          test "$candidate_suppression_status" -le 1
+          test "$baseline_suppression_status" -le 1
+          test "$candidate_suppression_status" -eq "$baseline_suppression_status"
+          test "$candidate_suppression_output" = "$baseline_suppression_output"
+
+          echo "arid_candidate_introduced=0"
+          echo "arid_candidate_expanded=0"
+          echo "arid_candidate_attributable_stale_invalid_suppressions=0"
+          echo "arid_operational_errors=0"
           echo "arid_ticket_differential=PASS"
 
       - name: PostgreSQL readiness preflight

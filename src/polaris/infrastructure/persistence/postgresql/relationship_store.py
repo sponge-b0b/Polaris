@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from polaris.application.decisions.contracts import (
     DecisionApplicationError,
     DecisionCommandReadUnavailable,
+    RelationshipHistoryInvalidOrIncomplete,
 )
 from polaris.application.decisions.memory import DecisionMemoryCurrentState
 from polaris.application.decisions.ordinary_work import DecisionCommandState
@@ -51,6 +52,7 @@ from polaris.domain.decisions import (
     InvalidDecisionRelationshipHistory,
     InvalidDecisionTransition,
     InvestmentDecision,
+    InvestmentDecisionError,
     InvestmentDecisionId,
     OperationId,
     apply_relationship_command,
@@ -146,19 +148,15 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
         try:
             async with self._engine.connect() as connection:
                 return await _load_relationship_history(connection)
-        # duplicate-code: paths require separate transaction semantics.
+        except (InvestmentDecisionError, ValueError, TypeError) as error:
+            raise RelationshipHistoryInvalidOrIncomplete(str(error)) from error
+        # duplicate-code: relationship-history outage translation and the following
+        # command-state snapshot share only boundary control flow; extracting them
+        # would couple distinct persistence read contracts.
         # arid: disable
-        except (
-            SQLAlchemyError,
-            DecisionApplicationError,
-            ValueError,
-            TypeError,
-        ) as error:
+        except (SQLAlchemyError, DecisionApplicationError) as error:
             raise DecisionCommandReadUnavailable(
-                # arid: enable
                 "Decision relationship history read is unavailable"
-                # duplicate-code: paths require separate transaction semantics.
-                # arid: disable
             ) from error
 
     async def load_decision_for_command(
@@ -212,7 +210,10 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
                 if projection is None:
                     return None
                 # arid: enable
-                all_relationships = await _load_relationship_history(connection)
+                try:
+                    all_relationships = await _load_relationship_history(connection)
+                except (InvestmentDecisionError, ValueError, TypeError) as error:
+                    raise RelationshipHistoryInvalidOrIncomplete(str(error)) from error
                 all_history = await _load_decision_history(connection, decision_id)
                 if not all_history:
                     raise ValueError("Decision projection requires lifecycle history")
@@ -248,6 +249,8 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
                     # duplicate-code: paths require separate transaction semantics.
                     # arid: disable
                 )
+        except RelationshipHistoryInvalidOrIncomplete:
+            raise
         except (
             SQLAlchemyError,
             DecisionApplicationError,

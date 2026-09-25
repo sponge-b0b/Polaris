@@ -13,12 +13,16 @@ from alembic.config import Config
 from sqlalchemy import Table, func, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
+from polaris.domain.decisions import DecisionRelationshipFactId, InvestmentDecisionId
 from polaris.infrastructure.persistence.postgresql import (
     PostgresDecisionStore,
     create_postgres_engine,
 )
 from polaris.infrastructure.persistence.postgresql.runtime_qualification import (
     require_qualified_postgres_runtime,
+)
+from polaris.infrastructure.persistence.postgresql.schema import (
+    investment_decision_relationships,
 )
 
 
@@ -53,6 +57,40 @@ async def postgres_row_counts(
                 raise AssertionError("PostgreSQL row count query returned no result")
             counts.append(count)
     return tuple(counts)
+
+
+async def corrupt_relationship_lineage_source(
+    engine: AsyncEngine,
+    *,
+    relationship_fact_id: DecisionRelationshipFactId,
+    source_decision_id: InvestmentDecisionId,
+) -> None:
+    """Corrupt one persisted correction lineage for fail-closed read tests."""
+    async with engine.begin() as connection:
+        await connection.execute(
+            text(
+                "ALTER TABLE investment_decision_relationships "
+                "DISABLE TRIGGER "
+                "trg_investment_decision_relationships_immutable"
+            )
+        )
+        try:
+            await connection.execute(
+                investment_decision_relationships.update()
+                .where(
+                    investment_decision_relationships.c.relationship_fact_id
+                    == relationship_fact_id.value
+                )
+                .values(source_decision_id=source_decision_id.value)
+            )
+        finally:
+            await connection.execute(
+                text(
+                    "ALTER TABLE investment_decision_relationships "
+                    "ENABLE TRIGGER "
+                    "trg_investment_decision_relationships_immutable"
+                )
+            )
 
 
 async def _execute_schema_ddl(database_url: str, statement: str) -> None:

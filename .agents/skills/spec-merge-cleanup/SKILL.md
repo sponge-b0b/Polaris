@@ -89,9 +89,14 @@ FINDING_LEDGER_MATCHES=$(
   echo "❌ Exactly one Review Finding Continuity Ledger is required."
   exit 1
 }
-FINDING_LEDGER_BODY=$(printf '%s\n' "$FINDING_LEDGER_MATCHES" | jq -r '.[0].body')
-CURRENT_FINDING_LEDGER_HASH=$(printf '%s' "$FINDING_LEDGER_BODY" | sha256sum | awk '{print $1}')
+FINDING_LEDGER_FILE=$(mktemp)
+printf '%s\n' "$FINDING_LEDGER_MATCHES" \
+  | jq -j '.[0].body' \
+  > "$FINDING_LEDGER_FILE"
+CURRENT_FINDING_LEDGER_HASH=$(sha256sum "$FINDING_LEDGER_FILE" | awk '{print $1}')
 ```
+
+Do not route the managed ledger body through shell command substitution before hashing it. Command substitution strips trailing newline bytes, while `$review-spec` hashes the exact rendered ledger body. Persist the extracted body directly to a file with `jq -j` and hash that file so producer and consumer use identical bytes.
 
 The newest **Spec Review-owned** Exit Receipt is the only review-authorization candidate. Ignore historical/copied Exit Receipts on the parent Spec; they are not merge authority.
 

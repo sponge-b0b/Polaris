@@ -363,11 +363,29 @@ Normalize source-unit text only for hashing by normalizing line endings and remo
 
 Classifications mean:
 
-* **normative-new** — the unit establishes one or more contract obligations and must map to newly created manifest cell(s);
-* **normative-represented** — the unit contains normative meaning already fully represented by identified manifest cell(s); it must name those cells and explain the equivalence/reference rather than silently disappearing;
-* **non-normative** — the unit is contextual, explanatory, descriptive, illustrative, historical, or otherwise does not establish a Spec acceptance/exclusion obligation; it requires a concise reason.
+* **normative-new** — the unit establishes one or more completed-Spec implementation, acceptance, testing, architecture-conformance, or exclusion obligations and must map to newly created manifest cell(s);
+* **normative-represented** — the unit contains completed-Spec contract meaning already fully represented by identified manifest cell(s); it must name those cells and explain the equivalence/reference rather than silently disappearing;
+* **non-normative** — the unit is contextual, explanatory, descriptive, illustrative, historical, lifecycle/process/readiness-only, or otherwise does not establish a completed-Spec acceptance/exclusion obligation; it requires a concise reason.
 
-A unit containing several materially independent obligations may map to several manifest cells. A unit containing both normative and explanatory text is normative; do not classify the whole unit non-normative merely because part of it is context.
+#### Contract semantic-ownership boundary
+
+The Spec Contract owns what the **completed Spec must implement, preserve, reject, or prove**. It does not own workflow prerequisites that determine whether work may begin or which lifecycle transition is allowed.
+
+Therefore, inventory but classify as `non-normative` for Spec Contract purposes any source unit whose semantic effect is limited to lifecycle/readiness/process control, including:
+
+* a prerequisite Spec/ticket/review that must be closed or certified before implementation starts;
+* `ready-for-agent`, implementation-readiness, or handoff admission conditions;
+* branch, baseline, workspace, or candidate-establishment requirements;
+* required owner approval or workflow ordering;
+* historical statements that an earlier lifecycle gate had to pass.
+
+Use a reason such as `lifecycle/readiness prerequisite; not a completed-Spec acceptance obligation`. Mandatory wording (`must`, `must not`, `only`, `cannot`) is not enough to create a `NORM-*` cell across this boundary.
+
+If one source unit mixes lifecycle/process language with genuine completed-Spec acceptance semantics, keep the single source unit and map only the acceptance semantics. Do not create a manifest cell for the lifecycle portion.
+
+A fresh builder must make this ownership distinction from the current Spec text itself. If the distinction is genuinely ambiguous, return `SPEC CONTRACT: INVALID` with a contract-classification ambiguity rather than promoting the lifecycle clause to implementation work or guessing to reproduce a prior hash.
+
+A unit containing several materially independent completed-Spec obligations may map to several manifest cells. A unit containing both completed-Spec normative and explanatory text is normative; do not classify the whole unit non-normative merely because part of it is context.
 
 A unit cannot be omitted because it appears duplicative, obvious, inherited from a template, already discussed elsewhere, or unlikely to affect implementation. Those are dispositions, not absence from the inventory.
 
@@ -391,7 +409,7 @@ Use stable source-derived IDs:
 * Implementation Decision bullets → `ID-<number>`;
 * Testing Decision bullets → `TD-<number>`;
 * Out of Scope bullets → `OOS-<number>`;
-* materially unique normative requirements elsewhere → `NORM-<number>`.
+* materially unique completed-Spec implementation/acceptance/exclusion requirements elsewhere → `NORM-<number>`.
 
 If one source item contains materially independent obligations that must be proven separately, use stable suffixes such as `US-22.a`, `US-22.b`. The parent source item remains mapped and counts once in source-item integrity.
 
@@ -414,7 +432,7 @@ Enumerate and count independently:
 * Implementation Decision bullets;
 * Testing Decision bullets;
 * Out of Scope bullets;
-* other materially unique normative source units classified from the complete Source Unit Inventory.
+* other materially unique completed-Spec contract source units classified from the complete Source Unit Inventory; lifecycle/readiness/process-only units remain inventoried but do not create contract cells.
 
 Every normative source unit must map to at least one manifest cell, either as `normative-new` or `normative-represented`.
 

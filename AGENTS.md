@@ -231,6 +231,54 @@ When uncertain whether a mutation can affect a proof, rerun the smallest check t
 
 A helper that already produced a passing result for the exact still-current candidate must return that evidence to its parent. The parent records/reuses it rather than rerunning the same command merely to satisfy duplicate phase wording.
 
+### Spec Contract Semantic Ownership
+
+The Spec Contract is the completed Spec's **implementation / acceptance / exclusion contract**, not a generic collection of every sentence that is normative in some other lifecycle sense.
+
+This section is a repository-wide workflow supersession rule for `$spec-contract`, `$to-tickets`, `$verify-spec`, and `$review-spec`.
+
+Every content-bearing Spec source unit still belongs to the complete Source Unit Inventory. Classification into the Spec Contract follows semantic ownership:
+
+* product/domain/application/persistence/public/architecture behavior the completed Spec must implement or prove → contract-semantic and therefore `normative-new` or `normative-represented`;
+* explicit acceptance/testing/exclusion requirements governing what completed work must or must not demonstrate → contract-semantic;
+* lifecycle/readiness/process prerequisites governing **when work may begin or which transition may occur**—for example blocker closure, `ready-for-agent` admission, branch/baseline establishment, required prior certification/review, owner approval, or workflow ordering—remain inventoried but are **not completed-Spec acceptance obligations** and must be classified `non-normative` for Spec Contract purposes with a lifecycle/process reason;
+* explanatory, historical, descriptive, or provenance-only material remains `non-normative`.
+
+Mandatory language such as `must`, `must not`, `only`, or `cannot` does not override this ownership boundary. A lifecycle gate does not become a `NORM-*` implementation cell merely because it is mandatory.
+
+When one source unit mixes lifecycle/process language with a genuine completed-Spec acceptance obligation, preserve the source unit once and map only the acceptance semantics into the contract. Do not manufacture a ticketable implementation obligation for the lifecycle portion.
+
+A fresh build over an unchanged Spec must therefore classify semantically identical lifecycle/readiness material the same way on every run. Disagreement over whether a source unit is lifecycle/process versus completed-Spec acceptance is a contract-classification defect; fail closed and repair the governing workflow rule rather than creating decomposition work from the disputed classification.
+
+### Non-Semantic Workflow-Policy Synchronization
+
+A verified/reviewed **semantic candidate anchor** may remain valid when its branch later receives a non-semantic workflow-policy synchronization from the default branch.
+
+This section is a repository-wide workflow supersession rule for `$verify-spec`, `$review-spec`, and `$spec-merge-cleanup`.
+
+A branch-tip advance is a reusable **policy-only synchronization** only when all of the following are established fail-closed:
+
+1. the verified/reviewed semantic candidate anchor is an ancestor of the current Spec branch tip;
+2. every path changed from that anchor to the current tip is a workflow/process authority surface under `.agents/skills/`, `docs/process/`, or root `AGENTS.md`;
+3. every such current branch blob is byte-identical to the corresponding blob on the current default branch;
+4. no product source, tests, migrations, dependency/configuration state, current/proposed architecture/product authority, ADR, wiki knowledge, Spec body, Workspace Metadata baseline, Ticket Coverage Manifest semantics, implementation-ticket state, review finding semantics, or other candidate-semantic surface changed in the anchor→tip delta;
+5. the policy delta changes workflow transport, evidence binding, routing, recovery, or lifecycle mechanics only; if it changes what product behavior/architecture/standards/acceptance the Spec must satisfy, this exception does not apply;
+6. all mutable external authorities that the prior verification/review explicitly depended on still satisfy their existing revalidation rules.
+
+When synchronized policy changes `$spec-contract` or another rule that can change contract construction/semantic certification, validate the persisted contract under the current policy and require the same Spec Body Hash and Spec Contract Hash before reusing prior semantic certification. This is contract-identity validation, not a new product verification campaign.
+
+When these conditions pass:
+
+* the receipt's `Verified HEAD` / `Reviewed HEAD` remains the **semantic candidate anchor**;
+* the current branch tip becomes the **authorized delivery tip**;
+* candidate-bound product tests and semantic certification are not rerun solely because of the policy sync;
+* downstream workflow may consume the existing receipt while mechanically binding the exact anchor→delivery-tip policy delta;
+* merge/cleanup merges the authorized delivery tip, not the older semantic anchor.
+
+If any condition is ambiguous, if a changed workflow rule alters substantive acceptance meaning, or if any non-policy surface changed, ordinary exact-candidate invalidation applies.
+
+This exception never permits unreviewed product work to hide behind a policy merge and never authorizes force deletion or silent discard of branch-tip commits.
+
 ### `$implement-ticket` Parent / Independent Verifier Boundary
 
 `$implement-ticket` implements and technically validates the candidate; `$verify-ticket-closure` independently owns semantic closure certification. The parent must not perform a second semantic-certification workflow before dispatching the independent verifier.

@@ -526,6 +526,26 @@ A proposed new finding against a `reused` proof group whose boundary is determin
 
 On a first review, or when no valid reusable ledger exists, execute the normal complete primaries below and establish reusable clean proof if remediation remains. Any applicable Certified Closure Domain still remains in force during that full review.
 
+## Verified Semantic Anchor and Policy-Only Synchronization
+
+A passing Spec Verification Receipt normally binds review to its exact `Verified HEAD`. The repository-wide **Non-Semantic Workflow-Policy Synchronization** rule in `AGENTS.md` permits one bounded exception.
+
+When current `spec-<n>` HEAD is newer than the verification receipt:
+
+1. treat receipt `Verified HEAD` as `SEMANTIC_ANCHOR`;
+2. treat current branch HEAD as `DELIVERY_TIP`;
+3. prove the complete anchor→tip delta satisfies every policy-only synchronization predicate from `AGENTS.md`;
+4. when the delta changes `$spec-contract` or another contract/certification-construction rule, require current contract validation to reproduce the receipt's Spec Body Hash and Spec Contract Hash;
+5. invoke deterministic review checkpoint utilities against `SEMANTIC_ANCHOR`, while separately retaining `DELIVERY_TIP` and the proven policy-sync delta in working review context.
+
+Do not manufacture a new verification receipt merely to make its HEAD equal the policy-synchronized delivery tip.
+
+If the semantic anchor already has a passing Spec Review Exit Receipt and the only later branch change is a proven non-semantic policy sync, the existing review remains semantically valid provided its managed Finding Continuity Ledger is unchanged and all mutable review authorities still satisfy their existing revalidation requirements. Do not repeat Standards/Spec/Architecture review solely to move `Reviewed HEAD` to `DELIVERY_TIP`.
+
+The Review Exit Receipt continues to record the semantic `Reviewed HEAD`; merge/cleanup separately proves and consumes the authorized delivery tip.
+
+Any ambiguity, substantive review-policy change, product/architecture/standards acceptance change, or non-policy branch delta falls back to ordinary exact-HEAD review invalidation.
+
 ## Procedure
 
 Review the **exact verified state** of a completed Spec along the applicable independent axes:

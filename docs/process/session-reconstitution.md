@@ -21,6 +21,22 @@ Codex agents do not need to consider or maintain the ChatGPT Session Ledger unle
 
 During a ChatGPT working session, the ChatGPT agent that reconstitutes the session owns subsequent ledger synchronization for the remainder of that active session.
 
+### Canonical Workflow Boundary Review Test
+
+Before proposing or making any change to a repository workflow skill from evidence observed in a ChatGPT-hosted session, apply this test:
+
+> **Would this rule still make sense if Polaris were being operated entirely through Codex, with no ChatGPT session, Session Ledger, reconstitution document, connector limitations, or Chat-specific execution transport?**
+
+Interpret the result fail-closed:
+
+* **Yes** — the concern may be a canonical workflow issue. Continue normal authority/ownership analysis before changing any skill.
+* **No** — the concern is ChatGPT adaptation or execution-substrate policy and does **not** belong in a canonical workflow skill. Keep the adaptation in this document, the Session Ledger, or another explicitly ChatGPT-scoped mechanism.
+* **Unclear** — presume the concern is ChatGPT-specific until direct Codex-native evidence shows that the same defect exists independently of the ChatGPT environment.
+
+Do not make a repository workflow skill reference, invoke, compose, or depend on this reconstitution document, the ChatGPT Session Ledger, ChatGPT connector limitations, or ChatGPT-specific transport/fallback mechanics. Adapt ChatGPT to the canonical workflow; do not adapt the canonical workflow to ChatGPT.
+
+For current planning, **candidate-verification transport churn observed during ChatGPT-hosted ticket execution is presumed not to be a canonical Codex workflow defect**. Do not change a workflow skill or add permanent canonical transport machinery on that basis alone. Reopen that classification only if direct Codex-native evidence demonstrates the same defect independently of ChatGPT execution constraints.
+
 ### Progress Communication Contract
 
 For any ChatGPT-hosted Polaris task that is still actively running after roughly two minutes, provide the repository owner a substantive progress update **at least once every two minutes** until the task reaches a terminal result or a genuine workflow-required blocker. More frequent updates are preferred whenever meaningful progress, a material finding, a failed gate, a repair, or a stage transition occurs.

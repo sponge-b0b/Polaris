@@ -201,6 +201,7 @@ The parent supplies:
 * current `HEAD`;
 * mode: `build` or `validate`;
 * in `validate` mode, the persisted manifest/counts/hash from the current passing **Spec Verification Receipt**;
+* optionally in `validate` mode only, `semantic-anchor=<receipt Verified HEAD>` when the caller has already proven the current `HEAD` is a non-semantic workflow-policy synchronization descendant under root `AGENTS.md`;
 * optionally in `build` mode, a caller-owned temporary `handoff-output` path for the finalizer-facing contract handoff.
 
 The helper resolves the repository default branch and immutable default-branch head from GitHub, not from a possibly stale remote-tracking ref. If that exact commit object is absent locally, it may fetch the default branch over the repository's canonical HTTPS URL into `FETCH_HEAD` only. It must not depend on the configured `origin` transport, switch branches, change the index/worktree, edit tracked files, commit, push, or mutate tracker state.
@@ -525,8 +526,9 @@ In `validate` mode:
 6. require current source-unit mappings to resolve only to cells present in the persisted manifest;
 7. canonicalize the current Source Unit Inventory plus persisted manifest rows and recompute `SPEC_CONTRACT_HASH`;
 8. require that hash to equal the passing verification receipt;
-9. require the receipt's baseline/branch/Verified HEAD to match the current invocation;
-10. recompute Spec Change Ownership fresh against the immutable current default-branch head resolved in Section 1.
+9. require the receipt's baseline and branch to match the current invocation; require its `Verified HEAD` to equal current `HEAD` normally, or to equal the supplied `semantic-anchor` only when the caller has already proven current `HEAD` is a non-semantic workflow-policy synchronization descendant under root `AGENTS.md`;
+10. in that policy-sync case, treat the receipt HEAD as contract/semantic anchor and current `HEAD` as delivery tip; the HEAD difference alone does not make the contract stale;
+11. recompute Spec Change Ownership fresh against the immutable current default-branch head resolved in Section 1.
 
 Do not silently rebuild a different manifest when validation fails. Do not make a new source-unit classification merely to force the old contract hash to match.
 
@@ -538,6 +540,8 @@ Reason: <body/source-universe/classification/hash/count/baseline/branch/HEAD mis
 ```
 
 and let the parent require fresh `$verify-spec`.
+
+A policy-only synchronization does not rewrite contract identity merely because the branch tip changed. In that case validation still fails closed on any Spec-body, source classification, source-to-cell mapping, manifest, baseline, branch, or contract-hash difference.
 
 A default-branch advance that changes only ownership classification does not rewrite the source inventory or manifest. Return the fresh ownership classification to the caller.
 

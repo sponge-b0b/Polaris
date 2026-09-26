@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from polaris.application.decisions import (
@@ -22,6 +22,7 @@ from polaris.application.decisions import (
     IdempotencyConflict,
     InitiateDecisionCommand,
     PersistenceUnavailable,
+    RelationshipHistoryInvalidOrIncomplete,
     ReviseDecisionSubjectCommand,
 )
 from polaris.application.decisions.lifecycle_correction import (
@@ -80,7 +81,12 @@ from polaris.infrastructure.persistence.postgresql.schema import (
     investment_decisions,
 )
 
-from .conftest import PostgresTestTarget, postgres_engine_store, postgres_row_counts
+from .conftest import (
+    PostgresTestTarget,
+    corrupt_relationship_lineage_source,
+    postgres_engine_store,
+    postgres_row_counts,
+)
 
 BASE = datetime(2026, 9, 17, 12, 0, tzinfo=UTC)
 
@@ -1323,31 +1329,13 @@ def test_malformed_persisted_correction_lineage_fails_closed(
                 )
             )
 
-            async with engine.begin() as connection:
-                await connection.execute(
-                    text(
-                        "ALTER TABLE investment_decision_relationships "
-                        "DISABLE TRIGGER "
-                        "trg_investment_decision_relationships_immutable"
-                    )
-                )
-                await connection.execute(
-                    investment_decision_relationships.update()
-                    .where(
-                        investment_decision_relationships.c.relationship_fact_id
-                        == correction_fact
-                    )
-                    .values(source_decision_id=unrelated.value)
-                )
-                await connection.execute(
-                    text(
-                        "ALTER TABLE investment_decision_relationships "
-                        "ENABLE TRIGGER "
-                        "trg_investment_decision_relationships_immutable"
-                    )
-                )
+            await corrupt_relationship_lineage_source(
+                engine,
+                relationship_fact_id=DecisionRelationshipFactId(correction_fact),
+                source_decision_id=unrelated,
+            )
 
-            with pytest.raises(DecisionCommandReadUnavailable):
+            with pytest.raises(RelationshipHistoryInvalidOrIncomplete):
                 await store.load_relationship_history()
 
     asyncio.run(scenario())

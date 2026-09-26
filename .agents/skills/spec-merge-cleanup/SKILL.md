@@ -135,10 +135,10 @@ Require:
 * `Blocking findings`, `Open blocking findings`, `Unaccounted prior findings`, `Unresolved continuity cells`, `Unresolved decomposition defects`, `Candidate new roots`, and `Unchecked coverage cells` are all `0`;
 * `Root blockers` is exactly `satisfied/owner-overridden/scope-retired`;
 * `Review coverage` is `complete`;
-* before merge, when the Spec branch exists, `Branch` matches it and `Reviewed HEAD` exactly equals that branch's current `HEAD`;
-* during post-merge recovery, `Reviewed HEAD` exactly equals the matching merged PR's recorded head SHA.
+* before merge, when the Spec branch exists, `Branch` matches it and either `Reviewed HEAD` exactly equals that branch's current `HEAD` **or** **Semantic Anchor vs. Authorized Delivery Tip** proves the current branch tip is a non-semantic policy-only synchronization descendant;
+* during post-merge recovery, the matching merged PR's recorded head SHA equals the authorized delivery tip and `Reviewed HEAD` is either that same SHA or a proven semantic ancestor through the same policy-only reconciliation.
 
-Any commit after the receipt and before merge makes the authorization stale. Any mutation of the managed Finding Continuity Ledger after the receipt also makes authorization stale through the hash mismatch.
+Any candidate-semantic commit after the receipt and before merge makes the authorization stale. A proven non-semantic policy-only synchronization does not. Any mutation of the managed Finding Continuity Ledger after the receipt still makes authorization stale through the hash mismatch.
 
 A later commit on a still-existing Spec branch **after** the reviewed HEAD was merged does not retroactively invalidate the completed merge, but it makes that branch unsafe to delete automatically. Post-merge cleanup must fail closed on branch-tip drift rather than deleting unmerged work.
 
@@ -154,6 +154,32 @@ If the conventional Spec Review, its managed finding ledger, or its Exit Receipt
 
 Do not invoke `$review-spec` implicitly and do not copy/recreate a receipt on another issue merely to satisfy cleanup.
 
+### Semantic Anchor vs. Authorized Delivery Tip
+
+The Review Exit Receipt's `Reviewed HEAD` is the **semantic candidate anchor**. Normally it also equals the current Spec branch tip. The repository-wide **Non-Semantic Workflow-Policy Synchronization** rule in `AGENTS.md` permits the branch tip to be newer without invalidating review.
+
+Before declaring a HEAD mismatch stale, define:
+
+```text
+REVIEWED_HEAD = Exit Receipt Reviewed HEAD
+AUTHORIZED_DELIVERY_TIP = current spec-<n> HEAD
+```
+
+If they differ, prove every policy-only synchronization predicate from `AGENTS.md`. Require `REVIEWED_HEAD` to be an ancestor of `AUTHORIZED_DELIVERY_TIP`, require the complete changed-path set to be workflow/process-only, and require every changed branch blob to equal current default-branch policy. Reject any product/test/migration/configuration/architecture/Spec/TCM/finding-semantic delta.
+
+When synchronized policy includes contract/certification-construction rules, require current contract validation to reproduce the receipt-bound Spec Body Hash and Spec Contract Hash before merge authority is accepted.
+
+A successful policy-only reconciliation means:
+
+* the Exit Receipt remains bound to `REVIEWED_HEAD`;
+* `AUTHORIZED_DELIVERY_TIP` is the exact branch head that may be pushed/merged;
+* PR matching and post-merge recovery bind to `AUTHORIZED_DELIVERY_TIP`, while also requiring `REVIEWED_HEAD` to be its ancestor;
+* branch deletion compares existing branch tips with `AUTHORIZED_DELIVERY_TIP`, not the older semantic anchor.
+
+Do not rewrite/copy the Exit Receipt merely to replace `Reviewed HEAD` with the delivery tip.
+
+If the reconciliation is ambiguous or any substantive candidate/review semantic changed, the ordinary stale-authorization path applies.
+
 ### Canonical Lifecycle Reads
 
 Use canonical GitHub REST state for phase detection. Do not probe `gh issue view --json closingIssuesReferences` or other optional/unsupported CLI JSON fields, and do not retry the same fact through alternate interfaces after a prescribed read succeeds.
@@ -167,7 +193,7 @@ SPEC_STATE=$(gh api \
   --jq '.state')
 ```
 
-For branch-backed Specs, recover PR candidates from the REST pull-request collection and match by base branch plus exact reviewed head SHA:
+For branch-backed Specs, recover PR candidates from the REST pull-request collection and match by base branch plus exact authorized delivery-tip SHA:
 
 ```bash
 OWNER=${REPO%%/*}
@@ -181,7 +207,7 @@ PR_PAGES=$(
 
 MATCHING_MERGED_PRS=$(
   printf '%s\n' "$PR_PAGES" \
-    | jq -c --arg owner "$OWNER" --arg branch "$SPEC_BRANCH" --arg head "$REVIEWED_HEAD" '
+    | jq -c --arg owner "$OWNER" --arg branch "$SPEC_BRANCH" --arg head "$AUTHORIZED_DELIVERY_TIP" '
         [.[][]
          | select(.head.user.login == $owner)
          | select(.head.ref == $branch)
@@ -209,13 +235,13 @@ Use the normal actionability guard and then select the standard merge or direct-
 A closed Spec may resume the standard branch cleanup path without being reopened and without re-running the pre-merge project-focus guard only when all of the following are proven:
 
 1. the latest **Spec Review Exit Receipt** passes **Review Exit Authorization**;
-2. exactly one merged PR for `spec-<spec_issue_number>` into `main` matches the receipt's `Reviewed HEAD` as its recorded head SHA;
+2. exactly one merged PR for `spec-<spec_issue_number>` into `main` matches the authorized delivery tip as its recorded head SHA, with the receipt's `Reviewed HEAD` equal to that tip or proven to be its semantic ancestor through a valid policy-only synchronization;
 3. the PR is durably `MERGED` and its merge commit is reachable from current `main`;
 4. `Reviewed HEAD` is an ancestor of current `main`;
 5. the Spec is closed;
-6. if the local or remote Spec branch still exists, each existing branch tip still equals `Reviewed HEAD`.
+6. if the local or remote Spec branch still exists, each existing branch tip still equals the authorized delivery tip.
 
-If an existing local or remote branch tip differs from `Reviewed HEAD`, stop before deletion and report branch drift. Never force-delete or silently discard commits added after the reviewed merge.
+If an existing local or remote branch tip differs from the authorized delivery tip, stop before deletion and report branch drift. Never force-delete or silently discard commits added after the reviewed merge.
 
 When these conditions hold, set `PR_NUMBER` from the matching merged PR and resume directly at **Phase B — Cleanup and Finalize**. Do not create another PR, merge again, reopen/reclose the Spec, or require the governing Wayfinder to remain focused. Successful completion may already have released project focus or closed a governing Wayfinder.
 
@@ -535,7 +561,7 @@ This phase must be idempotent. It may run immediately after Phase A or from prov
    if git show-ref --verify --quiet "refs/heads/spec-<spec_issue_number>"; then
      LOCAL_SPEC_HEAD=$(git rev-parse spec-<spec_issue_number>)
 
-     if [ "$LOCAL_SPEC_HEAD" != "$REVIEWED_HEAD" ]; then
+     if [ "$LOCAL_SPEC_HEAD" != "$AUTHORIZED_DELIVERY_TIP" ]; then
        echo "❌ Local spec branch moved after the reviewed merge; refusing to delete it."
        exit 1
      fi
@@ -558,7 +584,7 @@ This phase must be idempotent. It may run immediately after Phase A or from prov
    REMOTE_SPEC_HEAD=$(git ls-remote --heads origin "refs/heads/spec-<spec_issue_number>" | awk '{print $1}')
 
    if [ -n "$REMOTE_SPEC_HEAD" ]; then
-     if [ "$REMOTE_SPEC_HEAD" != "$REVIEWED_HEAD" ]; then
+     if [ "$REMOTE_SPEC_HEAD" != "$AUTHORIZED_DELIVERY_TIP" ]; then
        echo "❌ Remote spec branch moved after the reviewed merge; refusing to delete it."
        exit 1
      fi

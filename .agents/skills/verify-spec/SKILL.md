@@ -78,6 +78,41 @@ Historical hash comparison performed before builder terminal result: no
 Parent-side substitute contract construction: 0
 ```
 
+## Semantic Candidate Anchor and Policy-Only Synchronization
+
+The default rule remains exact-candidate verification. The repository-wide **Non-Semantic Workflow-Policy Synchronization** rule in `AGENTS.md` is the only exception.
+
+Before treating a previously passing receipt as stale solely because current branch `HEAD` differs from its `Verified HEAD`, test that exception first.
+
+Let:
+
+```text
+SEMANTIC_ANCHOR = receipt Verified HEAD
+DELIVERY_TIP = current spec-<n> HEAD
+```
+
+If they differ, require all policy-sync predicates from `AGENTS.md`. In particular:
+
+* `SEMANTIC_ANCHOR` must be an ancestor of `DELIVERY_TIP`;
+* the anchor→tip changed paths must be workflow/process authority surfaces only;
+* every changed branch blob must equal current default-branch policy;
+* no Spec/product/test/migration/configuration/architecture/TCM/review-semantic surface may have changed;
+* the workflow delta must be non-semantic with respect to the Spec's product/architecture/standards/acceptance obligations.
+
+When the delta includes `$spec-contract` or another contract/certification-construction rule, run current `$spec-contract` validation against the persisted receipt contract. Reuse is legal only when the same Spec Body Hash and Spec Contract Hash are reproduced. Do not invoke `$to-tickets` merely because an older builder and current builder classified a lifecycle/readiness-only source unit differently; current `$spec-contract` semantic-ownership rules control that classification.
+
+If the policy-only reconciliation passes:
+
+* keep `SEMANTIC_ANCHOR` as the receipt's verified product candidate;
+* treat `DELIVERY_TIP` as the current authorized branch tip;
+* reuse candidate-bound deterministic and semantic PASS evidence whose explicit mutable inputs remain valid;
+* do not dispatch a fresh product semantic certifier or rebuild a new verification receipt solely to move `Verified HEAD` to `DELIVERY_TIP`;
+* report the exact policy-only anchor→tip delta in the verification handoff.
+
+If it fails or is ambiguous, ordinary exact-HEAD invalidation applies.
+
+This rule supersedes later wording that says any repository `HEAD` mutation automatically invalidates semantic certification; that wording applies to candidate-semantic mutations, not a proven non-semantic policy-only synchronization.
+
 ## Cumulative Spec Certification Retry State
 
 This section is authoritative for semantic retries after a valid saturated `SPEC CLOSURE: FAIL`. It supersedes later wording that can be read as wiping all reusable semantic construction when a repair changes `HEAD`, or as allowing proof reuse to skip the mandatory fresh semantic certifier.
@@ -659,7 +694,7 @@ Do not serialize private reasoning transcripts.
 
 ## Exact-HEAD Invalidation
 
-Any repair that changes repository HEAD invalidates prior semantic certification.
+Any repair or mutation that changes candidate-semantic repository state invalidates prior semantic certification. A branch-tip advance proven to satisfy **Semantic Candidate Anchor and Policy-Only Synchronization** does not invalidate the semantic anchor merely because the Git SHA changed.
 
 A mutable architecture/tracker authority change that affects a certified cell also invalidates that cell/certification.
 

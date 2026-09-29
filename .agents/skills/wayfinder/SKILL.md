@@ -290,35 +290,78 @@ This route-level certification is intentionally narrower than **Decision-Bounded
 
 This invariant applies whenever `$wayfinder` creates or modifies repository files.
 
-Before mutation, note pre-existing working-tree changes so they are not absorbed into Wayfinder's commit.
+### Canonical Authority Branch
+
+Wayfinder-owned repository authority is canonical on `main`. The branch that happened to be checked out when `$wayfinder` was invoked is execution context only and must never determine where an accepted Wayfinder decision becomes authoritative.
+
+Before invoking any repository-writing child skill or making the first Wayfinder-owned repository mutation:
+
+1. record the invocation branch:
+
+   ```bash
+   CALLER_BRANCH=$(git branch --show-current)
+   ```
+
+2. note pre-existing working-tree changes so they are not absorbed into Wayfinder's commit;
+3. if `CALLER_BRANCH != main` and the worktree is dirty, fail closed before branch transition; do not stash, carry, commit, or discard unrelated work merely to reach `main`;
+4. fetch and enter the canonical branch using fast-forward-only reconciliation:
+
+   ```bash
+   git fetch origin main
+   if git show-ref --verify --quiet refs/heads/main; then
+     git switch main
+     git pull --ff-only origin main
+   else
+     git switch -c main --track origin/main
+   fi
+   ```
+
+5. only after `main` is current may `$wayfinder` invoke repository-writing children such as `$to-adr-doc` or `$wiki-sync`, or directly create/modify canonical repository authority.
 
 When `$wayfinder` is parent, repository-writing child skills contribute their changes to the Wayfinder commit rather than committing separately.
 
 If repository files change:
 
-1. stage only Wayfinder-owned files;
-2. invoke `$conventional-commits`;
-3. commit;
-4. push and establish upstream when necessary:
+1. require the active branch to be `main`;
+2. stage only Wayfinder-owned files;
+3. invoke `$conventional-commits`;
+4. commit;
+5. push explicitly to the canonical branch:
 
-```bash
-git push -u origin HEAD
-```
+   ```bash
+   git push origin main
+   ```
+
+6. verify that `origin/main` resolves to the committed Wayfinder authority before tracker resolution or downstream handoff.
 
 Do not use `git add .` when unrelated working-tree changes exist.
 
-Tracker-only changes require no repository commit.
+If the invocation began on a non-`main` durable branch because downstream work was routed back to Wayfinder, and that branch remains the continuation branch after the accepted upstream repair, synchronize canonical authority back into it only **after** the `main` push succeeds:
+
+```bash
+git switch "$CALLER_BRANCH"
+git merge --no-edit main
+git push origin "$CALLER_BRANCH"
+git fetch origin main "$CALLER_BRANCH"
+git merge-base --is-ancestor origin/main "origin/$CALLER_BRANCH"
+```
+
+This synchronization is inheritance of canonical authority, not creation of branch-local authority. Never create or edit the ADR/wiki authority first on the downstream branch and later treat that branch as its source of truth. If synchronization conflicts or fails, `main` remains authoritative, but do not present a downstream handoff that assumes the stale continuation branch has consumed the new authority.
+
+If the invocation branch is not a continuation branch, do not manufacture a synchronization merge merely to restore the caller's checkout.
+
+Tracker-only changes require no repository commit or branch transition.
 
 If no repository files changed, skip commit and push.
 
-If staging, commit, or push fails:
+If branch transition, staging, commit, push, canonical readback, or required continuation-branch synchronization fails:
 
 * do not mark the affected decision or map complete;
 * do not close a decision whose repository-side architectural record is unpersisted;
 * do not present a downstream Human Handoff;
 * report the failure.
 
-A Wayfinder decision that changes repository-side architectural records is incomplete until those records are committed and pushed.
+A Wayfinder decision that changes repository-side architectural records is incomplete until those records are committed to and read back from `main`; when downstream work is resuming on an existing durable branch, that branch must also inherit the canonical commit before handoff.
 
 ## Refer by Name
 

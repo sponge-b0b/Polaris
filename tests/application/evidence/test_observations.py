@@ -166,9 +166,7 @@ def test_distinct_operation_gets_fresh_identity_for_equivalent_observation() -> 
 
 
 def test_supersession_requires_existing_observation_root() -> None:
-    missing = EvidenceObservationId(
-        UUID("00000000-0000-4000-8000-000000000205")
-    )
+    missing = EvidenceObservationId(UUID("00000000-0000-4000-8000-000000000205"))
     store = _FakeEvidenceStore()
     service = EvidenceObservationService(
         store=store,
@@ -178,9 +176,7 @@ def test_supersession_requires_existing_observation_root() -> None:
 
     with pytest.raises(EvidenceSuccessionConflict) as raised:
         asyncio.run(
-            service.record(
-                replace(_command(), supersedes_observation_id=missing)
-            )
+            service.record(replace(_command(), supersedes_observation_id=missing))
         )
 
     assert raised.value.predecessor_id == missing

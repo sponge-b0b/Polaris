@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from uuid import uuid4
@@ -33,16 +33,25 @@ class PostgresTestTarget:
 
 
 @asynccontextmanager
-async def postgres_engine_store(
+async def postgres_store[StoreT](
     target: PostgresTestTarget,
-    *,
-    store_type: type[PostgresDecisionStore] = PostgresDecisionStore,
-) -> AsyncIterator[tuple[AsyncEngine, PostgresDecisionStore]]:
+    store_type: Callable[[AsyncEngine], StoreT],
+) -> AsyncIterator[tuple[AsyncEngine, StoreT]]:
     engine = create_postgres_engine(target.database_url, schema=target.schema)
     try:
         yield engine, store_type(engine)
     finally:
         await engine.dispose()
+
+
+@asynccontextmanager
+async def postgres_engine_store(
+    target: PostgresTestTarget,
+    *,
+    store_type: type[PostgresDecisionStore] = PostgresDecisionStore,
+) -> AsyncIterator[tuple[AsyncEngine, PostgresDecisionStore]]:
+    async with postgres_store(target, store_type) as pair:
+        yield pair
 
 
 async def postgres_row_counts(

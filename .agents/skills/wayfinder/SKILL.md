@@ -218,19 +218,73 @@ Unresolved: 0
 Unclassified/omitted material dimensions: 0
 ~~~
 
-Immediately before the route-clear transition, run one **fresh, non-mutating semantic route-clarity challenger** over the frozen map, accepted decisions, bounded authoritative source universe, and Material Contract Closure Record. The challenger must independently try to falsify both universe completeness and each non-blocking disposition using the materially-different-implementations test. It must not redesign, mutate, create tickets, or broaden scope without durable authority.
+Immediately before the route-clear transition, run one **fresh, non-mutating semantic route-clarity challenger** over the frozen map, accepted decisions, their applicable **Certified Decision Contract Domains**, unresolved fog, bounded authoritative source universe, and the Material Contract Closure Record.
 
-Its terminal result is:
+The route-level challenger owns only two questions:
+
+1. **composition/coverage:** does the map destination or an exact governing source contain a material obligation that is not represented by any accepted certified decision domain, unresolved decision, or explicit out-of-scope disposition?
+2. **certified-domain integrity:** does a candidate expose an in-domain falsifier, actual authority change, or explicit authority contradiction to a previously certified decision domain?
+
+It may not reopen a certified decision domain merely by choosing a broader plausible interpretation.
+
+For every challenger candidate, the parent must build a **Route Candidate Finality Reconciliation** before the candidate may block route clarity or mutate tracker state:
+
+~~~text
+Candidate: <material concern>
+Exact governing authority: <source>
+Applicable certified decision domain: <ID | None>
+Prior authority identity: <identity | None>
+Current authority identity: <identity>
+Authority changed: yes | no
+Membership under frozen predicate: in-domain | out-of-domain | ambiguous | no-prior-domain
+Explicit authority contradiction: <None | exact clause/source>
+Map-destination coverage status: represented | genuinely-unrepresented
+Disposition:
+  in-domain-falsifier
+  authority-changed-domain-stale
+  explicit-authority-invalidates-prior-domain
+  genuinely-unrepresented-map-obligation
+  domain-expansion
+  ambiguous
+Routing: <existing decision remediation | new decision | Attention-only | blocked-pending-reconciliation>
+~~~
+
+Only these dispositions may block route clarity:
+
+* `in-domain-falsifier` — route back to the **same decision domain**; preserve the accepted historical decision and reopen/remediate that decision rather than creating a sibling decision for the omitted inner contract;
+* `authority-changed-domain-stale` — rebuild the affected decision domain under the changed authority;
+* `explicit-authority-invalidates-prior-domain` — route to the affected decision/domain owner;
+* `genuinely-unrepresented-map-obligation` — only when exact destination/source authority proves the obligation belongs to the Wayfinder and no existing certified decision domain represents it;
+* `ambiguous` — fail closed until membership/authority is reconciled.
+
+`domain-expansion` under unchanged authority is non-blocking Attention. It must not create a decision ticket, alter the frontier, or make a previously accepted certified domain incomplete.
+
+When a candidate is an in-domain omission discovered after human acceptance, remediation must return to the affected decision and repeat the human gate if the material recommendation changes. Do not distribute one accepted decision's missing inner dimensions into new sibling tickets merely because they can be named separately.
+
+Before any tracker mutation from challenger output require:
+
+~~~text
+Route challenger candidates: <n>
+Finality reconciliations: <n>
+Candidates without reconciliation: 0
+Domain-expansion candidates creating work: 0
+In-domain omissions routed to original decision domain: <n>
+Genuinely unrepresented map obligations: <n>
+~~~
+
+The challenger itself remains non-mutating. Its terminal result is:
 
 ~~~text
 WAYFINDER ROUTE CLARITY: PASS | FAIL
-Unrepresented material contract candidates: <count + details>
-Unsupported fixed/equivalent/not-applicable rows: <count + details>
-Surviving materially-different implementation choices: <count + details>
+Unrepresented map obligations: <count + details>
+Certified-domain falsifiers/authority changes: <count + details>
+Domain-expansion observations: <count + details>
+Candidates awaiting finality reconciliation: <count + details>
 ~~~
 
-Route clarity requires PASS. A same-agent or owner-declared substitute is not an equivalent certification boundary; if a fresh challenger is unavailable, do not declare the software route clear.
+Route clarity requires PASS and zero unreconciled candidates. A same-agent or owner-declared substitute is not an equivalent certification boundary; if a fresh challenger is unavailable, do not declare the software route clear.
 
+This route-level certification is intentionally narrower than **Decision-Bounded Contract Certification**. It proves map composition and respects previously frozen semantic domains; it does not perform another open-ended architecture discovery pass inside every accepted decision.
 
 ## Repository Persistence
 
@@ -347,8 +401,55 @@ A HITL ticket resolves only through the live exchange. **The agent must never in
 
 * **Research** (AFK): read documentation, third-party APIs, or local resources to surface a fact a decision waits on. Resolve through a `$research` subagent.
 * **Prototype** (HITL): create a cheap concrete artifact via `$prototype` when reaction to behavior or shape will improve the decision.
-* **Grilling** (HITL): use `$grilling` and `$domain-modeling`, one question at a time. Default case. For each decision question, provide the recommended answer, persist the required **Decision Analysis**, then explicitly ask **“Do you agree with this recommendation? (yes/no)”** and wait. `yes` accepts the recommendation. `no` keeps the current decision open and explores the disagreement before advancing. Never infer acceptance or resolve the ticket without an explicit user response.
+* **Grilling** (HITL): use `$grilling` and `$domain-modeling`, one question at a time. Default case. For each decision question, provide the recommended answer, persist the required **Decision Analysis**, complete **Decision-Bounded Contract Certification** when the recommendation fixes a material software contract, then explicitly ask **“Do you agree with this recommendation? (yes/no)”** and wait. `yes` accepts the recommendation. `no` keeps the current decision open and explores the disagreement before advancing. Never infer acceptance or resolve the ticket without an explicit user response.
 * **Task** (HITL or AFK): prerequisite work that must happen before a decision can be made.
+
+## Decision-Bounded Contract Certification
+
+For every software HITL decision whose recommendation fixes or changes a material product/domain/architecture/public/persistence/downstream contract, semantic completeness must be challenged **before** the human yes/no acceptance gate.
+
+The bounded certification domain is the decision's own authoritative question plus the exact material contracts the proposed recommendation claims to resolve. It is not the entire Wayfinder map and it must not expand into sibling domains merely because adjacent architecture exists.
+
+Before presenting the recommendation to the human:
+
+1. freeze the proposed recommendation;
+2. build one **Decision Contract Domain** from the ticket question, governing authority, affected canonical contract(s), and known direct downstream consumers of that decision;
+3. disposition every materially consequential design dimension inside that bounded domain using the same material-contract dimensions defined under **Material Contract Universe Closure**;
+4. dispatch exactly one fresh, non-mutating **decision-domain challenger** over that frozen domain and recommendation;
+5. if the challenger finds an in-domain omission or unsupported disposition, revise the same decision recommendation, persist a `## Recommendation Revision` when required, rebuild the affected domain rows, and recertify before asking the human;
+6. only after certification PASS may the HITL yes/no gate be presented.
+
+Persist the compact certification state with the decision analysis/revision:
+
+~~~text
+Certified Decision Contract Domain: <stable ID>
+Decision: <ticket identity>
+Authority identity: <exact durable source identities/hashes when available>
+Membership predicate: <what material contract/dimension belongs to this decision>
+Direct consumer/source sets: <bounded set>
+Expected / inspected / dispositioned dimensions: <counts>
+Unresolved in-domain dimensions: 0
+Decision-domain challenger: PASS
+Finality: frozen-under-unchanged-authority after human acceptance
+~~~
+
+The decision-domain challenger returns:
+
+~~~text
+DECISION CONTRACT CERTIFICATION: PASS | FAIL
+In-domain omitted dimensions: <count + details>
+Unsupported non-blocking dispositions: <count + details>
+Out-of-domain observations: <count + concise observations>
+~~~
+
+Rules:
+
+* `FAIL` blocks the human acceptance gate; do not ask the human to approve a recommendation known to be semantically incomplete.
+* Out-of-domain observations are Attention only at this boundary. They do not enlarge the decision, create sibling tickets, or block acceptance unless exact governing authority proves they are actually members of the bounded decision domain.
+* The challenger may not mutate repository/tracker state, redesign the recommendation, create tickets, or choose a missing material contract.
+* Once the human accepts a PASS-certified decision, that certified membership boundary is durable under unchanged authority according to **Certified Semantic Domain Finality**. Later actors may find in-domain falsifiers, authority changes, or explicit authority contradictions, but may not silently enlarge the accepted decision domain.
+
+This is the earliest semantic completion boundary for a Wayfinder decision. Route-clear certification later checks composition and map coverage; it does not get a second unrestricted chance to redefine an accepted decision's inner domain.
 
 ## Decision Analysis
 
@@ -404,6 +505,8 @@ Preserve especially:
 * first-principles reasoning that prevents a future maintainer from mistaking a deliberate rejection for an overlooked option.
 
 The recommendation in the `Decision Analysis` comment must match the recommendation presented in the live HITL exchange.
+
+For a decision requiring **Decision-Bounded Contract Certification**, the recommendation presented to the human must also be the exact recommendation that received the latest `DECISION CONTRACT CERTIFICATION: PASS`. A semantic revision after certification invalidates that certification and requires recertification before the yes/no gate.
 
 ### Recommendation Revision
 
@@ -532,6 +635,8 @@ When a new decision supersedes or invalidates an earlier decision, preserve the 
 
 A closed map or existing derived Spec does **not** waive this gate.
 
+For every closed material software decision, require either a current **Certified Decision Contract Domain** or a legacy-equivalent frozen domain recoverable under the compatibility rules of Certified Semantic Domain Finality. A later route-level challenger must reconcile against that boundary before creating or reopening work. Missing legacy finality evidence may make route clarity unresolved, but it does not authorize the challenger to manufacture a broader domain and immediately persist every newly imagined dimension as a ticket.
+
 If another unresolved decision, missing implementability choice, or newly specifiable fog remains, the route is not clear.
 
 Except for additional research tickets permitted by **Invocation**, do not resolve another ticket in the same session.
@@ -595,6 +700,8 @@ Unresolved in-scope Not yet specified fog: <count + items>
 Unresolved architecture implementability obligations: <count + items>
 Material Contract Closure Record: <complete | incomplete; unresolved count>
 Fresh route-clarity challenger: <PASS | FAIL | unavailable>
+Route candidate finality reconciliations: <complete | incomplete; unreconciled count>
+Domain-expansion candidates creating work: <count>
 Unresolved source/authority conflicts: <count + items>
 Required authoritative records unreconciled: <count + items>
 Wayfinder-owned repository state uncommitted/unpushed: <count/state>
@@ -610,6 +717,8 @@ Route clarity: <clear | not-clear>
 * unresolved architecture implementability obligations = 0;
 * Material Contract Closure Record is complete with unresolved = 0 and unclassified/omitted material dimensions = 0;
 * fresh route-clarity challenger = PASS;
+* route candidate finality reconciliations are complete with unreconciled = 0;
+* domain-expansion candidates creating work = 0;
 * unresolved source/authority conflicts = 0;
 * required authoritative records unreconciled = 0;
 * no required Wayfinder-owned repository persistence remains;

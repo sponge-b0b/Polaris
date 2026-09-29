@@ -183,11 +183,13 @@ def _object(value: object, field: str) -> JsonObject:
 
 
 def _uuid(value: object, field: str) -> UUID:
-    if isinstance(value, UUID):
+    if type(value) is UUID:
         return value
+    if isinstance(value, UUID):
+        return UUID(str(value))
     if isinstance(value, str):
         return UUID(value)
-    raise ValueError(f"{field} must be UUID")
+    raise ValueError(f"{field} must be UUID-compatible")
 
 
 def _string(value: object, field: str) -> str:

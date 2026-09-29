@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-09-28] R3 Evidence contract | Decision Context assembly and judgment-time bindings accepted
+
+Accepted ADR 0006 for the first R3 human decision slice. Decision Context remains an assembled time-specific view over canonical domain facts rather than a separately authoritative persisted aggregate. R3 Evidence will preserve durable observations plus judgment-relative bindings for role, material use, Judgment-Time Availability, freshness, sufficiency context, and conflict visibility; external factual authority remains external and later knowledge cannot rewrite historical judgment support. Recorded the architectural invariant immediately and the realization-required Evidence contract as implementation pending.
+
 ## [2026-09-18] R2 durable persistence | #280 implementation realized
 
 Spec #280 established the first greenfield durable PostgreSQL Investment Decision persistence under `src/polaris/infrastructure/persistence/postgresql/` with Alembic migration lineage, immutable lifecycle and relationship history, transactional command receipts, restart-safe idempotency/concurrency protection, temporal reconstruction, and the inward-owned Decision persistence contracts. Updated the active entity registry from `pending` to `present` with the PostgreSQL adapter routing anchor. Recorded ADR 0005's bounded runtime qualification: the PostgreSQL adapter currently runs only under standard GIL-enabled CPython and fails closed under GIL-disabled execution while the rest of Polaris retains its free-threaded default. R2-specific entity-page entries sourced only from proposed design documents remain Planned; implementation realization does not promote those proposals into Strict Invariants.

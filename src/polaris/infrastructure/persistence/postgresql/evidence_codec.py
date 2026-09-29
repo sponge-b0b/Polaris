@@ -96,7 +96,9 @@ def observation_values(observation: EvidenceObservation) -> dict[str, object]:
 def observation_from_row(row: RowMapping) -> EvidenceObservation:
     supersedes = row["supersedes_observation_id"]
     return EvidenceObservation(
-        observation_id=EvidenceObservationId(_uuid(row["observation_id"], "observation_id")),
+        observation_id=EvidenceObservationId(
+            _uuid(row["observation_id"], "observation_id")
+        ),
         source=EvidenceSourceProvenance(
             source_identity=_string(row["source_identity"], "source_identity"),
             source_reference=_string(row["source_reference"], "source_reference"),
@@ -156,7 +158,9 @@ def _request_from_payload(payload: JsonObject) -> EvidenceObservationSemanticReq
         ),
         observed_at=_iso_datetime(payload.get("observed_at"), "observed_at"),
         acquired_at=_iso_datetime(payload.get("acquired_at"), "acquired_at"),
-        effective_at=_optional_iso_datetime(payload.get("effective_at"), "effective_at"),
+        effective_at=_optional_iso_datetime(
+            payload.get("effective_at"), "effective_at"
+        ),
         material=EvidenceObservationMaterial(
             retained_representation=_optional_string(
                 material.get("retained_representation"), "retained representation"

@@ -191,6 +191,55 @@ In `validate` mode, rebuild the current structural identity under this section a
 
 The build handoff remains ephemeral. Losing it is not a contract-state loss: a later invocation must be able to rebuild an equivalent handoff and the same `SPEC_CONTRACT_HASH` from the durable Spec whenever structural contract identity is unchanged.
 
+## Exact Source-Byte Safety
+
+Authoritative Spec text is data, never shell program text.
+
+Every build and validation invocation must obtain one exact JSON snapshot of the current Spec body and derive the body hash plus deterministic source-unit boundaries/hashes mechanically from that snapshot. Use the repository helper:
+
+~~~bash
+SPEC_SOURCE_DIR=$(mktemp -d)
+SPEC_ISSUE_JSON="$SPEC_SOURCE_DIR/spec.json"
+SPEC_SOURCE_UNITS="$SPEC_SOURCE_DIR/source-units.json"
+
+gh issue view <spec_issue_number> --json body > "$SPEC_ISSUE_JSON"
+
+uv run --locked python \
+  .agents/skills/spec-contract/scripts/extract_source_units.py \
+  --issue-json "$SPEC_ISSUE_JSON" \
+  --output "$SPEC_SOURCE_UNITS"
+~~~
+
+The helper output is the sole mechanical authority for:
+
+* SPEC_BODY_HASH;
+* ordered SU-* source-unit boundaries;
+* normalized source-unit text used for classification/display;
+* every source-unit Text Hash.
+
+The semantic caller still owns classification and source-unit-to-cell mapping. The helper owns only deterministic source extraction/hashing.
+
+Hard prohibitions:
+
+* never embed authoritative Spec/source-unit text into a shell command, shell variable assignment, printf argument, here-string, command substitution, or generated shell program for hashing/canonicalization;
+* never recompute a source-unit hash manually from copied model text;
+* never use echo/printf pipelines as an alternate source-byte transport;
+* never treat a hash produced after shell diagnostics, command substitution, globbing, escaping, locale conversion, or path expansion as valid contract evidence;
+* never reconstruct source-unit boundaries from previously rendered contract rows when the helper output is available.
+
+Shell may transport only paths, issue numbers, branch names, hashes, stable IDs, and other non-source control values.
+
+Contract-identity canonicalization must likewise be performed by Python over structured values already in memory or a structured JSON file. Do not construct the canonical contract payload with shell interpolation. The canonical algorithm under Reproducible Contract Identity remains authoritative; this rule constrains byte transport, not contract semantics.
+
+If the mandatory helper fails, its JSON snapshot is incomplete/malformed, or any source/body hash used by the invocation was obtained through another text-transport path, return:
+
+~~~text
+SPEC CONTRACT: INVALID
+Reason: authoritative source bytes were not obtained and hashed through the deterministic source extractor
+~~~
+
+This is a mechanical integrity boundary. It applies equally to the $to-tickets decomposition exception; that exception removes fresh-context isolation only and does not relax exact source-byte safety.
+
 ## Invocation
 
 The parent supplies:
@@ -257,14 +306,9 @@ The caller must retain the exact handoff file and its returned digest as one pai
 
 ## 1. Pin the Spec Source
 
-Read the current Spec body from GitHub and capture:
+Read the current Spec body from GitHub through the mandatory **Exact Source-Byte Safety** snapshot/extractor. Set SPEC_BODY_HASH only from the extractor's spec_body_hash field and retain the same extractor output as the ordered source-unit boundary/hash authority for Section 2.
 
-```bash
-SPEC_BODY_HASH=$(
-  gh issue view <spec_issue_number> --json body --jq .body \
-    | sha256sum | awk '{print $1}'
-)
-```
+Do not independently pipe .body into sha256sum and do not manually hash copied source-unit strings.
 
 Resolve the repository default branch and the exact GitHub head used for ownership. Execute this block as one ordered unit. The silenced `git cat-file -e` inside the block is the only permitted pre-fetch local object probe. If the pinned object is absent, fetch immediately through the canonical HTTPS path before running any `git diff`, `git rev-list`, unsilenced object probe, or other ownership command against that SHA.
 
@@ -325,6 +369,8 @@ Do not treat `Unmapped source items: 0` as proof that every normative source ite
 ### 2.1 Build the Source Unit Inventory
 
 Before creating manifest cells, partition the complete Spec body into a deterministic ordered **Source Unit Inventory**.
+
+The ordered source-unit partition and Text Hash values must come directly from the mandatory Exact Source-Byte Safety extractor output for this invocation. Do not hand-recreate unit boundaries or hashes with shell commands. Classification and mapping begin only after that complete mechanical universe exists.
 
 Headings establish section identity but are not source units. Blank lines, Markdown separators, syntactic table-separator rows, and recognized workflow/provenance-only HTML markers are structural metadata and are not source units.
 

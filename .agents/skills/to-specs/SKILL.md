@@ -82,44 +82,109 @@ If required durable state cannot be recovered, report the missing artifact rathe
 
 Architecture consistency is necessary but is not sufficient implementation readiness.
 
-Before a software Spec may be published or amended as implementation-ready, prove that current durable planning/design authority determines every materially consequential product/domain/public/downstream contract needed by the Spec. Include, where applicable:
+A prior Wayfinder route-clear claim, accepted decision summary, ADR status, or proposed Spec statement is an input to this gate, not proof that the resulting implementation contract is complete. $to-specs must independently reconstruct the bounded materially consequential contract universe from current durable authority before publication.
+
+For every software Spec candidate, build one **Spec Material Contract Matrix**. Seed the candidate universe from:
+
+* the exact planning-source obligations assigned to this Spec;
+* materially affected canonical entities and current ownership sources;
+* accepted decisions/ADRs required to interpret those obligations;
+* persistence/application boundaries named or necessarily consumed by the Spec;
+* known downstream Specs/components/surfaces whose contract depends on the candidate's output.
+
+Do not use the proposed Spec prose, a prior Design Readiness Record, the Wayfinder ticket set, or already-noticed gaps as the completeness denominator.
+
+For each materially affected contract, disposition every applicable design dimension:
 
 * identity representation and generation semantics;
-* public domain/application type meaning and cross-component contracts;
-* cardinality and ownership;
-* lifecycle/state and temporal behavior;
+* ownership, cardinality, uniqueness, and first-class-versus-dependent identity;
+* public domain/application type meaning and canonical vocabulary;
+* typed references, admissible target families, role/use vocabulary, and dependency direction;
+* lifecycle/state, correction/supersession ancestry, and temporal interpretation;
+* effective-time / known-at / recorded-or-observed-time / version boundaries;
+* persistence-visible identities, keys, constraints, and reference contracts;
+* application command/query inputs, result distinctions, reconstruction semantics, and current-versus-historical behavior;
 * authority/provenance meaning;
-* persistence-visible identity/reference contracts;
-* externally observable failure meaning;
-* any contract on which a downstream component must rely.
+* externally observable unknown/contested/fail-closed outcomes;
+* downstream contract assumptions that would materially differ if the choice changed.
 
-Apply the `AGENTS.md` materially-different-implementations test:
+Use:
+
+~~~text
+Spec candidate: <alias/title>
+Contract: <canonical contract / boundary>
+Dimension: <material design dimension>
+Candidate authority/consumer: <why included>
+Authority: <exact current durable source(s)>
+Disposition: determined | implementation-equivalent | unresolved | not-applicable
+Frozen meaning or equivalence boundary: <compact exact result>
+Materially-different-implementations falsifier: <competing implementation that would change material behavior>
+~~~
+
+Rules:
+
+* determined requires exact current authority that fixes the material contract;
+* implementation-equivalent is legal only when plausible alternatives cannot alter public, product, domain, architecture, persistence, temporal, authority, failure, or downstream behavior;
+* not-applicable requires positive scope authority;
+* unresolved blocks publication for the affected scope;
+* implementation precedent may establish realizability or equivalence but may not silently supply missing design authority;
+* every material candidate/dimension receives exactly one disposition; omission is not a legal state.
+
+Apply the AGENTS.md materially-different-implementations test to every non-blocking row:
 
 > Could two reasonable implementations satisfy the proposed Spec while establishing materially different public, product, domain, architecture, persistence, or downstream behavior/contracts?
 
-If **yes**, the Spec is not implementation-ready. Do not choose the missing material design merely to complete the Spec unless the current planning source already delegates that exact non-architectural design authority to `$to-specs`; otherwise route the unresolved choice to its owning planning/design authority and stop publication for the affected scope.
+If yes, the row is unresolved. Do not choose the missing material design merely to complete the Spec unless the current planning source already delegates that exact non-architectural design authority to $to-specs; otherwise route the unresolved choice to its owning planning/design authority and stop publication for the affected scope.
 
-For each Spec candidate materialize:
+For each Spec candidate require:
 
-```text
+~~~text
 Design readiness: <pass | blocked>
-Material public/domain/downstream choices required: <exact set>
-Choices determined by current authority: <exact set>
+Material contract candidates: <n>
+Material contract dimensions: <n>
+Determined by current authority: <n>
+Implementation-equivalent: <n>
+Not applicable with authority: <n>
 Unresolved material choices: <count + details>
+Unclassified/omitted material dimensions: <count + details>
 Implementation-delegated material design choices: <count + details>
-```
+~~~
 
 Publication requires:
 
-```text
+~~~text
 Design readiness: pass
 Unresolved material choices: 0
+Unclassified/omitted material dimensions: 0
 Implementation-delegated material design choices: 0
-```
+~~~
 
 Missing private helper structure, local algorithms/data structures with no contract consequence, code organization, formatting, or equivalent test mechanics are implementation details and do not block readiness.
 
-Invoke `$attention` as prescribed internal composition after this gate and before publication/amendment. Any Attention finding is handled under the authority/routing rules in `AGENTS.md`; `$attention` itself does not decide or mutate.
+### Independent Design Readiness Certification
+
+Before any software Spec is published or amended as implementation-ready, freeze the complete proposed Spec set for this invocation and dispatch exactly one **fresh, non-mutating semantic design-readiness verifier** over:
+
+* the exact planning source and consumed decision set;
+* the bounded authoritative architecture/design source inventory;
+* every Spec Material Contract Matrix;
+* the frozen proposed Spec bodies and intended dependency partition.
+
+The verifier independently reconstructs the materially consequential contract universe and attempts to falsify both completeness and every determined / implementation-equivalent / not-applicable disposition. It does not edit the proposal, make missing design decisions, mutate tracker/repository state, or publish Specs.
+
+Return:
+
+~~~text
+SPEC DESIGN READINESS: PASS | FAIL
+Unrepresented material contract candidates: <count + details>
+Unsupported determined/equivalent/not-applicable rows: <count + details>
+Surviving materially-different implementation choices: <count + details>
+Cross-Spec contract/dependency gaps: <count + details>
+~~~
+
+Publication of any affected software Spec requires PASS for the exact frozen proposal. A verifier FAIL returns control to $to-specs for correction or upstream routing; after any semantic proposal change, rerun the parent gate and recertify the exact new proposal. If the fresh verifier context is unavailable, do not substitute same-agent or owner assertion for certification and do not publish the affected software Spec as implementation-ready.
+
+Invoke $attention as prescribed internal composition after the parent Design Completeness Gate and before independent certification/publication. Any Attention finding is handled under the authority/routing rules in AGENTS.md; $attention itself does not decide or mutate.
 
 4. **Resolve testing seams.** Prefer existing seams to new ones and use the highest practical seam. The fewer seams across the codebase, the better.
 

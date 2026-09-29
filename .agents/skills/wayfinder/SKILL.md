@@ -162,6 +162,76 @@ When several missing choices jointly define one contract or lifecycle and materi
 
 The route is not clear merely because every previously stated question has an answer.
 
+
+### Material Contract Universe Closure
+
+Architecture Implementability Closure is exhaustive over the materially consequential contract universe, not merely over questions that happened to become Wayfinder tickets.
+
+Before route clarity can pass for software work, materialize one working **Material Contract Closure Record**. Seed its candidate universe from the destination, every materially affected canonical entity/owner, accepted Wayfinder decisions and ADRs, current architecture sources needed to interpret those decisions, and known downstream artifacts/components that consume the resulting contract. Do not use the existing ticket list, the map's current fog, or a prior route-clear claim as the completeness denominator.
+
+For every materially affected contract, disposition every applicable dimension below:
+
+* identity representation and generation semantics;
+* ownership, cardinality, uniqueness, and first-class-versus-dependent identity;
+* public/domain/application type meaning and canonical vocabulary;
+* typed cross-component references, relationship roles, and admissible target families;
+* lifecycle, correction/supersession ancestry, and current-versus-historical interpretation;
+* effective-time, known-at, recorded/observed-time, version, and ordering semantics;
+* persistence-visible identity, keys, constraints, and reference contracts;
+* application command/query inputs, result distinctions, and current/historical reconstruction boundary;
+* authority/provenance meaning;
+* externally observable unknown/contested/fail-closed behavior;
+* known downstream consumers whose contract would differ if the choice changed.
+
+A dimension that is genuinely irrelevant still receives an explicit not-applicable disposition. Omission is not a disposition.
+
+Use one row per material contract dimension:
+
+~~~text
+Contract: <canonical contract / path / lifecycle>
+Dimension: <material design dimension>
+Candidate source/consumer: <why this row is in the universe>
+Authority: <exact durable source(s)>
+Disposition: fixed-by-authority | implementation-equivalent | unresolved | not-applicable
+Frozen meaning or equivalence boundary: <compact exact result>
+Materially-different-implementations falsifier: <what competing implementation would change the contract>
+~~~
+
+Rules:
+
+* fixed-by-authority requires exact durable authority that determines the material meaning;
+* implementation-equivalent is legal only when plausible alternatives cannot change public, product, domain, architecture, persistence, failure, temporal, authority, or downstream behavior;
+* not-applicable requires positive scope/authority;
+* unresolved creates or retains Wayfinder decision/fog and blocks route clarity;
+* a decision ticket saying a topic is "resolved" is routing evidence, not proof that every material dimension of the resulting contract is frozen;
+* implementation precedent may prove realizability or equivalence, but current code does not silently become design authority for an unresolved public/domain contract.
+
+Require:
+
+~~~text
+Material contract candidates: <n>
+Material contract dimensions: <n>
+Fixed by authority: <n>
+Implementation-equivalent: <n>
+Not applicable with authority: <n>
+Unresolved: 0
+Unclassified/omitted material dimensions: 0
+~~~
+
+Immediately before the route-clear transition, run one **fresh, non-mutating semantic route-clarity challenger** over the frozen map, accepted decisions, bounded authoritative source universe, and Material Contract Closure Record. The challenger must independently try to falsify both universe completeness and each non-blocking disposition using the materially-different-implementations test. It must not redesign, mutate, create tickets, or broaden scope without durable authority.
+
+Its terminal result is:
+
+~~~text
+WAYFINDER ROUTE CLARITY: PASS | FAIL
+Unrepresented material contract candidates: <count + details>
+Unsupported fixed/equivalent/not-applicable rows: <count + details>
+Surviving materially-different implementation choices: <count + details>
+~~~
+
+Route clarity requires PASS. A same-agent or owner-declared substitute is not an equivalent certification boundary; if a fresh challenger is unavailable, do not declare the software route clear.
+
+
 ## Repository Persistence
 
 This invariant applies whenever `$wayfinder` creates or modifies repository files.
@@ -523,6 +593,8 @@ Open decision tickets: <count + identities>
 Blocked/non-actionable open decisions: <count + identities>
 Unresolved in-scope Not yet specified fog: <count + items>
 Unresolved architecture implementability obligations: <count + items>
+Material Contract Closure Record: <complete | incomplete; unresolved count>
+Fresh route-clarity challenger: <PASS | FAIL | unavailable>
 Unresolved source/authority conflicts: <count + items>
 Required authoritative records unreconciled: <count + items>
 Wayfinder-owned repository state uncommitted/unpushed: <count/state>
@@ -536,6 +608,8 @@ Route clarity: <clear | not-clear>
 * blocked/non-actionable open decisions = 0;
 * unresolved in-scope fog = 0;
 * unresolved architecture implementability obligations = 0;
+* Material Contract Closure Record is complete with unresolved = 0 and unclassified/omitted material dimensions = 0;
+* fresh route-clarity challenger = PASS;
 * unresolved source/authority conflicts = 0;
 * required authoritative records unreconciled = 0;
 * no required Wayfinder-owned repository persistence remains;

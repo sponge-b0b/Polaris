@@ -97,9 +97,7 @@ def test_observation_rejects_naive_temporal_boundaries(field: str) -> None:
 
 
 def test_observation_may_reference_immutable_verification_material_only() -> None:
-    material = EvidenceObservationMaterial(
-        verification_reference="sha256:abc123"
-    )
+    material = EvidenceObservationMaterial(verification_reference="sha256:abc123")
     observation = _observation(material=material)
 
     assert observation.material.retained_representation is None

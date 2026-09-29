@@ -82,6 +82,8 @@ from polaris.domain.decisions import (
 )
 from polaris.domain.decisions.facts import DecisionLifecycleFact
 
+from .codec_support import canonical_json_fingerprint, uuid_value
+
 type JsonObject = dict[str, object]
 type RowLike = Mapping[str, object] | RowMapping
 

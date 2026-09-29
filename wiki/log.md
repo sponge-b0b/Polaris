@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-09-28] R3 Portfolio & Risk contract | Recommendation formation grounded in projected consequences
+
+Accepted ADR 0008 for the first R3 human decision slice. R3 will preserve decision-grade actual Portfolio State plus material alternative-relative Projected Portfolio Consequences and attributable multidimensional Portfolio Risk Assessments. Portfolio Risk participates before Recommendation finality rather than acting as an approval stamp, and unknown consequence/Risk remains explicitly unresolved. External Portfolio facts retain external authority while Polaris owns their decision meaning and derived projections/Risk. Recorded the architectural invariant immediately and the realization-required Portfolio & Risk contract as implementation pending.
+
 ## [2026-09-28] R3 Investment Intelligence contract | material judgments durable, reasoning traces transient
 
 Accepted ADR 0007 for the first R3 human decision slice. R3 will durably preserve material Investment Views, substantive challenge results, material Decision Alternatives, Investment Recommendations, and explicit withholding judgments while keeping prompts, internal reasoning traces, provider-specific drafts, retries, debate topology, and non-material analytical exploration outside canonical business truth. Recommendation history remains append-only and current support is derived from durable judgment history plus current applicability and Evidence/Portfolio/Risk fitness. Recorded the architectural invariant immediately and the realization-required Investment Intelligence contract as implementation pending.

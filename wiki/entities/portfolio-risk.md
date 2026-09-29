@@ -5,6 +5,7 @@
 
 ### Strict Invariants
 
+* R3 Recommendation formation is Portfolio-grounded: decision-grade actual Portfolio State, material alternative-relative Projected Portfolio Consequences, and attributable multidimensional Portfolio Risk Assessments are durable inputs before Recommendation finality; Risk is not a post-hoc approval or authority fact. (source: docs/adr/0008-portfolio-risk-ground-r3-recommendations-in-projected-consequences.md)
 * Portfolio identity is a continuing investment responsibility rather than merely a current set of holdings, and Position, Exposure, Allocation, and Portfolio Risk remain distinct concepts. (source: docs/current/platform-architecture-0.2.0.md)
 * Authoritative operational Portfolio State may come from an external specialist source; Polaris owns its decision meaning and derived consequences without claiming external books-and-records authority. (source: docs/current/platform-architecture-0.2.0.md)
 * Projected Portfolio Consequence and Portfolio Risk are economic decision inputs, not approval or authority facts. (source: docs/current/platform-architecture-0.2.0.md)
@@ -14,3 +15,8 @@
 
 * **Canonical Portfolio domain identity** — `Portfolio` is the durable domain entity/concept owned by Portfolio & Risk, while this wiki page is the architectural ownership boundary. `PortfolioId` is the canonical immutable UUIDv4-backed opaque identity of that domain entity, allocated independently of Portfolio contents/state and carrying no business semantics. Other boundaries reference `PortfolioId` rather than inventing local Portfolio identity types; a full Portfolio aggregate implementation is not required merely to establish the identity contract. (source: docs/proposed/investment-decisions-r2-foundation-public-contract.md)
 * **Action-continuity reconciliation seam** — authoritative external activity may change Portfolio State while Action Continuity separately owns intended-vs-observed association/reconciliation. One Portfolio change may externally eliminate one Decision Need, materially alter another unresolved Decision, and contribute to a different Decision Need; Portfolio & Risk owns the resulting Portfolio meaning without manufacturing Action Intent causality or Decision lifecycle meaning. (source: docs/proposed/platform-domain-interaction-map.md)
+
+
+### Planned
+
+* **R3 decision-grade Portfolio State and consequence/Risk contract** — accepted, implementation pending. The first SPY slice will preserve a decision-grade actual Portfolio State, material alternative-relative Projected Portfolio Consequences, and attributable Portfolio Risk Assessments using only the dimensions materially needed to distinguish increase / hold-no-action / reduce. Unknown consequence or Risk remains unresolved and may cause Recommendation withholding rather than fabricated precision. (source: docs/adr/0008-portfolio-risk-ground-r3-recommendations-in-projected-consequences.md)

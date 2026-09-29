@@ -162,21 +162,9 @@ def extract_source_units(body: str) -> list[dict[str, Any]]:
             )
             continue
 
-        if _is_table_separator(line):
-            i += 1
-            continue
-
-        if _is_table_row(line):
-            _append_unit(
-                units,
-                section=section,
-                kind="table-row",
-                ordinal=next_ordinal("table-row"),
-                text=line,
-            )
-            i += 1
-            continue
-
+        # A Markdown list marker owns the source-unit kind even when the item text
+        # contains a pipe character. Check list structure before table-row syntax so
+        # values such as `REVISE | RETRACT` remain numbered/bulleted list items.
         if _LIST_RE.match(line):
             block = [line]
             base_indent = len(line) - len(line.lstrip(" \t"))
@@ -204,6 +192,21 @@ def extract_source_units(body: str) -> list[dict[str, Any]]:
                 ordinal=next_ordinal("list-item"),
                 text="\n".join(block),
             )
+            continue
+
+        if _is_table_separator(line):
+            i += 1
+            continue
+
+        if _is_table_row(line):
+            _append_unit(
+                units,
+                section=section,
+                kind="table-row",
+                ordinal=next_ordinal("table-row"),
+                text=line,
+            )
+            i += 1
             continue
 
         block = [line]

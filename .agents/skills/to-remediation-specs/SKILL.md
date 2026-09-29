@@ -80,6 +80,8 @@ Apply that delta semantically to a candidate amendment for that Spec:
 * update affected implementation and testing decisions;
 * preserve unaffected content.
 
+For every non-empty candidate amendment, normalize the resulting `## Out of Scope` section before publication: every materially independent exclusion must be a separate Markdown bullet. Split prose or a bullet only when it contains independent exclusions; keep semantically inseparable clauses together. Preserve the exact exclusion meaning and do not add, remove, broaden, or narrow scope merely to normalize structure.
+
 Do not duplicate:
 
 * user stories;

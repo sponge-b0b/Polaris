@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime
-from typing import TypeAlias
 from uuid import UUID
 
 from sqlalchemy.engine import RowMapping
@@ -22,7 +21,7 @@ from polaris.domain.evidence import (
     EvidenceSubjectReference,
 )
 
-JsonObject: TypeAlias = dict[str, object]
+type JsonObject = dict[str, object]
 
 
 def observation_request_payload(

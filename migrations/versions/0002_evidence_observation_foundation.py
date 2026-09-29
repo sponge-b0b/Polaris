@@ -88,6 +88,10 @@ def upgrade() -> None:
         ),
     )
 
+    # duplicate-code: immutable Alembic DDL must remain revision-local;
+    # sharing receipt-table construction with an earlier revision would make
+    # historical migration behavior depend on mutable current code.
+    # arid: disable
     op.create_table(
         "evidence_observation_command_receipts",
         sa.Column("row_id", sa.BigInteger(), sa.Identity(), nullable=False),
@@ -117,7 +121,11 @@ def upgrade() -> None:
             name="uq_evidence_observation_command_receipts_operation_id",
         ),
     )
+    # arid: enable
 
+    # duplicate-code: trigger DDL is intentionally revision-local for the same
+    # migration immutability reason; do not extract it across revisions.
+    # arid: disable
     op.execute(
         """
         CREATE FUNCTION polaris_reject_immutable_evidence_mutation()
@@ -141,14 +149,19 @@ def upgrade() -> None:
             FOR EACH ROW EXECUTE FUNCTION polaris_reject_immutable_evidence_mutation()
             """
         )
+    # arid: enable
 
 
 def downgrade() -> None:
+    # duplicate-code: downgrade DDL must be self-contained in its owning revision
+    # so historical rollback behavior cannot change with shared helpers.
+    # arid: disable
     for table_name in (
         "evidence_observation_command_receipts",
         "evidence_observations",
     ):
         op.execute(f"DROP TRIGGER trg_{table_name}_immutable ON {table_name}")
     op.execute("DROP FUNCTION polaris_reject_immutable_evidence_mutation()")
+    # arid: enable
     op.drop_table("evidence_observation_command_receipts")
     op.drop_table("evidence_observations")

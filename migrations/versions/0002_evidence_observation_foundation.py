@@ -114,7 +114,7 @@ def upgrade() -> None:
         ),
         sa.UniqueConstraint(
             "operation_id",
-            name="uq_evidence_observation_receipts_operation_id",
+            name="uq_evidence_observation_command_receipts_operation_id",
         ),
     )
 

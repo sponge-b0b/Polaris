@@ -9,6 +9,7 @@ from sqlalchemy import text
 
 from polaris.infrastructure.persistence.postgresql import (
     DECISION_TABLE_NAMES,
+    POLARIS_TABLE_NAMES,
     create_postgres_engine,
 )
 
@@ -88,16 +89,22 @@ async def _column_names(target: PostgresTestTarget, table_name: str) -> frozense
         await engine.dispose()
 
 
-def test_fresh_root_migrates_only_greenfield_decision_schema(
+def test_fresh_root_migrates_only_greenfield_polaris_schema(
     postgres_target: PostgresTestTarget,
 ) -> None:
-    migration = Path("migrations/versions/0001_decision_persistence_foundation.py")
-    source = migration.read_text(encoding="utf-8")
-    assert "down_revision: str | None = None" in source
-    assert "legacy" not in source.lower()
+    decision_migration = Path(
+        "migrations/versions/0001_decision_persistence_foundation.py"
+    ).read_text(encoding="utf-8")
+    evidence_migration = Path(
+        "migrations/versions/0002_evidence_observation_foundation.py"
+    ).read_text(encoding="utf-8")
+    assert "down_revision: str | None = None" in decision_migration
+    assert 'down_revision: str | None = "0001_decision_persistence"' in evidence_migration
+    assert "legacy" not in decision_migration.lower()
+    assert "legacy" not in evidence_migration.lower()
 
     tables = asyncio.run(_table_names(postgres_target))
-    assert tables == DECISION_TABLE_NAMES | {"alembic_version"}
+    assert tables == POLARIS_TABLE_NAMES | {"alembic_version"}
     assert not {
         table
         for table in tables
@@ -131,5 +138,20 @@ def test_root_downgrades_to_empty_and_reupgrades(
 
     command.upgrade(alembic, "head")
     assert asyncio.run(_table_names(postgres_target)) == (
+        POLARIS_TABLE_NAMES | {"alembic_version"}
+    )
+
+
+def test_evidence_revision_downgrades_to_decision_foundation_and_reupgrades(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    alembic = Config("alembic.ini")
+    command.downgrade(alembic, "0001_decision_persistence")
+    assert asyncio.run(_table_names(postgres_target)) == (
         DECISION_TABLE_NAMES | {"alembic_version"}
+    )
+
+    command.upgrade(alembic, "head")
+    assert asyncio.run(_table_names(postgres_target)) == (
+        POLARIS_TABLE_NAMES | {"alembic_version"}
     )

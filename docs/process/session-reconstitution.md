@@ -1,5 +1,34 @@
 # Session Reconstitution
 
+## Reusable startup prompt
+
+The Owner/User is to copy this block into a new ChatGPT session whenever continuing the Polaris project:
+
+```text
+Stay in Chat for this conversation. Do not hand this task off to Work. I want to interactively review a software project's current state with you, one step at a time. Do not modify anything yet. Wait for further instructions.
+
+We are continuing the Polaris project:
+
+https://github.com/sponge-b0b/Polaris
+
+Reconstitute our working session using the repository's current durable state, including AGENTS.md, `docs/process/session-reconstitution.md` and GitHub issue ChatGPT Session Ledger #273.
+
+Read the repository's current durable state rather than assuming the handoff snapshot is still correct. Also check any external state explicitly identified by the reconstitution document, including active GitHub pull requests.
+
+This is an interactive Chat session, not a request for autonomous execution. Do not make repository changes or begin implementation.
+
+There may also be some output included from our last session.
+
+After reconstructing the state, tell me:
+
+1. where we are,
+2. what has changed since the recorded handoff,
+3. what should happen next, and
+4. whether you have any genuine blocking questions.
+
+Do not begin new work until the session has been reconstituted.
+```
+
 ## Purpose
 
 This guide defines how a ChatGPT-hosted Polaris working session should:

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Mapping
 from datetime import datetime
 from uuid import UUID
@@ -113,7 +111,7 @@ def actor_columns(actor: ActorAttribution) -> dict[str, object]:
 def actor_from_columns(row: RowLike) -> ActorAttribution:
     kind = _string(row["actor_attribution_kind"], "actor_attribution_kind")
     if kind == "known":
-        return KnownActorAttribution(ActorId(_uuid(row["actor_id"], "actor_id")))
+        return KnownActorAttribution(ActorId(uuid_value(row["actor_id"], "actor_id")))
     if kind == "unknown":
         return UnknownActorAttribution()
     if kind == "contested":
@@ -214,7 +212,7 @@ def initiation_receipt_from_row(row: RowMapping) -> InitiationReceipt:
     request = initiation_request_from_payload(row["request_payload"])
     result = initiation_result_from_payload(row["result_payload"])
     return InitiationReceipt(
-        operation_id=OperationId(_uuid(row["operation_id"], "operation_id")),
+        operation_id=OperationId(uuid_value(row["operation_id"], "operation_id")),
         request=request,
         result=result,
     )
@@ -243,7 +241,7 @@ def initiation_request_from_payload(value: object) -> InitiationSemanticRequest:
                 _string(continuity_payload.get("kind"), "continuity kind")
             ),
             decision_id=(
-                InvestmentDecisionId(_uuid(raw_decision_id, "continuity decision_id"))
+                InvestmentDecisionId(uuid_value(raw_decision_id, "continuity decision_id"))
                 if raw_decision_id is not None
                 else None
             ),
@@ -261,7 +259,7 @@ def initiation_request_from_payload(value: object) -> InitiationSemanticRequest:
         subject=DecisionSubject(_string(payload.get("subject"), "subject")),
         scope=DecisionScope(
             (
-                PortfolioId(_uuid(item, "scope portfolio ID"))
+                PortfolioId(uuid_value(item, "scope portfolio ID"))
                 for item in _object_list(scope.get("portfolio_ids"), "portfolio_ids")
             ),
             DecisionScopeCompleteness(
@@ -277,10 +275,10 @@ def initiation_result_from_payload(value: object) -> InitiationResult:
     raw_need_id = payload.get("need_id")
     return InitiationResult(
         decision_id=InvestmentDecisionId(
-            _uuid(payload.get("decision_id"), "decision_id")
+            uuid_value(payload.get("decision_id"), "decision_id")
         ),
         need_id=(
-            DecisionNeedId(_uuid(raw_need_id, "need_id"))
+            DecisionNeedId(uuid_value(raw_need_id, "need_id"))
             if raw_need_id is not None
             else None
         ),
@@ -289,12 +287,7 @@ def initiation_result_from_payload(value: object) -> InitiationResult:
 
 
 def request_fingerprint(request: InitiationSemanticRequest) -> str:
-    encoded = json.dumps(
-        initiation_request_payload(request),
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode()
-    return hashlib.sha256(encoded).hexdigest()
+    return canonical_json_fingerprint(initiation_request_payload(request))
 
 
 def mutation_request_payload(request: DecisionMutationSemanticRequest) -> JsonObject:
@@ -325,7 +318,7 @@ def mutation_result_payload(result: DecisionMutationResult) -> JsonObject:
 
 def mutation_receipt_from_row(row: RowMapping) -> DecisionMutationReceipt:
     return DecisionMutationReceipt(
-        operation_id=OperationId(_uuid(row["operation_id"], "operation_id")),
+        operation_id=OperationId(uuid_value(row["operation_id"], "operation_id")),
         request=mutation_request_from_payload(row["request_payload"]),
         result=mutation_result_from_payload(row["result_payload"]),
     )
@@ -344,7 +337,7 @@ def mutation_request_from_payload(value: object) -> DecisionMutationSemanticRequ
     return DecisionMutationSemanticRequest(
         kind=kind,
         decision_id=InvestmentDecisionId(
-            _uuid(payload.get("decision_id"), "decision_id")
+            uuid_value(payload.get("decision_id"), "decision_id")
         ),
         # duplicate-code: variants require independent field validation.
         # arid: disable
@@ -366,7 +359,7 @@ def mutation_result_from_payload(value: object) -> DecisionMutationResult:
     payload = _mapping(value, "Decision mutation result")
     return DecisionMutationResult(
         decision_id=InvestmentDecisionId(
-            _uuid(payload.get("decision_id"), "decision_id")
+            uuid_value(payload.get("decision_id"), "decision_id")
         ),
         version=DecisionVersion(_integer(payload.get("version"), "version")),
         kind=DecisionMutationResultKind(_string(payload.get("kind"), "result kind")),
@@ -374,15 +367,7 @@ def mutation_result_from_payload(value: object) -> DecisionMutationResult:
 
 
 def mutation_request_fingerprint(request: DecisionMutationSemanticRequest) -> str:
-    encoded = json.dumps(
-        mutation_request_payload(request),
-        # duplicate-code: variants require independent field validation.
-        # arid: disable
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode()
-    return hashlib.sha256(encoded).hexdigest()
-    # arid: enable
+    return canonical_json_fingerprint(mutation_request_payload(request))
 
 
 def _mutation_payload(value: object) -> JsonObject:
@@ -482,7 +467,7 @@ def _mutation_payload_from(
         raw_disposition = payload.get("replacement_disposition")
         return LifecycleCorrectionPayload(
             target_fact_id=DecisionLifecycleFactId(
-                _uuid(payload.get("target_fact_id"), "target_fact_id")
+                uuid_value(payload.get("target_fact_id"), "target_fact_id")
             ),
             effect=DecisionLifecycleCorrectionEffect(
                 _string(payload.get("effect"), "correction effect")
@@ -525,25 +510,25 @@ def initiated_fact_from_rows(
     need_row: RowMapping,
 ) -> DecisionInitiated:
     need = DecisionNeed(
-        need_id=DecisionNeedId(_uuid(need_row["need_id"], "need_id")),
+        need_id=DecisionNeedId(uuid_value(need_row["need_id"], "need_id")),
         statement=_string(need_row["statement"], "Need statement"),
         effective_at=_datetime(need_row["effective_at"], "Need effective_at"),
         recorded_at=_datetime(need_row["recorded_at"], "Need recorded_at"),
-        operation_id=OperationId(_uuid(need_row["operation_id"], "Need operation_id")),
+        operation_id=OperationId(uuid_value(need_row["operation_id"], "Need operation_id")),
         actor_attribution=actor_from_columns(need_row),
         trigger=trigger_from_columns(need_row),
         technical_provenance=technical_from_payload(need_row["technical_provenance"]),
     )
     metadata = DecisionLifecycleFactMetadata(
-        fact_id=DecisionLifecycleFactId(_uuid(fact_row["fact_id"], "fact_id")),
-        decision_id=InvestmentDecisionId(_uuid(fact_row["decision_id"], "decision_id")),
+        fact_id=DecisionLifecycleFactId(uuid_value(fact_row["fact_id"], "fact_id")),
+        decision_id=InvestmentDecisionId(uuid_value(fact_row["decision_id"], "decision_id")),
         sequence=DecisionLifecycleSequence(
             _integer(fact_row["lifecycle_sequence"], "lifecycle_sequence")
         ),
         decision_version=DecisionVersion(
             _integer(fact_row["decision_version"], "decision_version")
         ),
-        operation_id=OperationId(_uuid(fact_row["operation_id"], "operation_id")),
+        operation_id=OperationId(uuid_value(fact_row["operation_id"], "operation_id")),
         actor_attribution=actor_from_columns(fact_row),
         trigger=trigger_from_columns(fact_row),
         technical_provenance=technical_from_payload(fact_row["technical_provenance"]),
@@ -723,7 +708,7 @@ def mutation_fact_from_row(row: RowMapping) -> DecisionLifecycleFact:
         return DecisionLifecycleCorrected(
             metadata=metadata,
             target_fact_id=DecisionLifecycleFactId(
-                _uuid(row["correction_target_fact_id"], "correction_target_fact_id")
+                uuid_value(row["correction_target_fact_id"], "correction_target_fact_id")
             ),
             effect=DecisionLifecycleCorrectionEffect(
                 _string(row["correction_effect"], "correction_effect")
@@ -786,15 +771,15 @@ def _replacement_basis_from_columns(
 
 def _metadata_from_row(row: RowMapping) -> DecisionLifecycleFactMetadata:
     return DecisionLifecycleFactMetadata(
-        fact_id=DecisionLifecycleFactId(_uuid(row["fact_id"], "fact_id")),
-        decision_id=InvestmentDecisionId(_uuid(row["decision_id"], "decision_id")),
+        fact_id=DecisionLifecycleFactId(uuid_value(row["fact_id"], "fact_id")),
+        decision_id=InvestmentDecisionId(uuid_value(row["decision_id"], "decision_id")),
         sequence=DecisionLifecycleSequence(
             _integer(row["lifecycle_sequence"], "lifecycle_sequence")
         ),
         decision_version=DecisionVersion(
             _integer(row["decision_version"], "decision_version")
         ),
-        operation_id=OperationId(_uuid(row["operation_id"], "operation_id")),
+        operation_id=OperationId(uuid_value(row["operation_id"], "operation_id")),
         actor_attribution=actor_from_columns(row),
         trigger=trigger_from_columns(row),
         technical_provenance=technical_from_payload(row["technical_provenance"]),
@@ -821,7 +806,7 @@ def _actor_from_payload(value: object) -> ActorAttribution:
     kind = _string(payload.get("kind"), "actor attribution kind")
     if kind == "known":
         return KnownActorAttribution(
-            ActorId(_uuid(payload.get("actor_id"), "actor_id"))
+            ActorId(uuid_value(payload.get("actor_id"), "actor_id"))
         )
     # duplicate-code: variants require independent field validation.
     # arid: disable
@@ -831,7 +816,7 @@ def _actor_from_payload(value: object) -> ActorAttribution:
         return ContestedActorAttribution(
             frozenset(
                 # arid: enable
-                ActorId(_uuid(item, "candidate actor ID"))
+                ActorId(uuid_value(item, "candidate actor ID"))
                 for item in _object_list(
                     payload.get("candidate_actor_ids"), "candidate_actor_ids"
                 )
@@ -853,7 +838,7 @@ def _scope_from_payload(value: object) -> DecisionScope:
     payload = _mapping(value, "scope")
     return DecisionScope(
         (
-            PortfolioId(_uuid(item, "scope portfolio ID"))
+            PortfolioId(uuid_value(item, "scope portfolio ID"))
             for item in _object_list(payload.get("portfolio_ids"), "portfolio_ids")
         ),
         DecisionScopeCompleteness(
@@ -916,7 +901,7 @@ def _replacement_basis_from_payload(
 
 def _expected_version(payload: Mapping[str, object]) -> ExpectedDecisionVersion:
     return ExpectedDecisionVersion(
-        InvestmentDecisionId(_uuid(payload.get("decision_id"), "decision_id")),
+        InvestmentDecisionId(uuid_value(payload.get("decision_id"), "decision_id")),
         DecisionVersion(_integer(payload.get("version"), "version")),
     )
 
@@ -936,17 +921,7 @@ def _object_list(value: object, field: str) -> list[object]:
 def _uuid_list(value: object, field: str) -> tuple[UUID, ...]:
     if not isinstance(value, (list, tuple)):
         raise ValueError(f"{field} must be a UUID collection")
-    return tuple(_uuid(item, field) for item in value)
-
-
-def _uuid(value: object, field: str) -> UUID:
-    if type(value) is UUID:
-        return value
-    if isinstance(value, UUID):
-        return UUID(str(value))
-    if isinstance(value, str):
-        return UUID(value)
-    raise ValueError(f"{field} must be UUID-compatible")
+    return tuple(uuid_value(item, field) for item in value)
 
 
 def _datetime(value: object, field: str) -> datetime:

@@ -15,7 +15,6 @@ from polaris.application.evidence import (
     EvidenceObservationReceipt,
     EvidenceObservationReplayed,
     EvidenceObservationResult,
-    EvidenceObservationSemanticRequest,
     EvidenceObservationService,
     EvidenceObservationStore,
     EvidenceObservationSuccessionConflict,

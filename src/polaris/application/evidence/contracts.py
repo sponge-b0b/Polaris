@@ -38,6 +38,10 @@ class EvidenceCommandReadUnavailable(Exception):
 
 @dataclass(frozen=True, slots=True)
 class RecordEvidenceObservationCommand:
+    # duplicate-code: the application command must carry pre-allocation Evidence
+    # input explicitly; sharing the domain root shape would collapse the
+    # application-owned identity-allocation boundary.
+    # arid: disable
     operation_id: OperationId
     source: EvidenceSourceProvenance
     subject: EvidenceSubjectReference
@@ -67,10 +71,15 @@ class RecordEvidenceObservationCommand:
             raise TypeError(
                 "supersedes_observation_id must be EvidenceObservationId or None"
             )
+    # arid: enable
 
 
 @dataclass(frozen=True, slots=True)
 class EvidenceObservationSemanticRequest:
+    # duplicate-code: the persisted idempotency request is an application receipt
+    # contract, not a domain Evidence root; keeping it explicit preserves that
+    # independently evolvable boundary.
+    # arid: disable
     source: EvidenceSourceProvenance
     subject: EvidenceSubjectReference
     observed_at: datetime
@@ -78,6 +87,7 @@ class EvidenceObservationSemanticRequest:
     material: EvidenceObservationMaterial
     effective_at: datetime | None
     supersedes_observation_id: EvidenceObservationId | None
+    # arid: enable
 
     @classmethod
     def from_command(
@@ -176,6 +186,9 @@ class EvidenceObservationStore(Protocol):
         ...
 
 
+# duplicate-code: application timestamp validation owns application-boundary
+# failure semantics; sharing a domain or adapter validator would couple layers.
+# arid: disable
 def _aware(value: object, field: str) -> None:
     if (
         not isinstance(value, datetime)
@@ -183,3 +196,4 @@ def _aware(value: object, field: str) -> None:
         or value.utcoffset() is None
     ):
         raise ValueError(f"{field} must be timezone-aware")
+# arid: enable

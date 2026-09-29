@@ -123,7 +123,9 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
         "migrations/versions/0002_evidence_observation_foundation.py"
     ).read_text(encoding="utf-8")
     assert "down_revision: str | None = None" in decision_migration
-    assert 'down_revision: str | None = "0001_decision_persistence"' in evidence_migration
+    assert (
+        'down_revision: str | None = "0001_decision_persistence"' in evidence_migration
+    )
     assert "legacy" not in decision_migration.lower()
     assert "legacy" not in evidence_migration.lower()
 

@@ -5,6 +5,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from polaris.domain.decisions import OperationId
 from polaris.domain.evidence import EvidenceObservation, EvidenceObservationId
 
 from .contracts import (
@@ -82,10 +83,10 @@ class EvidenceObservationService:
 
 async def _read_receipt(
     store: EvidenceObservationStore,
-    operation_id: object,
+    operation_id: OperationId,
 ) -> EvidenceObservationReceipt | None:
     try:
-        return await store.get_observation_receipt(operation_id)  # type: ignore[arg-type]
+        return await store.get_observation_receipt(operation_id)
     except EvidenceCommandReadUnavailable as error:
         raise EvidencePersistenceUnavailable(str(error)) from error
 
@@ -93,7 +94,7 @@ async def _read_receipt(
 def _replay(
     receipt: EvidenceObservationReceipt,
     request: EvidenceObservationSemanticRequest,
-    operation_id: object,
+    operation_id: OperationId,
 ) -> EvidenceObservationResult:
     if receipt.request != request or receipt.operation_id != operation_id:
         raise EvidenceIdempotencyConflict(receipt.operation_id)

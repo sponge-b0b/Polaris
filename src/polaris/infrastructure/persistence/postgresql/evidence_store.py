@@ -76,11 +76,8 @@ class PostgresEvidenceStore:
         try:
             async with self._engine.begin() as connection:
                 await connection.execute(
-                    select(
-                        text(
-                            f"pg_advisory_xact_lock({_EVIDENCE_OBSERVATION_WRITE_LOCK})"
-                        )
-                    )
+                    text("SELECT pg_advisory_xact_lock(:lock_key)"),
+                    {"lock_key": _EVIDENCE_OBSERVATION_WRITE_LOCK},
                 )
                 prior = await _get_receipt(
                     connection, commit.operation_id, for_update=True

@@ -339,7 +339,9 @@ A list of testing decisions that were made. Include:
 
 ## Out of Scope
 
-A description of the things that are out of scope for this spec.
+List exclusions as Markdown bullets. Every materially independent exclusion must be its own bullet so downstream `$spec-contract` receives one stable source unit per exclusion. Keep multiple clauses in one bullet only when they are semantically inseparable and form one exclusion obligation. Do not encode independent exclusions as a semicolon- or comma-separated prose paragraph.
+
+- <independent exclusion>
 
 ## Further Notes
 

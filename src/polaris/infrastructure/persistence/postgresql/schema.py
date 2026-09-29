@@ -344,7 +344,9 @@ evidence_observations = Table(
     CheckConstraint("btrim(source_reference) <> ''", name="source_reference_nonempty"),
     CheckConstraint("btrim(source_authority) <> ''", name="source_authority_nonempty"),
     CheckConstraint("btrim(subject_identity) <> ''", name="subject_identity_nonempty"),
-    CheckConstraint("btrim(subject_reference) <> ''", name="subject_reference_nonempty"),
+    CheckConstraint(
+        "btrim(subject_reference) <> ''", name="subject_reference_nonempty"
+    ),
     CheckConstraint(
         "retained_representation IS NOT NULL OR verification_reference IS NOT NULL",
         name="reconstructable_material",

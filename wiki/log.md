@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-09-28] R3 Decision Memory composition | domain-owned facts and application queries accepted
+
+Accepted ADR 0011 for R3 cross-domain persistence and Decision Memory composition. R3 extends the greenfield persistence lineage with direct domain-owned facts, opaque owner-specific identities, typed cross-domain references, append-only material history, and application-owned current/historical Decision Memory queries. Cross-domain atomicity follows semantic invariants rather than one giant transaction, and no monolithic DecisionRecord, generic event-store authority, workflow archive, or report-owned model becomes business truth.
+
 ## [2026-09-28] R3 Human Decision and Learning contracts | owner-authorized combined Wayfinder closure
 
 Under an explicit repository/skill-owner authorization to override Wayfinder's one-decision-per-session rule for this run, resolved #353 and #354 with separate durable Decision Analyses and architecture records. Accepted ADR 0009 defines the minimum power-specific Human Investment Decision authority contract and selects an interactive CLI as the first complete thin human surface over shared application truth. Accepted ADR 0010 keeps Outcome, Decision Evaluation, and Lesson as separate durable facts, preserving ex-ante versus ex-post knowledge boundaries and scoped Lessons without R6 feedback behavior. Both decisions retain their own ticket history and architecture ownership despite the combined-session exception.

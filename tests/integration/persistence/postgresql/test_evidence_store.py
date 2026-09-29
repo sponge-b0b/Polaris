@@ -111,10 +111,7 @@ def test_observation_round_trips_across_process_restart(
             assert observation.acquired_at == ACQUIRED_AT
             assert observation.effective_at == OBSERVED_AT
             assert observation.material.retained_representation == '{"value": 321.1}'
-            assert (
-                observation.material.verification_reference
-                == "sha256:cpi-2026-08"
-            )
+            assert observation.material.verification_reference == "sha256:cpi-2026-08"
         finally:
             await restarted_engine.dispose()
 
@@ -220,9 +217,7 @@ def test_typed_observation_succession_requires_existing_predecessor(
         try:
             with pytest.raises(EvidenceSuccessionConflict):
                 await _service(store, OBSERVATION_ID).record(
-                    _command(
-                        supersedes=EvidenceObservationId(MISSING_OBSERVATION_ID)
-                    )
+                    _command(supersedes=EvidenceObservationId(MISSING_OBSERVATION_ID))
                 )
             assert await postgres_row_counts(
                 engine,
@@ -305,7 +300,9 @@ def test_inward_evidence_port_exposes_no_database_types() -> None:
         "commit_observation",
         "load_observation",
     ):
-        signature = str(inspect.signature(getattr(EvidenceObservationStore, method_name)))
+        signature = str(
+            inspect.signature(getattr(EvidenceObservationStore, method_name))
+        )
         assert "sqlalchemy" not in signature.lower()
         assert "asyncpg" not in signature.lower()
         assert "postgres" not in signature.lower()

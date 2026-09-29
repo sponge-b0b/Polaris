@@ -9,3 +9,8 @@
 * Provider and technical configuration remain outside domain objects when they are not themselves investment semantics. (source: docs/current/platform-architecture-0.2.0.md)
 * Polaris 0.2.0 does not use a generic workflow builder, plugin graph, or arbitrary prompt pipeline as its product configuration model. (source: docs/current/platform-architecture-0.2.0.md)
 * Technology-specific adapter configuration must remain at infrastructure boundaries rather than leaking vendor identity into inward-owned contracts. (source: docs/current/platform-architecture-0.2.0.md; docs/adr/0003-platform-insulate-infrastructure-behind-inward-owned-capability-ports.md)
+* R3 Freshness and Evidence-sufficiency requirements are immutable attributable product-configuration facts with typed applicability and append-only `CORRECTS | SUPERSEDES` version history; missing, contested, unavailable, or invalid requirement authority must not be treated as no requirement. (source: docs/adr/0013-evidence-complete-r3-claim-requirements-and-current-support-basis.md)
+
+### Planned
+
+* **R3 Evidence requirement authority** — accepted, implementation pending. Configuration will expose application-allocated requirement-set, immutable version, and dependent requirement identities through an inward Evidence-requirements contract. Evidence will resolve and evaluate exactly one applicable historical version without taking authority to invent or rewrite configured requirements. (source: docs/adr/0013-evidence-complete-r3-claim-requirements-and-current-support-basis.md)

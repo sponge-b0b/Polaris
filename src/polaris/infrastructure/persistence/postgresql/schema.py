@@ -366,6 +366,10 @@ evidence_observations = Table(
     ),
 )
 
+# duplicate-code: Decision and Evidence receipts are separate domain-owned
+# idempotency records and may evolve independently; a shared table factory would
+# make physical similarity an architectural coupling.
+# arid: disable
 evidence_observation_command_receipts = Table(
     "evidence_observation_command_receipts",
     metadata,
@@ -380,6 +384,7 @@ evidence_observation_command_receipts = Table(
         name="fingerprint_sha256",
     ),
 )
+# arid: enable
 
 DECISION_TABLE_NAMES = frozenset(
     {

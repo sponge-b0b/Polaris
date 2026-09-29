@@ -57,13 +57,17 @@ class PostgresEvidenceStore:
         try:
             async with self._engine.connect() as connection:
                 row = (
-                    await connection.execute(
-                        select(evidence_observations).where(
-                            evidence_observations.c.observation_id
-                            == observation_id.value
+                    (
+                        await connection.execute(
+                            select(evidence_observations).where(
+                                evidence_observations.c.observation_id
+                                == observation_id.value
+                            )
                         )
                     )
-                ).mappings().first()
+                    .mappings()
+                    .first()
+                )
                 return observation_from_row(row) if row is not None else None
         except (SQLAlchemyError, ValueError, TypeError) as error:
             raise EvidenceCommandReadUnavailable(
@@ -153,9 +157,7 @@ async def _observation_exists(
     return (
         await connection.scalar(
             select(evidence_observations.c.observation_id)
-            .where(
-                evidence_observations.c.observation_id == observation_id.value
-            )
+            .where(evidence_observations.c.observation_id == observation_id.value)
             .limit(1)
         )
     ) is not None

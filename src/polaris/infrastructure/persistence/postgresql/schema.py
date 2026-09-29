@@ -1,4 +1,4 @@
-"""Greenfield PostgreSQL schema for durable Investment Decision truth."""
+"""Greenfield PostgreSQL schema for durable Polaris business truth."""
 
 from __future__ import annotations
 
@@ -316,4 +316,82 @@ investment_decision_command_receipts = Table(
     ),
 )
 
-DECISION_TABLE_NAMES = frozenset(table.name for table in metadata.sorted_tables)
+evidence_observations = Table(
+    "evidence_observations",
+    metadata,
+    _row_id(),
+    Column("observation_id", UUID(as_uuid=True), nullable=False, unique=True),
+    Column("source_identity", Text, nullable=False),
+    Column("source_reference", Text, nullable=False),
+    Column("source_authority", Text, nullable=False),
+    Column("subject_identity", Text, nullable=False),
+    Column("subject_reference", Text, nullable=False),
+    Column("observed_at", DateTime(timezone=True), nullable=False),
+    Column("acquired_at", DateTime(timezone=True), nullable=False),
+    Column("effective_at", DateTime(timezone=True)),
+    Column("retained_representation", Text),
+    Column("verification_reference", Text),
+    Column(
+        "supersedes_observation_id",
+        UUID(as_uuid=True),
+        ForeignKey(
+            "evidence_observations.observation_id",
+            name="fk_evidence_observation_supersedes",
+            ondelete="RESTRICT",
+        ),
+    ),
+    CheckConstraint("btrim(source_identity) <> ''", name="source_identity_nonempty"),
+    CheckConstraint("btrim(source_reference) <> ''", name="source_reference_nonempty"),
+    CheckConstraint("btrim(source_authority) <> ''", name="source_authority_nonempty"),
+    CheckConstraint("btrim(subject_identity) <> ''", name="subject_identity_nonempty"),
+    CheckConstraint("btrim(subject_reference) <> ''", name="subject_reference_nonempty"),
+    CheckConstraint(
+        "retained_representation IS NOT NULL OR verification_reference IS NOT NULL",
+        name="reconstructable_material",
+    ),
+    CheckConstraint(
+        "retained_representation IS NULL OR btrim(retained_representation) <> ''",
+        name="retained_representation_nonempty",
+    ),
+    CheckConstraint(
+        "verification_reference IS NULL OR btrim(verification_reference) <> ''",
+        name="verification_reference_nonempty",
+    ),
+    CheckConstraint(
+        "supersedes_observation_id IS NULL "
+        "OR supersedes_observation_id <> observation_id",
+        name="supersedes_distinct",
+    ),
+)
+
+evidence_observation_command_receipts = Table(
+    "evidence_observation_command_receipts",
+    metadata,
+    _row_id(),
+    Column("operation_id", UUID(as_uuid=True), nullable=False, unique=True),
+    Column("request_fingerprint", String(64), nullable=False),
+    Column("request_payload", JSONB, nullable=False),
+    Column("result_payload", JSONB, nullable=False),
+    Column("committed_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint(
+        "char_length(request_fingerprint) = 64",
+        name="fingerprint_sha256",
+    ),
+)
+
+DECISION_TABLE_NAMES = frozenset(
+    {
+        "decision_needs",
+        "investment_decisions",
+        "investment_decision_lifecycle_facts",
+        "investment_decision_relationships",
+        "investment_decision_command_receipts",
+    }
+)
+EVIDENCE_TABLE_NAMES = frozenset(
+    {
+        "evidence_observations",
+        "evidence_observation_command_receipts",
+    }
+)
+POLARIS_TABLE_NAMES = DECISION_TABLE_NAMES | EVIDENCE_TABLE_NAMES

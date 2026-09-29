@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-09-28] R3 Investment Intelligence contract | material judgments durable, reasoning traces transient
+
+Accepted ADR 0007 for the first R3 human decision slice. R3 will durably preserve material Investment Views, substantive challenge results, material Decision Alternatives, Investment Recommendations, and explicit withholding judgments while keeping prompts, internal reasoning traces, provider-specific drafts, retries, debate topology, and non-material analytical exploration outside canonical business truth. Recommendation history remains append-only and current support is derived from durable judgment history plus current applicability and Evidence/Portfolio/Risk fitness. Recorded the architectural invariant immediately and the realization-required Investment Intelligence contract as implementation pending.
+
 ## [2026-09-28] R3 Evidence contract | Decision Context assembly and judgment-time bindings accepted
 
 Accepted ADR 0006 for the first R3 human decision slice. Decision Context remains an assembled time-specific view over canonical domain facts rather than a separately authoritative persisted aggregate. R3 Evidence will preserve durable observations plus judgment-relative bindings for role, material use, Judgment-Time Availability, freshness, sufficiency context, and conflict visibility; external factual authority remains external and later knowledge cannot rewrite historical judgment support. Recorded the architectural invariant immediately and the realization-required Evidence contract as implementation pending.

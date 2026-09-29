@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-09-29] R3 Evidence identity and reconstruction contract | implementation-ready semantics accepted
+
+Accepted ADR 0012 to complete the R3 Evidence contract beneath ADRs 0006 and 0011. First-class identity now follows independent attribution, addressability, correction, reconstruction, and downstream reference rather than a blanket UUID rule; observations, bindings, sufficiency assessments, and correction acts use distinct application-allocated UUIDv4-backed identities without redundant base-fact IDs. Evidence owns `REVISE | RETRACT` correction vocabulary while retaining append-only ancestry, recursive restoration, contestation, and no-latest-write-wins invariants. The accepted contract also freezes typed judgment targets and claim scope, role/use vocabularies, sufficiency dispositions, `(effective_at, known_at)` reconstruction, command-bound version revalidation, and distinct incomplete/contested/invalid-history/unavailable/stale-read outcomes. Updated the Evidence, Application Use Cases, and Durable Persistence knowledge derived from the decision; implementation remains pending.
+
 ## [2026-09-28] R3 Decision Memory composition | domain-owned facts and application queries accepted
 
 Accepted ADR 0011 for R3 cross-domain persistence and Decision Memory composition. R3 extends the greenfield persistence lineage with direct domain-owned facts, opaque owner-specific identities, typed cross-domain references, append-only material history, and application-owned current/historical Decision Memory queries. Cross-domain atomicity follows semantic invariants rather than one giant transaction, and no monolithic DecisionRecord, generic event-store authority, workflow archive, or report-owned model becomes business truth.

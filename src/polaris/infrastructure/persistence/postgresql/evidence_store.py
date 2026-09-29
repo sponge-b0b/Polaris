@@ -7,8 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from polaris.application.evidence import (
     EvidenceCommandReadUnavailable,
     EvidenceObservationCommit,
-    EvidenceObservationCommitted,
     EvidenceObservationCommitOutcome,
+    EvidenceObservationCommitted,
     EvidenceObservationIdempotencyConflict,
     EvidenceObservationReceipt,
     EvidenceObservationReplayed,

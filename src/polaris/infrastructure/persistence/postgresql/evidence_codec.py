@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import hashlib
-import json
 from datetime import datetime
-from uuid import UUID
 
 from sqlalchemy.engine import RowMapping
 
@@ -20,6 +17,8 @@ from polaris.domain.evidence import (
     EvidenceSourceProvenance,
     EvidenceSubjectReference,
 )
+
+from .codec_support import canonical_json_fingerprint, uuid_value
 
 type JsonObject = dict[str, object]
 
@@ -59,12 +58,7 @@ def observation_request_payload(
 def observation_request_fingerprint(
     request: EvidenceObservationSemanticRequest,
 ) -> str:
-    encoded = json.dumps(
-        observation_request_payload(request),
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode()
-    return hashlib.sha256(encoded).hexdigest()
+    return canonical_json_fingerprint(observation_request_payload(request))
 
 
 def observation_result_payload(result: EvidenceObservationResult) -> JsonObject:
@@ -96,7 +90,7 @@ def observation_from_row(row: RowMapping) -> EvidenceObservation:
     supersedes = row["supersedes_observation_id"]
     return EvidenceObservation(
         observation_id=EvidenceObservationId(
-            _uuid(row["observation_id"], "observation_id")
+            uuid_value(row["observation_id"], "observation_id")
         ),
         source=EvidenceSourceProvenance(
             source_identity=_string(row["source_identity"], "source_identity"),
@@ -119,7 +113,7 @@ def observation_from_row(row: RowMapping) -> EvidenceObservation:
             ),
         ),
         supersedes_observation_id=(
-            EvidenceObservationId(_uuid(supersedes, "supersedes_observation_id"))
+            EvidenceObservationId(uuid_value(supersedes, "supersedes_observation_id"))
             if supersedes is not None
             else None
         ),
@@ -130,11 +124,11 @@ def observation_receipt_from_row(row: RowMapping) -> EvidenceObservationReceipt:
     request_payload = _object(row["request_payload"], "request_payload")
     result_payload = _object(row["result_payload"], "result_payload")
     return EvidenceObservationReceipt(
-        operation_id=OperationId(_uuid(row["operation_id"], "operation_id")),
+        operation_id=OperationId(uuid_value(row["operation_id"], "operation_id")),
         request=_request_from_payload(request_payload),
         result=EvidenceObservationResult(
             EvidenceObservationId(
-                _uuid(result_payload.get("observation_id"), "result observation_id")
+                uuid_value(result_payload.get("observation_id"), "result observation_id")
             )
         ),
     )
@@ -169,7 +163,7 @@ def _request_from_payload(payload: JsonObject) -> EvidenceObservationSemanticReq
             ),
         ),
         supersedes_observation_id=(
-            EvidenceObservationId(_uuid(supersedes, "supersedes observation id"))
+            EvidenceObservationId(uuid_value(supersedes, "supersedes observation id"))
             if supersedes is not None
             else None
         ),
@@ -180,16 +174,6 @@ def _object(value: object, field: str) -> JsonObject:
     if not isinstance(value, dict) or any(not isinstance(key, str) for key in value):
         raise ValueError(f"{field} must be an object")
     return value
-
-
-def _uuid(value: object, field: str) -> UUID:
-    if type(value) is UUID:
-        return value
-    if isinstance(value, UUID):
-        return UUID(str(value))
-    if isinstance(value, str):
-        return UUID(value)
-    raise ValueError(f"{field} must be UUID-compatible")
 
 
 def _string(value: object, field: str) -> str:

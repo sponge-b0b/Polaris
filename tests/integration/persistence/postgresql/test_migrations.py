@@ -72,6 +72,30 @@ async def _identity_column_types(
         await engine.dispose()
 
 
+async def _column_default(
+    target: PostgresTestTarget,
+    table_name: str,
+    column_name: str,
+) -> str | None:
+    engine = create_postgres_engine(target.database_url, schema=target.schema)
+    try:
+        async with engine.connect() as connection:
+            return await connection.scalar(
+                text(
+                    "SELECT column_default FROM information_schema.columns "
+                    "WHERE table_schema = :schema AND table_name = :table_name "
+                    "AND column_name = :column_name"
+                ),
+                {
+                    "schema": target.schema,
+                    "table_name": table_name,
+                    "column_name": column_name,
+                },
+            )
+    finally:
+        await engine.dispose()
+
+
 async def _column_names(target: PostgresTestTarget, table_name: str) -> frozenset[str]:
     engine = create_postgres_engine(target.database_url, schema=target.schema)
     try:
@@ -115,6 +139,17 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
     assert column_types
     for (_, column_name), data_type in column_types.items():
         assert data_type == ("int8" if column_name == "row_id" else "uuid")
+
+    assert (
+        asyncio.run(
+            _column_default(
+                postgres_target,
+                "evidence_observations",
+                "observation_id",
+            )
+        )
+        is None
+    )
 
     relationship_columns = asyncio.run(
         _column_names(postgres_target, "investment_decision_relationships")

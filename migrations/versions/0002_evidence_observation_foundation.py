@@ -59,18 +59,15 @@ def upgrade() -> None:
             name="ck_evidence_observations_subject_reference_nonempty",
         ),
         sa.CheckConstraint(
-            "retained_representation IS NOT NULL "
-            "OR verification_reference IS NOT NULL",
+            "retained_representation IS NOT NULL OR verification_reference IS NOT NULL",
             name="ck_evidence_observations_reconstructable_material",
         ),
         sa.CheckConstraint(
-            "retained_representation IS NULL "
-            "OR btrim(retained_representation) <> ''",
+            "retained_representation IS NULL OR btrim(retained_representation) <> ''",
             name="ck_evidence_observations_retained_representation_nonempty",
         ),
         sa.CheckConstraint(
-            "verification_reference IS NULL "
-            "OR btrim(verification_reference) <> ''",
+            "verification_reference IS NULL OR btrim(verification_reference) <> ''",
             name="ck_evidence_observations_verification_reference_nonempty",
         ),
         sa.CheckConstraint(

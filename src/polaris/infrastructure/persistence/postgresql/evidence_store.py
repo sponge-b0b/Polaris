@@ -40,6 +40,10 @@ class PostgresEvidenceStore:
         require_qualified_postgres_runtime()
         self._engine = engine
 
+    # duplicate-code: each bounded-context store translates its own persistence
+    # read failures into its inward-owned application contract; sharing this body
+    # with Decision persistence would couple independent store semantics.
+    # arid: disable
     async def get_observation_receipt(
         self, operation_id: OperationId
     ) -> EvidenceObservationReceipt | None:
@@ -50,6 +54,7 @@ class PostgresEvidenceStore:
             raise EvidenceCommandReadUnavailable(
                 "Evidence observation receipt read is unavailable"
             ) from error
+    # arid: enable
 
     async def load_observation(
         self, observation_id: EvidenceObservationId

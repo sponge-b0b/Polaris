@@ -98,7 +98,7 @@ class EvidenceSourceProvenance:
 @dataclass(frozen=True, slots=True)
 class EvidenceSubjectReference:
     subject_identity: str
-    source_reference: str
+    subject_reference: str
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -108,8 +108,11 @@ class EvidenceSubjectReference:
         )
         object.__setattr__(
             self,
-            "source_reference",
-            _text(self.source_reference, "EvidenceSubjectReference.source_reference"),
+            "subject_reference",
+            _text(
+                self.subject_reference,
+                "EvidenceSubjectReference.subject_reference",
+            ),
         )
 
 

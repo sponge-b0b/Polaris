@@ -40,12 +40,65 @@ def _is_table_separator(line: str) -> bool:
     )
 
 
-def _is_table_row(line: str) -> bool:
+def _is_table_row_candidate(line: str) -> bool:
     stripped = line.strip()
     return "|" in stripped and not _is_table_separator(line)
 
 
-def _starts_special_block(line: str) -> bool:
+def _table_row_indexes(lines: list[str]) -> set[int]:
+    """Return line indexes that belong to an actual Markdown table.
+
+    A pipe character alone is not table structure. A table begins only when a
+    pipe-bearing header row is immediately followed by a Markdown table
+    separator row. Subsequent contiguous pipe-bearing rows belong to that table.
+    """
+
+    indexes: set[int] = set()
+    i = 0
+
+    while i + 1 < len(lines):
+        header = lines[i]
+        header_stripped = header.strip()
+        separator = lines[i + 1]
+
+        if (
+            _is_table_row_candidate(header)
+            and _is_table_separator(separator)
+            and not _HEADING_RE.match(header)
+            and not _FENCE_RE.match(header)
+            and not _LIST_RE.match(header)
+            and not header_stripped.startswith(">")
+            and not header_stripped.startswith("<!--")
+        ):
+            indexes.add(i)
+            j = i + 2
+
+            while j < len(lines):
+                row = lines[j]
+                row_stripped = row.strip()
+                if (
+                    not row_stripped
+                    or _HEADING_RE.match(row)
+                    or _FENCE_RE.match(row)
+                    or _LIST_RE.match(row)
+                    or row_stripped.startswith(">")
+                    or row_stripped.startswith("<!--")
+                    or _is_table_separator(row)
+                    or not _is_table_row_candidate(row)
+                ):
+                    break
+                indexes.add(j)
+                j += 1
+
+            i = j
+            continue
+
+        i += 1
+
+    return indexes
+
+
+def _starts_special_block(line: str, *, is_table_row: bool = False) -> bool:
     stripped = line.strip()
     return (
         not stripped
@@ -53,7 +106,7 @@ def _starts_special_block(line: str) -> bool:
         or bool(_FENCE_RE.match(line))
         or bool(_LIST_RE.match(line))
         or stripped.startswith(">")
-        or _is_table_row(line)
+        or is_table_row
         or stripped.startswith("<!--")
     )
 
@@ -84,6 +137,7 @@ def _append_unit(
 def extract_source_units(body: str) -> list[dict[str, Any]]:
     lines = body.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     units: list[dict[str, Any]] = []
+    table_row_indexes = _table_row_indexes(lines)
     section = "<preamble>"
     section_ordinals: dict[tuple[str, str], int] = {}
     i = 0
@@ -179,9 +233,11 @@ def extract_source_units(body: str) -> list[dict[str, Any]]:
                 ):
                     break
                 indent = len(candidate) - len(candidate.lstrip(" \t"))
-                if indent <= base_indent and _starts_special_block(candidate):
+                if indent <= base_indent and _starts_special_block(
+                    candidate, is_table_row=i in table_row_indexes
+                ):
                     break
-                if candidate.strip().startswith(">") or _is_table_row(candidate):
+                if candidate.strip().startswith(">") or i in table_row_indexes:
                     break
                 block.append(candidate)
                 i += 1
@@ -198,7 +254,7 @@ def extract_source_units(body: str) -> list[dict[str, Any]]:
             i += 1
             continue
 
-        if _is_table_row(line):
+        if i in table_row_indexes:
             _append_unit(
                 units,
                 section=section,
@@ -213,7 +269,9 @@ def extract_source_units(body: str) -> list[dict[str, Any]]:
         i += 1
         while i < len(lines):
             candidate = lines[i]
-            if _starts_special_block(candidate):
+            if _starts_special_block(
+                candidate, is_table_row=i in table_row_indexes
+            ):
                 break
             block.append(candidate)
             i += 1

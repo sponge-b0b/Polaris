@@ -5,6 +5,7 @@
 
 ### Strict Invariants
 
+* R3 Human Investment Decision is a power-specific durable authority act: it remains distinct from Recommendation, may exist without one, may resolve by deliberate hold/no-action with zero synthetic Action Intents, and is recorded only after time/scope-specific Human-Investment-Decision authority is established. (source: docs/adr/0009-governance-authority-expose-r3-human-decision-through-thin-cli.md)
 * Deterministic Policy/Formal Constraint results and power-specific authority acts are separate semantic facts; one must not be inferred from the other. (source: docs/current/platform-architecture-0.2.0.md)
 * Authentication, application authorization, Actor Attribution, and Investment Authority Regime powers are distinct layers. Actor Attribution establishes who performed an act; it does not grant authority. (source: docs/current/platform-architecture-0.2.0.md; docs/proposed/investment-decisions-r2-foundation-public-contract.md)
 * A canonical authority-bearing domain act may be established only when the applicable Investment Authority Regime confirms that the attributable actor possesses the specific required power for the act's subject, scope, conditions, and authority-effective time. An unauthorized attempt may be auditable but must not be recorded as the corresponding canonical Human Investment Decision, Approval, Mandate Exception, Residual-Risk Acceptance, Authority Denial, or another power-specific authority act. (source: docs/proposed/investment-decisions-r2-foundation-public-contract.md)
@@ -17,3 +18,8 @@
 
 * **Deferral and substantive-resolution seams** — canonical Deferral remains a Governance-owned Human Investment Decision; the Decisions boundary records only the resulting deferred-work consequence from a trusted human-decision basis. Substantive resolution likewise consumes a trusted Governance-owned resolution basis rather than allowing the Decisions module or arbitrary caller to fabricate human authority. (source: docs/proposed/platform-domain-interaction-map.md; docs/proposed/application-use-cases-investment-decision-lifecycle.md)
 * **Authorization design** — later Governance implementation must preserve the distinct authentication, application-authorization, Actor Attribution, and Investment Authority Regime contracts. Shared policy technology may be used internally, but a generic authorization abstraction must not erase power-specific investment-authority semantics. (source: docs/proposed/investment-decisions-r2-foundation-public-contract.md)
+
+
+### Planned
+
+* **R3 minimum Human Investment Decision authority contract** — accepted, implementation pending. The first supported Portfolio will have the minimum power-specific Investment Authority Regime needed to validate one attributable human actor for Human Investment Decision, failing closed when authority cannot be established. Broader R4 Approval, Authority Denial, Admissibility, Mandate Exception, Residual-Risk Acceptance, and governed-use composition remain outside R3. (source: docs/adr/0009-governance-authority-expose-r3-human-decision-through-thin-cli.md)

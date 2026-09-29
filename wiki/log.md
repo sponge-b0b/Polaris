@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-09-28] R3 Human Decision and Learning contracts | owner-authorized combined Wayfinder closure
+
+Under an explicit repository/skill-owner authorization to override Wayfinder's one-decision-per-session rule for this run, resolved #353 and #354 with separate durable Decision Analyses and architecture records. Accepted ADR 0009 defines the minimum power-specific Human Investment Decision authority contract and selects an interactive CLI as the first complete thin human surface over shared application truth. Accepted ADR 0010 keeps Outcome, Decision Evaluation, and Lesson as separate durable facts, preserving ex-ante versus ex-post knowledge boundaries and scoped Lessons without R6 feedback behavior. Both decisions retain their own ticket history and architecture ownership despite the combined-session exception.
+
 ## [2026-09-28] R3 Portfolio & Risk contract | Recommendation formation grounded in projected consequences
 
 Accepted ADR 0008 for the first R3 human decision slice. R3 will preserve decision-grade actual Portfolio State plus material alternative-relative Projected Portfolio Consequences and attributable multidimensional Portfolio Risk Assessments. Portfolio Risk participates before Recommendation finality rather than acting as an approval stamp, and unknown consequence/Risk remains explicitly unresolved. External Portfolio facts retain external authority while Polaris owns their decision meaning and derived projections/Risk. Recorded the architectural invariant immediately and the realization-required Portfolio & Risk contract as implementation pending.

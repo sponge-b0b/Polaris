@@ -44,6 +44,8 @@ def _aware(value: object, field: str) -> None:
         or value.utcoffset() is None
     ):
         raise InvalidEvidenceBinding(f"{field} must be timezone-aware")
+
+
 # arid: enable
 
 
@@ -75,6 +77,8 @@ class EvidenceMaterialQualification:
             "statement",
             _text(self.statement, "EvidenceMaterialQualification.statement"),
         )
+
+
 # arid: enable
 
 
@@ -96,6 +100,7 @@ class EvidenceFreshnessAuthorityReference:
             raise TypeError("version_id must be EvidenceRequirementSetVersionId")
         if type(self.requirement_id) is not EvidenceRequirementId:
             raise TypeError("requirement_id must be EvidenceRequirementId")
+
     # arid: enable
 
 

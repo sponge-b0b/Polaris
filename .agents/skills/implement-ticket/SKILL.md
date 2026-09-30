@@ -688,8 +688,11 @@ This is an implementation plan, not semantic certification and not a duplicate `
 Use it to:
 
 * design the implementation and tests once around the real falsifiers rather than discovering material proof requirements only after a green candidate exists;
+* resolve authority-defined concrete types, unions, key members, cardinalities, temporal cutoffs, and failure outcomes explicitly rather than leaving umbrella phrases such as "typed applicability", "historical correctness", or "exact identity" to implementation interpretation;
+* check every canonical type/reference required by the ticket against the published decomposition before code: when a later sibling ticket owns behavior over that type but the current ticket already requires the shared vocabulary to express its own contract, establish the smallest authority-owned shared foundation now; when authority does not resolve that ownership, fail closed rather than inventing a placeholder or generic surrogate;
 * establish runtime/service prerequisites before expensive behavioral verification begins;
-* expose an apparent decomposition defect before code when the actual authorized work contains materially more independent scenario families/closure domains than the ticket's certified context-fit allowed.
+* expose an apparent decomposition defect before code when the actual authorized work contains materially more independent scenario families/closure domains than the ticket's certified context-fit allowed;
+* begin discovery from the exact ticket obligations, carried Spec cells, ARCHSRC rows, and referenced authority sections; broaden to graph/repository search only when an exact seam remains unresolved, and narrow immediately when a broad result is truncated or materially exceeds the ticket's contract surface.
 
 If the authority-first plan shows the ticket was materially oversized or omitted a required independently closable slice, fail closed as a decomposition defect and route back to `$to-tickets`; do not silently split or redesign the ticket during implementation.
 
@@ -791,18 +794,22 @@ Completeness of verification does not require rerunning the most expensive compl
 Execute applicable delegated gates through their owning skills, but order candidate shaping from cheapest/earliest falsifiers toward broadest proof:
 
 1. **candidate-shaping preflight** — formatting/no-op formatter state, syntax/schema/frontmatter, targeted lint/type/static checks, exact runtime/interpreter/service qualification, and other deterministic prerequisites;
-2. **focused repair gates** — the smallest owning-skill check that can close the currently observed failure, including duplicate-code/stale-suppression health when that is the active defect;
+2. **focused repair gates** — the smallest owning-skill check that can close the currently observed failure;
 3. **targeted behavioral proof** — ticket-specific unit/integration/real-service checks and negative paths;
-4. **broader/delegated proof** — architecture, migration/database, repository-wide differential, documentation/workflow, or other wider gates required by the applicability plan;
-5. **final candidate-bound pass** — once all known repair loops are green, execute the complete applicable verification set for the exact candidate before closure evidence is frozen.
+4. **pre-freeze shaping closure** — complete post-implementation wiki/document routing, generated/migration finalization, applicable ticket-differential duplicate-code and stale-suppression health, and the semantic falsification gate below; repair until every shaping gate is green;
+5. **broader/delegated proof** — architecture, migration/database, workflow, or other wider gates required by the applicability plan that are not candidate-shaping gates;
+6. **final candidate-bound pass** — only after pre-freeze shaping closure is green and no known mutation remains, execute the complete still-required verification set for the exact candidate before closure evidence is frozen.
 
 Rules:
 
 * format/fix the candidate before treating it as a verification candidate; do not use the complete verification matrix as a formatter;
+* applicable `$deduplicate-code ticket-differential` is a **pre-freeze shaping gate**, not a first-discovery final gate: candidate-introduced/expanded duplication and stale suppressions must be resolved before `FINAL_VERIFY_STATE` is computed;
 * establish required interpreter/runtime/service prerequisites before behavioral tests that depend on them;
+* do not launch concurrent `uv run` processes that may create, replace, or mutate the same project virtual environment under different interpreter/runtime selections; serialize them or give each an explicitly isolated environment;
 * after a failure and repair, rerun only the failed gate, its prerequisites, and gates whose evidence the repair could invalidate; reuse still-valid exact-candidate evidence under the repository's candidate-bound reuse policy;
 * a broad final pass is required after the repair funnel is green, but already-green broad gates need not be repeatedly rerun during the inner edit loop;
 * every observed required-gate failure remains in the verification universe until it has an explicit causal disposition under the hardening invariant; a narrower later PASS does not erase it;
+* a failure in formatting, deterministic generated state, duplicate-code/stale-suppression health, or another mandatory pre-freeze shaping category during a purported final pass is a sequencing defect: return immediately to the focused shaping gate instead of launching another complete matrix;
 * after **two consecutive complete-matrix failures caused only by mechanical, formatting, runtime-selection, duplicate-code, or stale-suppression issues with no product-semantic failure**, raise Attention for verification churn and stop launching complete-matrix reruns until the failing gate is isolated and passes its focused preflight.
 
 The funnel changes execution order and evidence reuse only. It never waives an applicable delegated gate or weakens the final candidate-bound verification set.
@@ -810,7 +817,7 @@ The funnel changes execution order and evidence reuse only. It never waives an a
 Typical routing:
 
 * Code/Tests → invoke `$verify-code` with `TICKET_BASELINE`, plus any ticket-required targeted production-boundary proof;
-* Duplicate-code discipline → when any ticket-changed path is inside the configured Arid or JSCPD scan universe, invoke `$deduplicate-code` in `ticket-differential` mode with `TICKET_BASELINE` and the exact ticket candidate; repair candidate-introduced/expanded duplication before closure, while baseline-identical debt remains out of scope;
+* Duplicate-code discipline → when any ticket-changed path is inside the configured Arid or JSCPD scan universe, invoke `$deduplicate-code` in `ticket-differential` mode with `TICKET_BASELINE` during pre-freeze shaping; repair candidate-introduced/expanded duplication and stale suppressions before freeze, while baseline-identical debt remains out of scope. The immutable baseline scan may be computed once per exact `TICKET_BASELINE` + scanner-configuration identity and reused across candidate repair iterations; invalidate that reuse only if the baseline or scanner configuration changes;
 * Documentation → deterministic document/ADR/wiki validation owned by the relevant documentation workflow;
 * Agent skills/workflow policy → structure/frontmatter, cross-skill contract consistency, ownership/handoff, fail-closed behavior, idempotency/re-entry, tracker relationship/projection proof as required;
 * Repository configuration / CI → syntax/schema/lint/dry-run or repository-defined validation appropriate to the changed surface;
@@ -1303,21 +1310,49 @@ During active implementation, run only the minimum direct checks and discovery n
 
 Do not run a complete final `$verify-code` lifecycle, delegated repository-wide invariant gate, full documentation/workflow/database verification set, or equivalent final gate merely to obtain an early green result while substantive mutation is still expected. Any such early result is iterative evidence only and cannot satisfy the final verification requirement.
 
-Complete all known mutating finalization before freeze, including applicable `$format-code`, post-implementation `$wiki-sync` edits, generated artifacts/migrations, deterministic auto-fixes, and other authorized repository mutations. Claim/falsifier construction and semantic discovery are not deferred; only final verification execution is.
+Complete all known mutating finalization before freeze, including applicable `$format-code`, post-implementation `$wiki-sync` edits, generated artifacts/migrations, deterministic auto-fixes, applicable ticket-differential duplicate/stale-suppression repairs, and other authorized repository mutations. Claim/falsifier construction and semantic discovery are not deferred; only final verification execution is.
 
 Interpret `local / delegated implementation verification` in the Core Authority Invariant as the final candidate-bound verification phase below. Iterative checks do not satisfy that transition.
 
+### Pre-Freeze Semantic Falsification Gate
+
+Immediately before `FINAL_VERIFY_STATE` may be computed, re-read the authority-first proof plan against the **actual implemented candidate** and actively try to falsify every acceptance predicate. This is an implementer self-challenge, not semantic certification and not a replacement for `$verify-ticket-closure`.
+
+For every acceptance row:
+
+1. restate the exact concrete predicate using authority-defined types/keys/cardinalities/temporal boundaries rather than umbrella labels;
+2. exercise or inspect at least one direct counterexample matching the row's falsifier;
+3. for closed typed domains/unions, prove the implemented construction uses the canonical members and cannot express an invalid generic/missing member;
+4. for temporal or historical predicates such as `(T,K)`, prove state recorded/known after `K` cannot change an answer at `K` unless the authority explicitly says otherwise;
+5. for shared vocabulary split across sibling tickets, confirm the current candidate owns only the minimum shared type foundation required by its own contract and has not silently pulled later behavior forward;
+6. disposition every surviving counterexample as repaired, authoritative not-applicable, or unresolved.
+
+Any surviving falsifier, generic surrogate for an authority-defined typed contract, missing required canonical member, or unresolved ownership/decomposition question blocks candidate freeze.
+
+Before freeze require:
+
+```text
+Pre-freeze shaping gates: <n>
+Pre-freeze shaping gates green: <n>/<n>
+Applicable duplicate/stale-suppression gate: <clean | not-applicable>
+Semantic falsifiers exercised: <n>
+Surviving semantic falsifiers: 0
+Unresolved shared-vocabulary/decomposition questions: 0
+Known repository/tracker mutations remaining: 0
+```
+
 ### Final Verification Candidate Freeze
 
-When implementation, applicability reconciliation, semantic discovery, and all known mutating finalization are complete, freeze the candidate **before** running final verification:
+When implementation, applicability reconciliation, semantic discovery, the **Pre-Freeze Semantic Falsification Gate**, and all known mutating finalization are complete, freeze the candidate **before** running final verification:
 
 1. compute `FINAL_VERIFY_STATE` using the exact `TICKET_CLOSURE_STATE` hash procedure in **Candidate State**;
 2. bind any tracker-only or mixed durable tracker state required by the ticket at the same boundary;
 3. record that no known substantive repository/tracker mutation remains before final verification;
-4. run every applicable final verification owner/gate once against that frozen state, including `$verify-code`, applicable `$deduplicate-code ticket-differential`, and any other applicable delegated invariant gate;
-5. recompute the same candidate/tracker state after final verification and require exact equality with the freeze.
+4. run every applicable still-required final verification owner/gate once against that frozen state, including `$verify-code` and any delegated invariant gate not already satisfied by reusable exact-candidate shaping evidence;
+5. reuse a pre-freeze gate result, including `$deduplicate-code ticket-differential`, only when it was run on the exact bytes/tracker state that produced `FINAL_VERIFY_STATE` and no relevant configuration/baseline changed; otherwise rerun it against the frozen state;
+6. recompute the same candidate/tracker state after final verification and require exact equality with the freeze.
 
-Final verification is evidence for one immutable candidate, not another implementation iteration.
+Final verification is evidence for one immutable candidate, not another implementation iteration. Its normal role is confirmation of an already-shaped candidate, not discovery of formatter, duplicate-code, stale-suppression, obvious typed-contract, or direct falsifier defects.
 
 If a final gate fails and repair is required, or if a verification helper performs an authorized repair/auto-fix, the freeze is stale immediately. Do not count that run as final evidence. Return to implementation, complete the repair and mutating finalization, compute a new `FINAL_VERIFY_STATE`, and re-run every final gate whose evidence may have been invalidated. Reuse prior gate evidence only when deterministic fail-closed invalidation analysis proves the exact proof/evidence is unaffected; uncertainty requires rerun.
 

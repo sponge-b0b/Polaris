@@ -4,7 +4,7 @@ description: Enforces repository-wide duplicate-code discipline, with zero unsup
 license: MIT
 compatibility: product=codex product=claude-code system=arid system=jscpd network=none
 metadata:
-  version: 2.2.0
+  version: 2.3.0
 ---
 
 # Code Duplication Checks
@@ -52,7 +52,18 @@ When `$implement-ticket` delegates this skill, it supplies the fixed `TICKET_BAS
 
 Applicability is determined by the parent: use this mode when the ticket changes executable/source files that fall inside the repository's configured Arid or JSCPD scan universe. Scanner scope remains whole-repository.
 
-Run the candidate scans in the current exact ticket worktree and the baseline scans against an isolated read-only `TICKET_BASELINE` worktree/ref. Classify every candidate finding using the same four causality states defined for `spec-differential` below:
+Run the candidate scans in the current exact ticket worktree. Establish baseline evidence against an isolated read-only `TICKET_BASELINE` worktree/ref, but do not require recomputing an immutable baseline scan on every candidate repair iteration.
+
+A parent may reuse one previously successful baseline scan record when all of these identities are unchanged:
+
+* exact `TICKET_BASELINE`;
+* scanner executable/toolchain versions;
+* baseline Arid/JSCPD configuration and suppression-policy files;
+* scan scope/configuration semantics used for the differential comparison.
+
+The reusable record must retain enough machine-readable baseline output to classify candidate relations; a prose-only statement such as "baseline was clean" is insufficient when actual relation correlation is needed. Any change to one of those identities invalidates reuse and requires a fresh isolated baseline scan. Candidate scans are never reused after candidate bytes or candidate scanner configuration change.
+
+Classify every candidate finding using the same four causality states defined for `spec-differential` below:
 
 ```text
 candidate-introduced
@@ -281,10 +292,11 @@ Existing repository configuration or an explicitly authorized migration/adoption
 After every repair cycle:
 
 1. if executable Python source/tests changed through consolidation, invoke `$verify-code` for the affected change and consumer set;
-2. rerun Arid across the repository with stale-suppression enforcement;
-3. rerun JSCPD across the repository;
-4. in default mode, inspect remaining findings normally; in a differential mode, reuse exact baseline-identical correlations unless a repair/configuration/suppression change invalidated them;
-5. continue until the active mode's terminal invariant is satisfied.
+2. rerun Arid across the **candidate** repository with stale-suppression enforcement;
+3. rerun JSCPD across the **candidate** repository;
+4. in default mode, inspect remaining findings normally;
+5. in a differential mode, reuse the exact immutable-baseline scan/correlation record when its baseline/tool/config identity remains valid; rerun the baseline only when that identity was invalidated;
+6. continue until the active mode's terminal invariant is satisfied.
 
 Use:
 
@@ -358,9 +370,9 @@ Candidate: <exact ticket candidate state>
 
 Whole-project scope:
 - Arid candidate scan: .
-- Arid baseline scan: .
+- Arid baseline scan: <fresh | reused exact baseline evidence identity>
 - JSCPD candidate scan: .
-- JSCPD baseline scan: .
+- JSCPD baseline scan: <fresh | reused exact baseline evidence identity>
 
 Causality:
 - Candidate-introduced: 0

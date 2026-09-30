@@ -18,6 +18,7 @@ from polaris.application.evidence import (
 )
 from polaris.domain.evidence.bindings import (
     EvidenceAvailability,
+    EvidenceBinding,
     EvidenceRole,
 )
 from polaris.domain.evidence.observations import EvidenceBindingId
@@ -101,6 +102,22 @@ async def _record_binding_pair(
     return first, second
 
 
+async def _record_and_reload_binding(
+    target: PostgresTestTarget,
+    *,
+    command: RecordEvidenceBindingCommand,
+) -> EvidenceBinding:
+    result = await _record_binding(target, command=command)
+    async with postgres_store(
+        target,
+        PostgresEvidenceBindingStore,
+    ) as (_, restarted):
+        binding = await restarted.load_binding(result.binding_id)
+
+    assert binding is not None
+    return binding
+
+
 def test_binding_round_trips_across_restart_with_exact_contract(
     postgres_target: PostgresTestTarget,
 ) -> None:
@@ -108,18 +125,10 @@ def test_binding_round_trips_across_restart_with_exact_contract(
         await _seed_observation(postgres_target)
         await _seed_requirement(postgres_target)
 
-        result = await _record_binding(
+        binding = await _record_and_reload_binding(
             postgres_target,
             command=binding_command(with_freshness=True),
         )
-
-        async with postgres_store(
-            postgres_target,
-            PostgresEvidenceBindingStore,
-        ) as (_, restarted):
-            binding = await restarted.load_binding(result.binding_id)
-
-        assert binding is not None
         assert binding.binding_id == EvidenceBindingId(BINDING_ID)
         assert binding.observation_id.value == OBSERVATION_ID
         assert binding.role is EvidenceRole.SUPPORTING
@@ -139,21 +148,13 @@ def test_historical_unknown_availability_round_trips_without_material_use(
 ) -> None:
     async def scenario() -> None:
         await _seed_observation(postgres_target)
-        result = await _record_binding(
+        binding = await _record_and_reload_binding(
             postgres_target,
             command=binding_command(
                 availability=EvidenceAvailability.UNKNOWN,
                 materially_used=False,
             ),
         )
-
-        async with postgres_store(
-            postgres_target,
-            PostgresEvidenceBindingStore,
-        ) as (_, restarted):
-            binding = await restarted.load_binding(result.binding_id)
-
-        assert binding is not None
         assert binding.availability is EvidenceAvailability.UNKNOWN
         assert binding.materially_used is False
         assert binding.effective_at == BINDING_EFFECTIVE_AT

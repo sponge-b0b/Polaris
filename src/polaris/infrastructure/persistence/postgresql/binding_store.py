@@ -87,6 +87,7 @@ class PostgresEvidenceBindingStore:
             raise EvidenceCommandReadUnavailable(
                 "Evidence binding read is unavailable"
             ) from error
+
     # arid: enable
 
     async def commit_binding(

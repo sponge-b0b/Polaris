@@ -99,9 +99,7 @@ def test_changed_semantic_request_reusing_operation_conflicts() -> None:
 
     with pytest.raises(EvidenceIdempotencyConflict):
         asyncio.run(
-            service.record(
-                evidence_command(retained_representation='{"value": 999.0}')
-            )
+            service.record(evidence_command(retained_representation='{"value": 999.0}'))
         )
 
 

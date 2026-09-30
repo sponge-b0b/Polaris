@@ -188,6 +188,9 @@ def _optional_string(value: object, field: str) -> str | None:
     return None if value is None else _string(value, field)
 
 
+# duplicate-code: persisted-value decoding owns adapter failure semantics;
+# sharing a domain validator here would leak domain validation into infrastructure.
+# arid: disable
 def _datetime(value: object, field: str) -> datetime:
     if (
         not isinstance(value, datetime)
@@ -196,6 +199,7 @@ def _datetime(value: object, field: str) -> datetime:
     ):
         raise ValueError(f"{field} must be timezone-aware datetime")
     return value
+# arid: enable
 
 
 def _optional_datetime(value: object, field: str) -> datetime | None:

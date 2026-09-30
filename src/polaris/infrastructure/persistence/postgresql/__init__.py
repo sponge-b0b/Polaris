@@ -1,5 +1,6 @@
 """PostgreSQL implementations of inward-owned persistence ports."""
 
+from .binding_store import PostgresEvidenceBindingStore
 from .decisions import create_postgres_engine
 from .evidence_store import PostgresEvidenceStore
 from .relationship_store import PostgresDecisionStore
@@ -18,6 +19,7 @@ __all__ = [
     "EVIDENCE_TABLE_NAMES",
     "POLARIS_TABLE_NAMES",
     "PostgresDecisionStore",
+    "PostgresEvidenceBindingStore",
     "PostgresEvidenceRequirementStore",
     "PostgresEvidenceStore",
     "create_postgres_engine",

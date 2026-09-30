@@ -54,6 +54,7 @@ class PostgresEvidenceStore:
             raise EvidenceCommandReadUnavailable(
                 "Evidence observation receipt read is unavailable"
             ) from error
+
     # arid: enable
 
     async def load_observation(

@@ -28,6 +28,7 @@ from tests.binding_support import (
     BINDING_ID,
     SECOND_BINDING_ID,
     SECOND_BINDING_OPERATION_ID,
+    SECOND_TARGET_ID,
     binding_command,
     binding_service,
 )
@@ -123,6 +124,36 @@ def test_distinct_operation_preserves_equivalent_binding_as_distinct_act() -> No
 
     assert first.binding_id != second.binding_id
     assert len(store.bindings) == 2
+
+
+def test_changed_target_reusing_operation_conflicts_without_replacing_root() -> None:
+    store = _FakeBindingStore()
+    service = binding_service(store, BINDING_ID, SECOND_BINDING_ID)
+
+    first = asyncio.run(service.record(binding_command()))
+
+    with pytest.raises(EvidenceIdempotencyConflict):
+        asyncio.run(service.record(binding_command(target_id=SECOND_TARGET_ID)))
+
+    assert tuple(store.bindings) == (first.binding_id,)
+
+
+def test_changed_target_under_distinct_operation_creates_new_root() -> None:
+    store = _FakeBindingStore()
+    service = binding_service(store, BINDING_ID, SECOND_BINDING_ID)
+
+    first = asyncio.run(service.record(binding_command()))
+    second = asyncio.run(
+        service.record(
+            binding_command(
+                SECOND_BINDING_OPERATION_ID,
+                target_id=SECOND_TARGET_ID,
+            )
+        )
+    )
+
+    assert first.binding_id != second.binding_id
+    assert store.bindings[first.binding_id].target != store.bindings[second.binding_id].target
 
 
 def test_missing_observation_fails_with_typed_reference_conflict() -> None:

@@ -13,8 +13,8 @@ from polaris.application.evidence import (
     EvidenceBindingResult,
     EvidenceBindingStore,
     EvidencePersistenceUnavailable,
-    RecordEvidenceBindingCommand,
     EvidenceRequirementVersionAppended,
+    RecordEvidenceBindingCommand,
 )
 from polaris.domain.evidence.bindings import (
     EvidenceAvailability,

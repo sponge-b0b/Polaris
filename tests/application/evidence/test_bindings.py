@@ -19,7 +19,11 @@ from polaris.application.evidence import (
     EvidenceIdempotencyConflict,
 )
 from polaris.domain.decisions import OperationId
-from polaris.domain.evidence import EvidenceBinding, EvidenceBindingId, EvidenceObservationId
+from polaris.domain.evidence import (
+    EvidenceBinding,
+    EvidenceBindingId,
+    EvidenceObservationId,
+)
 from tests.binding_support import (
     BINDING_ID,
     SECOND_BINDING_ID,
@@ -106,9 +110,7 @@ def test_distinct_operation_preserves_equivalent_binding_as_distinct_act() -> No
     service = binding_service(store, BINDING_ID, SECOND_BINDING_ID)
 
     first = asyncio.run(service.record(binding_command()))
-    second = asyncio.run(
-        service.record(binding_command(SECOND_BINDING_OPERATION_ID))
-    )
+    second = asyncio.run(service.record(binding_command(SECOND_BINDING_OPERATION_ID)))
 
     assert first.binding_id != second.binding_id
     assert len(store.bindings) == 2

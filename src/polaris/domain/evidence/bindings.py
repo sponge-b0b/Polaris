@@ -118,66 +118,79 @@ class EvidenceBinding:
     freshness_basis: EvidenceFreshnessBasisReference | None = None
 
     def __post_init__(self) -> None:
-        if type(self.binding_id) is not EvidenceBindingId:
-            raise TypeError("binding_id must be EvidenceBindingId")
-        if type(self.observation_id) is not EvidenceObservationId:
-            raise TypeError("observation_id must be EvidenceObservationId")
-        if not is_evidence_judgment_ref(self.target):
-            raise TypeError("target must be an EvidenceJudgmentRef")
+        _validate_binding_endpoints(self)
+        _validate_binding_usage(self)
+        _validate_binding_optional_metadata(self)
 
-        # Claim-specific scope is already part of the accepted vocabulary, but
-        # admission requires target-owned historical claim validation implemented
-        # by the next ticket. This ticket establishes the judgment-wide root only.
-        if type(self.scope) is not JudgmentWideEvidenceScope:
-            raise InvalidEvidenceBinding(
-                "binding scope must be judgment-wide until target-owned "
-                "claim validation is available"
-            )
-        if type(self.evidence_use) is not EvidenceUse:
-            raise TypeError("evidence_use must be EvidenceUse")
-        if type(self.role) is not EvidenceRole:
-            raise TypeError("role must be EvidenceRole")
-        if type(self.availability) is not EvidenceAvailability:
-            raise TypeError("availability must be EvidenceAvailability")
-        if type(self.materially_used) is not bool:
-            raise TypeError("materially_used must be bool")
-        if (
-            self.materially_used
-            and self.availability is not EvidenceAvailability.AVAILABLE
-        ):
-            raise InvalidEvidenceBinding(
-                "materially used Evidence must have AVAILABLE judgment-time availability"
-            )
 
-        _aware(self.effective_at, "EvidenceBinding.effective_at")
-        _aware(self.recorded_at, "EvidenceBinding.recorded_at")
+def _validate_binding_endpoints(binding: EvidenceBinding) -> None:
+    if type(binding.binding_id) is not EvidenceBindingId:
+        raise TypeError("binding_id must be EvidenceBindingId")
+    if type(binding.observation_id) is not EvidenceObservationId:
+        raise TypeError("observation_id must be EvidenceObservationId")
+    if not is_evidence_judgment_ref(binding.target):
+        raise TypeError("target must be an EvidenceJudgmentRef")
 
-        if (
-            self.material_qualification is not None
-            and type(self.material_qualification) is not EvidenceMaterialQualification
-        ):
-            raise TypeError(
-                "material_qualification must be EvidenceMaterialQualification or None"
-            )
-        if (
-            self.freshness_authority is not None
-            and type(self.freshness_authority)
-            is not EvidenceFreshnessAuthorityReference
-        ):
-            raise TypeError(
-                "freshness_authority must be EvidenceFreshnessAuthorityReference or None"
-            )
-        if (
-            self.freshness_basis is not None
-            and type(self.freshness_basis) is not EvidenceFreshnessBasisReference
-        ):
-            raise TypeError(
-                "freshness_basis must be EvidenceFreshnessBasisReference or None"
-            )
-        if (self.freshness_authority is None) != (self.freshness_basis is None):
-            raise InvalidEvidenceBinding(
-                "freshness authority and basis references must be present together"
-            )
+    # Claim-specific scope is already part of the accepted vocabulary, but
+    # admission requires target-owned historical claim validation implemented
+    # by the next ticket. This ticket establishes the judgment-wide root only.
+    if type(binding.scope) is not JudgmentWideEvidenceScope:
+        raise InvalidEvidenceBinding(
+            "binding scope must be judgment-wide until target-owned "
+            "claim validation is available"
+        )
+    if type(binding.evidence_use) is not EvidenceUse:
+        raise TypeError("evidence_use must be EvidenceUse")
+
+
+def _validate_binding_usage(binding: EvidenceBinding) -> None:
+    if type(binding.role) is not EvidenceRole:
+        raise TypeError("role must be EvidenceRole")
+    if type(binding.availability) is not EvidenceAvailability:
+        raise TypeError("availability must be EvidenceAvailability")
+    if type(binding.materially_used) is not bool:
+        raise TypeError("materially_used must be bool")
+    if (
+        binding.materially_used
+        and binding.availability is not EvidenceAvailability.AVAILABLE
+    ):
+        raise InvalidEvidenceBinding(
+            "materially used Evidence must have AVAILABLE "
+            "judgment-time availability"
+        )
+
+    _aware(binding.effective_at, "EvidenceBinding.effective_at")
+    _aware(binding.recorded_at, "EvidenceBinding.recorded_at")
+
+
+def _validate_binding_optional_metadata(binding: EvidenceBinding) -> None:
+    if (
+        binding.material_qualification is not None
+        and type(binding.material_qualification) is not EvidenceMaterialQualification
+    ):
+        raise TypeError(
+            "material_qualification must be EvidenceMaterialQualification or None"
+        )
+    if (
+        binding.freshness_authority is not None
+        and type(binding.freshness_authority)
+        is not EvidenceFreshnessAuthorityReference
+    ):
+        raise TypeError(
+            "freshness_authority must be "
+            "EvidenceFreshnessAuthorityReference or None"
+        )
+    if (
+        binding.freshness_basis is not None
+        and type(binding.freshness_basis) is not EvidenceFreshnessBasisReference
+    ):
+        raise TypeError(
+            "freshness_basis must be EvidenceFreshnessBasisReference or None"
+        )
+    if (binding.freshness_authority is None) != (binding.freshness_basis is None):
+        raise InvalidEvidenceBinding(
+            "freshness authority and basis references must be present together"
+        )
 
 
 __all__ = [

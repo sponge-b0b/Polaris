@@ -153,7 +153,10 @@ def test_changed_target_under_distinct_operation_creates_new_root() -> None:
     )
 
     assert first.binding_id != second.binding_id
-    assert store.bindings[first.binding_id].target != store.bindings[second.binding_id].target
+    assert (
+        store.bindings[first.binding_id].target
+        != store.bindings[second.binding_id].target
+    )
 
 
 def test_missing_observation_fails_with_typed_reference_conflict() -> None:

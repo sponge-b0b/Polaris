@@ -18,9 +18,16 @@ from polaris.domain.evidence import (
     EvidenceSubjectReference,
 )
 
-from .codec_support import canonical_json_fingerprint, uuid_value
-
-type JsonObject = dict[str, object]
+from .codec_support import (
+    JsonObject,
+    aware_datetime,
+    canonical_json_fingerprint,
+    iso_aware_datetime,
+    json_object,
+    nonempty_string,
+    optional_nonempty_string,
+    uuid_value,
+)
 
 
 def observation_request_payload(
@@ -93,22 +100,30 @@ def observation_from_row(row: RowMapping) -> EvidenceObservation:
             uuid_value(row["observation_id"], "observation_id")
         ),
         source=EvidenceSourceProvenance(
-            source_identity=_string(row["source_identity"], "source_identity"),
-            source_reference=_string(row["source_reference"], "source_reference"),
-            source_authority=_string(row["source_authority"], "source_authority"),
+            source_identity=nonempty_string(row["source_identity"], "source_identity"),
+            source_reference=nonempty_string(
+                row["source_reference"], "source_reference"
+            ),
+            source_authority=nonempty_string(
+                row["source_authority"], "source_authority"
+            ),
         ),
         subject=EvidenceSubjectReference(
-            subject_identity=_string(row["subject_identity"], "subject_identity"),
-            subject_reference=_string(row["subject_reference"], "subject_reference"),
+            subject_identity=nonempty_string(
+                row["subject_identity"], "subject_identity"
+            ),
+            subject_reference=nonempty_string(
+                row["subject_reference"], "subject_reference"
+            ),
         ),
-        observed_at=_datetime(row["observed_at"], "observed_at"),
-        acquired_at=_datetime(row["acquired_at"], "acquired_at"),
+        observed_at=aware_datetime(row["observed_at"], "observed_at"),
+        acquired_at=aware_datetime(row["acquired_at"], "acquired_at"),
         effective_at=_optional_datetime(row["effective_at"], "effective_at"),
         material=EvidenceObservationMaterial(
-            retained_representation=_optional_string(
+            retained_representation=optional_nonempty_string(
                 row["retained_representation"], "retained_representation"
             ),
-            verification_reference=_optional_string(
+            verification_reference=optional_nonempty_string(
                 row["verification_reference"], "verification_reference"
             ),
         ),
@@ -121,8 +136,8 @@ def observation_from_row(row: RowMapping) -> EvidenceObservation:
 
 
 def observation_receipt_from_row(row: RowMapping) -> EvidenceObservationReceipt:
-    request_payload = _object(row["request_payload"], "request_payload")
-    result_payload = _object(row["result_payload"], "result_payload")
+    request_payload = json_object(row["request_payload"], "request_payload")
+    result_payload = json_object(row["result_payload"], "result_payload")
     return EvidenceObservationReceipt(
         operation_id=OperationId(uuid_value(row["operation_id"], "operation_id")),
         request=_request_from_payload(request_payload),
@@ -137,30 +152,38 @@ def observation_receipt_from_row(row: RowMapping) -> EvidenceObservationReceipt:
 
 
 def _request_from_payload(payload: JsonObject) -> EvidenceObservationSemanticRequest:
-    source = _object(payload.get("source"), "source")
-    subject = _object(payload.get("subject"), "subject")
-    material = _object(payload.get("material"), "material")
+    source = json_object(payload.get("source"), "source")
+    subject = json_object(payload.get("subject"), "subject")
+    material = json_object(payload.get("material"), "material")
     supersedes = payload.get("supersedes_observation_id")
     return EvidenceObservationSemanticRequest(
         source=EvidenceSourceProvenance(
-            source_identity=_string(source.get("identity"), "source identity"),
-            source_reference=_string(source.get("reference"), "source reference"),
-            source_authority=_string(source.get("authority"), "source authority"),
+            source_identity=nonempty_string(source.get("identity"), "source identity"),
+            source_reference=nonempty_string(
+                source.get("reference"), "source reference"
+            ),
+            source_authority=nonempty_string(
+                source.get("authority"), "source authority"
+            ),
         ),
         subject=EvidenceSubjectReference(
-            subject_identity=_string(subject.get("identity"), "subject identity"),
-            subject_reference=_string(subject.get("reference"), "subject reference"),
+            subject_identity=nonempty_string(
+                subject.get("identity"), "subject identity"
+            ),
+            subject_reference=nonempty_string(
+                subject.get("reference"), "subject reference"
+            ),
         ),
-        observed_at=_iso_datetime(payload.get("observed_at"), "observed_at"),
-        acquired_at=_iso_datetime(payload.get("acquired_at"), "acquired_at"),
+        observed_at=iso_aware_datetime(payload.get("observed_at"), "observed_at"),
+        acquired_at=iso_aware_datetime(payload.get("acquired_at"), "acquired_at"),
         effective_at=_optional_iso_datetime(
             payload.get("effective_at"), "effective_at"
         ),
         material=EvidenceObservationMaterial(
-            retained_representation=_optional_string(
+            retained_representation=optional_nonempty_string(
                 material.get("retained_representation"), "retained representation"
             ),
-            verification_reference=_optional_string(
+            verification_reference=optional_nonempty_string(
                 material.get("verification_reference"), "verification reference"
             ),
         ),
@@ -172,45 +195,9 @@ def _request_from_payload(payload: JsonObject) -> EvidenceObservationSemanticReq
     )
 
 
-def _object(value: object, field: str) -> JsonObject:
-    if not isinstance(value, dict) or any(not isinstance(key, str) for key in value):
-        raise ValueError(f"{field} must be an object")
-    return value
-
-
-def _string(value: object, field: str) -> str:
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"{field} must be a non-empty string")
-    return value.strip()
-
-
-def _optional_string(value: object, field: str) -> str | None:
-    return None if value is None else _string(value, field)
-
-
-# duplicate-code: persisted-value decoding owns adapter failure semantics;
-# sharing a domain validator here would leak domain validation into infrastructure.
-# arid: disable
-def _datetime(value: object, field: str) -> datetime:
-    if (
-        not isinstance(value, datetime)
-        or value.tzinfo is None
-        or value.utcoffset() is None
-    ):
-        raise ValueError(f"{field} must be timezone-aware datetime")
-    return value
-
-
-# arid: enable
-
-
 def _optional_datetime(value: object, field: str) -> datetime | None:
-    return None if value is None else _datetime(value, field)
-
-
-def _iso_datetime(value: object, field: str) -> datetime:
-    return _datetime(datetime.fromisoformat(_string(value, field)), field)
+    return None if value is None else aware_datetime(value, field)
 
 
 def _optional_iso_datetime(value: object, field: str) -> datetime | None:
-    return None if value is None else _iso_datetime(value, field)
+    return None if value is None else iso_aware_datetime(value, field)

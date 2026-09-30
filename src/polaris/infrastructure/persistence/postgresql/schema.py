@@ -470,6 +470,122 @@ evidence_requirement_definitions = Table(
     ),
 )
 
+evidence_bindings = Table(
+    "evidence_bindings",
+    metadata,
+    _row_id(),
+    Column("binding_id", UUID(as_uuid=True), nullable=False, unique=True),
+    Column(
+        "observation_id",
+        UUID(as_uuid=True),
+        ForeignKey(
+            "evidence_observations.observation_id",
+            name="fk_evidence_binding_observation",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+    ),
+    Column("target_family", String(48), nullable=False),
+    Column("target_id", UUID(as_uuid=True), nullable=False),
+    Column("scope_kind", String(24), nullable=False),
+    Column("evidence_use", String(40), nullable=False),
+    Column("role", String(24), nullable=False),
+    Column("availability", String(16), nullable=False),
+    Column("materially_used", Boolean, nullable=False),
+    Column("effective_at", DateTime(timezone=True), nullable=False),
+    Column("recorded_at", DateTime(timezone=True), nullable=False),
+    Column("material_qualification", Text),
+    Column("freshness_set_id", UUID(as_uuid=True)),
+    Column("freshness_version_id", UUID(as_uuid=True)),
+    Column("freshness_requirement_id", UUID(as_uuid=True)),
+    Column("freshness_basis_reference", Text),
+    ForeignKeyConstraint(
+        [
+            "freshness_set_id",
+            "freshness_version_id",
+            "freshness_requirement_id",
+        ],
+        [
+            "evidence_requirement_definitions.set_id",
+            "evidence_requirement_definitions.version_id",
+            "evidence_requirement_definitions.requirement_id",
+        ],
+        name="fk_evidence_binding_freshness_requirement",
+        ondelete="RESTRICT",
+    ),
+    CheckConstraint(
+        "target_family IN ("
+        "'investment_hypothesis', 'investment_view', "
+        "'meaningful_challenge_result', 'projected_portfolio_consequence', "
+        "'portfolio_risk_assessment', 'investment_recommendation', "
+        "'recommendation_withholding_judgment', 'human_investment_decision', "
+        "'decision_evaluation', 'lesson'"
+        ")",
+        name="target_family",
+    ),
+    CheckConstraint("scope_kind = 'judgment_wide'", name="scope_kind"),
+    CheckConstraint(
+        "evidence_use IN ("
+        "'judgment_basis', 'challenge_basis', 'current_support_check', "
+        "'retrospective_later_evidence', 'reconstruction_only'"
+        ")",
+        name="evidence_use",
+    ),
+    CheckConstraint(
+        "role IN ("
+        "'supporting', 'conflicting', 'constraining', "
+        "'qualifying', 'contextual', 'reconstruction'"
+        ")",
+        name="role",
+    ),
+    CheckConstraint(
+        "availability IN ('available', 'unavailable', 'unknown')",
+        name="availability",
+    ),
+    CheckConstraint(
+        "NOT materially_used OR availability = 'available'",
+        name="material_use_requires_available",
+    ),
+    CheckConstraint(
+        "material_qualification IS NULL OR btrim(material_qualification) <> ''",
+        name="material_qualification_nonempty",
+    ),
+    CheckConstraint(
+        "("
+        "freshness_set_id IS NULL AND freshness_version_id IS NULL AND "
+        "freshness_requirement_id IS NULL AND freshness_basis_reference IS NULL"
+        ") OR ("
+        "freshness_set_id IS NOT NULL AND freshness_version_id IS NOT NULL AND "
+        "freshness_requirement_id IS NOT NULL AND freshness_basis_reference IS NOT NULL"
+        ")",
+        name="freshness_reference_complete",
+    ),
+    CheckConstraint(
+        "freshness_basis_reference IS NULL OR btrim(freshness_basis_reference) <> ''",
+        name="freshness_basis_reference_nonempty",
+    ),
+)
+
+# duplicate-code: Evidence observation and binding receipts are independently
+# evolvable operation contracts; sharing one table factory would couple them.
+# arid: disable
+evidence_binding_command_receipts = Table(
+    "evidence_binding_command_receipts",
+    metadata,
+    _row_id(),
+    Column("operation_id", UUID(as_uuid=True), nullable=False, unique=True),
+    Column("request_fingerprint", String(64), nullable=False),
+    Column("request_payload", JSONB, nullable=False),
+    Column("result_payload", JSONB, nullable=False),
+    Column("committed_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint(
+        "char_length(request_fingerprint) = 64",
+        name="fingerprint_sha256",
+    ),
+)
+# arid: enable
+
+
 DECISION_TABLE_NAMES = frozenset(
     {
         "decision_needs",
@@ -483,6 +599,8 @@ EVIDENCE_TABLE_NAMES = frozenset(
     {
         "evidence_observations",
         "evidence_observation_command_receipts",
+        "evidence_bindings",
+        "evidence_binding_command_receipts",
     }
 )
 CONFIGURATION_TABLE_NAMES = frozenset(

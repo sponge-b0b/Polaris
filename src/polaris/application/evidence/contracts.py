@@ -36,6 +36,22 @@ class EvidenceCommandReadUnavailable(Exception):
     """Technology-neutral failure contract for Evidence persistence reads."""
 
 
+def require_exact_replay(
+    *,
+    receipt_operation_id: OperationId,
+    receipt_request: object,
+    operation_id: OperationId,
+    request: object,
+) -> None:
+    if receipt_request != request or receipt_operation_id != operation_id:
+        raise EvidenceIdempotencyConflict(receipt_operation_id)
+
+
+def require_aware_recording_time(value: datetime) -> None:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("application recording time must be timezone-aware")
+
+
 @dataclass(frozen=True, slots=True)
 class RecordEvidenceObservationCommand:
     # duplicate-code: the application command must carry pre-allocation Evidence

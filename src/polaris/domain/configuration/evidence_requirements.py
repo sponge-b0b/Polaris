@@ -5,19 +5,19 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from uuid import UUID
 
-from polaris.domain.evidence import (
+from polaris.domain.evidence.judgments import (
     ClaimId,
     ClaimSpecificEvidenceScope,
     EvidenceJudgmentFamily,
     EvidenceJudgmentRef,
     EvidenceScope,
     EvidenceScopeKind,
-    EvidenceSubjectReference,
     EvidenceUse,
     evidence_judgment_family,
     evidence_scope_kind,
     is_evidence_judgment_ref,
 )
+from polaris.domain.evidence.observations import EvidenceSubjectReference
 from polaris.domain.portfolio import FinancialInstrumentId, PortfolioId
 
 

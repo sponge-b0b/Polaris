@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
@@ -24,6 +23,8 @@ from .contracts import (
     EvidencePersistenceUnavailable,
     EvidenceSuccessionConflict,
     RecordEvidenceObservationCommand,
+    require_aware_recording_time,
+    require_exact_replay,
 )
 
 
@@ -58,7 +59,7 @@ class EvidenceObservationService:
             supersedes_observation_id=request.supersedes_observation_id,
         )
         committed_at = self._now()
-        _require_aware(committed_at)
+        require_aware_recording_time(committed_at)
 
         outcome = await self._store.commit_observation(
             EvidenceObservationCommit(
@@ -96,11 +97,13 @@ def _replay(
     request: EvidenceObservationSemanticRequest,
     operation_id: OperationId,
 ) -> EvidenceObservationResult:
-    if receipt.request != request or receipt.operation_id != operation_id:
-        raise EvidenceIdempotencyConflict(receipt.operation_id)
-    return replace(receipt.result, replayed=True)
-
-
-def _require_aware(value: datetime) -> None:
-    if value.tzinfo is None or value.utcoffset() is None:
-        raise ValueError("application recording time must be timezone-aware")
+    require_exact_replay(
+        receipt_operation_id=receipt.operation_id,
+        receipt_request=receipt.request,
+        operation_id=operation_id,
+        request=request,
+    )
+    return EvidenceObservationResult(
+        observation_id=receipt.result.observation_id,
+        replayed=True,
+    )

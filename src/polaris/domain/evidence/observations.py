@@ -28,6 +28,9 @@ def _text(value: object, field: str) -> str:
     return value.strip()
 
 
+# duplicate-code: Evidence owns its domain validation and failure type;
+# sharing this with Decisions would couple independent bounded-context semantics.
+# arid: disable
 def _aware(value: object, field: str) -> None:
     if (
         not isinstance(value, datetime)
@@ -35,6 +38,7 @@ def _aware(value: object, field: str) -> None:
         or value.utcoffset() is None
     ):
         raise InvalidEvidenceObservation(f"{field} must be timezone-aware")
+# arid: enable
 
 
 @dataclass(frozen=True, slots=True)

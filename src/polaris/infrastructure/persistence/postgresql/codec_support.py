@@ -54,6 +54,8 @@ def aware_datetime(value: object, field: str) -> datetime:
     ):
         raise ValueError(f"{field} must be timezone-aware datetime")
     return value
+
+
 # arid: enable
 
 

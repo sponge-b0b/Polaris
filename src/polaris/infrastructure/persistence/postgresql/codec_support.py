@@ -43,6 +43,9 @@ def optional_nonempty_string(value: object, field: str) -> str | None:
     return None if value is None else nonempty_string(value, field)
 
 
+# duplicate-code: persistence decoding owns ValueError adapter semantics;
+# sharing a domain validator would couple infrastructure to domain failures.
+# arid: disable
 def aware_datetime(value: object, field: str) -> datetime:
     if (
         not isinstance(value, datetime)
@@ -51,6 +54,7 @@ def aware_datetime(value: object, field: str) -> datetime:
     ):
         raise ValueError(f"{field} must be timezone-aware datetime")
     return value
+# arid: enable
 
 
 def iso_aware_datetime(value: object, field: str) -> datetime:

@@ -140,6 +140,9 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
     requirement_migration = Path(
         "migrations/versions/0003_evidence_requirement_authority.py"
     ).read_text(encoding="utf-8")
+    binding_migration = Path(
+        "migrations/versions/0004_evidence_bindings.py"
+    ).read_text(encoding="utf-8")
     assert "down_revision: str | None = None" in decision_migration
     assert (
         'down_revision: str | None = "0001_decision_persistence"' in evidence_migration
@@ -148,9 +151,14 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
         'down_revision: str | None = "0002_evidence_observations"'
         in requirement_migration
     )
+    assert (
+        'down_revision: str | None = "0003_evidence_requirements"'
+        in binding_migration
+    )
     assert "legacy" not in decision_migration.lower()
     assert "legacy" not in evidence_migration.lower()
     assert "legacy" not in requirement_migration.lower()
+    assert "legacy" not in binding_migration.lower()
 
     tables = asyncio.run(_table_names(postgres_target))
     assert tables == POLARIS_TABLE_NAMES | {"alembic_version"}
@@ -171,6 +179,16 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
                 postgres_target,
                 "evidence_observations",
                 "observation_id",
+            )
+        )
+        is None
+    )
+    assert (
+        asyncio.run(
+            _column_default(
+                postgres_target,
+                "evidence_bindings",
+                "binding_id",
             )
         )
         is None
@@ -220,6 +238,23 @@ def test_requirement_revision_downgrades_to_evidence_foundation_and_reupgrades(
             - {
                 "evidence_requirement_set_versions",
                 "evidence_requirement_definitions",
+            }
+        )
+        | {"alembic_version"},
+    )
+
+
+def test_binding_revision_downgrades_to_requirement_foundation_and_reupgrades(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    _assert_revision_round_trip(
+        postgres_target,
+        "0003_evidence_requirements",
+        (
+            POLARIS_TABLE_NAMES
+            - {
+                "evidence_bindings",
+                "evidence_binding_command_receipts",
             }
         )
         | {"alembic_version"},

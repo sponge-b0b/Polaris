@@ -30,20 +30,27 @@ FORBIDDEN_TABLE_FRAGMENTS = {
 }
 
 
-async def _table_names(target: PostgresTestTarget) -> frozenset[str]:
+async def _string_values(
+    target: PostgresTestTarget,
+    statement: str,
+    parameters: dict[str, str],
+) -> frozenset[str]:
     engine = create_postgres_engine(target.database_url, schema=target.schema)
     try:
         async with engine.connect() as connection:
-            rows = await connection.execute(
-                text(
-                    "SELECT table_name FROM information_schema.tables "
-                    "WHERE table_schema = :schema"
-                ),
-                {"schema": target.schema},
-            )
-            return frozenset(row.table_name for row in rows)
+            rows = await connection.execute(text(statement), parameters)
+            return frozenset(rows.scalars())
     finally:
         await engine.dispose()
+
+
+async def _table_names(target: PostgresTestTarget) -> frozenset[str]:
+    return await _string_values(
+        target,
+        "SELECT table_name FROM information_schema.tables "
+        "WHERE table_schema = :schema",
+        {"schema": target.schema},
+    )
 
 
 async def _identity_column_types(
@@ -96,43 +103,31 @@ async def _column_default(
         await engine.dispose()
 
 
-async def _column_names(target: PostgresTestTarget, table_name: str) -> frozenset[str]:
-    engine = create_postgres_engine(target.database_url, schema=target.schema)
-    try:
-        async with engine.connect() as connection:
-            rows = await connection.execute(
-                text(
-                    # arid: enable
-                    "SELECT column_name FROM information_schema.columns "
-                    "WHERE table_schema = :schema AND table_name = :table_name"
-                ),
-                {"schema": target.schema, "table_name": table_name},
-            )
-            return frozenset(row.column_name for row in rows)
-    finally:
-        await engine.dispose()
+async def _column_names(
+    target: PostgresTestTarget,
+    table_name: str,
+) -> frozenset[str]:
+    return await _string_values(
+        target,
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_schema = :schema AND table_name = :table_name",
+        {"schema": target.schema, "table_name": table_name},
+    )
 
 
 async def _constraint_names(
     target: PostgresTestTarget,
     table_name: str,
 ) -> frozenset[str]:
-    engine = create_postgres_engine(target.database_url, schema=target.schema)
-    try:
-        async with engine.connect() as connection:
-            rows = await connection.execute(
-                text(
-                    "SELECT c.conname "
-                    "FROM pg_constraint AS c "
-                    "JOIN pg_class AS t ON t.oid = c.conrelid "
-                    "JOIN pg_namespace AS n ON n.oid = t.relnamespace "
-                    "WHERE n.nspname = :schema AND t.relname = :table_name"
-                ),
-                {"schema": target.schema, "table_name": table_name},
-            )
-            return frozenset(row.conname for row in rows)
-    finally:
-        await engine.dispose()
+    return await _string_values(
+        target,
+        "SELECT c.conname "
+        "FROM pg_constraint AS c "
+        "JOIN pg_class AS t ON t.oid = c.conrelid "
+        "JOIN pg_namespace AS n ON n.oid = t.relnamespace "
+        "WHERE n.nspname = :schema AND t.relname = :table_name",
+        {"schema": target.schema, "table_name": table_name},
+    )
 
 
 def _assert_revision_round_trip(

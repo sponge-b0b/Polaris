@@ -31,11 +31,11 @@ from polaris.infrastructure.persistence.postgresql.schema import (
     evidence_bindings,
 )
 from tests.binding_support import (
+    BINDING_EFFECTIVE_AT,
     BINDING_ID,
     SECOND_BINDING_ID,
     SECOND_BINDING_OPERATION_ID,
     SECOND_TARGET_ID,
-    BINDING_EFFECTIVE_AT,
     binding_command,
     binding_service,
 )

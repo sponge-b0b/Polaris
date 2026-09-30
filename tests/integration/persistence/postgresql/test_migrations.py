@@ -9,6 +9,7 @@ from sqlalchemy import text
 
 from polaris.infrastructure.persistence.postgresql import (
     DECISION_TABLE_NAMES,
+    POLARIS_TABLE_NAMES,
     create_postgres_engine,
 )
 
@@ -71,6 +72,30 @@ async def _identity_column_types(
         await engine.dispose()
 
 
+async def _column_default(
+    target: PostgresTestTarget,
+    table_name: str,
+    column_name: str,
+) -> str | None:
+    engine = create_postgres_engine(target.database_url, schema=target.schema)
+    try:
+        async with engine.connect() as connection:
+            return await connection.scalar(
+                text(
+                    "SELECT column_default FROM information_schema.columns "
+                    "WHERE table_schema = :schema AND table_name = :table_name "
+                    "AND column_name = :column_name"
+                ),
+                {
+                    "schema": target.schema,
+                    "table_name": table_name,
+                    "column_name": column_name,
+                },
+            )
+    finally:
+        await engine.dispose()
+
+
 async def _column_names(target: PostgresTestTarget, table_name: str) -> frozenset[str]:
     engine = create_postgres_engine(target.database_url, schema=target.schema)
     try:
@@ -88,16 +113,24 @@ async def _column_names(target: PostgresTestTarget, table_name: str) -> frozense
         await engine.dispose()
 
 
-def test_fresh_root_migrates_only_greenfield_decision_schema(
+def test_fresh_root_migrates_only_greenfield_polaris_schema(
     postgres_target: PostgresTestTarget,
 ) -> None:
-    migration = Path("migrations/versions/0001_decision_persistence_foundation.py")
-    source = migration.read_text(encoding="utf-8")
-    assert "down_revision: str | None = None" in source
-    assert "legacy" not in source.lower()
+    decision_migration = Path(
+        "migrations/versions/0001_decision_persistence_foundation.py"
+    ).read_text(encoding="utf-8")
+    evidence_migration = Path(
+        "migrations/versions/0002_evidence_observation_foundation.py"
+    ).read_text(encoding="utf-8")
+    assert "down_revision: str | None = None" in decision_migration
+    assert (
+        'down_revision: str | None = "0001_decision_persistence"' in evidence_migration
+    )
+    assert "legacy" not in decision_migration.lower()
+    assert "legacy" not in evidence_migration.lower()
 
     tables = asyncio.run(_table_names(postgres_target))
-    assert tables == DECISION_TABLE_NAMES | {"alembic_version"}
+    assert tables == POLARIS_TABLE_NAMES | {"alembic_version"}
     assert not {
         table
         for table in tables
@@ -108,6 +141,17 @@ def test_fresh_root_migrates_only_greenfield_decision_schema(
     assert column_types
     for (_, column_name), data_type in column_types.items():
         assert data_type == ("int8" if column_name == "row_id" else "uuid")
+
+    assert (
+        asyncio.run(
+            _column_default(
+                postgres_target,
+                "evidence_observations",
+                "observation_id",
+            )
+        )
+        is None
+    )
 
     relationship_columns = asyncio.run(
         _column_names(postgres_target, "investment_decision_relationships")
@@ -131,5 +175,20 @@ def test_root_downgrades_to_empty_and_reupgrades(
 
     command.upgrade(alembic, "head")
     assert asyncio.run(_table_names(postgres_target)) == (
+        POLARIS_TABLE_NAMES | {"alembic_version"}
+    )
+
+
+def test_evidence_revision_downgrades_to_decision_foundation_and_reupgrades(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    alembic = Config("alembic.ini")
+    command.downgrade(alembic, "0001_decision_persistence")
+    assert asyncio.run(_table_names(postgres_target)) == (
         DECISION_TABLE_NAMES | {"alembic_version"}
+    )
+
+    command.upgrade(alembic, "head")
+    assert asyncio.run(_table_names(postgres_target)) == (
+        POLARIS_TABLE_NAMES | {"alembic_version"}
     )

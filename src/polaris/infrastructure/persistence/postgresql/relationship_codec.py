@@ -174,15 +174,12 @@ def relationship_result_from_payload(value: object) -> DecisionRelationshipResul
             InvestmentDecisionId(_uuid(raw_new_decision_id, "new_decision_id"))
             if raw_new_decision_id is not None
             else None
-            # duplicate-code: wire variants require local payload shapes.
-            # arid: disable
         ),
         need_id=(
             DecisionNeedId(_uuid(raw_need_id, "need_id"))
             if raw_need_id is not None
             else None
         ),
-        # arid: enable
     )
 
 
@@ -252,14 +249,11 @@ def relationship_fact_from_row(row: RowMapping) -> DecisionRelationshipHistoryFa
     metadata = DecisionRelationshipFactMetadata(
         relationship_fact_id=DecisionRelationshipFactId(
             _uuid(row["relationship_fact_id"], "relationship_fact_id")
-            # duplicate-code: wire variants require local payload shapes.
-            # arid: disable
         ),
         operation_id=OperationId(_uuid(row["operation_id"], "operation_id")),
         actor_attribution=actor_from_columns(row),
         trigger=trigger_from_columns(row),
         technical_provenance=technical_from_payload(row["technical_provenance"]),
-        # arid: enable
         recorded_at=_datetime(row["recorded_at"], "recorded_at"),
     )
     relationship_type = DecisionRelationshipType(
@@ -615,15 +609,12 @@ def _continuity_from_payload(value: object) -> ContinuityDetermination | None:
     return ContinuityDetermination(
         kind=ContinuityDeterminationKind(
             _string(payload.get("kind"), "continuity kind")
-            # duplicate-code: wire variants require local payload shapes.
-            # arid: disable
         ),
         decision_id=(
             InvestmentDecisionId(_uuid(raw_decision_id, "continuity decision_id"))
             if raw_decision_id is not None
             else None
         ),
-        # arid: enable
         rationale=_optional_string(payload.get("rationale")),
     )
 

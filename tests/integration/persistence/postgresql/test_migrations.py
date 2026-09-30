@@ -237,6 +237,8 @@ def test_requirement_revision_downgrades_to_evidence_foundation_and_reupgrades(
             - {
                 "evidence_requirement_set_versions",
                 "evidence_requirement_definitions",
+                "evidence_bindings",
+                "evidence_binding_command_receipts",
             }
         )
         | {"alembic_version"},

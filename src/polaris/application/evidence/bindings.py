@@ -23,12 +23,14 @@ from .binding_contracts import (
     RecordEvidenceBindingCommand,
 )
 from .contracts import (
+    EvidenceApplicationError,
+    EvidenceCommandReadUnavailable,
     EvidenceIdempotencyConflict,
     EvidencePersistenceUnavailable,
 )
 
 
-class EvidenceBindingObservationReferenceConflict(Exception):
+class EvidenceBindingObservationReferenceConflict(EvidenceApplicationError):
     def __init__(self, observation_id: object) -> None:
         super().__init__(f"Evidence observation does not exist: {observation_id}")
         self.observation_id = observation_id
@@ -97,16 +99,8 @@ class EvidenceBindingService:
     ) -> EvidenceBindingReceipt | None:
         try:
             return await self._store.get_binding_receipt(operation_id)
-        except Exception as error:
-            if isinstance(error, EvidencePersistenceUnavailable):
-                raise
-            # Store adapters expose technology-neutral read failure as ordinary
-            # exceptions only through their own inward contract.
-            from .contracts import EvidenceCommandReadUnavailable
-
-            if isinstance(error, EvidenceCommandReadUnavailable):
-                raise EvidencePersistenceUnavailable(str(error)) from error
-            raise
+        except EvidenceCommandReadUnavailable as error:
+            raise EvidencePersistenceUnavailable(str(error)) from error
 
 
 def _replay(

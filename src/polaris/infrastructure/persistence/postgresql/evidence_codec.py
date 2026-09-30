@@ -128,7 +128,9 @@ def observation_receipt_from_row(row: RowMapping) -> EvidenceObservationReceipt:
         request=_request_from_payload(request_payload),
         result=EvidenceObservationResult(
             EvidenceObservationId(
-                uuid_value(result_payload.get("observation_id"), "result observation_id")
+                uuid_value(
+                    result_payload.get("observation_id"), "result observation_id"
+                )
             )
         ),
     )

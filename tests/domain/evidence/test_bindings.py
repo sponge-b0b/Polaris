@@ -12,24 +12,24 @@ from polaris.domain.configuration import (
     EvidenceRequirementSetVersionId,
 )
 from polaris.domain.decisions import InvestmentDecisionId
-from polaris.domain.evidence import (
+from polaris.domain.evidence.bindings import (
+    EvidenceAvailability,
+    EvidenceBinding,
+    EvidenceFreshnessAuthorityReference,
+    EvidenceFreshnessBasisReference,
+    EvidenceMaterialQualification,
+    EvidenceRole,
+    InvalidEvidenceBinding,
+)
+from polaris.domain.evidence.judgments import (
     ClaimId,
     ClaimSpecificEvidenceScope,
     DecisionEvaluationRef,
-    EvidenceAvailability,
-    EvidenceBinding,
-    EvidenceBindingId,
-    EvidenceFreshnessAuthorityReference,
-    EvidenceFreshnessBasisReference,
     EvidenceJudgmentFamily,
     EvidenceJudgmentRef,
-    EvidenceMaterialQualification,
-    EvidenceObservationId,
-    EvidenceRole,
     EvidenceScope,
     EvidenceUse,
     HumanInvestmentDecisionRef,
-    InvalidEvidenceBinding,
     InvestmentHypothesisRef,
     InvestmentRecommendationRef,
     InvestmentViewRef,
@@ -40,6 +40,10 @@ from polaris.domain.evidence import (
     ProjectedPortfolioConsequenceRef,
     RecommendationWithholdingJudgmentRef,
     evidence_judgment_family,
+)
+from polaris.domain.evidence.observations import (
+    EvidenceBindingId,
+    EvidenceObservationId,
 )
 from tests.binding_support import BINDING_EFFECTIVE_AT, BINDING_RECORDED_AT
 

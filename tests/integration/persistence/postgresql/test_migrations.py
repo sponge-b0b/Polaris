@@ -113,6 +113,28 @@ async def _column_names(target: PostgresTestTarget, table_name: str) -> frozense
         await engine.dispose()
 
 
+async def _constraint_names(
+    target: PostgresTestTarget,
+    table_name: str,
+) -> frozenset[str]:
+    engine = create_postgres_engine(target.database_url, schema=target.schema)
+    try:
+        async with engine.connect() as connection:
+            rows = await connection.execute(
+                text(
+                    "SELECT c.conname "
+                    "FROM pg_constraint AS c "
+                    "JOIN pg_class AS t ON t.oid = c.conrelid "
+                    "JOIN pg_namespace AS n ON n.oid = t.relnamespace "
+                    "WHERE n.nspname = :schema AND t.relname = :table_name"
+                ),
+                {"schema": target.schema, "table_name": table_name},
+            )
+            return frozenset(row.conname for row in rows)
+    finally:
+        await engine.dispose()
+
+
 def _assert_revision_round_trip(
     target: PostgresTestTarget,
     revision: str,
@@ -198,6 +220,47 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
         }
         & relationship_columns
     )
+
+
+def test_binding_migration_preserves_canonical_constraint_names(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    binding_constraints = asyncio.run(
+        _constraint_names(postgres_target, "evidence_bindings")
+    )
+    assert {
+        "ck_evidence_bindings_target_family",
+        "ck_evidence_bindings_scope_kind",
+        "ck_evidence_bindings_evidence_use",
+        "ck_evidence_bindings_role",
+        "ck_evidence_bindings_availability",
+        "ck_evidence_bindings_material_use_requires_available",
+        "ck_evidence_bindings_material_qualification_nonempty",
+        "ck_evidence_bindings_freshness_reference_complete",
+        "ck_evidence_bindings_freshness_basis_reference_nonempty",
+        "fk_evidence_binding_observation",
+        "fk_evidence_binding_freshness_requirement",
+        "pk_evidence_bindings",
+        "uq_evidence_bindings_binding_id",
+    } <= binding_constraints
+    assert not {
+        name for name in binding_constraints
+        if name.startswith("ck_evidence_bindings_ck_evidence_bindings_")
+    }
+
+    receipt_constraints = asyncio.run(
+        _constraint_names(postgres_target, "evidence_binding_command_receipts")
+    )
+    assert "ck_evidence_binding_command_receipts_fingerprint_sha256" in (
+        receipt_constraints
+    )
+    assert not {
+        name for name in receipt_constraints
+        if name.startswith(
+            "ck_evidence_binding_command_receipts_"
+            "ck_evidence_binding_command_receipts_"
+        )
+    }
 
 
 def test_root_downgrades_to_empty_and_reupgrades(

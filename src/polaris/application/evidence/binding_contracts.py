@@ -13,8 +13,15 @@ from polaris.domain.evidence.bindings import (
     EvidenceMaterialQualification,
     EvidenceRole,
 )
-from polaris.domain.evidence.judgments import EvidenceJudgmentRef, EvidenceScope, EvidenceUse
-from polaris.domain.evidence.observations import EvidenceBindingId, EvidenceObservationId
+from polaris.domain.evidence.judgments import (
+    EvidenceJudgmentRef,
+    EvidenceScope,
+    EvidenceUse,
+)
+from polaris.domain.evidence.observations import (
+    EvidenceBindingId,
+    EvidenceObservationId,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,8 +157,7 @@ class EvidenceBindingStore(Protocol):
     async def get_binding_receipt(
         self,
         operation_id: OperationId,
-    ) -> EvidenceBindingReceipt | None:
-        ...
+    ) -> EvidenceBindingReceipt | None: ...
 
     async def commit_binding(
         self,

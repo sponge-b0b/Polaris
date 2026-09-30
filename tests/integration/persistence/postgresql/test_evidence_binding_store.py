@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+from uuid import UUID
 
 import pytest
 from sqlalchemy import update
@@ -9,8 +10,10 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from polaris.application.evidence import (
     EvidenceBindingObservationReferenceConflict,
+    EvidenceBindingResult,
     EvidenceBindingStore,
     EvidencePersistenceUnavailable,
+    RecordEvidenceBindingCommand,
     EvidenceRequirementVersionAppended,
 )
 from polaris.domain.evidence.bindings import (
@@ -67,6 +70,18 @@ async def _assert_binding_rows(
                 evidence_binding_command_receipts,
             )
             == expected
+        )
+
+
+async def _record_binding(
+    target: PostgresTestTarget,
+    *,
+    identity: UUID = BINDING_ID,
+    command: RecordEvidenceBindingCommand | None = None,
+) -> EvidenceBindingResult:
+    async with postgres_store(target, PostgresEvidenceBindingStore) as (_, store):
+        return await binding_service(store, identity).record(
+            command or binding_command()
         )
 
 

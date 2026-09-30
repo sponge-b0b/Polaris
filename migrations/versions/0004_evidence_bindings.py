@@ -92,7 +92,8 @@ def upgrade() -> None:
             "freshness_requirement_id IS NULL AND freshness_basis_reference IS NULL"
             ") OR ("
             "freshness_set_id IS NOT NULL AND freshness_version_id IS NOT NULL AND "
-            "freshness_requirement_id IS NOT NULL AND freshness_basis_reference IS NOT NULL"
+            "freshness_requirement_id IS NOT NULL AND "
+            "freshness_basis_reference IS NOT NULL"
             ")",
             name="ck_evidence_bindings_freshness_reference_complete",
         ),

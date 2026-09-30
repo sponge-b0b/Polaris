@@ -6,6 +6,11 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from polaris.domain.configuration import (
+    EvidenceRequirementId,
+    EvidenceRequirementSetId,
+    EvidenceRequirementSetVersionId,
+)
 from polaris.domain.decisions import InvestmentDecisionId
 from polaris.domain.evidence import (
     ClaimId,
@@ -35,11 +40,6 @@ from polaris.domain.evidence import (
     ProjectedPortfolioConsequenceRef,
     RecommendationWithholdingJudgmentRef,
     evidence_judgment_family,
-)
-from polaris.domain.configuration import (
-    EvidenceRequirementId,
-    EvidenceRequirementSetId,
-    EvidenceRequirementSetVersionId,
 )
 from tests.binding_support import BINDING_EFFECTIVE_AT, BINDING_RECORDED_AT
 
@@ -155,7 +155,7 @@ def test_binding_endpoints_are_fixed_and_duplicate_tuples_remain_distinct() -> N
     assert first.binding_id != second.binding_id
     assert first.target == second.target
     with pytest.raises(FrozenInstanceError):
-        setattr(first, "target", InvestmentRecommendationRef(uuid4()))
+        first.__setattr__("target", InvestmentRecommendationRef(uuid4()))
 
 
 def test_freshness_authority_and_basis_references_are_atomic() -> None:

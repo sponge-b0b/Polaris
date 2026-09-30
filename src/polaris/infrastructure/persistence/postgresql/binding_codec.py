@@ -121,13 +121,17 @@ def binding_from_row(row: RowMapping) -> EvidenceBinding:
             uuid_value(row["observation_id"], "observation_id")
         ),
         target=evidence_judgment_ref(
-            EvidenceJudgmentFamily(nonempty_string(row["target_family"], "target_family")),
+            EvidenceJudgmentFamily(
+                nonempty_string(row["target_family"], "target_family")
+            ),
             uuid_value(row["target_id"], "target_id"),
         ),
         scope=JudgmentWideEvidenceScope(),
         evidence_use=EvidenceUse(nonempty_string(row["evidence_use"], "evidence_use")),
         role=EvidenceRole(nonempty_string(row["role"], "role")),
-        availability=EvidenceAvailability(nonempty_string(row["availability"], "availability")),
+        availability=EvidenceAvailability(
+            nonempty_string(row["availability"], "availability")
+        ),
         materially_used=_bool(row["materially_used"], "materially_used"),
         effective_at=aware_datetime(row["effective_at"], "effective_at"),
         recorded_at=aware_datetime(row["recorded_at"], "recorded_at"),
@@ -177,11 +181,15 @@ def _request_from_payload(payload: JsonObject) -> EvidenceBindingSemanticRequest
             uuid_value(payload.get("observation_id"), "observation_id")
         ),
         target=evidence_judgment_ref(
-            EvidenceJudgmentFamily(nonempty_string(target.get("family"), "target family")),
+            EvidenceJudgmentFamily(
+                nonempty_string(target.get("family"), "target family")
+            ),
             uuid_value(target.get("id"), "target id"),
         ),
         scope=JudgmentWideEvidenceScope(),
-        evidence_use=EvidenceUse(nonempty_string(payload.get("evidence_use"), "evidence_use")),
+        evidence_use=EvidenceUse(
+            nonempty_string(payload.get("evidence_use"), "evidence_use")
+        ),
         role=EvidenceRole(nonempty_string(payload.get("role"), "role")),
         availability=EvidenceAvailability(
             nonempty_string(payload.get("availability"), "availability")

@@ -243,7 +243,9 @@ def initiation_request_from_payload(value: object) -> InitiationSemanticRequest:
                 _string(continuity_payload.get("kind"), "continuity kind")
             ),
             decision_id=(
-                InvestmentDecisionId(uuid_value(raw_decision_id, "continuity decision_id"))
+                InvestmentDecisionId(
+                    uuid_value(raw_decision_id, "continuity decision_id")
+                )
                 if raw_decision_id is not None
                 else None
             ),
@@ -516,14 +518,18 @@ def initiated_fact_from_rows(
         statement=_string(need_row["statement"], "Need statement"),
         effective_at=_datetime(need_row["effective_at"], "Need effective_at"),
         recorded_at=_datetime(need_row["recorded_at"], "Need recorded_at"),
-        operation_id=OperationId(uuid_value(need_row["operation_id"], "Need operation_id")),
+        operation_id=OperationId(
+            uuid_value(need_row["operation_id"], "Need operation_id")
+        ),
         actor_attribution=actor_from_columns(need_row),
         trigger=trigger_from_columns(need_row),
         technical_provenance=technical_from_payload(need_row["technical_provenance"]),
     )
     metadata = DecisionLifecycleFactMetadata(
         fact_id=DecisionLifecycleFactId(uuid_value(fact_row["fact_id"], "fact_id")),
-        decision_id=InvestmentDecisionId(uuid_value(fact_row["decision_id"], "decision_id")),
+        decision_id=InvestmentDecisionId(
+            uuid_value(fact_row["decision_id"], "decision_id")
+        ),
         sequence=DecisionLifecycleSequence(
             _integer(fact_row["lifecycle_sequence"], "lifecycle_sequence")
         ),
@@ -710,7 +716,9 @@ def mutation_fact_from_row(row: RowMapping) -> DecisionLifecycleFact:
         return DecisionLifecycleCorrected(
             metadata=metadata,
             target_fact_id=DecisionLifecycleFactId(
-                uuid_value(row["correction_target_fact_id"], "correction_target_fact_id")
+                uuid_value(
+                    row["correction_target_fact_id"], "correction_target_fact_id"
+                )
             ),
             effect=DecisionLifecycleCorrectionEffect(
                 _string(row["correction_effect"], "correction_effect")

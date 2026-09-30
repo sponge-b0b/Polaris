@@ -104,6 +104,9 @@ class EvidenceBindingService:
             raise EvidencePersistenceUnavailable(str(error)) from error
 
 
+# duplicate-code: binding replay reconstruction is independently typed
+# from observation replay despite sharing the exact-replay predicate.
+# arid: disable
 def _replay(
     receipt: EvidenceBindingReceipt,
     request: EvidenceBindingSemanticRequest,
@@ -119,3 +122,6 @@ def _replay(
         binding_id=receipt.result.binding_id,
         replayed=True,
     )
+
+
+# arid: enable

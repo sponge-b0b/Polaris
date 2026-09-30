@@ -38,6 +38,8 @@ def _aware(value: object, field: str) -> None:
         or value.utcoffset() is None
     ):
         raise InvalidEvidenceObservation(f"{field} must be timezone-aware")
+
+
 # arid: enable
 
 

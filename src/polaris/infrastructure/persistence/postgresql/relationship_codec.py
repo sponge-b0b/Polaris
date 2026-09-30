@@ -75,7 +75,8 @@ def relationship_request_payload(
         },
         "effective_at": request.effective_at.isoformat(),
         "expected_versions": [
-                {"decision_id": str(identity.value), "version": version.value}
+            # arid: enable
+            {"decision_id": str(identity.value), "version": version.value}
             for identity, version in sorted(
                 request.expected_versions, key=lambda item: str(item[0].value)
             )
@@ -213,6 +214,7 @@ def relationship_fact_values(
         **actor_columns(metadata.actor_attribution),
         **trigger_columns(metadata.trigger),
         "technical_provenance": technical_payload(metadata.technical_provenance),
+        # arid: enable
         "recorded_at": metadata.recorded_at,
         "admission_evidence": admission_evidence,
     }
@@ -668,6 +670,7 @@ def _datetime(value: object, field: str) -> datetime:
     elif isinstance(value, str):
         result = datetime.fromisoformat(value)
     else:
+        # arid: enable
         raise ValueError(f"{field} must be a datetime")
     # duplicate-code: wire variants require local payload shapes.
     # arid: disable

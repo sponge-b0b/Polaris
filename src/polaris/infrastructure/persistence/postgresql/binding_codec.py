@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
-
 from sqlalchemy.engine import RowMapping
 
 from polaris.application.evidence.binding_contracts import (
@@ -35,9 +33,16 @@ from polaris.domain.evidence.observations import (
     EvidenceObservationId,
 )
 
-from .codec_support import canonical_json_fingerprint, uuid_value
-
-type JsonObject = dict[str, object]
+from .codec_support import (
+    JsonObject,
+    aware_datetime,
+    canonical_json_fingerprint,
+    iso_aware_datetime,
+    json_object,
+    nonempty_string,
+    optional_nonempty_string,
+    uuid_value,
+)
 
 
 def binding_request_payload(request: EvidenceBindingSemanticRequest) -> JsonObject:
@@ -106,7 +111,7 @@ def binding_values(binding: EvidenceBinding) -> dict[str, object]:
 
 def binding_from_row(row: RowMapping) -> EvidenceBinding:
     authority = _freshness_authority_from_row(row)
-    basis_reference = _optional_string(
+    basis_reference = optional_nonempty_string(
         row["freshness_basis_reference"],
         "freshness_basis_reference",
     )
@@ -116,19 +121,19 @@ def binding_from_row(row: RowMapping) -> EvidenceBinding:
             uuid_value(row["observation_id"], "observation_id")
         ),
         target=evidence_judgment_ref(
-            EvidenceJudgmentFamily(_string(row["target_family"], "target_family")),
+            EvidenceJudgmentFamily(nonempty_string(row["target_family"], "target_family")),
             uuid_value(row["target_id"], "target_id"),
         ),
         scope=JudgmentWideEvidenceScope(),
-        evidence_use=EvidenceUse(_string(row["evidence_use"], "evidence_use")),
-        role=EvidenceRole(_string(row["role"], "role")),
-        availability=EvidenceAvailability(_string(row["availability"], "availability")),
+        evidence_use=EvidenceUse(nonempty_string(row["evidence_use"], "evidence_use")),
+        role=EvidenceRole(nonempty_string(row["role"], "role")),
+        availability=EvidenceAvailability(nonempty_string(row["availability"], "availability")),
         materially_used=_bool(row["materially_used"], "materially_used"),
-        effective_at=_datetime(row["effective_at"], "effective_at"),
-        recorded_at=_datetime(row["recorded_at"], "recorded_at"),
+        effective_at=aware_datetime(row["effective_at"], "effective_at"),
+        recorded_at=aware_datetime(row["recorded_at"], "recorded_at"),
         material_qualification=(
             EvidenceMaterialQualification(
-                _string(row["material_qualification"], "material_qualification")
+                nonempty_string(row["material_qualification"], "material_qualification")
             )
             if row["material_qualification"] is not None
             else None
@@ -143,8 +148,8 @@ def binding_from_row(row: RowMapping) -> EvidenceBinding:
 
 
 def binding_receipt_from_row(row: RowMapping) -> EvidenceBindingReceipt:
-    request_payload = _object(row["request_payload"], "request_payload")
-    result_payload = _object(row["result_payload"], "result_payload")
+    request_payload = json_object(row["request_payload"], "request_payload")
+    result_payload = json_object(row["result_payload"], "result_payload")
     return EvidenceBindingReceipt(
         operation_id=OperationId(uuid_value(row["operation_id"], "operation_id")),
         request=_request_from_payload(request_payload),
@@ -157,14 +162,14 @@ def binding_receipt_from_row(row: RowMapping) -> EvidenceBindingReceipt:
 
 
 def _request_from_payload(payload: JsonObject) -> EvidenceBindingSemanticRequest:
-    target = _object(payload.get("target"), "target")
+    target = json_object(payload.get("target"), "target")
     freshness = payload.get("freshness")
-    qualification = _optional_string(
+    qualification = optional_nonempty_string(
         payload.get("material_qualification"),
         "material_qualification",
     )
     authority, basis = _freshness_from_payload(freshness)
-    scope = _string(payload.get("scope"), "scope")
+    scope = nonempty_string(payload.get("scope"), "scope")
     if scope != "judgment_wide":
         raise ValueError("binding receipt scope must be judgment_wide")
     return EvidenceBindingSemanticRequest(
@@ -172,17 +177,17 @@ def _request_from_payload(payload: JsonObject) -> EvidenceBindingSemanticRequest
             uuid_value(payload.get("observation_id"), "observation_id")
         ),
         target=evidence_judgment_ref(
-            EvidenceJudgmentFamily(_string(target.get("family"), "target family")),
+            EvidenceJudgmentFamily(nonempty_string(target.get("family"), "target family")),
             uuid_value(target.get("id"), "target id"),
         ),
         scope=JudgmentWideEvidenceScope(),
-        evidence_use=EvidenceUse(_string(payload.get("evidence_use"), "evidence_use")),
-        role=EvidenceRole(_string(payload.get("role"), "role")),
+        evidence_use=EvidenceUse(nonempty_string(payload.get("evidence_use"), "evidence_use")),
+        role=EvidenceRole(nonempty_string(payload.get("role"), "role")),
         availability=EvidenceAvailability(
-            _string(payload.get("availability"), "availability")
+            nonempty_string(payload.get("availability"), "availability")
         ),
         materially_used=_bool(payload.get("materially_used"), "materially_used"),
-        effective_at=_iso_datetime(payload.get("effective_at"), "effective_at"),
+        effective_at=iso_aware_datetime(payload.get("effective_at"), "effective_at"),
         material_qualification=(
             EvidenceMaterialQualification(qualification)
             if qualification is not None
@@ -217,7 +222,7 @@ def _freshness_from_payload(
 ]:
     if value is None:
         return None, None
-    payload = _object(value, "freshness")
+    payload = json_object(value, "freshness")
     return (
         EvidenceFreshnessAuthorityReference(
             set_id=EvidenceRequirementSetId(
@@ -231,7 +236,7 @@ def _freshness_from_payload(
             ),
         ),
         EvidenceFreshnessBasisReference(
-            _string(payload.get("basis_reference"), "freshness basis_reference")
+            nonempty_string(payload.get("basis_reference"), "freshness basis_reference")
         ),
     )
 
@@ -259,37 +264,7 @@ def _freshness_authority_from_row(
     )
 
 
-def _object(value: object, field: str) -> JsonObject:
-    if not isinstance(value, dict) or any(not isinstance(key, str) for key in value):
-        raise ValueError(f"{field} must be an object")
-    return value
-
-
-def _string(value: object, field: str) -> str:
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"{field} must be a non-empty string")
-    return value.strip()
-
-
-def _optional_string(value: object, field: str) -> str | None:
-    return None if value is None else _string(value, field)
-
-
 def _bool(value: object, field: str) -> bool:
     if type(value) is not bool:
         raise ValueError(f"{field} must be bool")
     return value
-
-
-def _datetime(value: object, field: str) -> datetime:
-    if (
-        not isinstance(value, datetime)
-        or value.tzinfo is None
-        or value.utcoffset() is None
-    ):
-        raise ValueError(f"{field} must be timezone-aware datetime")
-    return value
-
-
-def _iso_datetime(value: object, field: str) -> datetime:
-    return _datetime(datetime.fromisoformat(_string(value, field)), field)

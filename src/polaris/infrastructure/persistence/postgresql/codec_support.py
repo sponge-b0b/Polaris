@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime
 from uuid import UUID
+
+type JsonObject = dict[str, object]
 
 
 def canonical_json_fingerprint(payload: object) -> str:
@@ -22,3 +25,38 @@ def uuid_value(value: object, field: str) -> UUID:
     if isinstance(value, str):
         return UUID(value)
     raise ValueError(f"{field} must be UUID-compatible")
+
+
+def json_object(value: object, field: str) -> JsonObject:
+    if not isinstance(value, dict) or any(
+        not isinstance(key, str) for key in value
+    ):
+        raise ValueError(f"{field} must be an object")
+    return value
+
+
+def nonempty_string(value: object, field: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field} must be a non-empty string")
+    return value.strip()
+
+
+def optional_nonempty_string(value: object, field: str) -> str | None:
+    return None if value is None else nonempty_string(value, field)
+
+
+def aware_datetime(value: object, field: str) -> datetime:
+    if (
+        not isinstance(value, datetime)
+        or value.tzinfo is None
+        or value.utcoffset() is None
+    ):
+        raise ValueError(f"{field} must be timezone-aware datetime")
+    return value
+
+
+def iso_aware_datetime(value: object, field: str) -> datetime:
+    return aware_datetime(
+        datetime.fromisoformat(nonempty_string(value, field)),
+        field,
+    )

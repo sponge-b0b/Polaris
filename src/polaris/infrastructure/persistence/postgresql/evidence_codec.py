@@ -101,12 +101,20 @@ def observation_from_row(row: RowMapping) -> EvidenceObservation:
         ),
         source=EvidenceSourceProvenance(
             source_identity=nonempty_string(row["source_identity"], "source_identity"),
-            source_reference=nonempty_string(row["source_reference"], "source_reference"),
-            source_authority=nonempty_string(row["source_authority"], "source_authority"),
+            source_reference=nonempty_string(
+                row["source_reference"], "source_reference"
+            ),
+            source_authority=nonempty_string(
+                row["source_authority"], "source_authority"
+            ),
         ),
         subject=EvidenceSubjectReference(
-            subject_identity=nonempty_string(row["subject_identity"], "subject_identity"),
-            subject_reference=nonempty_string(row["subject_reference"], "subject_reference"),
+            subject_identity=nonempty_string(
+                row["subject_identity"], "subject_identity"
+            ),
+            subject_reference=nonempty_string(
+                row["subject_reference"], "subject_reference"
+            ),
         ),
         observed_at=aware_datetime(row["observed_at"], "observed_at"),
         acquired_at=aware_datetime(row["acquired_at"], "acquired_at"),
@@ -151,12 +159,20 @@ def _request_from_payload(payload: JsonObject) -> EvidenceObservationSemanticReq
     return EvidenceObservationSemanticRequest(
         source=EvidenceSourceProvenance(
             source_identity=nonempty_string(source.get("identity"), "source identity"),
-            source_reference=nonempty_string(source.get("reference"), "source reference"),
-            source_authority=nonempty_string(source.get("authority"), "source authority"),
+            source_reference=nonempty_string(
+                source.get("reference"), "source reference"
+            ),
+            source_authority=nonempty_string(
+                source.get("authority"), "source authority"
+            ),
         ),
         subject=EvidenceSubjectReference(
-            subject_identity=nonempty_string(subject.get("identity"), "subject identity"),
-            subject_reference=nonempty_string(subject.get("reference"), "subject reference"),
+            subject_identity=nonempty_string(
+                subject.get("identity"), "subject identity"
+            ),
+            subject_reference=nonempty_string(
+                subject.get("reference"), "subject reference"
+            ),
         ),
         observed_at=iso_aware_datetime(payload.get("observed_at"), "observed_at"),
         acquired_at=iso_aware_datetime(payload.get("acquired_at"), "acquired_at"),

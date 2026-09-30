@@ -7,6 +7,7 @@ import pytest
 
 from polaris.application.evidence import (
     EvidenceBindingCommit,
+    EvidenceBindingCommitOutcome,
     EvidenceBindingCommitted,
     EvidenceBindingIdempotencyConflict,
     EvidenceBindingObservationConflict,
@@ -44,7 +45,7 @@ class _FakeBindingStore(EvidenceBindingStore):
     async def commit_binding(
         self,
         commit: EvidenceBindingCommit,
-    ):
+    ) -> EvidenceBindingCommitOutcome:
         prior = self.receipts.get(commit.operation_id)
         if prior is not None:
             if prior.request != commit.request:

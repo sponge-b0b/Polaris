@@ -57,38 +57,38 @@ def upgrade() -> None:
             "'recommendation_withholding_judgment', 'human_investment_decision', "
             "'decision_evaluation', 'lesson'"
             ")",
-            name="ck_evidence_bindings_target_family",
+            name=op.f("ck_evidence_bindings_target_family"),
         ),
         # arid: enable
         sa.CheckConstraint(
             "scope_kind = 'judgment_wide'",
-            name="ck_evidence_bindings_scope_kind",
+            name=op.f("ck_evidence_bindings_scope_kind"),
         ),
         sa.CheckConstraint(
             "evidence_use IN ("
             "'judgment_basis', 'challenge_basis', 'current_support_check', "
             "'retrospective_later_evidence', 'reconstruction_only'"
             ")",
-            name="ck_evidence_bindings_evidence_use",
+            name=op.f("ck_evidence_bindings_evidence_use"),
         ),
         sa.CheckConstraint(
             "role IN ("
             "'supporting', 'conflicting', 'constraining', "
             "'qualifying', 'contextual', 'reconstruction'"
             ")",
-            name="ck_evidence_bindings_role",
+            name=op.f("ck_evidence_bindings_role"),
         ),
         sa.CheckConstraint(
             "availability IN ('available', 'unavailable', 'unknown')",
-            name="ck_evidence_bindings_availability",
+            name=op.f("ck_evidence_bindings_availability"),
         ),
         sa.CheckConstraint(
             "NOT materially_used OR availability = 'available'",
-            name="ck_evidence_bindings_material_use_requires_available",
+            name=op.f("ck_evidence_bindings_material_use_requires_available"),
         ),
         sa.CheckConstraint(
             "material_qualification IS NULL OR btrim(material_qualification) <> ''",
-            name="ck_evidence_bindings_material_qualification_nonempty",
+            name=op.f("ck_evidence_bindings_material_qualification_nonempty"),
         ),
         # duplicate-code: immutable migration snapshots must retain their exact
         # historical constraint text instead of importing mutable live schema.
@@ -102,13 +102,13 @@ def upgrade() -> None:
             "freshness_requirement_id IS NOT NULL AND "
             "freshness_basis_reference IS NOT NULL"
             ")",
-            name="ck_evidence_bindings_freshness_reference_complete",
+            name=op.f("ck_evidence_bindings_freshness_reference_complete"),
         ),
         # arid: enable
         sa.CheckConstraint(
             "freshness_basis_reference IS NULL OR "
             "btrim(freshness_basis_reference) <> ''",
-            name="ck_evidence_bindings_freshness_basis_reference_nonempty",
+            name=op.f("ck_evidence_bindings_freshness_basis_reference_nonempty"),
         ),
         sa.ForeignKeyConstraint(
             ["observation_id"],
@@ -162,7 +162,7 @@ def upgrade() -> None:
         sa.Column("committed_at", sa.DateTime(timezone=True), nullable=False),
         sa.CheckConstraint(
             "char_length(request_fingerprint) = 64",
-            name="ck_evidence_binding_command_receipts_fingerprint_sha256",
+            name=op.f("ck_evidence_binding_command_receipts_fingerprint_sha256"),
         ),
         sa.PrimaryKeyConstraint(
             "row_id",

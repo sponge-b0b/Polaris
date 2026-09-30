@@ -244,7 +244,8 @@ def test_binding_migration_preserves_canonical_constraint_names(
         "uq_evidence_bindings_binding_id",
     } <= binding_constraints
     assert not {
-        name for name in binding_constraints
+        name
+        for name in binding_constraints
         if name.startswith("ck_evidence_bindings_ck_evidence_bindings_")
     }
 
@@ -255,10 +256,10 @@ def test_binding_migration_preserves_canonical_constraint_names(
         receipt_constraints
     )
     assert not {
-        name for name in receipt_constraints
+        name
+        for name in receipt_constraints
         if name.startswith(
-            "ck_evidence_binding_command_receipts_"
-            "ck_evidence_binding_command_receipts_"
+            "ck_evidence_binding_command_receipts_ck_evidence_binding_command_receipts_"
         )
     }
 

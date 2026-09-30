@@ -85,6 +85,20 @@ async def _record_binding(
         )
 
 
+async def _record_binding_pair(
+    target: PostgresTestTarget,
+    *,
+    second_command: RecordEvidenceBindingCommand | None = None,
+) -> tuple[EvidenceBindingResult, EvidenceBindingResult]:
+    first = await _record_binding(target)
+    second = await _record_binding(
+        target,
+        identity=SECOND_BINDING_ID,
+        command=second_command,
+    )
+    return first, second
+
+
 def test_binding_round_trips_across_restart_with_exact_contract(
     postgres_target: PostgresTestTarget,
 ) -> None:
@@ -123,11 +137,7 @@ def test_exact_retry_returns_existing_binding_identity(
 ) -> None:
     async def scenario() -> None:
         await _seed_observation(postgres_target)
-        first = await _record_binding(postgres_target)
-        second = await _record_binding(
-            postgres_target,
-            identity=SECOND_BINDING_ID,
-        )
+        first, second = await _record_binding_pair(postgres_target)
 
         assert second.replayed is True
         assert second.binding_id == first.binding_id
@@ -141,11 +151,9 @@ def test_distinct_operations_preserve_duplicate_endpoint_tuple(
 ) -> None:
     async def scenario() -> None:
         await _seed_observation(postgres_target)
-        first = await _record_binding(postgres_target)
-        second = await _record_binding(
+        first, second = await _record_binding_pair(
             postgres_target,
-            identity=SECOND_BINDING_ID,
-            command=binding_command(SECOND_BINDING_OPERATION_ID),
+            second_command=binding_command(SECOND_BINDING_OPERATION_ID),
         )
 
         assert first.binding_id != second.binding_id

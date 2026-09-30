@@ -40,25 +40,37 @@ class _FakeBindingStore(EvidenceBindingStore):
         self.bindings: dict[EvidenceBindingId, EvidenceBinding] = {}
         self.observation_exists = observation_exists
 
+    # duplicate-code: this in-memory binding fake is an independent application
+    # falsifier; sharing another aggregate's fake would couple test state machines.
+    # arid: disable
     async def get_binding_receipt(
         self,
         operation_id: OperationId,
     ) -> EvidenceBindingReceipt | None:
         return self.receipts.get(operation_id)
+    # arid: enable
 
     async def commit_binding(
         self,
         commit: EvidenceBindingCommit,
     ) -> EvidenceBindingCommitOutcome:
+        # duplicate-code: fake replay behavior mirrors the inward binding port
+        # without depending on production SQL or the observation fake.
+        # arid: disable
         prior = self.receipts.get(commit.operation_id)
         if prior is not None:
             if prior.request != commit.request:
                 return EvidenceBindingIdempotencyConflict(commit.operation_id)
             return EvidenceBindingReplayed(prior)
+        # arid: enable
         if not self.observation_exists:
             return EvidenceBindingObservationConflict(commit.binding.observation_id)
+        # duplicate-code: this fake constructs the binding-specific receipt type;
+        # sharing production or observation receipt construction would hide that proof.
+        # arid: disable
         result = EvidenceBindingResult(commit.binding.binding_id)
         receipt = EvidenceBindingReceipt(commit.operation_id, commit.request, result)
+        # arid: enable
         self.bindings[commit.binding.binding_id] = commit.binding
         self.receipts[commit.operation_id] = receipt
         return EvidenceBindingCommitted(receipt)

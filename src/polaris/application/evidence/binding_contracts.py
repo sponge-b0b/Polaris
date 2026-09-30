@@ -26,6 +26,10 @@ from polaris.domain.evidence.observations import (
 
 @dataclass(frozen=True, slots=True)
 class RecordEvidenceBindingCommand:
+    # duplicate-code: application command input is a pre-domain contract; sharing
+    # its field block with the persisted request or domain root would couple
+    # independently evolvable boundaries.
+    # arid: disable
     operation_id: OperationId
     observation_id: EvidenceObservationId
     target: EvidenceJudgmentRef
@@ -38,6 +42,7 @@ class RecordEvidenceBindingCommand:
     material_qualification: EvidenceMaterialQualification | None = None
     freshness_authority: EvidenceFreshnessAuthorityReference | None = None
     freshness_basis: EvidenceFreshnessBasisReference | None = None
+    # arid: enable
 
     def __post_init__(self) -> None:
         if type(self.operation_id) is not OperationId:
@@ -57,6 +62,9 @@ class RecordEvidenceBindingCommand:
 
 @dataclass(frozen=True, slots=True)
 class EvidenceBindingSemanticRequest:
+    # duplicate-code: the persisted idempotency request is independently owned
+    # from command input and the immutable Evidence binding root.
+    # arid: disable
     observation_id: EvidenceObservationId
     target: EvidenceJudgmentRef
     scope: EvidenceScope
@@ -68,12 +76,16 @@ class EvidenceBindingSemanticRequest:
     material_qualification: EvidenceMaterialQualification | None
     freshness_authority: EvidenceFreshnessAuthorityReference | None
     freshness_basis: EvidenceFreshnessBasisReference | None
+    # arid: enable
 
     @classmethod
     def from_command(
         cls,
         command: RecordEvidenceBindingCommand,
     ) -> EvidenceBindingSemanticRequest:
+        # duplicate-code: receipt construction and domain-root construction map
+        # the same command fields into contracts with separate lifecycle meaning.
+        # arid: disable
         return cls(
             observation_id=command.observation_id,
             target=command.target,
@@ -87,6 +99,7 @@ class EvidenceBindingSemanticRequest:
             freshness_authority=command.freshness_authority,
             freshness_basis=command.freshness_basis,
         )
+        # arid: enable
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,6 +183,9 @@ class EvidenceBindingStore(Protocol):
     ) -> EvidenceBinding | None: ...
 
 
+# duplicate-code: application-boundary validation owns ValueError semantics;
+# sharing domain or persistence validation would couple layer-specific failures.
+# arid: disable
 def _aware(value: object, field: str) -> None:
     if (
         not isinstance(value, datetime)
@@ -177,3 +193,4 @@ def _aware(value: object, field: str) -> None:
         or value.utcoffset() is None
     ):
         raise ValueError(f"{field} must be timezone-aware")
+# arid: enable

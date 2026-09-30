@@ -127,11 +127,7 @@ def test_changed_request_reusing_operation_id_conflicts(
                 await service.record(
                     evidence_command(retained_representation='{"value": 999.0}')
                 )
-            assert await postgres_row_counts(
-                engine,
-                evidence_observations,
-                evidence_observation_command_receipts,
-            ) == (1, 1)
+            await _assert_row_counts(engine, (1, 1))
 
     asyncio.run(scenario())
 

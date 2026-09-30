@@ -19,8 +19,8 @@ from polaris.application.evidence import (
     EvidenceIdempotencyConflict,
 )
 from polaris.domain.decisions import OperationId
-from polaris.domain.evidence import (
-    EvidenceBinding,
+from polaris.domain.evidence.bindings import EvidenceBinding
+from polaris.domain.evidence.observations import (
     EvidenceBindingId,
     EvidenceObservationId,
 )

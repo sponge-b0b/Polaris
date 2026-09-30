@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+from uuid import UUID
 
 import pytest
 from sqlalchemy import update
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from polaris.application.evidence import (
     EvidenceIdempotencyConflict,
+    EvidenceObservationResult,
     EvidenceObservationStore,
     EvidencePersistenceUnavailable,
     EvidenceSuccessionConflict,
@@ -40,6 +43,35 @@ def _store(
     return postgres_store(target, store_type)
 
 
+async def _assert_row_counts(
+    engine: AsyncEngine,
+    expected: tuple[int, int],
+) -> None:
+    assert await postgres_row_counts(
+        engine,
+        evidence_observations,
+        evidence_observation_command_receipts,
+    ) == expected
+
+
+async def _record_pair(
+    store: PostgresEvidenceStore,
+    second_operation_id: UUID | None = None,
+) -> tuple[EvidenceObservationResult, EvidenceObservationResult]:
+    service = evidence_service(
+        store,
+        OBSERVATION_ID,
+        SECOND_OBSERVATION_ID,
+    )
+    first = await service.record(evidence_command())
+    second = await service.record(
+        evidence_command()
+        if second_operation_id is None
+        else evidence_command(second_operation_id)
+    )
+    return first, second
+
+
 def test_observation_round_trips_across_process_restart(
     postgres_target: PostgresTestTarget,
 ) -> None:
@@ -54,6 +86,10 @@ def test_observation_round_trips_across_process_restart(
             observation = await restarted.load_observation(result.observation_id)
             assert observation is not None
             assert observation.observation_id == result.observation_id
+            # duplicate-code: this persistence round-trip independently proves
+            # durable reconstruction; sharing assertions with the domain unit test
+            # would couple separate falsifiers and could hide adapter loss.
+            # arid: disable
             assert observation.source.source_identity == "fred"
             assert observation.source.source_authority.startswith("Federal Reserve")
             assert observation.subject.subject_identity == "US:CPI"
@@ -61,6 +97,7 @@ def test_observation_round_trips_across_process_restart(
             assert observation.acquired_at == ACQUIRED_AT
             assert observation.effective_at == OBSERVED_AT
             assert observation.material.retained_representation == '{"value": 321.1}'
+            # arid: enable
             assert observation.material.verification_reference == "sha256:cpi-2026-08"
 
     asyncio.run(scenario())
@@ -71,20 +108,10 @@ def test_exact_operation_retry_returns_existing_identity(
 ) -> None:
     async def scenario() -> None:
         async with _store(postgres_target) as (engine, store):
-            service = evidence_service(
-                store,
-                OBSERVATION_ID,
-                SECOND_OBSERVATION_ID,
-            )
-            first = await service.record(evidence_command())
-            second = await service.record(evidence_command())
+            first, second = await _record_pair(store)
             assert second.replayed is True
             assert second.observation_id == first.observation_id
-            assert await postgres_row_counts(
-                engine,
-                evidence_observations,
-                evidence_observation_command_receipts,
-            ) == (1, 1)
+            await _assert_row_counts(engine, (1, 1))
 
     asyncio.run(scenario())
 
@@ -114,19 +141,9 @@ def test_distinct_operations_preserve_equivalent_observations_as_distinct_acts(
 ) -> None:
     async def scenario() -> None:
         async with _store(postgres_target) as (engine, store):
-            service = evidence_service(
-                store,
-                OBSERVATION_ID,
-                SECOND_OBSERVATION_ID,
-            )
-            first = await service.record(evidence_command())
-            second = await service.record(evidence_command(SECOND_OPERATION_ID))
+            first, second = await _record_pair(store, SECOND_OPERATION_ID)
             assert first.observation_id != second.observation_id
-            assert await postgres_row_counts(
-                engine,
-                evidence_observations,
-                evidence_observation_command_receipts,
-            ) == (2, 2)
+            await _assert_row_counts(engine, (2, 2))
 
     asyncio.run(scenario())
 
@@ -142,11 +159,7 @@ def test_typed_observation_succession_requires_existing_predecessor(
                         supersedes=EvidenceObservationId(MISSING_OBSERVATION_ID)
                     )
                 )
-            assert await postgres_row_counts(
-                engine,
-                evidence_observations,
-                evidence_observation_command_receipts,
-            ) == (0, 0)
+            await _assert_row_counts(engine, (0, 0))
 
             first = await evidence_service(store, OBSERVATION_ID).record(
                 evidence_command()
@@ -180,11 +193,7 @@ def test_failure_after_observation_insert_rolls_back_semantic_write(
         ) as (engine, store):
             with pytest.raises(EvidencePersistenceUnavailable):
                 await evidence_service(store, OBSERVATION_ID).record(evidence_command())
-            assert await postgres_row_counts(
-                engine,
-                evidence_observations,
-                evidence_observation_command_receipts,
-            ) == (0, 0)
+            await _assert_row_counts(engine, (0, 0))
 
     asyncio.run(scenario())
 

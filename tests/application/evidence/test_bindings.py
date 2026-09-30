@@ -48,6 +48,7 @@ class _FakeBindingStore(EvidenceBindingStore):
         operation_id: OperationId,
     ) -> EvidenceBindingReceipt | None:
         return self.receipts.get(operation_id)
+
     # arid: enable
 
     async def commit_binding(
@@ -65,12 +66,8 @@ class _FakeBindingStore(EvidenceBindingStore):
         # arid: enable
         if not self.observation_exists:
             return EvidenceBindingObservationConflict(commit.binding.observation_id)
-        # duplicate-code: this fake constructs the binding-specific receipt type;
-        # sharing production or observation receipt construction would hide that proof.
-        # arid: disable
         result = EvidenceBindingResult(commit.binding.binding_id)
         receipt = EvidenceBindingReceipt(commit.operation_id, commit.request, result)
-        # arid: enable
         self.bindings[commit.binding.binding_id] = commit.binding
         self.receipts[commit.operation_id] = receipt
         return EvidenceBindingCommitted(receipt)

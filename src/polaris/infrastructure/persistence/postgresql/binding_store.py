@@ -17,6 +17,7 @@ from polaris.application.evidence.binding_contracts import (
     EvidenceBindingUnavailable,
 )
 from polaris.domain.decisions import OperationId
+from polaris.domain.evidence.bindings import EvidenceBinding
 from polaris.domain.evidence.observations import EvidenceBindingId
 
 from .binding_codec import (
@@ -59,7 +60,7 @@ class PostgresEvidenceBindingStore:
     async def load_binding(
         self,
         binding_id: EvidenceBindingId,
-    ):
+    ) -> EvidenceBinding | None:
         try:
             async with self._engine.connect() as connection:
                 row = (

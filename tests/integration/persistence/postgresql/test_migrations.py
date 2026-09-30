@@ -47,8 +47,7 @@ async def _string_values(
 async def _table_names(target: PostgresTestTarget) -> frozenset[str]:
     return await _string_values(
         target,
-        "SELECT table_name FROM information_schema.tables "
-        "WHERE table_schema = :schema",
+        "SELECT table_name FROM information_schema.tables WHERE table_schema = :schema",
         {"schema": target.schema},
     )
 

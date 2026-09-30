@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import replace
 from datetime import datetime
 from uuid import UUID, uuid4
 
@@ -27,6 +26,8 @@ from .contracts import (
     EvidenceCommandReadUnavailable,
     EvidenceIdempotencyConflict,
     EvidencePersistenceUnavailable,
+    require_aware_recording_time,
+    require_exact_replay,
 )
 
 
@@ -58,7 +59,7 @@ class EvidenceBindingService:
             return _replay(receipt, request, command.operation_id)
 
         committed_at = self._now()
-        _require_aware(committed_at)
+        require_aware_recording_time(committed_at)
         binding = EvidenceBinding(
             binding_id=EvidenceBindingId(self._new_uuid()),
             observation_id=command.observation_id,
@@ -108,11 +109,13 @@ def _replay(
     request: EvidenceBindingSemanticRequest,
     operation_id: OperationId,
 ) -> EvidenceBindingResult:
-    if receipt.request != request or receipt.operation_id != operation_id:
-        raise EvidenceIdempotencyConflict(receipt.operation_id)
-    return replace(receipt.result, replayed=True)
-
-
-def _require_aware(value: datetime) -> None:
-    if value.tzinfo is None or value.utcoffset() is None:
-        raise ValueError("application recording time must be timezone-aware")
+    require_exact_replay(
+        receipt_operation_id=receipt.operation_id,
+        receipt_request=receipt.request,
+        operation_id=operation_id,
+        request=request,
+    )
+    return EvidenceBindingResult(
+        binding_id=receipt.result.binding_id,
+        replayed=True,
+    )

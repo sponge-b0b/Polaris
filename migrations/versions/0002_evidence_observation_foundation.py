@@ -153,15 +153,11 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # duplicate-code: downgrade DDL must be self-contained in its owning revision
-    # so historical rollback behavior cannot change with shared helpers.
-    # arid: disable
     for table_name in (
         "evidence_observation_command_receipts",
         "evidence_observations",
     ):
         op.execute(f"DROP TRIGGER trg_{table_name}_immutable ON {table_name}")
     op.execute("DROP FUNCTION polaris_reject_immutable_evidence_mutation()")
-    # arid: enable
     op.drop_table("evidence_observation_command_receipts")
     op.drop_table("evidence_observations")

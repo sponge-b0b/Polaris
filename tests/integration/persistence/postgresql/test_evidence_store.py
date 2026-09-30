@@ -47,11 +47,14 @@ async def _assert_row_counts(
     engine: AsyncEngine,
     expected: tuple[int, int],
 ) -> None:
-    assert await postgres_row_counts(
-        engine,
-        evidence_observations,
-        evidence_observation_command_receipts,
-    ) == expected
+    assert (
+        await postgres_row_counts(
+            engine,
+            evidence_observations,
+            evidence_observation_command_receipts,
+        )
+        == expected
+    )
 
 
 async def _record_pair(

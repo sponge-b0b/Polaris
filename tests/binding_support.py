@@ -19,6 +19,7 @@ from polaris.domain.evidence import (
     EvidenceFreshnessAuthorityReference,
     EvidenceFreshnessBasisReference,
     EvidenceMaterialQualification,
+    EvidenceObservationId,
     EvidenceRole,
     EvidenceUse,
     InvestmentRecommendationRef,
@@ -51,10 +52,7 @@ def binding_command(
 ) -> RecordEvidenceBindingCommand:
     return RecordEvidenceBindingCommand(
         operation_id=OperationId(operation_id),
-        observation_id=__import__(
-            "polaris.domain.evidence",
-            fromlist=["EvidenceObservationId"],
-        ).EvidenceObservationId(OBSERVATION_ID),
+        observation_id=EvidenceObservationId(OBSERVATION_ID),
         target=InvestmentRecommendationRef(TARGET_ID),
         scope=JudgmentWideEvidenceScope(),
         evidence_use=EvidenceUse.JUDGMENT_BASIS,

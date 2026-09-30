@@ -59,6 +59,7 @@ class PostgresEvidenceBindingStore:
             raise EvidenceCommandReadUnavailable(
                 "Evidence binding receipt read is unavailable"
             ) from error
+
     # arid: enable
 
     # duplicate-code: binding-row reconstruction is independently owned from
@@ -102,7 +103,7 @@ class PostgresEvidenceBindingStore:
                     text("SELECT pg_advisory_xact_lock(:lock_key)"),
                     {"lock_key": _EVIDENCE_BINDING_WRITE_LOCK},
                 )
-        # arid: enable
+                # arid: enable
                 prior = await _get_receipt(connection, commit.operation_id)
                 if prior is not None:
                     if prior.request != commit.request:

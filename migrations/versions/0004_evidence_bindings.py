@@ -46,6 +46,9 @@ def upgrade() -> None:
             nullable=True,
         ),
         sa.Column("freshness_basis_reference", sa.Text(), nullable=True),
+        # duplicate-code: immutable migration snapshots must retain their exact
+        # historical constraint text instead of importing mutable live schema.
+        # arid: disable
         sa.CheckConstraint(
             "target_family IN ("
             "'investment_hypothesis', 'investment_view', "
@@ -56,6 +59,7 @@ def upgrade() -> None:
             ")",
             name="ck_evidence_bindings_target_family",
         ),
+        # arid: enable
         sa.CheckConstraint(
             "scope_kind = 'judgment_wide'",
             name="ck_evidence_bindings_scope_kind",
@@ -86,6 +90,9 @@ def upgrade() -> None:
             "material_qualification IS NULL OR btrim(material_qualification) <> ''",
             name="ck_evidence_bindings_material_qualification_nonempty",
         ),
+        # duplicate-code: immutable migration snapshots must retain their exact
+        # historical constraint text instead of importing mutable live schema.
+        # arid: disable
         sa.CheckConstraint(
             "("
             "freshness_set_id IS NULL AND freshness_version_id IS NULL AND "
@@ -97,6 +104,7 @@ def upgrade() -> None:
             ")",
             name="ck_evidence_bindings_freshness_reference_complete",
         ),
+        # arid: enable
         sa.CheckConstraint(
             "freshness_basis_reference IS NULL OR "
             "btrim(freshness_basis_reference) <> ''",
@@ -108,6 +116,9 @@ def upgrade() -> None:
             name="fk_evidence_binding_observation",
             ondelete="RESTRICT",
         ),
+        # duplicate-code: migration FK declarations are frozen historical DDL;
+        # sharing live schema construction would make old revisions mutable.
+        # arid: disable
         sa.ForeignKeyConstraint(
             [
                 "freshness_set_id",
@@ -122,6 +133,7 @@ def upgrade() -> None:
             name="fk_evidence_binding_freshness_requirement",
             ondelete="RESTRICT",
         ),
+        # arid: enable
         sa.PrimaryKeyConstraint("row_id", name="pk_evidence_bindings"),
         sa.UniqueConstraint(
             "binding_id",
@@ -129,6 +141,9 @@ def upgrade() -> None:
         ),
     )
 
+    # duplicate-code: each immutable Alembic revision owns its receipt-table
+    # snapshot; sharing a mutable migration helper would rewrite history.
+    # arid: disable
     op.create_table(
         "evidence_binding_command_receipts",
         sa.Column("row_id", sa.BigInteger(), sa.Identity(), nullable=False),
@@ -158,6 +173,7 @@ def upgrade() -> None:
             name="uq_evidence_binding_command_receipts_operation_id",
         ),
     )
+    # arid: enable
 
     # duplicate-code: immutable Alembic revisions own their trigger DDL so
     # historical behavior never depends on mutable shared migration helpers.

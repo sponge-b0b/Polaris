@@ -28,9 +28,7 @@ def uuid_value(value: object, field: str) -> UUID:
 
 
 def json_object(value: object, field: str) -> JsonObject:
-    if not isinstance(value, dict) or any(
-        not isinstance(key, str) for key in value
-    ):
+    if not isinstance(value, dict) or any(not isinstance(key, str) for key in value):
         raise ValueError(f"{field} must be an object")
     return value
 

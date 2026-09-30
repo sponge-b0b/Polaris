@@ -193,4 +193,6 @@ def _aware(value: object, field: str) -> None:
         or value.utcoffset() is None
     ):
         raise ValueError(f"{field} must be timezone-aware")
+
+
 # arid: enable

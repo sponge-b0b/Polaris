@@ -34,6 +34,8 @@ from tests.binding_support import (
     BINDING_ID,
     SECOND_BINDING_ID,
     SECOND_BINDING_OPERATION_ID,
+    SECOND_TARGET_ID,
+    BINDING_EFFECTIVE_AT,
     binding_command,
     binding_service,
 )
@@ -132,6 +134,33 @@ def test_binding_round_trips_across_restart_with_exact_contract(
     asyncio.run(scenario())
 
 
+def test_historical_unknown_availability_round_trips_without_material_use(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        await _seed_observation(postgres_target)
+        result = await _record_binding(
+            postgres_target,
+            command=binding_command(
+                availability=EvidenceAvailability.UNKNOWN,
+                materially_used=False,
+            ),
+        )
+
+        async with postgres_store(
+            postgres_target,
+            PostgresEvidenceBindingStore,
+        ) as (_, restarted):
+            binding = await restarted.load_binding(result.binding_id)
+
+        assert binding is not None
+        assert binding.availability is EvidenceAvailability.UNKNOWN
+        assert binding.materially_used is False
+        assert binding.effective_at == BINDING_EFFECTIVE_AT
+
+    asyncio.run(scenario())
+
+
 def test_exact_retry_returns_existing_binding_identity(
     postgres_target: PostgresTestTarget,
 ) -> None:
@@ -208,7 +237,7 @@ def test_binding_rows_are_database_immutable(
             async with engine.begin() as connection:
                 with pytest.raises(SQLAlchemyError):
                     await connection.execute(
-                        update(evidence_bindings).values(role="conflicting")
+                        update(evidence_bindings).values(target_id=SECOND_TARGET_ID)
                     )
 
     asyncio.run(scenario())

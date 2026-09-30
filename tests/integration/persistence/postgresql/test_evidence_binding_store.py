@@ -60,11 +60,14 @@ async def _assert_binding_rows(
     expected: tuple[int, int],
 ) -> None:
     async with postgres_store(target, PostgresEvidenceBindingStore) as (engine, _):
-        assert await postgres_row_counts(
-            engine,
-            evidence_bindings,
-            evidence_binding_command_receipts,
-        ) == expected
+        assert (
+            await postgres_row_counts(
+                engine,
+                evidence_bindings,
+                evidence_binding_command_receipts,
+            )
+            == expected
+        )
 
 
 def test_binding_round_trips_across_restart_with_exact_contract(
@@ -138,9 +141,7 @@ def test_distinct_operations_preserve_duplicate_endpoint_tuple(
         ) as (engine, store):
             service = binding_service(store, BINDING_ID, SECOND_BINDING_ID)
             first = await service.record(binding_command())
-            second = await service.record(
-                binding_command(SECOND_BINDING_OPERATION_ID)
-            )
+            second = await service.record(binding_command(SECOND_BINDING_OPERATION_ID))
 
             assert first.binding_id != second.binding_id
             assert await postgres_row_counts(

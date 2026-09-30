@@ -141,7 +141,10 @@ class EvidenceBinding:
             raise TypeError("availability must be EvidenceAvailability")
         if type(self.materially_used) is not bool:
             raise TypeError("materially_used must be bool")
-        if self.materially_used and self.availability is not EvidenceAvailability.AVAILABLE:
+        if (
+            self.materially_used
+            and self.availability is not EvidenceAvailability.AVAILABLE
+        ):
             raise InvalidEvidenceBinding(
                 "materially used Evidence must have AVAILABLE judgment-time availability"
             )

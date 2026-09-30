@@ -75,9 +75,7 @@ def _binding(
             else None
         ),
         freshness_basis=(
-            EvidenceFreshnessBasisReference("basis:exact")
-            if freshness
-            else None
+            EvidenceFreshnessBasisReference("basis:exact") if freshness else None
         ),
     )
 
@@ -141,7 +139,9 @@ def test_material_use_requires_available_judgment_time_evidence() -> None:
     )
 
 
-def test_claim_specific_scope_is_rejected_until_target_catalog_admission_exists() -> None:
+def test_claim_specific_scope_is_rejected_until_target_catalog_admission_exists() -> (
+    None
+):
     with pytest.raises(InvalidEvidenceBinding, match="claim validation"):
         _binding(scope=ClaimSpecificEvidenceScope(ClaimId(uuid4())))
 

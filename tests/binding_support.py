@@ -14,17 +14,19 @@ from polaris.domain.configuration import (
     EvidenceRequirementSetVersionId,
 )
 from polaris.domain.decisions import OperationId
-from polaris.domain.evidence import (
+from polaris.domain.evidence.bindings import (
     EvidenceAvailability,
     EvidenceFreshnessAuthorityReference,
     EvidenceFreshnessBasisReference,
     EvidenceMaterialQualification,
-    EvidenceObservationId,
     EvidenceRole,
+)
+from polaris.domain.evidence.judgments import (
     EvidenceUse,
     InvestmentRecommendationRef,
     JudgmentWideEvidenceScope,
 )
+from polaris.domain.evidence.observations import EvidenceObservationId
 from tests.configuration_support import (
     FRESHNESS_ID,
     ROOT_VERSION_ID,

@@ -156,7 +156,7 @@ def _validate_binding_usage(binding: EvidenceBinding) -> None:
     ):
         raise InvalidEvidenceBinding(
             "materially used Evidence must have AVAILABLE "
-            "judgment-time availability"
+            + "judgment-time availability"
         )
 
     _aware(binding.effective_at, "EvidenceBinding.effective_at")
@@ -171,14 +171,14 @@ def _validate_binding_optional_metadata(binding: EvidenceBinding) -> None:
         raise TypeError(
             "material_qualification must be EvidenceMaterialQualification or None"
         )
+    freshness_authority = binding.freshness_authority
     if (
-        binding.freshness_authority is not None
-        and type(binding.freshness_authority)
-        is not EvidenceFreshnessAuthorityReference
+        freshness_authority is not None
+        and type(freshness_authority) is not EvidenceFreshnessAuthorityReference
     ):
         raise TypeError(
             "freshness_authority must be "
-            "EvidenceFreshnessAuthorityReference or None"
+            + "EvidenceFreshnessAuthorityReference or None"
         )
     if (
         binding.freshness_basis is not None

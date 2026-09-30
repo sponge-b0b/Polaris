@@ -1,0 +1,220 @@
+from __future__ import annotations
+
+import asyncio
+import inspect
+
+import pytest
+from sqlalchemy import update
+from sqlalchemy.exc import SQLAlchemyError
+
+from polaris.application.evidence import (
+    EvidenceBindingObservationReferenceConflict,
+    EvidenceBindingStore,
+    EvidencePersistenceUnavailable,
+    EvidenceRequirementVersionAppended,
+)
+from polaris.domain.evidence import (
+    EvidenceAvailability,
+    EvidenceBindingId,
+    EvidenceRole,
+)
+from polaris.infrastructure.persistence.postgresql import (
+    PostgresEvidenceBindingStore,
+    PostgresEvidenceRequirementStore,
+    PostgresEvidenceStore,
+)
+from polaris.infrastructure.persistence.postgresql.schema import (
+    evidence_binding_command_receipts,
+    evidence_bindings,
+)
+from tests.binding_support import (
+    BINDING_ID,
+    SECOND_BINDING_ID,
+    SECOND_BINDING_OPERATION_ID,
+    binding_command,
+    binding_service,
+)
+from tests.configuration_support import requirement_version
+from tests.evidence_support import (
+    OBSERVATION_ID,
+    evidence_command,
+    evidence_service,
+)
+
+from .conftest import PostgresTestTarget, postgres_row_counts, postgres_store
+
+
+async def _seed_observation(target: PostgresTestTarget) -> None:
+    async with postgres_store(target, PostgresEvidenceStore) as (_, store):
+        await evidence_service(store, OBSERVATION_ID).record(evidence_command())
+
+
+async def _seed_requirement(target: PostgresTestTarget) -> None:
+    async with postgres_store(target, PostgresEvidenceRequirementStore) as (_, store):
+        outcome = await store.append_requirement_version(requirement_version())
+        assert isinstance(outcome, EvidenceRequirementVersionAppended)
+
+
+async def _assert_binding_rows(
+    target: PostgresTestTarget,
+    expected: tuple[int, int],
+) -> None:
+    async with postgres_store(target, PostgresEvidenceBindingStore) as (engine, _):
+        assert await postgres_row_counts(
+            engine,
+            evidence_bindings,
+            evidence_binding_command_receipts,
+        ) == expected
+
+
+def test_binding_round_trips_across_restart_with_exact_contract(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        await _seed_observation(postgres_target)
+        await _seed_requirement(postgres_target)
+
+        async with postgres_store(
+            postgres_target,
+            PostgresEvidenceBindingStore,
+        ) as (_, store):
+            result = await binding_service(store, BINDING_ID).record(
+                binding_command(with_freshness=True)
+            )
+
+        async with postgres_store(
+            postgres_target,
+            PostgresEvidenceBindingStore,
+        ) as (_, restarted):
+            binding = await restarted.load_binding(result.binding_id)
+
+        assert binding is not None
+        assert binding.binding_id == EvidenceBindingId(BINDING_ID)
+        assert binding.observation_id.value == OBSERVATION_ID
+        assert binding.role is EvidenceRole.SUPPORTING
+        assert binding.availability is EvidenceAvailability.AVAILABLE
+        assert binding.materially_used is True
+        assert binding.material_qualification is not None
+        assert binding.material_qualification.statement == "decision-grade source"
+        assert binding.freshness_authority is not None
+        assert binding.freshness_basis is not None
+        assert binding.freshness_basis.reference == "observation:market-price:SPY"
+
+    asyncio.run(scenario())
+
+
+def test_exact_retry_returns_existing_binding_identity(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        await _seed_observation(postgres_target)
+        async with postgres_store(
+            postgres_target,
+            PostgresEvidenceBindingStore,
+        ) as (engine, store):
+            service = binding_service(store, BINDING_ID, SECOND_BINDING_ID)
+            first = await service.record(binding_command())
+            second = await service.record(binding_command())
+
+            assert second.replayed is True
+            assert second.binding_id == first.binding_id
+            assert await postgres_row_counts(
+                engine,
+                evidence_bindings,
+                evidence_binding_command_receipts,
+            ) == (1, 1)
+
+    asyncio.run(scenario())
+
+
+def test_distinct_operations_preserve_duplicate_endpoint_tuple(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        await _seed_observation(postgres_target)
+        async with postgres_store(
+            postgres_target,
+            PostgresEvidenceBindingStore,
+        ) as (engine, store):
+            service = binding_service(store, BINDING_ID, SECOND_BINDING_ID)
+            first = await service.record(binding_command())
+            second = await service.record(
+                binding_command(SECOND_BINDING_OPERATION_ID)
+            )
+
+            assert first.binding_id != second.binding_id
+            assert await postgres_row_counts(
+                engine,
+                evidence_bindings,
+                evidence_binding_command_receipts,
+            ) == (2, 2)
+
+    asyncio.run(scenario())
+
+
+def test_missing_observation_rejects_binding_without_partial_write(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        async with postgres_store(
+            postgres_target,
+            PostgresEvidenceBindingStore,
+        ) as (_, store):
+            with pytest.raises(EvidenceBindingObservationReferenceConflict):
+                await binding_service(store, BINDING_ID).record(binding_command())
+        await _assert_binding_rows(postgres_target, (0, 0))
+
+    asyncio.run(scenario())
+
+
+class _FailAfterBindingStore(PostgresEvidenceBindingStore):
+    def _write_completed(self, step: str) -> None:
+        if step == "binding":
+            raise RuntimeError("injected binding transaction failure")
+
+
+def test_failure_after_binding_insert_rolls_back_binding_and_receipt(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        await _seed_observation(postgres_target)
+        async with postgres_store(
+            postgres_target,
+            _FailAfterBindingStore,
+        ) as (_, store):
+            with pytest.raises(EvidencePersistenceUnavailable):
+                await binding_service(store, BINDING_ID).record(binding_command())
+        await _assert_binding_rows(postgres_target, (0, 0))
+
+    asyncio.run(scenario())
+
+
+def test_binding_rows_are_database_immutable(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        await _seed_observation(postgres_target)
+        async with postgres_store(
+            postgres_target,
+            PostgresEvidenceBindingStore,
+        ) as (engine, store):
+            await binding_service(store, BINDING_ID).record(binding_command())
+            async with engine.begin() as connection:
+                with pytest.raises(SQLAlchemyError):
+                    await connection.execute(
+                        update(evidence_bindings).values(role="conflicting")
+                    )
+
+    asyncio.run(scenario())
+
+
+def test_inward_binding_port_exposes_no_database_types() -> None:
+    for method_name in (
+        "get_binding_receipt",
+        "commit_binding",
+        "load_binding",
+    ):
+        signature = str(inspect.signature(getattr(EvidenceBindingStore, method_name)))
+        assert "sqlalchemy" not in signature.lower()
+        assert "asyncpg" not in signature.lower()
+        assert "postgres" not in signature.lower()

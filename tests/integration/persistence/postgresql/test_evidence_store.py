@@ -179,9 +179,7 @@ def test_failure_after_observation_insert_rolls_back_semantic_write(
             _FailAfterObservationStore,
         ) as (engine, store):
             with pytest.raises(EvidencePersistenceUnavailable):
-                await evidence_service(store, OBSERVATION_ID).record(
-                    evidence_command()
-                )
+                await evidence_service(store, OBSERVATION_ID).record(evidence_command())
             assert await postgres_row_counts(
                 engine,
                 evidence_observations,

@@ -34,6 +34,9 @@ def _text(value: object, field: str) -> str:
     return value.strip()
 
 
+# duplicate-code: binding-domain time validation owns InvalidEvidenceBinding
+# semantics; sharing another layer/domain validator would couple failure contracts.
+# arid: disable
 def _aware(value: object, field: str) -> None:
     if (
         not isinstance(value, datetime)
@@ -41,6 +44,7 @@ def _aware(value: object, field: str) -> None:
         or value.utcoffset() is None
     ):
         raise InvalidEvidenceBinding(f"{field} must be timezone-aware")
+# arid: enable
 
 
 class EvidenceRole(StrEnum):
@@ -58,6 +62,9 @@ class EvidenceAvailability(StrEnum):
     UNKNOWN = "unknown"
 
 
+# duplicate-code: this Evidence-owned value object may evolve independently of
+# similarly shaped statement wrappers in other domains.
+# arid: disable
 @dataclass(frozen=True, slots=True)
 class EvidenceMaterialQualification:
     statement: str
@@ -68,6 +75,7 @@ class EvidenceMaterialQualification:
             "statement",
             _text(self.statement, "EvidenceMaterialQualification.statement"),
         )
+# arid: enable
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,6 +86,9 @@ class EvidenceFreshnessAuthorityReference:
     version_id: EvidenceRequirementSetVersionId
     requirement_id: EvidenceRequirementId
 
+    # duplicate-code: this binding-side reference validates an exact external
+    # Configuration identity triple without owning Configuration aggregate rules.
+    # arid: disable
     def __post_init__(self) -> None:
         if type(self.set_id) is not EvidenceRequirementSetId:
             raise TypeError("set_id must be EvidenceRequirementSetId")
@@ -85,6 +96,7 @@ class EvidenceFreshnessAuthorityReference:
             raise TypeError("version_id must be EvidenceRequirementSetVersionId")
         if type(self.requirement_id) is not EvidenceRequirementId:
             raise TypeError("requirement_id must be EvidenceRequirementId")
+    # arid: enable
 
 
 @dataclass(frozen=True, slots=True)

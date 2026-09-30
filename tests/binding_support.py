@@ -67,6 +67,9 @@ def binding_command(
             if qualification is not None
             else None
         ),
+        # duplicate-code: the fixture must construct independent domain input;
+        # reusing persistence decoding would invalidate the codec falsifier.
+        # arid: disable
         freshness_authority=(
             EvidenceFreshnessAuthorityReference(
                 set_id=EvidenceRequirementSetId(SET_ID),
@@ -76,6 +79,7 @@ def binding_command(
             if with_freshness
             else None
         ),
+        # arid: enable
         freshness_basis=(
             EvidenceFreshnessBasisReference("observation:market-price:SPY")
             if with_freshness

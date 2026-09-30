@@ -92,13 +92,10 @@ def test_binding_round_trips_across_restart_with_exact_contract(
         await _seed_observation(postgres_target)
         await _seed_requirement(postgres_target)
 
-        async with postgres_store(
+        result = await _record_binding(
             postgres_target,
-            PostgresEvidenceBindingStore,
-        ) as (_, store):
-            result = await binding_service(store, BINDING_ID).record(
-                binding_command(with_freshness=True)
-            )
+            command=binding_command(with_freshness=True),
+        )
 
         async with postgres_store(
             postgres_target,
@@ -126,21 +123,15 @@ def test_exact_retry_returns_existing_binding_identity(
 ) -> None:
     async def scenario() -> None:
         await _seed_observation(postgres_target)
-        async with postgres_store(
+        first = await _record_binding(postgres_target)
+        second = await _record_binding(
             postgres_target,
-            PostgresEvidenceBindingStore,
-        ) as (engine, store):
-            service = binding_service(store, BINDING_ID, SECOND_BINDING_ID)
-            first = await service.record(binding_command())
-            second = await service.record(binding_command())
+            identity=SECOND_BINDING_ID,
+        )
 
-            assert second.replayed is True
-            assert second.binding_id == first.binding_id
-            assert await postgres_row_counts(
-                engine,
-                evidence_bindings,
-                evidence_binding_command_receipts,
-            ) == (1, 1)
+        assert second.replayed is True
+        assert second.binding_id == first.binding_id
+        await _assert_binding_rows(postgres_target, (1, 1))
 
     asyncio.run(scenario())
 
@@ -150,20 +141,15 @@ def test_distinct_operations_preserve_duplicate_endpoint_tuple(
 ) -> None:
     async def scenario() -> None:
         await _seed_observation(postgres_target)
-        async with postgres_store(
+        first = await _record_binding(postgres_target)
+        second = await _record_binding(
             postgres_target,
-            PostgresEvidenceBindingStore,
-        ) as (engine, store):
-            service = binding_service(store, BINDING_ID, SECOND_BINDING_ID)
-            first = await service.record(binding_command())
-            second = await service.record(binding_command(SECOND_BINDING_OPERATION_ID))
+            identity=SECOND_BINDING_ID,
+            command=binding_command(SECOND_BINDING_OPERATION_ID),
+        )
 
-            assert first.binding_id != second.binding_id
-            assert await postgres_row_counts(
-                engine,
-                evidence_bindings,
-                evidence_binding_command_receipts,
-            ) == (2, 2)
+        assert first.binding_id != second.binding_id
+        await _assert_binding_rows(postgres_target, (2, 2))
 
     asyncio.run(scenario())
 
@@ -172,12 +158,8 @@ def test_missing_observation_rejects_binding_without_partial_write(
     postgres_target: PostgresTestTarget,
 ) -> None:
     async def scenario() -> None:
-        async with postgres_store(
-            postgres_target,
-            PostgresEvidenceBindingStore,
-        ) as (_, store):
-            with pytest.raises(EvidenceBindingObservationReferenceConflict):
-                await binding_service(store, BINDING_ID).record(binding_command())
+        with pytest.raises(EvidenceBindingObservationReferenceConflict):
+            await _record_binding(postgres_target)
         await _assert_binding_rows(postgres_target, (0, 0))
 
     asyncio.run(scenario())
@@ -210,11 +192,11 @@ def test_binding_rows_are_database_immutable(
 ) -> None:
     async def scenario() -> None:
         await _seed_observation(postgres_target)
+        await _record_binding(postgres_target)
         async with postgres_store(
             postgres_target,
             PostgresEvidenceBindingStore,
-        ) as (engine, store):
-            await binding_service(store, BINDING_ID).record(binding_command())
+        ) as (engine, _):
             async with engine.begin() as connection:
                 with pytest.raises(SQLAlchemyError):
                     await connection.execute(

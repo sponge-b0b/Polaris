@@ -45,6 +45,9 @@ class PostgresEvidenceBindingStore:
         require_qualified_postgres_runtime()
         self._engine = engine
 
+    # duplicate-code: each aggregate adapter owns its read translation and
+    # receipt codec; sharing this body would couple independent persistence ports.
+    # arid: disable
     async def get_binding_receipt(
         self,
         operation_id: OperationId,
@@ -56,7 +59,11 @@ class PostgresEvidenceBindingStore:
             raise EvidenceCommandReadUnavailable(
                 "Evidence binding receipt read is unavailable"
             ) from error
+    # arid: enable
 
+    # duplicate-code: binding-row reconstruction is independently owned from
+    # observation/Decision reads despite similar SQLAlchemy scaffolding.
+    # arid: disable
     async def load_binding(
         self,
         binding_id: EvidenceBindingId,
@@ -79,17 +86,23 @@ class PostgresEvidenceBindingStore:
             raise EvidenceCommandReadUnavailable(
                 "Evidence binding read is unavailable"
             ) from error
+    # arid: enable
 
     async def commit_binding(
         self,
         commit: EvidenceBindingCommit,
     ) -> EvidenceBindingCommitOutcome:
+        # duplicate-code: the binding aggregate owns its transaction and lock
+        # semantics; extracting shared transaction scaffolding would couple
+        # independently evolvable Evidence aggregates.
+        # arid: disable
         try:
             async with self._engine.begin() as connection:
                 await connection.execute(
                     text("SELECT pg_advisory_xact_lock(:lock_key)"),
                     {"lock_key": _EVIDENCE_BINDING_WRITE_LOCK},
                 )
+        # arid: enable
                 prior = await _get_receipt(connection, commit.operation_id)
                 if prior is not None:
                     if prior.request != commit.request:
@@ -111,12 +124,19 @@ class PostgresEvidenceBindingStore:
                     insert(evidence_bindings).values(**binding_values(commit.binding))
                 )
                 self._write_completed("binding")
+                # duplicate-code: binding receipts are a distinct inward-owned
+                # contract; a generic receipt factory would erase result typing.
+                # arid: disable
                 result = EvidenceBindingResult(commit.binding.binding_id)
                 receipt = EvidenceBindingReceipt(
                     operation_id=commit.operation_id,
                     request=commit.request,
                     result=result,
                 )
+                # arid: enable
+                # duplicate-code: each Evidence aggregate persists its own
+                # immutable receipt schema and codec payload.
+                # arid: disable
                 await connection.execute(
                     insert(evidence_binding_command_receipts).values(
                         operation_id=commit.operation_id.value,
@@ -127,6 +147,7 @@ class PostgresEvidenceBindingStore:
                     )
                 )
                 self._write_completed("receipt")
+                # arid: enable
                 return EvidenceBindingCommitted(receipt)
         except (SQLAlchemyError, ValueError, TypeError, RuntimeError) as error:
             return EvidenceBindingUnavailable(

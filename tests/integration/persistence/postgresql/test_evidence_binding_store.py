@@ -13,11 +13,11 @@ from polaris.application.evidence import (
     EvidencePersistenceUnavailable,
     EvidenceRequirementVersionAppended,
 )
-from polaris.domain.evidence import (
+from polaris.domain.evidence.bindings import (
     EvidenceAvailability,
-    EvidenceBindingId,
     EvidenceRole,
 )
+from polaris.domain.evidence.observations import EvidenceBindingId
 from polaris.infrastructure.persistence.postgresql import (
     PostgresEvidenceBindingStore,
     PostgresEvidenceRequirementStore,

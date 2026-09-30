@@ -3,7 +3,9 @@
 from .decisions import create_postgres_engine
 from .evidence_store import PostgresEvidenceStore
 from .relationship_store import PostgresDecisionStore
+from .requirement_store import PostgresEvidenceRequirementStore
 from .schema import (
+    CONFIGURATION_TABLE_NAMES,
     DECISION_TABLE_NAMES,
     EVIDENCE_TABLE_NAMES,
     POLARIS_TABLE_NAMES,
@@ -11,10 +13,12 @@ from .schema import (
 )
 
 __all__ = [
+    "CONFIGURATION_TABLE_NAMES",
     "DECISION_TABLE_NAMES",
     "EVIDENCE_TABLE_NAMES",
     "POLARIS_TABLE_NAMES",
     "PostgresDecisionStore",
+    "PostgresEvidenceRequirementStore",
     "PostgresEvidenceStore",
     "create_postgres_engine",
     "metadata",

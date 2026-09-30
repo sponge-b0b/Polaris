@@ -18,6 +18,23 @@ from .contracts import (
     RecordEvidenceObservationCommand,
 )
 from .observations import EvidenceObservationService
+from .requirements import (
+    ContestedEvidenceRequirementAuthority,
+    EvidenceRequirementAppendOutcome,
+    EvidenceRequirementHistoryRejected,
+    EvidenceRequirementReadUnavailable,
+    EvidenceRequirementResolution,
+    EvidenceRequirementResolver,
+    EvidenceRequirementStore,
+    EvidenceRequirementStoreUnavailable,
+    EvidenceRequirementVersionAppended,
+    EvidenceRequirementVersionConflict,
+    InvalidEvidenceRequirementAuthority,
+    MissingEvidenceRequirementAuthority,
+    ResolvedEvidenceRequirementVersion,
+    UnavailableEvidenceRequirementAuthority,
+    resolve_requirement_version,
+)
 
 __all__ = [
     "EvidenceApplicationError",
@@ -36,6 +53,21 @@ __all__ = [
     "EvidenceObservationSuccessionConflict",
     "EvidenceObservationUnavailable",
     "EvidencePersistenceUnavailable",
+    "EvidenceRequirementAppendOutcome",
+    "EvidenceRequirementHistoryRejected",
+    "EvidenceRequirementReadUnavailable",
+    "EvidenceRequirementResolution",
+    "EvidenceRequirementResolver",
+    "EvidenceRequirementStore",
+    "EvidenceRequirementStoreUnavailable",
+    "EvidenceRequirementVersionAppended",
+    "EvidenceRequirementVersionConflict",
     "EvidenceSuccessionConflict",
+    "ContestedEvidenceRequirementAuthority",
+    "InvalidEvidenceRequirementAuthority",
+    "MissingEvidenceRequirementAuthority",
     "RecordEvidenceObservationCommand",
+    "ResolvedEvidenceRequirementVersion",
+    "UnavailableEvidenceRequirementAuthority",
+    "resolve_requirement_version",
 ]

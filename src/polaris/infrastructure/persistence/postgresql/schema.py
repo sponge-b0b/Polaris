@@ -11,6 +11,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Identity,
     Index,
     Integer,
@@ -386,6 +387,89 @@ evidence_observation_command_receipts = Table(
 )
 # arid: enable
 
+evidence_requirement_set_versions = Table(
+    "evidence_requirement_set_versions",
+    metadata,
+    _row_id(),
+    Column("set_id", UUID(as_uuid=True), nullable=False),
+    Column("version_id", UUID(as_uuid=True), nullable=False, unique=True),
+    Column("authority_identity", Text, nullable=False),
+    Column("source_reference", Text, nullable=False),
+    Column("effective_at", DateTime(timezone=True), nullable=False),
+    Column("recorded_at", DateTime(timezone=True), nullable=False),
+    Column("applicability", JSONB, nullable=False),
+    Column(
+        "predecessor_version_id",
+        UUID(as_uuid=True),
+        ForeignKey(
+            "evidence_requirement_set_versions.version_id",
+            name="fk_evidence_requirement_version_predecessor",
+            ondelete="RESTRICT",
+        ),
+    ),
+    Column("predecessor_effect", String(16)),
+    UniqueConstraint(
+        "set_id",
+        "version_id",
+        name="uq_evidence_requirement_versions_set_version",
+    ),
+    CheckConstraint(
+        "btrim(authority_identity) <> ''", name="authority_identity_nonempty"
+    ),
+    CheckConstraint("btrim(source_reference) <> ''", name="source_reference_nonempty"),
+    CheckConstraint(
+        "(predecessor_version_id IS NULL AND predecessor_effect IS NULL) OR "
+        "(predecessor_version_id IS NOT NULL AND predecessor_effect IS NOT NULL)",
+        name="predecessor_complete",
+    ),
+    CheckConstraint(
+        "predecessor_effect IS NULL OR "
+        "predecessor_effect IN ('corrects', 'supersedes')",
+        name="predecessor_effect",
+    ),
+    CheckConstraint(
+        "predecessor_version_id IS NULL OR predecessor_version_id <> version_id",
+        name="predecessor_distinct",
+    ),
+)
+
+evidence_requirement_definitions = Table(
+    "evidence_requirement_definitions",
+    metadata,
+    _row_id(),
+    Column("set_id", UUID(as_uuid=True), nullable=False),
+    Column("version_id", UUID(as_uuid=True), nullable=False),
+    Column("requirement_id", UUID(as_uuid=True), nullable=False),
+    Column("position", Integer, nullable=False),
+    Column("requirement_kind", String(16), nullable=False),
+    Column("definition", JSONB, nullable=False),
+    ForeignKeyConstraint(
+        ["set_id", "version_id"],
+        [
+            "evidence_requirement_set_versions.set_id",
+            "evidence_requirement_set_versions.version_id",
+        ],
+        name="fk_evidence_requirement_definition_version",
+        ondelete="RESTRICT",
+    ),
+    UniqueConstraint(
+        "set_id",
+        "version_id",
+        "requirement_id",
+        name="uq_evidence_requirement_definitions_identity",
+    ),
+    UniqueConstraint(
+        "version_id",
+        "position",
+        name="uq_evidence_requirement_definitions_position",
+    ),
+    CheckConstraint("position >= 0", name="position_nonnegative"),
+    CheckConstraint(
+        "requirement_kind IN ('freshness', 'sufficiency')",
+        name="requirement_kind",
+    ),
+)
+
 DECISION_TABLE_NAMES = frozenset(
     {
         "decision_needs",
@@ -401,4 +485,12 @@ EVIDENCE_TABLE_NAMES = frozenset(
         "evidence_observation_command_receipts",
     }
 )
-POLARIS_TABLE_NAMES = DECISION_TABLE_NAMES | EVIDENCE_TABLE_NAMES
+CONFIGURATION_TABLE_NAMES = frozenset(
+    {
+        "evidence_requirement_set_versions",
+        "evidence_requirement_definitions",
+    }
+)
+POLARIS_TABLE_NAMES = (
+    DECISION_TABLE_NAMES | EVIDENCE_TABLE_NAMES | CONFIGURATION_TABLE_NAMES
+)

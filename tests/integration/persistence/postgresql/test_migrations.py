@@ -113,6 +113,21 @@ async def _column_names(target: PostgresTestTarget, table_name: str) -> frozense
         await engine.dispose()
 
 
+def _assert_revision_round_trip(
+    target: PostgresTestTarget,
+    revision: str,
+    expected_tables: frozenset[str],
+) -> None:
+    alembic = Config("alembic.ini")
+    command.downgrade(alembic, revision)
+    assert asyncio.run(_table_names(target)) == expected_tables
+
+    command.upgrade(alembic, "head")
+    assert asyncio.run(_table_names(target)) == (
+        POLARIS_TABLE_NAMES | {"alembic_version"}
+    )
+
+
 def test_fresh_root_migrates_only_greenfield_polaris_schema(
     postgres_target: PostgresTestTarget,
 ) -> None:
@@ -122,12 +137,20 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
     evidence_migration = Path(
         "migrations/versions/0002_evidence_observation_foundation.py"
     ).read_text(encoding="utf-8")
+    requirement_migration = Path(
+        "migrations/versions/0003_evidence_requirement_authority.py"
+    ).read_text(encoding="utf-8")
     assert "down_revision: str | None = None" in decision_migration
     assert (
         'down_revision: str | None = "0001_decision_persistence"' in evidence_migration
     )
+    assert (
+        'down_revision: str | None = "0002_evidence_observations"'
+        in requirement_migration
+    )
     assert "legacy" not in decision_migration.lower()
     assert "legacy" not in evidence_migration.lower()
+    assert "legacy" not in requirement_migration.lower()
 
     tables = asyncio.run(_table_names(postgres_target))
     assert tables == POLARIS_TABLE_NAMES | {"alembic_version"}
@@ -169,26 +192,35 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
 def test_root_downgrades_to_empty_and_reupgrades(
     postgres_target: PostgresTestTarget,
 ) -> None:
-    alembic = Config("alembic.ini")
-    command.downgrade(alembic, "base")
-    assert asyncio.run(_table_names(postgres_target)) == frozenset({"alembic_version"})
-
-    command.upgrade(alembic, "head")
-    assert asyncio.run(_table_names(postgres_target)) == (
-        POLARIS_TABLE_NAMES | {"alembic_version"}
+    _assert_revision_round_trip(
+        postgres_target,
+        "base",
+        frozenset({"alembic_version"}),
     )
 
 
 def test_evidence_revision_downgrades_to_decision_foundation_and_reupgrades(
     postgres_target: PostgresTestTarget,
 ) -> None:
-    alembic = Config("alembic.ini")
-    command.downgrade(alembic, "0001_decision_persistence")
-    assert asyncio.run(_table_names(postgres_target)) == (
-        DECISION_TABLE_NAMES | {"alembic_version"}
+    _assert_revision_round_trip(
+        postgres_target,
+        "0001_decision_persistence",
+        DECISION_TABLE_NAMES | {"alembic_version"},
     )
 
-    command.upgrade(alembic, "head")
-    assert asyncio.run(_table_names(postgres_target)) == (
-        POLARIS_TABLE_NAMES | {"alembic_version"}
+
+def test_requirement_revision_downgrades_to_evidence_foundation_and_reupgrades(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    _assert_revision_round_trip(
+        postgres_target,
+        "0002_evidence_observations",
+        (
+            POLARIS_TABLE_NAMES
+            - {
+                "evidence_requirement_set_versions",
+                "evidence_requirement_definitions",
+            }
+        )
+        | {"alembic_version"},
     )

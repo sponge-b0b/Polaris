@@ -1,0 +1,292 @@
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+from uuid import UUID
+
+from sqlalchemy.engine import RowMapping
+
+from polaris.domain.configuration import (
+    ConfigurationAuthority,
+    EvidenceRequirementApplicabilityAssignment,
+    EvidenceRequirementId,
+    EvidenceRequirementPredecessor,
+    EvidenceRequirementPredecessorEffect,
+    EvidenceRequirementScopeAssignment,
+    EvidenceRequirementSetId,
+    EvidenceRequirementSetVersion,
+    EvidenceRequirementSetVersionId,
+    EvidenceRequirementTargetAssignment,
+    FreshnessRequirementDefinition,
+    InvestmentHorizon,
+    SufficiencyRequirementDefinition,
+)
+from polaris.domain.evidence import (
+    ClaimId,
+    EvidenceJudgmentFamily,
+    EvidenceScopeKind,
+    EvidenceSubjectReference,
+    EvidenceUse,
+    evidence_judgment_ref,
+)
+from polaris.domain.portfolio import FinancialInstrumentId, PortfolioId
+
+from .codec_support import uuid_value
+
+type JsonObject = dict[str, object]
+
+
+def requirement_version_values(
+    version: EvidenceRequirementSetVersion,
+) -> dict[str, object]:
+    predecessor = version.predecessor
+    return {
+        "set_id": version.set_id.value,
+        "version_id": version.version_id.value,
+        "authority_identity": version.authority.authority_identity,
+        "source_reference": version.authority.source_reference,
+        "effective_at": version.effective_at,
+        "recorded_at": version.recorded_at,
+        "applicability": applicability_payload(version.applicability),
+        "predecessor_version_id": (
+            predecessor.version_id.value if predecessor is not None else None
+        ),
+        "predecessor_effect": predecessor.effect.value if predecessor else None,
+    }
+
+
+def requirement_definition_values(
+    version: EvidenceRequirementSetVersion,
+) -> tuple[dict[str, object], ...]:
+    rows: list[dict[str, object]] = []
+    for position, definition in enumerate(version.requirements):
+        if isinstance(definition, FreshnessRequirementDefinition):
+            kind = "freshness"
+            payload: JsonObject = {
+                "maximum_age_microseconds": _timedelta_microseconds(
+                    definition.maximum_age
+                )
+            }
+        else:
+            kind = "sufficiency"
+            payload = {"predicate": definition.predicate}
+        rows.append(
+            {
+                "set_id": version.set_id.value,
+                "version_id": version.version_id.value,
+                "requirement_id": definition.requirement_id.value,
+                "position": position,
+                "requirement_kind": kind,
+                "definition": payload,
+            }
+        )
+    return tuple(rows)
+
+
+def requirement_version_from_rows(
+    version_row: RowMapping,
+    definition_rows: tuple[RowMapping, ...],
+) -> EvidenceRequirementSetVersion:
+    predecessor_id = version_row["predecessor_version_id"]
+    predecessor_effect = version_row["predecessor_effect"]
+    return EvidenceRequirementSetVersion(
+        set_id=EvidenceRequirementSetId(uuid_value(version_row["set_id"], "set_id")),
+        version_id=EvidenceRequirementSetVersionId(
+            uuid_value(version_row["version_id"], "version_id")
+        ),
+        authority=ConfigurationAuthority(
+            authority_identity=_string(
+                version_row["authority_identity"], "authority_identity"
+            ),
+            source_reference=_string(
+                version_row["source_reference"], "source_reference"
+            ),
+        ),
+        effective_at=_datetime(version_row["effective_at"], "effective_at"),
+        recorded_at=_datetime(version_row["recorded_at"], "recorded_at"),
+        applicability=applicability_from_payload(
+            _object(version_row["applicability"], "applicability")
+        ),
+        requirements=tuple(
+            _definition_from_row(row)
+            for row in sorted(
+                definition_rows,
+                key=lambda item: _integer(item["position"], "position"),
+            )
+        ),
+        predecessor=(
+            EvidenceRequirementPredecessor(
+                EvidenceRequirementSetVersionId(
+                    uuid_value(predecessor_id, "predecessor_version_id")
+                ),
+                EvidenceRequirementPredecessorEffect(
+                    _string(predecessor_effect, "predecessor_effect")
+                ),
+            )
+            if predecessor_id is not None
+            else None
+        ),
+    )
+
+
+def applicability_payload(
+    applicability: EvidenceRequirementApplicabilityAssignment,
+) -> JsonObject:
+    subject = applicability.subject
+    return {
+        "target_family": applicability.target.family.value,
+        "target_id": (
+            str(applicability.target.target.value)
+            if applicability.target.target is not None
+            else None
+        ),
+        "scope_kind": applicability.scope.kind.value,
+        "claim_id": (
+            str(applicability.scope.claim_id.value)
+            if applicability.scope.claim_id is not None
+            else None
+        ),
+        "evidence_use": applicability.evidence_use.value,
+        "subject": (
+            {
+                "identity": subject.subject_identity,
+                "reference": subject.subject_reference,
+            }
+            if subject is not None
+            else None
+        ),
+        "portfolio_id": (
+            str(applicability.portfolio_id.value)
+            if applicability.portfolio_id is not None
+            else None
+        ),
+        "instrument_id": (
+            str(applicability.instrument_id.value)
+            if applicability.instrument_id is not None
+            else None
+        ),
+        "investment_horizon": (
+            applicability.investment_horizon.value
+            if applicability.investment_horizon is not None
+            else None
+        ),
+    }
+
+
+def applicability_from_payload(
+    payload: JsonObject,
+) -> EvidenceRequirementApplicabilityAssignment:
+    target_id = _optional_uuid(payload.get("target_id"), "target_id")
+    claim_id = _optional_uuid(payload.get("claim_id"), "claim_id")
+    subject_payload = payload.get("subject")
+    portfolio_id = _optional_uuid(payload.get("portfolio_id"), "portfolio_id")
+    instrument_id = _optional_uuid(payload.get("instrument_id"), "instrument_id")
+    horizon = payload.get("investment_horizon")
+    family = EvidenceJudgmentFamily(
+        _string(payload.get("target_family"), "target_family")
+    )
+    return EvidenceRequirementApplicabilityAssignment(
+        target=EvidenceRequirementTargetAssignment(
+            family,
+            evidence_judgment_ref(family, target_id) if target_id is not None else None,
+        ),
+        scope=EvidenceRequirementScopeAssignment(
+            EvidenceScopeKind(_string(payload.get("scope_kind"), "scope_kind")),
+            ClaimId(claim_id) if claim_id is not None else None,
+        ),
+        evidence_use=EvidenceUse(_string(payload.get("evidence_use"), "evidence_use")),
+        subject=(
+            _subject_from_payload(_object(subject_payload, "subject"))
+            if subject_payload is not None
+            else None
+        ),
+        portfolio_id=PortfolioId(portfolio_id) if portfolio_id is not None else None,
+        instrument_id=(
+            FinancialInstrumentId(instrument_id) if instrument_id is not None else None
+        ),
+        investment_horizon=(
+            InvestmentHorizon(_string(horizon, "investment_horizon"))
+            if horizon is not None
+            else None
+        ),
+    )
+
+
+def _definition_from_row(
+    row: RowMapping,
+) -> FreshnessRequirementDefinition | SufficiencyRequirementDefinition:
+    requirement_id = EvidenceRequirementId(
+        uuid_value(row["requirement_id"], "requirement_id")
+    )
+    kind = _string(row["requirement_kind"], "requirement_kind")
+    payload = _object(row["definition"], "definition")
+    if kind == "freshness":
+        microseconds = _integer(
+            payload.get("maximum_age_microseconds"), "maximum_age_microseconds"
+        )
+        return FreshnessRequirementDefinition(
+            requirement_id,
+            timedelta(microseconds=microseconds),
+        )
+    if kind == "sufficiency":
+        return SufficiencyRequirementDefinition(
+            requirement_id,
+            _string(payload.get("predicate"), "predicate"),
+        )
+    raise ValueError("unsupported requirement kind")
+
+
+def _subject_from_payload(payload: JsonObject) -> EvidenceSubjectReference:
+    return EvidenceSubjectReference(
+        _string(payload.get("identity"), "subject identity"),
+        _string(payload.get("reference"), "subject reference"),
+    )
+
+
+def _timedelta_microseconds(value: timedelta) -> int:
+    return value.microseconds + 1_000_000 * value.seconds + 86_400_000_000 * value.days
+
+
+def _object(value: object, field: str) -> JsonObject:
+    if not isinstance(value, dict) or any(not isinstance(key, str) for key in value):
+        raise ValueError(f"{field} must be an object")
+    return value
+
+
+# duplicate-code: this codec owns the persisted requirement payload contract;
+# sharing decoder helpers would couple independently versioned storage formats.
+# arid: disable
+def _string(value: object, field: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field} must be a non-empty string")
+    return value.strip()
+
+
+# arid: enable
+
+
+def _integer(value: object, field: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ValueError(f"{field} must be an integer")
+    return value
+
+
+def _optional_uuid(value: object, field: str) -> UUID | None:
+    return None if value is None else uuid_value(value, field)
+
+
+# duplicate-code: persisted-value decoding owns adapter failure semantics;
+# sharing a domain validator here would leak domain validation into infrastructure.
+# arid: disable
+# jscpd:ignore-start
+def _datetime(value: object, field: str) -> datetime:
+    if (
+        not isinstance(value, datetime)
+        or value.tzinfo is None
+        or value.utcoffset() is None
+    ):
+        raise ValueError(f"{field} must be timezone-aware datetime")
+    return value
+
+
+# jscpd:ignore-end
+# arid: enable

@@ -55,14 +55,11 @@ async def _table_names(target: PostgresTestTarget) -> frozenset[str]:
 async def _identity_column_types(
     target: PostgresTestTarget,
 ) -> dict[tuple[str, str], str]:
-    # duplicate-code: migration falsifiers require local proof shape.
-    # arid: disable
     engine = create_postgres_engine(target.database_url, schema=target.schema)
     try:
         async with engine.connect() as connection:
             rows = await connection.execute(
                 text(
-                    # arid: enable
                     "SELECT table_name, column_name, udt_name "
                     "FROM information_schema.columns "
                     "WHERE table_schema = :schema "

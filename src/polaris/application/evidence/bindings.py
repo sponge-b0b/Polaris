@@ -5,6 +5,7 @@ from dataclasses import replace
 from datetime import datetime
 from uuid import UUID, uuid4
 
+from polaris.domain.decisions import OperationId
 from polaris.domain.evidence.bindings import EvidenceBinding
 from polaris.domain.evidence.observations import EvidenceBindingId
 
@@ -91,9 +92,11 @@ class EvidenceBindingService:
             raise EvidencePersistenceUnavailable(outcome.reason)
         raise AssertionError("EvidenceBindingStore returned an unsupported outcome")
 
-    async def _read_receipt(self, operation_id: object) -> EvidenceBindingReceipt | None:
+    async def _read_receipt(
+        self, operation_id: OperationId
+    ) -> EvidenceBindingReceipt | None:
         try:
-            return await self._store.get_binding_receipt(operation_id)  # type: ignore[arg-type]
+            return await self._store.get_binding_receipt(operation_id)
         except Exception as error:
             if isinstance(error, EvidencePersistenceUnavailable):
                 raise
@@ -109,7 +112,7 @@ class EvidenceBindingService:
 def _replay(
     receipt: EvidenceBindingReceipt,
     request: EvidenceBindingSemanticRequest,
-    operation_id: object,
+    operation_id: OperationId,
 ) -> EvidenceBindingResult:
     if receipt.request != request or receipt.operation_id != operation_id:
         raise EvidenceIdempotencyConflict(receipt.operation_id)

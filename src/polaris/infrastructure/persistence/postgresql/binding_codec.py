@@ -30,7 +30,10 @@ from polaris.domain.evidence.judgments import (
     evidence_judgment_family,
     evidence_judgment_ref,
 )
-from polaris.domain.evidence.observations import EvidenceBindingId, EvidenceObservationId
+from polaris.domain.evidence.observations import (
+    EvidenceBindingId,
+    EvidenceObservationId,
+)
 
 from .codec_support import canonical_json_fingerprint, uuid_value
 
@@ -119,9 +122,7 @@ def binding_from_row(row: RowMapping) -> EvidenceBinding:
         scope=JudgmentWideEvidenceScope(),
         evidence_use=EvidenceUse(_string(row["evidence_use"], "evidence_use")),
         role=EvidenceRole(_string(row["role"], "role")),
-        availability=EvidenceAvailability(
-            _string(row["availability"], "availability")
-        ),
+        availability=EvidenceAvailability(_string(row["availability"], "availability")),
         materially_used=_bool(row["materially_used"], "materially_used"),
         effective_at=_datetime(row["effective_at"], "effective_at"),
         recorded_at=_datetime(row["recorded_at"], "recorded_at"),
@@ -248,9 +249,7 @@ def _freshness_authority_from_row(
     if any(value is None for value in values):
         raise ValueError("persisted freshness authority reference is incomplete")
     return EvidenceFreshnessAuthorityReference(
-        set_id=EvidenceRequirementSetId(
-            uuid_value(values[0], "freshness_set_id")
-        ),
+        set_id=EvidenceRequirementSetId(uuid_value(values[0], "freshness_set_id")),
         version_id=EvidenceRequirementSetVersionId(
             uuid_value(values[1], "freshness_version_id")
         ),

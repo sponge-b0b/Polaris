@@ -172,18 +172,29 @@ For local work, load canonical local PostgreSQL configuration from `.env` throug
 uv run --locked --python 3.14+gil --env-file .env alembic current
 uv run --locked --python 3.14+gil --env-file .env alembic upgrade head
 uv run --locked --python 3.14+gil --env-file .env alembic check
-uv run --locked --python 3.14+gil --env-file .env polaris inspect persistence
 ```
 
 `alembic current` verifies the revision stamp only.
 
 Always run `alembic check` after migration application.
 
-When local PostgreSQL is available, also run:
+Schema inspection is required, but a repository CLI inspector is only an optional
+inspection mechanism. Before invoking `polaris inspect persistence`, establish
+from repository metadata or an already-proven executable that the current
+repository actually declares/provides that command. Do **not** invoke a missing
+CLI merely to probe whether it exists.
+
+When the command is available, it may supplement the required direct inspection:
 
 ```bash id="g4f58m"
 uv run --locked --python 3.14+gil --env-file .env polaris inspect persistence
 ```
+
+When it is unavailable, record the CLI inspection as
+`not-applicable-with-reason` and inspect the affected PostgreSQL tables,
+columns, constraints, and indexes directly through SQLAlchemy/PostgreSQL
+metadata queries instead. CLI unavailability is not unresolved verification
+when the required direct schema inspection succeeds.
 
 ### PostgreSQL Test Target
 
@@ -214,6 +225,11 @@ environment and local env file:
 uv run --locked --python 3.14+gil --env-file .env python <probe-script-or--c-expression>
 ```
 
+For nontrivial or asynchronous probes, prefer a quoted heredoc/script over
+compressing multiple statements or `async def` into a one-line `python -c`
+expression. Probe-construction failure is not service evidence and must not be
+misreported as a PostgreSQL failure.
+
 Never run a database preflight with bare `python`.
 
 A required DB-backed test skipped solely because local setup is missing is unresolved verification, not a pass.
@@ -232,16 +248,68 @@ because stamping can hide unapplied schema operations.
 
 ### Before 1.0
 
-For a stale or incompatible local development/test schema, reset and rebuild:
+For a stale or incompatible local development/test schema, first complete the
+**Environment Disposition Before Destructive Reset** record below and require
+`Disposable: yes`.
+
+Do not assume a repository-specific reset helper exists. If the repository
+provides a maintained reset helper and its contract matches the proven target,
+use it. Otherwise use this self-contained fallback, which follows the same
+schema create/drop pattern used by the repository's PostgreSQL contract tests:
 
 ```bash id="lis3ya"
-uv run --locked --python 3.14+gil --env-file .env python scripts/reset_local_postgres_schema.py --confirm-destroy-local-db
+uv run --locked --python 3.14+gil --env-file .env python - <<'PY'
+import asyncio
+import os
+import re
+
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
+
+from polaris.infrastructure.persistence.postgresql.runtime_qualification import (
+    require_qualified_postgres_runtime,
+)
+
+require_qualified_postgres_runtime()
+
+database_url = os.environ.get("POLARIS_DATABASE_URL")
+if not database_url:
+    raise RuntimeError("POLARIS_DATABASE_URL is required for schema reset")
+if not database_url.startswith("postgresql+asyncpg://"):
+    raise RuntimeError(
+        "POLARIS_DATABASE_URL must use the postgresql+asyncpg driver"
+    )
+
+schema = os.environ.get("POLARIS_DATABASE_SCHEMA") or "public"
+if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", schema) is None:
+    raise RuntimeError("POLARIS_DATABASE_SCHEMA must be a PostgreSQL identifier")
+
+
+async def reset_schema() -> None:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
+            await connection.execute(text(f'CREATE SCHEMA "{schema}"'))
+    finally:
+        await engine.dispose()
+
+
+asyncio.run(reset_schema())
+PY
+
 uv run --locked --python 3.14+gil --env-file .env alembic upgrade head
 uv run --locked --python 3.14+gil --env-file .env alembic check
-uv run --locked --python 3.14+gil --env-file .env polaris inspect persistence
 ```
 
-Do this without additional user confirmation when the target is clearly the repository's local development/test database.
+Do this without additional user confirmation only after the target is proven to
+be the repository's disposable local development/test database. Never use this
+fallback against a shared, production, data-preserving, or ambiguous target.
+
+After rebuild, perform the required direct schema inspection. Invoke
+`polaris inspect persistence` only when the repository has already established
+that the command exists; otherwise record that optional mechanism as
+`not-applicable-with-reason`.
 
 Existing pre-1.0 data must not block this reset.
 
@@ -257,8 +325,8 @@ For migrations changed by the current work, run the applicable round trip agains
 
 1. `uv run --locked --python 3.14+gil --env-file .env alembic upgrade head`
 2. `uv run --locked --python 3.14+gil --env-file .env alembic check`
-3. `uv run --locked --python 3.14+gil --env-file .env polaris inspect persistence` when available
-4. inspect affected tables, columns, constraints, and indexes
+3. optionally run `uv run --locked --python 3.14+gil --env-file .env polaris inspect persistence` only when repository metadata/proven executable availability establishes that command exists
+4. inspect affected tables, columns, constraints, and indexes directly; this is required even when the optional CLI inspector runs
 5. `uv run --locked --python 3.14+gil --env-file .env alembic downgrade -1`
 6. verify the intended prior schema
 7. `uv run --locked --python 3.14+gil --env-file .env alembic upgrade head`

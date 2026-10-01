@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, replace
 from typing import cast
 from uuid import UUID, uuid4
 
@@ -44,6 +44,7 @@ from polaris.domain.evidence.observations import (
     EvidenceObservationId,
 )
 from tests.binding_support import BINDING_EFFECTIVE_AT, BINDING_RECORDED_AT
+from tests.configuration_support import requirement_key
 
 
 def _binding(
@@ -55,11 +56,13 @@ def _binding(
     scope: EvidenceScope | None = None,
     freshness: EvidenceFreshnessEvaluation | None = None,
 ) -> EvidenceBinding:
+    resolved_target = target or InvestmentRecommendationRef(uuid4())
+    resolved_scope = scope or JudgmentWideEvidenceScope()
     return EvidenceBinding(
         binding_id=EvidenceBindingId(binding_id or uuid4()),
         observation_id=EvidenceObservationId(uuid4()),
-        target=(target or InvestmentRecommendationRef(uuid4())),
-        scope=(scope or JudgmentWideEvidenceScope()),
+        target=resolved_target,
+        scope=resolved_scope,
         evidence_use=EvidenceUse.JUDGMENT_BASIS,
         role=EvidenceRole.SUPPORTING,
         availability=availability,
@@ -72,6 +75,12 @@ def _binding(
                 EvidenceFreshnessBasisReference(
                     "basis:exact",
                     BINDING_EFFECTIVE_AT,
+                    replace(
+                        requirement_key(),
+                        target=resolved_target,
+                        scope=resolved_scope,
+                        evidence_use=EvidenceUse.JUDGMENT_BASIS,
+                    ),
                 )
             )
         ),
@@ -169,3 +178,18 @@ def test_binding_requires_typed_freshness_evaluation() -> None:
 
     with pytest.raises(TypeError, match="EvidenceFreshnessEvaluation"):
         _binding(freshness=cast(EvidenceFreshnessEvaluation, object()))
+
+
+def test_binding_rejects_freshness_basis_for_different_endpoint() -> None:
+    target = InvestmentRecommendationRef(uuid4())
+    other = InvestmentRecommendationRef(uuid4())
+    freshness = EvidenceFreshnessMissingAuthority(
+        EvidenceFreshnessBasisReference(
+            "basis:wrong-target",
+            BINDING_EFFECTIVE_AT,
+            replace(requirement_key(), target=other),
+        )
+    )
+
+    with pytest.raises(InvalidEvidenceBinding, match="freshness applicability"):
+        _binding(target=target, freshness=freshness)

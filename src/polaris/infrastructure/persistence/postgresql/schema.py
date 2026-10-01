@@ -502,6 +502,7 @@ evidence_bindings = Table(
     Column("freshness_requirement_id", UUID(as_uuid=True)),
     Column("freshness_basis_reference", Text, nullable=False),
     Column("freshness_basis_at", DateTime(timezone=True), nullable=False),
+    Column("freshness_applicability", JSONB, nullable=False),
     Column("freshness_result", String(16)),
     Column("freshness_failure_reason", Text),
     Column("freshness_contested_version_ids", _uuid_array()),

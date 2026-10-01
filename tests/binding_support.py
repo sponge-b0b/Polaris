@@ -85,12 +85,12 @@ def binding_command(
             else None
         ),
         # arid: enable
-        requirement_key=resolved_key,
         freshness_basis=(
             freshness_basis
             or EvidenceFreshnessBasisReference(
                 "observation:market-price:SPY",
                 BINDING_EFFECTIVE_AT,
+                resolved_key,
             )
         ),
     )

@@ -218,6 +218,7 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
         "claim_id",
         "freshness_state",
         "freshness_basis_at",
+        "freshness_applicability",
         "freshness_result",
         "freshness_failure_reason",
         "freshness_contested_version_ids",

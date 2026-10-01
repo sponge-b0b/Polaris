@@ -2,10 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from polaris.domain.configuration import (
-    EvidenceRequirementApplicabilityKey,
-    FreshnessRequirementDefinition,
-)
+from polaris.domain.configuration import FreshnessRequirementDefinition
 from polaris.domain.evidence.freshness import (
     EvidenceFreshnessApplicable,
     EvidenceFreshnessAuthorityReference,
@@ -32,12 +29,12 @@ from .requirements import (
 
 async def evaluate_binding_freshness(
     resolver: EvidenceRequirementVersionResolver,
-    key: EvidenceRequirementApplicabilityKey,
     basis: EvidenceFreshnessBasisReference,
     *,
     effective_at: datetime,
     known_at: datetime,
 ) -> EvidenceFreshnessEvaluation:
+    key = basis.applicability_key
     resolution = await resolver.resolve(
         key,
         effective_at=effective_at,

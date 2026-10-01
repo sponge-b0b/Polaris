@@ -5,6 +5,7 @@ from datetime import datetime
 from enum import StrEnum
 
 from polaris.domain.configuration.evidence_requirements import (
+    EvidenceRequirementApplicabilityKey,
     EvidenceRequirementId,
     EvidenceRequirementSetId,
     EvidenceRequirementSetVersionId,
@@ -42,6 +43,7 @@ class EvidenceFreshnessBasisReference:
 
     reference: str
     as_of_at: datetime
+    applicability_key: EvidenceRequirementApplicabilityKey
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -50,6 +52,10 @@ class EvidenceFreshnessBasisReference:
             _text(self.reference, "EvidenceFreshnessBasisReference.reference"),
         )
         _aware(self.as_of_at, "EvidenceFreshnessBasisReference.as_of_at")
+        if type(self.applicability_key) is not EvidenceRequirementApplicabilityKey:
+            raise TypeError(
+                "applicability_key must be EvidenceRequirementApplicabilityKey"
+            )
 
 
 @dataclass(frozen=True, slots=True)

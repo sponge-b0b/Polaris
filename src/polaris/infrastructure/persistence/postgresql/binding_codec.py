@@ -83,7 +83,6 @@ def binding_request_payload(request: EvidenceBindingSemanticRequest) -> JsonObje
             if request.material_qualification is not None
             else None
         ),
-        "requirement_key": applicability_key_payload(request.requirement_key),
         "freshness_basis": _basis_payload(request.freshness_basis),
     }
 
@@ -201,9 +200,6 @@ def _request_from_payload(payload: JsonObject) -> EvidenceBindingSemanticRequest
             if qualification is not None
             else None
         ),
-        requirement_key=applicability_key_from_payload(
-            json_object(payload.get("requirement_key"), "requirement_key")
-        ),
         freshness_basis=_basis_from_payload(
             json_object(payload.get("freshness_basis"), "freshness_basis")
         ),
@@ -239,6 +235,7 @@ def _basis_payload(basis: EvidenceFreshnessBasisReference) -> JsonObject:
     return {
         "reference": basis.reference,
         "as_of_at": basis.as_of_at.isoformat(),
+        "applicability_key": applicability_key_payload(basis.applicability_key),
     }
 
 
@@ -246,6 +243,9 @@ def _basis_from_payload(payload: JsonObject) -> EvidenceFreshnessBasisReference:
     return EvidenceFreshnessBasisReference(
         nonempty_string(payload.get("reference"), "freshness basis reference"),
         iso_aware_datetime(payload.get("as_of_at"), "freshness basis as_of_at"),
+        applicability_key_from_payload(
+            json_object(payload.get("applicability_key"), "freshness applicability key")
+        ),
     )
 
 
@@ -301,6 +301,9 @@ def _freshness_values(freshness: EvidenceFreshnessEvaluation) -> dict[str, objec
         "freshness_requirement_id": requirement_id,
         "freshness_basis_reference": basis.reference,
         "freshness_basis_at": basis.as_of_at,
+        "freshness_applicability": applicability_key_payload(
+            basis.applicability_key
+        ),
         "freshness_result": result,
         "freshness_failure_reason": failure_reason,
         "freshness_contested_version_ids": contested_version_ids,
@@ -312,6 +315,9 @@ def _freshness_from_row(row: RowMapping) -> EvidenceFreshnessEvaluation:
     basis = EvidenceFreshnessBasisReference(
         nonempty_string(row["freshness_basis_reference"], "freshness_basis_reference"),
         aware_datetime(row["freshness_basis_at"], "freshness_basis_at"),
+        applicability_key_from_payload(
+            json_object(row["freshness_applicability"], "freshness_applicability")
+        ),
     )
     result_value = row["freshness_result"]
     result = (

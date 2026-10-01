@@ -90,7 +90,6 @@ class EvidenceBindingService:
         await self._validate_claim_membership(command, known_at=committed_at)
         freshness = await evaluate_binding_freshness(
             self._requirements,
-            request.requirement_key,
             request.freshness_basis,
             effective_at=command.effective_at,
             known_at=committed_at,

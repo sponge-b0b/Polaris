@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
-from polaris.domain.configuration import EvidenceRequirementApplicabilityKey
 from polaris.domain.decisions import OperationId
 from polaris.domain.evidence.bindings import (
     EvidenceAvailability,
@@ -39,7 +38,6 @@ class RecordEvidenceBindingCommand:
     availability: EvidenceAvailability
     materially_used: bool
     effective_at: datetime
-    requirement_key: EvidenceRequirementApplicabilityKey
     freshness_basis: EvidenceFreshnessBasisReference
     material_qualification: EvidenceMaterialQualification | None = None
     # arid: enable
@@ -58,18 +56,14 @@ class RecordEvidenceBindingCommand:
         if type(self.materially_used) is not bool:
             raise TypeError("materially_used must be bool")
         _aware(self.effective_at, "effective_at")
-        if type(self.requirement_key) is not EvidenceRequirementApplicabilityKey:
-            raise TypeError(
-                "requirement_key must be EvidenceRequirementApplicabilityKey"
-            )
         if type(self.freshness_basis) is not EvidenceFreshnessBasisReference:
             raise TypeError(
                 "freshness_basis must be EvidenceFreshnessBasisReference"
             )
         if (
-            self.requirement_key.target != self.target
-            or self.requirement_key.scope != self.scope
-            or self.requirement_key.evidence_use is not self.evidence_use
+            self.freshness_basis.applicability_key.target != self.target
+            or self.freshness_basis.applicability_key.scope != self.scope
+            or self.freshness_basis.applicability_key.evidence_use is not self.evidence_use
         ):
             raise ValueError(
                 "requirement_key target/scope/use must match binding endpoints"
@@ -90,7 +84,6 @@ class EvidenceBindingSemanticRequest:
     materially_used: bool
     effective_at: datetime
     material_qualification: EvidenceMaterialQualification | None
-    requirement_key: EvidenceRequirementApplicabilityKey
     freshness_basis: EvidenceFreshnessBasisReference
     # arid: enable
 
@@ -112,7 +105,6 @@ class EvidenceBindingSemanticRequest:
             materially_used=command.materially_used,
             effective_at=command.effective_at,
             material_qualification=command.material_qualification,
-            requirement_key=command.requirement_key,
             freshness_basis=command.freshness_basis,
         )
         # arid: enable

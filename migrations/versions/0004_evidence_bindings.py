@@ -53,6 +53,11 @@ def upgrade() -> None:
             sa.DateTime(timezone=True),
             nullable=False,
         ),
+        sa.Column(
+            "freshness_applicability",
+            postgresql.JSONB(astext_type=sa.Text()),
+            nullable=False,
+        ),
         sa.Column("freshness_result", sa.String(length=16), nullable=True),
         sa.Column("freshness_failure_reason", sa.Text(), nullable=True),
         sa.Column(

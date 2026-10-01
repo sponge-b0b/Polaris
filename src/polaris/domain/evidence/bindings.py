@@ -146,6 +146,15 @@ def _validate_binding_optional_metadata(binding: EvidenceBinding) -> None:
         )
     if not is_evidence_freshness_evaluation(binding.freshness):
         raise TypeError("freshness must be an EvidenceFreshnessEvaluation")
+    key = binding.freshness.basis.applicability_key
+    if (
+        key.target != binding.target
+        or key.scope != binding.scope
+        or key.evidence_use is not binding.evidence_use
+    ):
+        raise InvalidEvidenceBinding(
+            "freshness applicability target/scope/use must match binding endpoints"
+        )
 
 
 __all__ = [

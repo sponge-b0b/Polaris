@@ -69,6 +69,7 @@ def _evaluate(result, *, basis_at=None):
             EvidenceFreshnessBasisReference(
                 "observation:market-price:SPY",
                 basis_at or EFFECTIVE_AT,
+                requirement_key(),
             ),
             effective_at=EFFECTIVE_AT,
             known_at=RECORDED_AT,
@@ -153,6 +154,7 @@ def test_invalid_requirement_history_remains_invalid_not_absent() -> None:
         EvidenceFreshnessBasisReference(
             "observation:market-price:SPY",
             EFFECTIVE_AT,
+            requirement_key(),
         ),
         "broken ancestry",
     )
@@ -184,6 +186,7 @@ def test_requirement_resolution_obeys_historical_knowledge_boundary() -> None:
     basis = EvidenceFreshnessBasisReference(
         "observation:market-price:SPY",
         EFFECTIVE_AT,
+        requirement_key(),
     )
 
     before = asyncio.run(

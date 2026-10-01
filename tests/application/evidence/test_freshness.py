@@ -65,7 +65,6 @@ def _evaluate(result, *, basis_at=None):
     return asyncio.run(
         evaluate_binding_freshness(
             _Resolver(result),
-            requirement_key(),
             EvidenceFreshnessBasisReference(
                 "observation:market-price:SPY",
                 basis_at or EFFECTIVE_AT,
@@ -192,7 +191,6 @@ def test_requirement_resolution_obeys_historical_knowledge_boundary() -> None:
     before = asyncio.run(
         evaluate_binding_freshness(
             resolver,
-            requirement_key(),
             basis,
             effective_at=EFFECTIVE_AT,
             known_at=RECORDED_AT,
@@ -201,7 +199,6 @@ def test_requirement_resolution_obeys_historical_knowledge_boundary() -> None:
     after = asyncio.run(
         evaluate_binding_freshness(
             resolver,
-            requirement_key(),
             basis,
             effective_at=EFFECTIVE_AT,
             known_at=corrected.recorded_at,
@@ -225,12 +222,12 @@ def test_later_invalid_history_does_not_contaminate_earlier_boundary() -> None:
     basis = EvidenceFreshnessBasisReference(
         "observation:market-price:SPY",
         EFFECTIVE_AT,
+        requirement_key(),
     )
 
     before = asyncio.run(
         evaluate_binding_freshness(
             resolver,
-            requirement_key(),
             basis,
             effective_at=EFFECTIVE_AT,
             known_at=RECORDED_AT,
@@ -239,7 +236,6 @@ def test_later_invalid_history_does_not_contaminate_earlier_boundary() -> None:
     after = asyncio.run(
         evaluate_binding_freshness(
             resolver,
-            requirement_key(),
             basis,
             effective_at=RECORDED_AT + timedelta(days=2),
             known_at=later_orphan.recorded_at,

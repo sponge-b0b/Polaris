@@ -154,6 +154,39 @@ If setup cannot be safely resolved, report the check as unresolved.
 
 Do not broaden testing to compensate.
 
+### Reusable Behavioral Evidence Dependency Manifest
+
+A targeted behavioral test result is exact-candidate evidence by default. If the owning lifecycle may reuse that result after a later candidate mutation, record an **Evidence Dependency Manifest** while the test evidence is fresh:
+
+```text
+Behavioral evidence: <exact pytest command/scope>
+Evidence candidate state: <candidate/diff identity>
+Selected test/support dependencies: <tests, fixtures, helpers, harnesses>
+Executed current production Python: <files actually executed>
+Material runtime/configuration/service/schema inputs: <exact inputs or None>
+Dependency manifest status: reusable-boundary-recorded | exact-candidate-only
+```
+
+The manifest is a proof-dependency lower bound, not a semantic ownership claim. Include test/support files that can change the proof itself and material non-code inputs in addition to executed production modules.
+
+Polaris includes `coverage.py` through `pytest-cov`. When behavioral evidence is intentionally being made reusable across a possible later repair, prefer executing the targeted tests once under coverage with repository artifacts kept out of the worktree, for example:
+
+```bash
+COVERAGE_FILE=/tmp/polaris-verify-code.coverage \
+UV_CACHE_DIR=/tmp/uv-cache \
+uv run --locked coverage run --source=polaris -m pytest -q <targeted-tests>
+
+COVERAGE_FILE=/tmp/polaris-verify-code.coverage \
+uv run --locked coverage json --fail-under=0 \
+  -o /tmp/polaris-verify-code-coverage.json
+```
+
+Record as executed production dependencies only modules with actual covered/executed lines; augment that list with indirect material dependencies coverage cannot represent, including selected test helpers, configuration, service/runtime qualifications, and schema/migration state when applicable.
+
+If no dependency manifest is recorded, the behavioral result may still prove the exact current candidate, but it is **exact-candidate-only** and may not be reused after any candidate mutation. Rerun it instead.
+
+A later reuse decision must compare the complete changed-surface set against this manifest. Any intersection invalidates the evidence. A zero path intersection is necessary but not sufficient: changed runtime/configuration/tracker/service inputs must also be dispositioned, and uncertainty requires rerun.
+
 ## 6. Architecture Invariant Gate
 
 When **Architecture Invariant Applicability** is `applicable`, invoke `$verify-architecture` as prescribed internal composition.
@@ -232,6 +265,7 @@ Targeted verification passed.
 - Ruff lint: passed
 - Mypy: passed
 - Targeted tests: passed
+- Behavioral evidence dependencies: reusable-boundary-recorded | exact-candidate-only | not applicable
 - Architecture invariant: passed | not applicable
 - Applicable coding standards: verified
 

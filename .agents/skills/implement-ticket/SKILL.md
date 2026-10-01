@@ -1356,6 +1356,27 @@ Final verification is evidence for one immutable candidate, not another implemen
 
 If a final gate fails and repair is required, or if a verification helper performs an authorized repair/auto-fix, the freeze is stale immediately. Do not count that run as final evidence. Return to implementation, complete the repair and mutating finalization, compute a new `FINAL_VERIFY_STATE`, and re-run every final gate whose evidence may have been invalidated. Reuse prior gate evidence only when deterministic fail-closed invalidation analysis proves the exact proof/evidence is unaffected; uncertainty requires rerun.
 
+#### Repair-Time Evidence Invalidation Map
+
+After any candidate mutation that follows accepted verification evidence, materialize an invalidation row for every prior evidence item proposed for reuse:
+
+```text
+Evidence item: <gate/check/result>
+Evidence candidate state: <candidate identity the evidence proved>
+Owning gate: <skill/check>
+Proof/execution dependencies: <recoverable dependency manifest>
+Changed-surface intersection: <none | exact intersecting dependencies>
+Runtime/configuration/tracker changes: <none | exact changed inputs>
+Disposition: reusable | invalidated
+Reason: <deterministic fail-closed reason>
+```
+
+Evidence belongs to the complete inputs that can affect the proof, not to the subsystem or file category named by the check. An unchanged adapter, schema, test file, or directory is not sufficient evidence that a prior result remains valid when code executed by that proof changed.
+
+A `reusable` disposition is legal only when the proof/execution dependency manifest is recoverable, the complete candidate delta has zero intersection with that manifest, and every material runtime/configuration/tracker input remains compatible. Missing, incomplete, or ambiguous dependency state makes the evidence `invalidated`; rerun the owning gate/check rather than guessing.
+
+**Whole-owner invalidation for `$verify-code`:** after an accepted final `$verify-code` result, any repair to current executable production Python under `src/polaris/` or current migration Python invalidates that `$verify-code` result as a whole. Complete candidate shaping, freeze the repaired candidate, and invoke `$verify-code` again. Do not reconstruct a `$verify-code` PASS by individually rerunning Ruff, Mypy, selected tests, architecture, or other component checks. The fresh `$verify-code` invocation owns its complete contract-impact and targeted-verification result.
+
 Before building Proposed Closure Evidence or writing `Stage: awaiting-closure-verification`, require:
 
 ```text

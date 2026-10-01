@@ -340,5 +340,3 @@ def _integer(value: object, field: str) -> int:
 
 def _optional_uuid(value: object, field: str) -> UUID | None:
     return None if value is None else uuid_value(value, field)
-
-

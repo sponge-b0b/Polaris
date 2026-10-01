@@ -155,4 +155,3 @@ def corrected_requirement_version() -> EvidenceRequirementSetVersion:
         predecessor_id=ROOT_VERSION_ID,
         effect=EvidenceRequirementPredecessorEffect.CORRECTS,
     )
-

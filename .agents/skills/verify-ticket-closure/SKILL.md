@@ -148,6 +148,34 @@ Prior cell, nested-member, or adversarial-candidate **dispositions** are reusabl
 
 Determine invalidation from the actual candidate delta and the proof dependencies preserved in the prior retry state. Re-prove every cell/domain/member whose predicate could materially be affected by the repair or its blast radius. When uncertainty remains about whether a prior disposition is still valid, invalidate and re-prove the smallest semantic surface that resolves the uncertainty.
 
+### Technical Evidence Reuse Challenge
+
+Independently challenge every prior technical result proposed for reuse after candidate mutation. The implementation actor's subsystem label or reuse conclusion is evidence input, not certification.
+
+For each reused technical evidence item require an inspectable invalidation record containing:
+
+* the candidate state originally proved;
+* the owning gate/check;
+* the proof/execution dependency manifest;
+* the complete candidate-delta intersection with that manifest;
+* relevant runtime/configuration/tracker/service changes;
+* a deterministic `reusable | invalidated` disposition.
+
+For targeted behavioral tests, an unchanged test file, adapter, schema, or named subsystem does **not** establish reuse. Require the `$verify-code` Evidence Dependency Manifest or equivalent recoverable execution/proof dependency state. If that manifest is missing, incomplete, ambiguous, or intersects the repair, the prior behavioral result is stale and must be rerun before PASS.
+
+For `$verify-code`, if any repair after the prior accepted result changed current executable production Python under `src/polaris/` or current migration Python, require a fresh complete `$verify-code` result bound to the repaired candidate. A collection of individually rerun Ruff, Mypy, pytest, architecture, deduplication, or other subchecks is not a substitute for the owning skill's renewed contract-impact and targeted-verification result.
+
+Statements such as `persistence bytes unchanged`, `adapter unchanged`, `test file unchanged`, or `same subsystem unaffected` are never sufficient by themselves. Reuse is legal only when the evidence dependency boundary proves the repair cannot affect the result and all material non-file inputs remain compatible. Uncertainty invalidates the evidence.
+
+Before PASS or FAIL, require:
+
+```text
+Technical evidence items proposed for reuse: <n>
+Technical evidence items reused: <n>
+Technical evidence items invalidated/rerun: <n>
+Technical evidence items with unresolved invalidation: 0
+```
+
 Every prior finding is a mandatory regression target. Attempt N+1 must explicitly classify each earlier unresolved finding as:
 
 ```text
@@ -586,6 +614,10 @@ closed: <n>
 still-open: <n>
 superseded-by-explicit-authority-change: <n>
 Reused prior dispositions with unresolved invalidation: 0
+Technical evidence items proposed for reuse: <n>
+Technical evidence items reused: <n>
+Technical evidence items invalidated/rerun: <n>
+Technical evidence items with unresolved invalidation: 0
 ```
 
 A PASS requires `still-open: 0`. A FAIL may retain prior findings as still-open, but must carry them forward together with every new independently actionable finding.
@@ -619,6 +651,7 @@ Certified closure domains: <n>; frozen <n>; unresolved 0
 Prior-attempt findings: <n>; closed <n>; still-open 0; superseded-by-explicit-authority-change <n>
 Reused semantic state: <None | compact AC/ND/member summary>
 Re-proven invalidated state: <compact AC/ND/member summary>
+Technical evidence reuse: proposed <n>; reused <n>; invalidated/rerun <n>; unresolved 0
 Production-path obligations: <summary>
 Negative/fail-closed obligations: <summary>
 Remediation root: <None | RB-n — invariant>
@@ -646,6 +679,7 @@ Domain construction: <n>/<n> complete; remaining authoritative members 0
 Domain membership: <n>; in-domain <n>; out-of-domain <n>; ambiguous <n>
 Failure saturation: complete; independent actionable findings <n>; unexplored authoritative siblings 0
 Prior-attempt findings: <n>; closed <n>; still-open <n>; superseded-by-explicit-authority-change <n>
+Technical evidence reuse: proposed <n>; reused <n>; invalidated/rerun <n>; unresolved 0
 
 Cumulative Retry State:
 Authority identity: <durable authority/source identities proving the universe boundary>

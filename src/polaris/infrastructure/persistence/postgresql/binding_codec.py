@@ -308,82 +308,122 @@ def _freshness_values(freshness: EvidenceFreshnessEvaluation) -> dict[str, objec
     }
 
 
-def _freshness_from_row(row: RowMapping) -> EvidenceFreshnessEvaluation:
-    state = nonempty_string(row["freshness_state"], "freshness_state")
-    basis = EvidenceFreshnessBasisReference(
+def _freshness_basis_from_row(row: RowMapping) -> EvidenceFreshnessBasisReference:
+    return EvidenceFreshnessBasisReference(
         nonempty_string(row["freshness_basis_reference"], "freshness_basis_reference"),
         aware_datetime(row["freshness_basis_at"], "freshness_basis_at"),
         applicability_key_from_payload(
             json_object(row["freshness_applicability"], "freshness_applicability")
         ),
     )
-    result_value = row["freshness_result"]
-    result = (
-        EvidenceFreshnessResult(nonempty_string(result_value, "freshness_result"))
-        if result_value is not None
+
+
+def _freshness_result_from_row(row: RowMapping) -> EvidenceFreshnessResult | None:
+    value = row["freshness_result"]
+    return (
+        EvidenceFreshnessResult(nonempty_string(value, "freshness_result"))
+        if value is not None
         else None
     )
+
+
+def _applicable_freshness_from_row(
+    row: RowMapping,
+    basis: EvidenceFreshnessBasisReference,
+) -> EvidenceFreshnessApplicable:
     set_value = row["freshness_set_id"]
     version_value = row["freshness_version_id"]
     requirement_value = row["freshness_requirement_id"]
+    if set_value is None or version_value is None or requirement_value is None:
+        raise ValueError("persisted applicable freshness authority is incomplete")
+    result = _freshness_result_from_row(row)
+    if result is None:
+        raise ValueError("persisted applicable freshness result is missing")
+    return EvidenceFreshnessApplicable(
+        EvidenceFreshnessAuthorityReference(
+            EvidenceRequirementSetId(uuid_value(set_value, "freshness_set_id")),
+            EvidenceRequirementSetVersionId(
+                uuid_value(version_value, "freshness_version_id")
+            ),
+            EvidenceRequirementId(
+                uuid_value(requirement_value, "freshness_requirement_id")
+            ),
+        ),
+        basis,
+        result,
+    )
+
+
+def _not_applicable_freshness_from_row(
+    row: RowMapping,
+    basis: EvidenceFreshnessBasisReference,
+) -> EvidenceFreshnessNotApplicable:
+    set_value = row["freshness_set_id"]
+    version_value = row["freshness_version_id"]
+    if set_value is None or version_value is None:
+        raise ValueError("persisted no-requirement witness is incomplete")
+    return EvidenceFreshnessNotApplicable(
+        EvidenceFreshnessNoRequirementWitness(
+            EvidenceRequirementSetId(uuid_value(set_value, "freshness_set_id")),
+            EvidenceRequirementSetVersionId(
+                uuid_value(version_value, "freshness_version_id")
+            ),
+        ),
+        basis,
+    )
+
+
+def _reason_freshness_from_row(
+    row: RowMapping,
+    basis: EvidenceFreshnessBasisReference,
+    *,
+    state: str,
+) -> EvidenceFreshnessUnavailableAuthority | EvidenceFreshnessInvalidAuthority:
     reason = optional_nonempty_string(
         row["freshness_failure_reason"],
         "freshness_failure_reason",
     )
+    if reason is None:
+        raise ValueError(f"persisted {state} authority reason is missing")
+    if state == "unavailable":
+        return EvidenceFreshnessUnavailableAuthority(basis, reason)
+    return EvidenceFreshnessInvalidAuthority(basis, reason)
+
+
+def _contested_freshness_from_row(
+    row: RowMapping,
+    basis: EvidenceFreshnessBasisReference,
+) -> EvidenceFreshnessContestedAuthority:
     contested = row["freshness_contested_version_ids"]
+    if not isinstance(contested, (list, tuple)):
+        raise ValueError("persisted contested version IDs are missing")
+    return EvidenceFreshnessContestedAuthority(
+        basis,
+        frozenset(
+            EvidenceRequirementSetVersionId(
+                uuid_value(value, "freshness_contested_version_id")
+            )
+            for value in contested
+        ),
+    )
+
+
+def _freshness_from_row(row: RowMapping) -> EvidenceFreshnessEvaluation:
+    state = nonempty_string(row["freshness_state"], "freshness_state")
+    basis = _freshness_basis_from_row(row)
 
     if state == "applicable":
-        if set_value is None or version_value is None or requirement_value is None:
-            raise ValueError("persisted applicable freshness authority is incomplete")
-        if result is None:
-            raise ValueError("persisted applicable freshness result is missing")
-        return EvidenceFreshnessApplicable(
-            EvidenceFreshnessAuthorityReference(
-                EvidenceRequirementSetId(uuid_value(set_value, "freshness_set_id")),
-                EvidenceRequirementSetVersionId(
-                    uuid_value(version_value, "freshness_version_id")
-                ),
-                EvidenceRequirementId(
-                    uuid_value(requirement_value, "freshness_requirement_id")
-                ),
-            ),
-            basis,
-            result,
-        )
+        return _applicable_freshness_from_row(row, basis)
     if state == "not_applicable":
-        if set_value is None or version_value is None:
-            raise ValueError("persisted no-requirement witness is incomplete")
-        return EvidenceFreshnessNotApplicable(
-            EvidenceFreshnessNoRequirementWitness(
-                EvidenceRequirementSetId(uuid_value(set_value, "freshness_set_id")),
-                EvidenceRequirementSetVersionId(
-                    uuid_value(version_value, "freshness_version_id")
-                ),
-            ),
-            basis,
-        )
+        return _not_applicable_freshness_from_row(row, basis)
     if state == "missing_authority":
         return EvidenceFreshnessMissingAuthority(basis)
     if state == "unavailable_authority":
-        if reason is None:
-            raise ValueError("persisted unavailable authority reason is missing")
-        return EvidenceFreshnessUnavailableAuthority(basis, reason)
+        return _reason_freshness_from_row(row, basis, state="unavailable")
     if state == "contested_authority":
-        if not isinstance(contested, (list, tuple)):
-            raise ValueError("persisted contested version IDs are missing")
-        return EvidenceFreshnessContestedAuthority(
-            basis,
-            frozenset(
-                EvidenceRequirementSetVersionId(
-                    uuid_value(value, "freshness_contested_version_id")
-                )
-                for value in contested
-            ),
-        )
+        return _contested_freshness_from_row(row, basis)
     if state == "invalid_authority":
-        if reason is None:
-            raise ValueError("persisted invalid authority reason is missing")
-        return EvidenceFreshnessInvalidAuthority(basis, reason)
+        return _reason_freshness_from_row(row, basis, state="invalid")
     raise ValueError("unsupported persisted freshness state")
 
 

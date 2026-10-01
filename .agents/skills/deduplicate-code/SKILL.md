@@ -4,7 +4,7 @@ description: Enforces repository-wide duplicate-code discipline, with zero unsup
 license: MIT
 compatibility: product=codex product=claude-code system=arid system=jscpd network=none
 metadata:
-  version: 2.3.0
+  version: 2.4.0
 ---
 
 # Code Duplication Checks
@@ -184,6 +184,38 @@ Consolidate at the narrowest authoritative point. Do not create a generic helper
 
 If consolidation changes Python executable code or tests, invoke `$verify-code` for the affected change and directly affected consumers/tests before accepting the repair. A suppression-only comment change does not by itself require `$verify-code`; the duplicate scanners and applicable syntax/structure checks remain required.
 
+## Surface-Aware Disposition Policy
+
+The terminal zero-finding invariant is a **resolution invariant**, not a requirement for zero physical repetition. Tests and migrations remain inside normal scanner scope; do not wholesale-exclude either surface. A candidate finding reaches zero only by consolidation/removal, a narrow justified suppression, or an allowed baseline-identical differential disposition.
+
+Apply the following surface-specific presumptions before creating an abstraction merely to silence a scanner.
+
+### Tests — Preserve Independent Proof
+
+For test code, proof independence and local readability may be more important than DRYness.
+
+Prefer **consolidation** when the repeated region is genuinely mechanical shared infrastructure that should evolve together, such as database/bootstrap plumbing, bulky object construction with one canonical meaning, reusable fixtures/builders, or an existing test-support helper responsibility.
+
+Prefer **narrow suppression** when consolidation would create common-mode proof or hide the exact behavior being falsified, including repeated expected values, independent assertion shapes, intentionally separate falsifier scaffolds, or small local setup whose explicit shape is part of understanding the proof.
+
+Do not extract a helper that computes, normalizes, or derives the expected result using the same rule or mechanism the test is intended to verify merely to remove duplication. A shared test abstraction is harmful when one defect in that abstraction could make multiple supposedly independent proofs agree for the same wrong reason.
+
+The fact that code is under `tests/` is not itself a suppression. The adjacent justification must identify the independent proof, readability, or ownership reason that makes sharing wrong.
+
+### Migrations — Preserve Historical Snapshots
+
+Migration source is an immutable historical program. Cross-migration repetition often represents intentionally independent snapshots whose meaning must remain frozen even when current application code or later migrations evolve.
+
+For duplication **between distinct migration revisions**, prefer **narrow suppression** when the repeated DDL/schema/constraint/index/enum/rollback shape belongs independently to each historical revision and extracting it would create temporal coupling between revisions or to mutable current code.
+
+Prefer **consolidation** only when the repeated logic is genuinely stable migration infrastructure with one intentional owner across revisions and changing that owner would be valid for every consumer without rewriting historical meaning.
+
+Do not refactor an old migration to import current application models, current schema declarations, or a mutable helper merely to satisfy duplicate-code tooling. Repetition within one migration, or repetition across migrations that actually shares one stable migration-framework responsibility, may still warrant consolidation.
+
+The fact that code is under `migrations/` is not itself a suppression. The adjacent justification must identify the frozen-snapshot or temporal-coupling reason that makes sharing wrong.
+
+For qualifying test or migration findings, these surface-specific facts may establish the independent-evolution, false-coupling, and local-clarity parts of the suppression analysis when direct inspection confirms the described role. The remaining suppression requirements—no competing authority, no canonical owner that should be consumed, minimum suppression, and meaningful durable justification—still apply.
+
 ## Suppression Merit: False Coupling Invariant
 
 A duplicate merits suppression only when:
@@ -200,7 +232,7 @@ All of the following must be true before suppression is allowed:
 6. **Minimum suppression** — the suppression covers only the smallest source region sufficient to remove the justified finding.
 7. **Meaningful durable justification** — an adjacent source comment explains why sharing would be wrong, not merely that the duplication is intentional.
 
-The classification of a file as a test, fixture, generated artifact, configuration file, or helper is evidence only. It never automatically merits suppression.
+File classification never automatically suppresses a finding. Apply the surface-aware test and migration presumptions above where they fit; fixtures, generated artifacts, configuration, and helpers remain evidence inputs rather than blanket exemptions.
 
 ### Independence Test
 
@@ -317,7 +349,17 @@ Repeated synthetic source construction in architecture tests may deliberately ke
 
 Those cases are separate language-semantics proofs. If a shared helper would hide the exact source form or couple independent falsifiers, the repetition satisfies the False Coupling Invariant and should be narrowly suppressed with a justification stating that reason.
 
-The rule is **not** "test duplication is acceptable." If several tests repeat one semantically identical canonical fixture that must evolve together, consolidate that fixture instead.
+The rule is **not** "all test duplication is acceptable." If several tests repeat one semantically identical canonical fixture or mechanical setup that should evolve together, consolidate that fixture/setup instead.
+
+### Suppression Merited — Historical Migration Snapshots
+
+Two migration revisions independently spell out similar check constraints, enum values, indexes, or rollback steps because each revision must remain a self-contained historical definition. If sharing those blocks would make an old migration depend on a mutable helper or on the semantics of a later revision, keep the historical repetition local and narrowly suppress it with a frozen-snapshot justification.
+
+Do not extract current application schema/model logic into a migration helper merely to make Arid or JSCPD green.
+
+### Consolidation Required — Shared Migration Infrastructure
+
+Several migrations duplicate a stable adapter/helper operation whose semantics are intentionally migration-infrastructure-owned and must change together for every revision that uses it. That is one reusable mechanism, not independent history. Consolidate it at the stable migration-infrastructure owner, provided doing so does not retroactively change the historical meaning of released migrations.
 
 ### Consolidation Required — Parallel Business Rule
 

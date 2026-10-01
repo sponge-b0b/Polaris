@@ -211,9 +211,7 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
         }
         & relationship_columns
     )
-    binding_columns = asyncio.run(
-        _column_names(postgres_target, "evidence_bindings")
-    )
+    binding_columns = asyncio.run(_column_names(postgres_target, "evidence_bindings"))
     assert {
         "claim_id",
         "freshness_state",

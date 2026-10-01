@@ -60,9 +60,7 @@ def requirement_assignment_for_key(
     key: EvidenceRequirementApplicabilityKey,
 ) -> EvidenceRequirementApplicabilityAssignment:
     claim_id = (
-        key.scope.claim_id
-        if type(key.scope) is ClaimSpecificEvidenceScope
-        else None
+        key.scope.claim_id if type(key.scope) is ClaimSpecificEvidenceScope else None
     )
     return EvidenceRequirementApplicabilityAssignment(
         target=EvidenceRequirementTargetAssignment(

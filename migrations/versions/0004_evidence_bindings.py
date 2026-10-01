@@ -127,8 +127,7 @@ def upgrade() -> None:
             name=op.f("ck_evidence_bindings_freshness_basis_reference_nonempty"),
         ),
         sa.CheckConstraint(
-            "freshness_failure_reason IS NULL OR "
-            "btrim(freshness_failure_reason) <> ''",
+            "freshness_failure_reason IS NULL OR btrim(freshness_failure_reason) <> ''",
             name=op.f("ck_evidence_bindings_freshness_failure_reason_nonempty"),
         ),
         # duplicate-code: frozen migration shape must mirror the live binding

@@ -104,9 +104,7 @@ class _MatchingRequirementResolver:
     ):
         del effective_at, known_at
         return ResolvedEvidenceRequirementVersion(
-            requirement_version(
-                assignment=requirement_assignment_for_key(key)
-            )
+            requirement_version(assignment=requirement_assignment_for_key(key))
         )
 
 

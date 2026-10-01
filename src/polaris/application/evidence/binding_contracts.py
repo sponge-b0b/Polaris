@@ -57,9 +57,7 @@ class RecordEvidenceBindingCommand:
             raise TypeError("materially_used must be bool")
         _aware(self.effective_at, "effective_at")
         if type(self.freshness_basis) is not EvidenceFreshnessBasisReference:
-            raise TypeError(
-                "freshness_basis must be EvidenceFreshnessBasisReference"
-            )
+            raise TypeError("freshness_basis must be EvidenceFreshnessBasisReference")
         if (
             self.freshness_basis.applicability_key.target != self.target
             or self.freshness_basis.applicability_key.scope != self.scope

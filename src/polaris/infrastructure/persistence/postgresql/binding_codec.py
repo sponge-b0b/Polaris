@@ -301,9 +301,7 @@ def _freshness_values(freshness: EvidenceFreshnessEvaluation) -> dict[str, objec
         "freshness_requirement_id": requirement_id,
         "freshness_basis_reference": basis.reference,
         "freshness_basis_at": basis.as_of_at,
-        "freshness_applicability": applicability_key_payload(
-            basis.applicability_key
-        ),
+        "freshness_applicability": applicability_key_payload(basis.applicability_key),
         "freshness_result": result,
         "freshness_failure_reason": failure_reason,
         "freshness_contested_version_ids": contested_version_ids,

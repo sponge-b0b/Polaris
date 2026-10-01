@@ -236,9 +236,7 @@ def _applicability_context_from_payload(
             PortfolioId(portfolio_id) if portfolio_id is not None else None
         ),
         "instrument_id": (
-            FinancialInstrumentId(instrument_id)
-            if instrument_id is not None
-            else None
+            FinancialInstrumentId(instrument_id) if instrument_id is not None else None
         ),
         "investment_horizon": (
             InvestmentHorizon(nonempty_string(horizon, "investment_horizon"))
@@ -292,7 +290,9 @@ def applicability_from_payload(
             EvidenceScopeKind(nonempty_string(payload.get("scope_kind"), "scope_kind")),
             ClaimId(claim_id) if claim_id is not None else None,
         ),
-        evidence_use=EvidenceUse(nonempty_string(payload.get("evidence_use"), "evidence_use")),
+        evidence_use=EvidenceUse(
+            nonempty_string(payload.get("evidence_use"), "evidence_use")
+        ),
         **_applicability_context_from_payload(payload),
     )
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from typing import TypedDict
 from uuid import UUID
 
 from sqlalchemy.engine import RowMapping
@@ -38,6 +39,13 @@ from polaris.domain.portfolio import FinancialInstrumentId, PortfolioId
 from .codec_support import aware_datetime, uuid_value
 
 type JsonObject = dict[str, object]
+
+
+class _ApplicabilityContext(TypedDict):
+    subject: EvidenceSubjectReference | None
+    portfolio_id: PortfolioId | None
+    instrument_id: FinancialInstrumentId | None
+    investment_horizon: InvestmentHorizon | None
 
 
 def requirement_version_values(
@@ -208,34 +216,31 @@ def applicability_key_payload(
 
 def _applicability_context_from_payload(
     payload: JsonObject,
-) -> tuple[
-    EvidenceSubjectReference | None,
-    PortfolioId | None,
-    FinancialInstrumentId | None,
-    InvestmentHorizon | None,
-]:
+) -> _ApplicabilityContext:
     subject_payload = payload.get("subject")
     portfolio_id = _optional_uuid(payload.get("portfolio_id"), "portfolio_id")
     instrument_id = _optional_uuid(payload.get("instrument_id"), "instrument_id")
     horizon = payload.get("investment_horizon")
-    return (
-        (
+    return {
+        "subject": (
             _subject_from_payload(_object(subject_payload, "subject"))
             if subject_payload is not None
             else None
         ),
-        PortfolioId(portfolio_id) if portfolio_id is not None else None,
-        (
+        "portfolio_id": (
+            PortfolioId(portfolio_id) if portfolio_id is not None else None
+        ),
+        "instrument_id": (
             FinancialInstrumentId(instrument_id)
             if instrument_id is not None
             else None
         ),
-        (
+        "investment_horizon": (
             InvestmentHorizon(_string(horizon, "investment_horizon"))
             if horizon is not None
             else None
         ),
-    )
+    }
 
 
 def applicability_key_from_payload(
@@ -255,19 +260,13 @@ def applicability_key_from_payload(
         if claim_id is None:
             raise ValueError("claim-specific key must identify a claim")
         scope = ClaimSpecificEvidenceScope(ClaimId(claim_id))
-    subject, portfolio_id, instrument_id, investment_horizon = (
-        _applicability_context_from_payload(payload)
-    )
     return EvidenceRequirementApplicabilityKey(
         target=evidence_judgment_ref(family, target_id),
         scope=scope,
         evidence_use=EvidenceUse(
             _string(payload.get("evidence_use"), "evidence_use")
         ),
-        subject=subject,
-        portfolio_id=portfolio_id,
-        instrument_id=instrument_id,
-        investment_horizon=investment_horizon,
+        **_applicability_context_from_payload(payload),
     )
 
 
@@ -279,9 +278,6 @@ def applicability_from_payload(
     family = EvidenceJudgmentFamily(
         _string(payload.get("target_family"), "target_family")
     )
-    subject, portfolio_id, instrument_id, investment_horizon = (
-        _applicability_context_from_payload(payload)
-    )
     return EvidenceRequirementApplicabilityAssignment(
         target=EvidenceRequirementTargetAssignment(
             family,
@@ -292,10 +288,7 @@ def applicability_from_payload(
             ClaimId(claim_id) if claim_id is not None else None,
         ),
         evidence_use=EvidenceUse(_string(payload.get("evidence_use"), "evidence_use")),
-        subject=subject,
-        portfolio_id=portfolio_id,
-        instrument_id=instrument_id,
-        investment_horizon=investment_horizon,
+        **_applicability_context_from_payload(payload),
     )
 
 
@@ -340,16 +333,10 @@ def _object(value: object, field: str) -> JsonObject:
     return value
 
 
-# duplicate-code: this codec owns the persisted requirement payload contract;
-# sharing decoder helpers would couple independently versioned storage formats.
-# arid: disable
 def _string(value: object, field: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field} must be a non-empty string")
     return value.strip()
-
-
-# arid: enable
 
 
 def _integer(value: object, field: str) -> int:

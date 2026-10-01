@@ -83,6 +83,28 @@ def _evaluate(result, *, basis_at=None):
     )
 
 
+def _evaluate_historical_pair(
+    resolver,
+    *,
+    after_known_at,
+    after_effective_at=EFFECTIVE_AT,
+):
+    basis = _basis()
+    before = _evaluate_with_resolver(
+        resolver,
+        basis,
+        effective_at=EFFECTIVE_AT,
+        known_at=RECORDED_AT,
+    )
+    after = _evaluate_with_resolver(
+        resolver,
+        basis,
+        effective_at=after_effective_at,
+        known_at=after_known_at,
+    )
+    return before, after
+
+
 @pytest.mark.parametrize(
     ("age", "expected"),
     [
@@ -179,17 +201,9 @@ def test_requirement_resolution_obeys_historical_knowledge_boundary() -> None:
     root = requirement_version()
     corrected = corrected_requirement_version()
     resolver = EvidenceRequirementResolver(_Store((root, corrected)))
-    basis = _basis()
-
-    before = _evaluate_with_resolver(
+    before, after = _evaluate_historical_pair(
         resolver,
-        basis,
-        known_at=RECORDED_AT,
-    )
-    after = _evaluate_with_resolver(
-        resolver,
-        basis,
-        known_at=corrected.recorded_at,
+        after_known_at=corrected.recorded_at,
     )
 
     assert isinstance(before, EvidenceFreshnessApplicable)
@@ -206,19 +220,10 @@ def test_later_invalid_history_does_not_contaminate_earlier_boundary() -> None:
         predecessor_id=SECOND_VERSION_ID,
     )
     resolver = EvidenceRequirementResolver(_Store((root, later_orphan)))
-    basis = _basis()
-
-    before = _evaluate_with_resolver(
+    before, after = _evaluate_historical_pair(
         resolver,
-        basis,
-        effective_at=EFFECTIVE_AT,
-        known_at=RECORDED_AT,
-    )
-    after = _evaluate_with_resolver(
-        resolver,
-        basis,
-        effective_at=RECORDED_AT + timedelta(days=2),
-        known_at=later_orphan.recorded_at,
+        after_effective_at=RECORDED_AT + timedelta(days=2),
+        after_known_at=later_orphan.recorded_at,
     )
 
     assert isinstance(before, EvidenceFreshnessApplicable)

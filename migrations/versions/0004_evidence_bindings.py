@@ -189,6 +189,9 @@ def upgrade() -> None:
             name="fk_evidence_binding_observation",
             ondelete="RESTRICT",
         ),
+        # duplicate-code: this mutable pre-1.0 migration must preserve its own
+        # historical DDL rather than importing the live SQLAlchemy schema.
+        # arid: disable
         sa.ForeignKeyConstraint(
             ["freshness_set_id", "freshness_version_id"],
             [
@@ -198,6 +201,7 @@ def upgrade() -> None:
             name="fk_evidence_binding_freshness_version",
             ondelete="RESTRICT",
         ),
+        # arid: enable
         # duplicate-code: migration FK declarations are frozen historical DDL;
         # sharing live schema construction would make old revisions mutable.
         # arid: disable

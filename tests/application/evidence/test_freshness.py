@@ -15,7 +15,6 @@ from polaris.application.evidence import (
     UnavailableEvidenceRequirementAuthority,
     evaluate_binding_freshness,
 )
-from polaris.domain.configuration import EvidenceRequirementPredecessorEffect
 from polaris.domain.evidence import (
     EvidenceFreshnessApplicable,
     EvidenceFreshnessBasisReference,
@@ -33,21 +32,12 @@ from tests.configuration_support import (
     ROOT_VERSION_ID,
     SECOND_VERSION_ID,
     THIRD_VERSION_ID,
+    RequirementResolutionStub,
+    corrected_requirement_version,
     requirement_assignment,
     requirement_key,
     requirement_version,
 )
-
-
-class _Resolver:
-    def __init__(self, result) -> None:
-        self.result = result
-        self.calls = 0
-
-    async def resolve(self, key, *, effective_at, known_at):
-        del key, effective_at, known_at
-        self.calls += 1
-        return self.result
 
 
 class _Store:
@@ -61,18 +51,35 @@ class _Store:
         raise AssertionError("not used by freshness tests")
 
 
-def _evaluate(result, *, basis_at=None):
+def _basis(as_of_at=EFFECTIVE_AT) -> EvidenceFreshnessBasisReference:
+    return EvidenceFreshnessBasisReference(
+        "observation:market-price:SPY",
+        as_of_at,
+        requirement_key(),
+    )
+
+
+def _evaluate_with_resolver(
+    resolver,
+    basis: EvidenceFreshnessBasisReference,
+    *,
+    effective_at=EFFECTIVE_AT,
+    known_at=RECORDED_AT,
+):
     return asyncio.run(
         evaluate_binding_freshness(
-            _Resolver(result),
-            EvidenceFreshnessBasisReference(
-                "observation:market-price:SPY",
-                basis_at or EFFECTIVE_AT,
-                requirement_key(),
-            ),
-            effective_at=EFFECTIVE_AT,
-            known_at=RECORDED_AT,
+            resolver,
+            basis,
+            effective_at=effective_at,
+            known_at=known_at,
         )
+    )
+
+
+def _evaluate(result, *, basis_at=None):
+    return _evaluate_with_resolver(
+        RequirementResolutionStub(result),
+        _basis(basis_at or EFFECTIVE_AT),
     )
 
 
@@ -150,11 +157,7 @@ def test_invalid_requirement_history_remains_invalid_not_absent() -> None:
     outcome = _evaluate(InvalidEvidenceRequirementAuthority("broken ancestry"))
 
     assert outcome == EvidenceFreshnessInvalidAuthority(
-        EvidenceFreshnessBasisReference(
-            "observation:market-price:SPY",
-            EFFECTIVE_AT,
-            requirement_key(),
-        ),
+        _basis(),
         "broken ancestry",
     )
 
@@ -174,35 +177,19 @@ def test_contradictory_positive_resolution_fails_closed() -> None:
 
 def test_requirement_resolution_obeys_historical_knowledge_boundary() -> None:
     root = requirement_version()
-    corrected = requirement_version(
-        SECOND_VERSION_ID,
-        effective_at=EFFECTIVE_AT - timedelta(days=1),
-        recorded_at=RECORDED_AT + timedelta(hours=1),
-        predecessor_id=ROOT_VERSION_ID,
-        effect=EvidenceRequirementPredecessorEffect.CORRECTS,
-    )
+    corrected = corrected_requirement_version()
     resolver = EvidenceRequirementResolver(_Store((root, corrected)))
-    basis = EvidenceFreshnessBasisReference(
-        "observation:market-price:SPY",
-        EFFECTIVE_AT,
-        requirement_key(),
-    )
+    basis = _basis()
 
-    before = asyncio.run(
-        evaluate_binding_freshness(
-            resolver,
-            basis,
-            effective_at=EFFECTIVE_AT,
-            known_at=RECORDED_AT,
-        )
+    before = _evaluate_with_resolver(
+        resolver,
+        basis,
+        known_at=RECORDED_AT,
     )
-    after = asyncio.run(
-        evaluate_binding_freshness(
-            resolver,
-            basis,
-            effective_at=EFFECTIVE_AT,
-            known_at=corrected.recorded_at,
-        )
+    after = _evaluate_with_resolver(
+        resolver,
+        basis,
+        known_at=corrected.recorded_at,
     )
 
     assert isinstance(before, EvidenceFreshnessApplicable)
@@ -219,27 +206,19 @@ def test_later_invalid_history_does_not_contaminate_earlier_boundary() -> None:
         predecessor_id=SECOND_VERSION_ID,
     )
     resolver = EvidenceRequirementResolver(_Store((root, later_orphan)))
-    basis = EvidenceFreshnessBasisReference(
-        "observation:market-price:SPY",
-        EFFECTIVE_AT,
-        requirement_key(),
-    )
+    basis = _basis()
 
-    before = asyncio.run(
-        evaluate_binding_freshness(
-            resolver,
-            basis,
-            effective_at=EFFECTIVE_AT,
-            known_at=RECORDED_AT,
-        )
+    before = _evaluate_with_resolver(
+        resolver,
+        basis,
+        effective_at=EFFECTIVE_AT,
+        known_at=RECORDED_AT,
     )
-    after = asyncio.run(
-        evaluate_binding_freshness(
-            resolver,
-            basis,
-            effective_at=RECORDED_AT + timedelta(days=2),
-            known_at=later_orphan.recorded_at,
-        )
+    after = _evaluate_with_resolver(
+        resolver,
+        basis,
+        effective_at=RECORDED_AT + timedelta(days=2),
+        known_at=later_orphan.recorded_at,
     )
 
     assert isinstance(before, EvidenceFreshnessApplicable)

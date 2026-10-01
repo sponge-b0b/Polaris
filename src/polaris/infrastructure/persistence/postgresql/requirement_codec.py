@@ -35,7 +35,7 @@ from polaris.domain.evidence import (
 )
 from polaris.domain.portfolio import FinancialInstrumentId, PortfolioId
 
-from .codec_support import uuid_value
+from .codec_support import aware_datetime, uuid_value
 
 type JsonObject = dict[str, object]
 
@@ -106,8 +106,8 @@ def requirement_version_from_rows(
                 version_row["source_reference"], "source_reference"
             ),
         ),
-        effective_at=_datetime(version_row["effective_at"], "effective_at"),
-        recorded_at=_datetime(version_row["recorded_at"], "recorded_at"),
+        effective_at=aware_datetime(version_row["effective_at"], "effective_at"),
+        recorded_at=aware_datetime(version_row["recorded_at"], "recorded_at"),
         applicability=applicability_from_payload(
             _object(version_row["applicability"], "applicability")
         ),
@@ -133,10 +133,34 @@ def requirement_version_from_rows(
     )
 
 
+def _applicability_context_payload(
+    subject: EvidenceSubjectReference | None,
+    portfolio_id: PortfolioId | None,
+    instrument_id: FinancialInstrumentId | None,
+    investment_horizon: InvestmentHorizon | None,
+) -> JsonObject:
+    return {
+        "subject": (
+            {
+                "identity": subject.subject_identity,
+                "reference": subject.subject_reference,
+            }
+            if subject is not None
+            else None
+        ),
+        "portfolio_id": str(portfolio_id.value) if portfolio_id is not None else None,
+        "instrument_id": (
+            str(instrument_id.value) if instrument_id is not None else None
+        ),
+        "investment_horizon": (
+            investment_horizon.value if investment_horizon is not None else None
+        ),
+    }
+
+
 def applicability_payload(
     applicability: EvidenceRequirementApplicabilityAssignment,
 ) -> JsonObject:
-    subject = applicability.subject
     return {
         "target_family": applicability.target.family.value,
         "target_id": (
@@ -151,28 +175,11 @@ def applicability_payload(
             else None
         ),
         "evidence_use": applicability.evidence_use.value,
-        "subject": (
-            {
-                "identity": subject.subject_identity,
-                "reference": subject.subject_reference,
-            }
-            if subject is not None
-            else None
-        ),
-        "portfolio_id": (
-            str(applicability.portfolio_id.value)
-            if applicability.portfolio_id is not None
-            else None
-        ),
-        "instrument_id": (
-            str(applicability.instrument_id.value)
-            if applicability.instrument_id is not None
-            else None
-        ),
-        "investment_horizon": (
-            applicability.investment_horizon.value
-            if applicability.investment_horizon is not None
-            else None
+        **_applicability_context_payload(
+            applicability.subject,
+            applicability.portfolio_id,
+            applicability.instrument_id,
+            applicability.investment_horizon,
         ),
     }
 
@@ -180,7 +187,6 @@ def applicability_payload(
 def applicability_key_payload(
     key: EvidenceRequirementApplicabilityKey,
 ) -> JsonObject:
-    subject = key.subject
     return {
         "target_family": evidence_judgment_family(key.target).value,
         "target_id": str(key.target.value),
@@ -191,26 +197,45 @@ def applicability_key_payload(
             else None
         ),
         "evidence_use": key.evidence_use.value,
-        "subject": (
-            {
-                "identity": subject.subject_identity,
-                "reference": subject.subject_reference,
-            }
-            if subject is not None
-            else None
-        ),
-        "portfolio_id": (
-            str(key.portfolio_id.value) if key.portfolio_id is not None else None
-        ),
-        "instrument_id": (
-            str(key.instrument_id.value) if key.instrument_id is not None else None
-        ),
-        "investment_horizon": (
-            key.investment_horizon.value
-            if key.investment_horizon is not None
-            else None
+        **_applicability_context_payload(
+            key.subject,
+            key.portfolio_id,
+            key.instrument_id,
+            key.investment_horizon,
         ),
     }
+
+
+def _applicability_context_from_payload(
+    payload: JsonObject,
+) -> tuple[
+    EvidenceSubjectReference | None,
+    PortfolioId | None,
+    FinancialInstrumentId | None,
+    InvestmentHorizon | None,
+]:
+    subject_payload = payload.get("subject")
+    portfolio_id = _optional_uuid(payload.get("portfolio_id"), "portfolio_id")
+    instrument_id = _optional_uuid(payload.get("instrument_id"), "instrument_id")
+    horizon = payload.get("investment_horizon")
+    return (
+        (
+            _subject_from_payload(_object(subject_payload, "subject"))
+            if subject_payload is not None
+            else None
+        ),
+        PortfolioId(portfolio_id) if portfolio_id is not None else None,
+        (
+            FinancialInstrumentId(instrument_id)
+            if instrument_id is not None
+            else None
+        ),
+        (
+            InvestmentHorizon(_string(horizon, "investment_horizon"))
+            if horizon is not None
+            else None
+        ),
+    )
 
 
 def applicability_key_from_payload(
@@ -230,30 +255,19 @@ def applicability_key_from_payload(
         if claim_id is None:
             raise ValueError("claim-specific key must identify a claim")
         scope = ClaimSpecificEvidenceScope(ClaimId(claim_id))
-    subject_payload = payload.get("subject")
-    portfolio_id = _optional_uuid(payload.get("portfolio_id"), "portfolio_id")
-    instrument_id = _optional_uuid(payload.get("instrument_id"), "instrument_id")
-    horizon = payload.get("investment_horizon")
+    subject, portfolio_id, instrument_id, investment_horizon = (
+        _applicability_context_from_payload(payload)
+    )
     return EvidenceRequirementApplicabilityKey(
         target=evidence_judgment_ref(family, target_id),
         scope=scope,
         evidence_use=EvidenceUse(
             _string(payload.get("evidence_use"), "evidence_use")
         ),
-        subject=(
-            _subject_from_payload(_object(subject_payload, "subject"))
-            if subject_payload is not None
-            else None
-        ),
-        portfolio_id=PortfolioId(portfolio_id) if portfolio_id is not None else None,
-        instrument_id=(
-            FinancialInstrumentId(instrument_id) if instrument_id is not None else None
-        ),
-        investment_horizon=(
-            InvestmentHorizon(_string(horizon, "investment_horizon"))
-            if horizon is not None
-            else None
-        ),
+        subject=subject,
+        portfolio_id=portfolio_id,
+        instrument_id=instrument_id,
+        investment_horizon=investment_horizon,
     )
 
 
@@ -262,12 +276,11 @@ def applicability_from_payload(
 ) -> EvidenceRequirementApplicabilityAssignment:
     target_id = _optional_uuid(payload.get("target_id"), "target_id")
     claim_id = _optional_uuid(payload.get("claim_id"), "claim_id")
-    subject_payload = payload.get("subject")
-    portfolio_id = _optional_uuid(payload.get("portfolio_id"), "portfolio_id")
-    instrument_id = _optional_uuid(payload.get("instrument_id"), "instrument_id")
-    horizon = payload.get("investment_horizon")
     family = EvidenceJudgmentFamily(
         _string(payload.get("target_family"), "target_family")
+    )
+    subject, portfolio_id, instrument_id, investment_horizon = (
+        _applicability_context_from_payload(payload)
     )
     return EvidenceRequirementApplicabilityAssignment(
         target=EvidenceRequirementTargetAssignment(
@@ -279,22 +292,11 @@ def applicability_from_payload(
             ClaimId(claim_id) if claim_id is not None else None,
         ),
         evidence_use=EvidenceUse(_string(payload.get("evidence_use"), "evidence_use")),
-        subject=(
-            _subject_from_payload(_object(subject_payload, "subject"))
-            if subject_payload is not None
-            else None
-        ),
-        portfolio_id=PortfolioId(portfolio_id) if portfolio_id is not None else None,
-        instrument_id=(
-            FinancialInstrumentId(instrument_id) if instrument_id is not None else None
-        ),
-        investment_horizon=(
-            InvestmentHorizon(_string(horizon, "investment_horizon"))
-            if horizon is not None
-            else None
-        ),
+        subject=subject,
+        portfolio_id=portfolio_id,
+        instrument_id=instrument_id,
+        investment_horizon=investment_horizon,
     )
-
 
 def _definition_from_row(
     row: RowMapping,
@@ -359,19 +361,3 @@ def _optional_uuid(value: object, field: str) -> UUID | None:
     return None if value is None else uuid_value(value, field)
 
 
-# duplicate-code: persisted-value decoding owns adapter failure semantics;
-# sharing a domain validator here would leak domain validation into infrastructure.
-# arid: disable
-# jscpd:ignore-start
-def _datetime(value: object, field: str) -> datetime:
-    if (
-        not isinstance(value, datetime)
-        or value.tzinfo is None
-        or value.utcoffset() is None
-    ):
-        raise ValueError(f"{field} must be timezone-aware datetime")
-    return value
-
-
-# jscpd:ignore-end
-# arid: enable

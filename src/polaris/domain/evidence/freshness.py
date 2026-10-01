@@ -16,6 +16,9 @@ class InvalidEvidenceFreshness(ValueError):
     pass
 
 
+# duplicate-code: Evidence freshness owns its failure contract independently of
+# Decision time validation; sharing a validator would couple bounded contexts.
+# arid: disable
 def _aware(value: object, field_name: str) -> None:
     if (
         not isinstance(value, datetime)
@@ -25,10 +28,30 @@ def _aware(value: object, field_name: str) -> None:
         raise InvalidEvidenceFreshness(f"{field_name} must be timezone-aware")
 
 
+# arid: enable
+
+
 def _text(value: object, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise InvalidEvidenceFreshness(f"{field_name} must be a non-empty string")
     return value.strip()
+
+
+def _require_exact(
+    value: object,
+    expected: type[object],
+    field_name: str,
+) -> None:
+    if type(value) is not expected:
+        raise TypeError(f"{field_name} must be {expected.__name__}")
+
+
+def _require_basis(value: object) -> None:
+    _require_exact(value, EvidenceFreshnessBasisReference, "basis")
+
+
+def _reason(value: object, owner: str) -> str:
+    return _text(value, f"{owner}.reason")
 
 
 class EvidenceFreshnessResult(StrEnum):
@@ -52,10 +75,11 @@ class EvidenceFreshnessBasisReference:
             _text(self.reference, "EvidenceFreshnessBasisReference.reference"),
         )
         _aware(self.as_of_at, "EvidenceFreshnessBasisReference.as_of_at")
-        if type(self.applicability_key) is not EvidenceRequirementApplicabilityKey:
-            raise TypeError(
-                "applicability_key must be EvidenceRequirementApplicabilityKey"
-            )
+        _require_exact(
+            self.applicability_key,
+            EvidenceRequirementApplicabilityKey,
+            "applicability_key",
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,12 +91,9 @@ class EvidenceFreshnessAuthorityReference:
     requirement_id: EvidenceRequirementId
 
     def __post_init__(self) -> None:
-        if type(self.set_id) is not EvidenceRequirementSetId:
-            raise TypeError("set_id must be EvidenceRequirementSetId")
-        if type(self.version_id) is not EvidenceRequirementSetVersionId:
-            raise TypeError("version_id must be EvidenceRequirementSetVersionId")
-        if type(self.requirement_id) is not EvidenceRequirementId:
-            raise TypeError("requirement_id must be EvidenceRequirementId")
+        _require_exact(self.set_id, EvidenceRequirementSetId, "set_id")
+        _require_exact(self.version_id, EvidenceRequirementSetVersionId, "version_id")
+        _require_exact(self.requirement_id, EvidenceRequirementId, "requirement_id")
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,10 +104,8 @@ class EvidenceFreshnessNoRequirementWitness:
     version_id: EvidenceRequirementSetVersionId
 
     def __post_init__(self) -> None:
-        if type(self.set_id) is not EvidenceRequirementSetId:
-            raise TypeError("set_id must be EvidenceRequirementSetId")
-        if type(self.version_id) is not EvidenceRequirementSetVersionId:
-            raise TypeError("version_id must be EvidenceRequirementSetVersionId")
+        _require_exact(self.set_id, EvidenceRequirementSetId, "set_id")
+        _require_exact(self.version_id, EvidenceRequirementSetVersionId, "version_id")
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,12 +115,13 @@ class EvidenceFreshnessApplicable:
     result: EvidenceFreshnessResult
 
     def __post_init__(self) -> None:
-        if type(self.authority) is not EvidenceFreshnessAuthorityReference:
-            raise TypeError("authority must be EvidenceFreshnessAuthorityReference")
-        if type(self.basis) is not EvidenceFreshnessBasisReference:
-            raise TypeError("basis must be EvidenceFreshnessBasisReference")
-        if type(self.result) is not EvidenceFreshnessResult:
-            raise TypeError("result must be EvidenceFreshnessResult")
+        _require_exact(
+            self.authority,
+            EvidenceFreshnessAuthorityReference,
+            "authority",
+        )
+        _require_basis(self.basis)
+        _require_exact(self.result, EvidenceFreshnessResult, "result")
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,14 +130,16 @@ class EvidenceFreshnessNotApplicable:
     basis: EvidenceFreshnessBasisReference
 
     def __post_init__(self) -> None:
-        if type(self.witness) is not EvidenceFreshnessNoRequirementWitness:
-            raise TypeError("witness must be EvidenceFreshnessNoRequirementWitness")
-        if type(self.basis) is not EvidenceFreshnessBasisReference:
-            raise TypeError("basis must be EvidenceFreshnessBasisReference")
+        _require_exact(
+            self.witness,
+            EvidenceFreshnessNoRequirementWitness,
+            "witness",
+        )
+        _require_basis(self.basis)
 
 
 @dataclass(frozen=True, slots=True)
-class EvidenceFreshnessMissingAuthority:
+class _IndeterminateFreshness:
     basis: EvidenceFreshnessBasisReference
     result: EvidenceFreshnessResult = field(
         default=EvidenceFreshnessResult.INDETERMINATE,
@@ -125,41 +147,33 @@ class EvidenceFreshnessMissingAuthority:
     )
 
     def __post_init__(self) -> None:
-        if type(self.basis) is not EvidenceFreshnessBasisReference:
-            raise TypeError("basis must be EvidenceFreshnessBasisReference")
+        _require_basis(self.basis)
 
 
 @dataclass(frozen=True, slots=True)
-class EvidenceFreshnessUnavailableAuthority:
-    basis: EvidenceFreshnessBasisReference
+class EvidenceFreshnessMissingAuthority(_IndeterminateFreshness):
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceFreshnessUnavailableAuthority(_IndeterminateFreshness):
     reason: str
-    result: EvidenceFreshnessResult = field(
-        default=EvidenceFreshnessResult.INDETERMINATE,
-        init=False,
-    )
 
     def __post_init__(self) -> None:
-        if type(self.basis) is not EvidenceFreshnessBasisReference:
-            raise TypeError("basis must be EvidenceFreshnessBasisReference")
+        _IndeterminateFreshness.__post_init__(self)
         object.__setattr__(
             self,
             "reason",
-            _text(self.reason, "EvidenceFreshnessUnavailableAuthority.reason"),
+            _reason(self.reason, "EvidenceFreshnessUnavailableAuthority"),
         )
 
 
 @dataclass(frozen=True, slots=True)
-class EvidenceFreshnessContestedAuthority:
-    basis: EvidenceFreshnessBasisReference
+class EvidenceFreshnessContestedAuthority(_IndeterminateFreshness):
     version_ids: frozenset[EvidenceRequirementSetVersionId]
-    result: EvidenceFreshnessResult = field(
-        default=EvidenceFreshnessResult.INDETERMINATE,
-        init=False,
-    )
 
     def __post_init__(self) -> None:
-        if type(self.basis) is not EvidenceFreshnessBasisReference:
-            raise TypeError("basis must be EvidenceFreshnessBasisReference")
+        _IndeterminateFreshness.__post_init__(self)
         if (
             type(self.version_ids) is not frozenset
             or len(self.version_ids) < 2
@@ -179,12 +193,11 @@ class EvidenceFreshnessInvalidAuthority:
     reason: str
 
     def __post_init__(self) -> None:
-        if type(self.basis) is not EvidenceFreshnessBasisReference:
-            raise TypeError("basis must be EvidenceFreshnessBasisReference")
+        _require_basis(self.basis)
         object.__setattr__(
             self,
             "reason",
-            _text(self.reason, "EvidenceFreshnessInvalidAuthority.reason"),
+            _reason(self.reason, "EvidenceFreshnessInvalidAuthority"),
         )
 
 

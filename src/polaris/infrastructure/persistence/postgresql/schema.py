@@ -590,6 +590,9 @@ evidence_bindings = Table(
         "freshness_failure_reason IS NULL OR btrim(freshness_failure_reason) <> ''",
         name="freshness_failure_reason_nonempty",
     ),
+    # duplicate-code: each OR branch independently states a complete persisted
+    # freshness row shape; fragment sharing would obscure the SQL invariant.
+    # arid: disable
     CheckConstraint(
         "("
         "freshness_state = 'applicable' AND "
@@ -634,6 +637,7 @@ evidence_bindings = Table(
         ")",
         name="freshness_shape",
     ),
+    # arid: enable
 )
 
 # duplicate-code: Evidence observation and binding receipts are independently

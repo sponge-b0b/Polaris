@@ -20,12 +20,13 @@ from polaris.domain.configuration import (
     SufficiencyRequirementDefinition,
 )
 from polaris.domain.evidence import (
-    EvidenceJudgmentFamily,
-    EvidenceScopeKind,
+    ClaimSpecificEvidenceScope,
     EvidenceSubjectReference,
     EvidenceUse,
     InvestmentRecommendationRef,
     JudgmentWideEvidenceScope,
+    evidence_judgment_family,
+    evidence_scope_kind,
 )
 from polaris.domain.portfolio import FinancialInstrumentId, PortfolioId
 
@@ -55,20 +56,61 @@ def requirement_key() -> EvidenceRequirementApplicabilityKey:
     )
 
 
-def requirement_assignment() -> EvidenceRequirementApplicabilityAssignment:
-    key = requirement_key()
+def requirement_assignment_for_key(
+    key: EvidenceRequirementApplicabilityKey,
+) -> EvidenceRequirementApplicabilityAssignment:
+    claim_id = (
+        key.scope.claim_id
+        if type(key.scope) is ClaimSpecificEvidenceScope
+        else None
+    )
     return EvidenceRequirementApplicabilityAssignment(
         target=EvidenceRequirementTargetAssignment(
-            EvidenceJudgmentFamily.INVESTMENT_RECOMMENDATION,
+            evidence_judgment_family(key.target),
             key.target,
         ),
-        scope=EvidenceRequirementScopeAssignment(EvidenceScopeKind.JUDGMENT_WIDE),
+        scope=EvidenceRequirementScopeAssignment(
+            evidence_scope_kind(key.scope),
+            claim_id,
+        ),
         evidence_use=key.evidence_use,
         subject=key.subject,
         portfolio_id=key.portfolio_id,
         instrument_id=key.instrument_id,
         investment_horizon=key.investment_horizon,
     )
+
+
+def requirement_assignment() -> EvidenceRequirementApplicabilityAssignment:
+    return requirement_assignment_for_key(requirement_key())
+
+
+class RequirementResolutionStub:
+    def __init__(self, result: object) -> None:
+        self.result = result
+        self.calls = 0
+
+    async def resolve(
+        self,
+        key: EvidenceRequirementApplicabilityKey,
+        *,
+        effective_at: datetime,
+        known_at: datetime,
+    ):
+        del key, effective_at, known_at
+        self.calls += 1
+        return self.result
+
+
+class RequirementVersionStoreStub:
+    def __init__(self, versions: object) -> None:
+        self.versions = tuple(versions)
+
+    async def load_requirement_versions(self):
+        return self.versions
+
+    async def append_requirement_version(self, version):
+        raise AssertionError("not used by requirement-resolution tests")
 
 
 def requirement_version(
@@ -114,3 +156,14 @@ def requirement_version(
             else None
         ),
     )
+
+
+def corrected_requirement_version() -> EvidenceRequirementSetVersion:
+    return requirement_version(
+        SECOND_VERSION_ID,
+        effective_at=EFFECTIVE_AT - timedelta(days=1),
+        recorded_at=RECORDED_AT + timedelta(hours=1),
+        predecessor_id=ROOT_VERSION_ID,
+        effect=EvidenceRequirementPredecessorEffect.CORRECTS,
+    )
+

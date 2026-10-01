@@ -22,6 +22,7 @@ from tests.configuration_support import (
     ROOT_VERSION_ID,
     SECOND_VERSION_ID,
     THIRD_VERSION_ID,
+    corrected_requirement_version,
     requirement_assignment,
     requirement_key,
     requirement_version,
@@ -70,12 +71,7 @@ def test_resolution_obeys_effective_and_known_boundaries() -> None:
 
 def test_known_correction_replaces_ancestry_without_recency_selection() -> None:
     root = requirement_version()
-    corrected = requirement_version(
-        SECOND_VERSION_ID,
-        effective_at=EFFECTIVE_AT - timedelta(days=1),
-        recorded_at=RECORDED_AT + timedelta(hours=1),
-        predecessor_id=ROOT_VERSION_ID,
-    )
+    corrected = corrected_requirement_version()
     before_known = resolve_requirement_version(
         (root, corrected),
         requirement_key(),

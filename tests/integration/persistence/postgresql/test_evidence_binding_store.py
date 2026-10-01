@@ -157,6 +157,15 @@ async def _record_and_reload_binding(
     return binding
 
 
+async def _seed_and_reload_binding(
+    target: PostgresTestTarget,
+    *,
+    command: RecordEvidenceBindingCommand,
+) -> EvidenceBinding:
+    await _seed_observation(target)
+    return await _record_and_reload_binding(target, command=command)
+
+
 def test_binding_round_trips_across_restart_with_exact_contract(
     postgres_target: PostgresTestTarget,
 ) -> None:
@@ -190,8 +199,7 @@ def test_missing_requirement_authority_round_trips_as_indeterminate(
     postgres_target: PostgresTestTarget,
 ) -> None:
     async def scenario() -> None:
-        await _seed_observation(postgres_target)
-        binding = await _record_and_reload_binding(
+        binding = await _seed_and_reload_binding(
             postgres_target,
             command=binding_command(),
         )
@@ -206,10 +214,9 @@ def test_no_freshness_requirement_round_trips_with_resolved_negative_witness(
     postgres_target: PostgresTestTarget,
 ) -> None:
     async def scenario() -> None:
-        await _seed_observation(postgres_target)
         version = replace(requirement_version(), requirements=())
         await _seed_requirement(postgres_target, version)
-        binding = await _record_and_reload_binding(
+        binding = await _seed_and_reload_binding(
             postgres_target,
             command=binding_command(),
         )
@@ -225,8 +232,7 @@ def test_historical_unknown_availability_round_trips_without_material_use(
     postgres_target: PostgresTestTarget,
 ) -> None:
     async def scenario() -> None:
-        await _seed_observation(postgres_target)
-        binding = await _record_and_reload_binding(
+        binding = await _seed_and_reload_binding(
             postgres_target,
             command=binding_command(
                 availability=EvidenceAvailability.UNKNOWN,

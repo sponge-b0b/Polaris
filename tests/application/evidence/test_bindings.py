@@ -48,28 +48,14 @@ from tests.binding_support import (
     binding_command,
     binding_service,
 )
-from tests.configuration_support import requirement_version
+from tests.configuration_support import (
+    RequirementResolutionStub,
+    requirement_version,
+)
 from tests.evidence_support import OBSERVATION_ID
 
 CLAIM_ID = UUID("00000000-0000-4000-8000-000000000421")
 SECOND_CLAIM_ID = UUID("00000000-0000-4000-8000-000000000422")
-
-
-class _RequirementResolver:
-    def __init__(self, result) -> None:
-        self.result = result
-        self.calls = 0
-
-    async def resolve(
-        self,
-        key,
-        *,
-        effective_at: datetime,
-        known_at: datetime,
-    ):
-        del key, effective_at, known_at
-        self.calls += 1
-        return self.result
 
 
 class _ClaimResolver:
@@ -302,7 +288,7 @@ def test_contradictory_positive_membership_is_rejected_before_commit(
 
 def test_exact_retry_does_not_revalidate_a_fixed_historical_endpoint() -> None:
     command, claim_resolver = _claim_command_and_resolver()
-    requirement_resolver = _RequirementResolver(
+    requirement_resolver = RequirementResolutionStub(
         ResolvedEvidenceRequirementVersion(requirement_version())
     )
     store = _FakeBindingStore()

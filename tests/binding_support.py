@@ -12,12 +12,7 @@ from polaris.application.evidence import (
     RecordEvidenceBindingCommand,
     ResolvedEvidenceRequirementVersion,
 )
-from polaris.domain.configuration import (
-    EvidenceRequirementApplicabilityAssignment,
-    EvidenceRequirementApplicabilityKey,
-    EvidenceRequirementScopeAssignment,
-    EvidenceRequirementTargetAssignment,
-)
+from polaris.domain.configuration import EvidenceRequirementApplicabilityKey
 from polaris.domain.decisions import OperationId
 from polaris.domain.evidence.bindings import (
     EvidenceAvailability,
@@ -30,11 +25,14 @@ from polaris.domain.evidence.judgments import (
     EvidenceUse,
     InvestmentRecommendationRef,
     JudgmentWideEvidenceScope,
-    evidence_judgment_family,
-    evidence_scope_kind,
 )
 from polaris.domain.evidence.observations import EvidenceObservationId
-from tests.configuration_support import TARGET_ID, requirement_key, requirement_version
+from tests.configuration_support import (
+    TARGET_ID,
+    requirement_assignment_for_key,
+    requirement_key,
+    requirement_version,
+)
 from tests.evidence_support import OBSERVATION_ID
 
 BINDING_OPERATION_ID = UUID("00000000-0000-4000-8000-000000000301")
@@ -96,30 +94,6 @@ def binding_command(
     )
 
 
-def _matching_requirement_assignment(
-    key: EvidenceRequirementApplicabilityKey,
-) -> EvidenceRequirementApplicabilityAssignment:
-    return EvidenceRequirementApplicabilityAssignment(
-        target=EvidenceRequirementTargetAssignment(
-            evidence_judgment_family(key.target),
-            key.target,
-        ),
-        scope=EvidenceRequirementScopeAssignment(
-            evidence_scope_kind(key.scope),
-            (
-                key.scope.claim_id
-                if hasattr(key.scope, "claim_id")
-                else None
-            ),
-        ),
-        evidence_use=key.evidence_use,
-        subject=key.subject,
-        portfolio_id=key.portfolio_id,
-        instrument_id=key.instrument_id,
-        investment_horizon=key.investment_horizon,
-    )
-
-
 class _MatchingRequirementResolver:
     async def resolve(
         self,
@@ -131,7 +105,7 @@ class _MatchingRequirementResolver:
         del effective_at, known_at
         return ResolvedEvidenceRequirementVersion(
             requirement_version(
-                assignment=_matching_requirement_assignment(key)
+                assignment=requirement_assignment_for_key(key)
             )
         )
 

@@ -96,4 +96,6 @@ async def evaluate_binding_freshness(
         return EvidenceFreshnessContestedAuthority(basis, resolution.version_ids)
     if isinstance(resolution, InvalidEvidenceRequirementAuthority):
         return EvidenceFreshnessInvalidAuthority(basis, resolution.reason)
-    raise AssertionError("Evidence requirement resolver returned an unsupported outcome")
+    raise AssertionError(
+        "Evidence requirement resolver returned an unsupported outcome"
+    )

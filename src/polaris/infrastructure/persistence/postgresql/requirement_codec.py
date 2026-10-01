@@ -213,7 +213,9 @@ def applicability_key_payload(
     }
 
 
-def applicability_key_from_payload(payload: JsonObject) -> EvidenceRequirementApplicabilityKey:
+def applicability_key_from_payload(
+    payload: JsonObject,
+) -> EvidenceRequirementApplicabilityKey:
     family = EvidenceJudgmentFamily(
         _string(payload.get("target_family"), "target_family")
     )

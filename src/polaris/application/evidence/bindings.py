@@ -23,7 +23,6 @@ from .binding_contracts import (
     EvidenceBindingUnavailable,
     RecordEvidenceBindingCommand,
 )
-from .freshness import evaluate_binding_freshness
 from .claims import (
     ClaimCatalogMembershipResolver,
     ClaimMembershipFailure,
@@ -31,7 +30,6 @@ from .claims import (
     ResolvedClaimMembership,
     UnavailableClaimCatalog,
 )
-from .requirements import EvidenceRequirementVersionResolver
 from .contracts import (
     EvidenceApplicationError,
     EvidenceCommandReadUnavailable,
@@ -40,6 +38,8 @@ from .contracts import (
     require_aware_recording_time,
     require_exact_replay,
 )
+from .freshness import evaluate_binding_freshness
+from .requirements import EvidenceRequirementVersionResolver
 
 
 class EvidenceBindingObservationReferenceConflict(EvidenceApplicationError):

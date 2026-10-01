@@ -63,7 +63,8 @@ class RecordEvidenceBindingCommand:
         if (
             self.freshness_basis.applicability_key.target != self.target
             or self.freshness_basis.applicability_key.scope != self.scope
-            or self.freshness_basis.applicability_key.evidence_use is not self.evidence_use
+            or self.freshness_basis.applicability_key.evidence_use
+            is not self.evidence_use
         ):
             raise ValueError(
                 "requirement_key target/scope/use must match binding endpoints"

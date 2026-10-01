@@ -15,8 +15,8 @@ from polaris.application.evidence import (
     EvidenceBindingObservationReferenceConflict,
     EvidenceBindingResult,
     EvidenceBindingStore,
-    EvidenceRequirementResolver,
     EvidencePersistenceUnavailable,
+    EvidenceRequirementResolver,
     EvidenceRequirementVersionAppended,
     RecordEvidenceBindingCommand,
     ResolvedClaimMembership,
@@ -26,13 +26,13 @@ from polaris.domain.evidence.bindings import (
     EvidenceBinding,
     EvidenceRole,
 )
+from polaris.domain.evidence.claims import ClaimCatalogVersion
 from polaris.domain.evidence.freshness import (
     EvidenceFreshnessApplicable,
     EvidenceFreshnessMissingAuthority,
     EvidenceFreshnessNotApplicable,
     EvidenceFreshnessResult,
 )
-from polaris.domain.evidence.claims import ClaimCatalogVersion
 from polaris.domain.evidence.judgments import (
     ClaimId,
     ClaimSpecificEvidenceScope,
@@ -89,7 +89,9 @@ async def _seed_observation(target: PostgresTestTarget) -> None:
 
 async def _seed_requirement(target: PostgresTestTarget, version=None) -> None:
     async with postgres_store(target, PostgresEvidenceRequirementStore) as (_, store):
-        outcome = await store.append_requirement_version(version or requirement_version())
+        outcome = await store.append_requirement_version(
+            version or requirement_version()
+        )
         assert isinstance(outcome, EvidenceRequirementVersionAppended)
 
 
@@ -175,7 +177,9 @@ def test_binding_round_trips_across_restart_with_exact_contract(
         assert binding.material_qualification.statement == "decision-grade source"
         assert isinstance(binding.freshness, EvidenceFreshnessApplicable)
         assert binding.freshness.result is EvidenceFreshnessResult.FRESH
-        assert binding.freshness.authority.version_id.value == requirement_version().version_id.value
+        assert binding.freshness.authority.version_id.value == (
+            requirement_version().version_id.value
+        )
         assert binding.freshness.basis.reference == "observation:market-price:SPY"
         assert binding.freshness.basis.as_of_at == BINDING_EFFECTIVE_AT
 

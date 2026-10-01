@@ -7,10 +7,10 @@ from uuid import UUID
 from polaris.application.evidence import (
     ClaimCatalogMembershipResolver,
     EvidenceBindingService,
-    EvidenceRequirementVersionResolver,
-    ResolvedEvidenceRequirementVersion,
     EvidenceBindingStore,
+    EvidenceRequirementVersionResolver,
     RecordEvidenceBindingCommand,
+    ResolvedEvidenceRequirementVersion,
 )
 from polaris.domain.configuration import (
     EvidenceRequirementApplicabilityAssignment,

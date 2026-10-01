@@ -1,3 +1,12 @@
+from .claims import (
+    ClaimCatalog,
+    ClaimCatalogRevision,
+    ClaimCatalogVersion,
+    ContestedClaimCatalogHistory,
+    InvalidClaimCatalog,
+    InvalidClaimCatalogHistory,
+    validate_claim_catalog_history,
+)
 from .freshness import (
     EvidenceFreshnessApplicable,
     EvidenceFreshnessAuthorityReference,
@@ -12,15 +21,6 @@ from .freshness import (
     EvidenceFreshnessUnavailableAuthority,
     InvalidEvidenceFreshness,
     is_evidence_freshness_evaluation,
-)
-from .claims import (
-    ClaimCatalog,
-    ClaimCatalogRevision,
-    ClaimCatalogVersion,
-    ContestedClaimCatalogHistory,
-    InvalidClaimCatalog,
-    InvalidClaimCatalogHistory,
-    validate_claim_catalog_history,
 )
 from .judgments import (
     ClaimId,

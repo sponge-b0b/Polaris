@@ -18,7 +18,6 @@ from .bindings import (
     EvidenceBindingObservationReferenceConflict,
     EvidenceBindingService,
 )
-from .freshness import evaluate_binding_freshness
 from .claims import (
     ClaimCatalogMembershipResolver,
     ClaimCatalogReadUnavailable,
@@ -57,6 +56,7 @@ from .contracts import (
     EvidenceSuccessionConflict,
     RecordEvidenceObservationCommand,
 )
+from .freshness import evaluate_binding_freshness
 from .observations import EvidenceObservationService
 from .requirements import (
     ContestedEvidenceRequirementAuthority,
@@ -66,8 +66,8 @@ from .requirements import (
     EvidenceRequirementResolution,
     EvidenceRequirementResolver,
     EvidenceRequirementStore,
-    EvidenceRequirementVersionResolver,
     EvidenceRequirementStoreUnavailable,
+    EvidenceRequirementVersionResolver,
     EvidenceRequirementVersionAppended,
     EvidenceRequirementVersionConflict,
     InvalidEvidenceRequirementAuthority,

@@ -15,7 +15,7 @@ from polaris.application.evidence import (
     UnavailableEvidenceRequirementAuthority,
     evaluate_binding_freshness,
 )
-from polaris.domain.evidence import (
+from polaris.domain.evidence.freshness import (
     EvidenceFreshnessApplicable,
     EvidenceFreshnessBasisReference,
     EvidenceFreshnessContestedAuthority,
@@ -24,8 +24,8 @@ from polaris.domain.evidence import (
     EvidenceFreshnessNotApplicable,
     EvidenceFreshnessResult,
     EvidenceFreshnessUnavailableAuthority,
-    EvidenceUse,
 )
+from polaris.domain.evidence.judgments import EvidenceUse
 from tests.configuration_support import (
     EFFECTIVE_AT,
     RECORDED_AT,

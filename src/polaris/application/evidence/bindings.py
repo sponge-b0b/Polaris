@@ -6,6 +6,8 @@ from uuid import UUID, uuid4
 
 from polaris.domain.decisions import OperationId
 from polaris.domain.evidence.bindings import EvidenceBinding
+from polaris.domain.evidence.claims import ClaimCatalogVersion
+from polaris.domain.evidence.judgments import ClaimSpecificEvidenceScope
 from polaris.domain.evidence.observations import EvidenceBindingId
 
 from .binding_contracts import (
@@ -20,6 +22,13 @@ from .binding_contracts import (
     EvidenceBindingStore,
     EvidenceBindingUnavailable,
     RecordEvidenceBindingCommand,
+)
+from .claims import (
+    ClaimCatalogMembershipResolver,
+    ClaimMembershipFailure,
+    InvalidClaimReference,
+    ResolvedClaimMembership,
+    UnavailableClaimCatalog,
 )
 from .contracts import (
     EvidenceApplicationError,
@@ -37,6 +46,18 @@ class EvidenceBindingObservationReferenceConflict(EvidenceApplicationError):
         self.observation_id = observation_id
 
 
+class EvidenceBindingClaimMembershipRejected(EvidenceApplicationError):
+    def __init__(self, resolution: ClaimMembershipFailure) -> None:
+        super().__init__(f"Evidence claim membership was rejected: {resolution!r}")
+        self.resolution = resolution
+
+
+class EvidenceBindingClaimCatalogUnavailable(EvidenceApplicationError):
+    def __init__(self, resolution: UnavailableClaimCatalog) -> None:
+        super().__init__(resolution.reason)
+        self.resolution = resolution
+
+
 class EvidenceBindingService:
     def __init__(
         self,
@@ -44,10 +65,12 @@ class EvidenceBindingService:
         store: EvidenceBindingStore,
         now: Callable[[], datetime],
         new_uuid: Callable[[], UUID] = uuid4,
+        claim_catalog: ClaimCatalogMembershipResolver | None = None,
     ) -> None:
         self._store = store
         self._now = now
         self._new_uuid = new_uuid
+        self._claim_catalog = claim_catalog
 
     async def record(
         self,
@@ -60,6 +83,7 @@ class EvidenceBindingService:
 
         committed_at = self._now()
         require_aware_recording_time(committed_at)
+        await self._validate_claim_membership(command, known_at=committed_at)
         binding = EvidenceBinding(
             binding_id=EvidenceBindingId(self._new_uuid()),
             observation_id=command.observation_id,
@@ -94,6 +118,42 @@ class EvidenceBindingService:
         if isinstance(outcome, EvidenceBindingUnavailable):
             raise EvidencePersistenceUnavailable(outcome.reason)
         raise AssertionError("EvidenceBindingStore returned an unsupported outcome")
+
+    async def _validate_claim_membership(
+        self,
+        command: RecordEvidenceBindingCommand,
+        *,
+        known_at: datetime,
+    ) -> None:
+        scope = command.scope
+        if type(scope) is not ClaimSpecificEvidenceScope:
+            return
+        if self._claim_catalog is None:
+            raise EvidenceBindingClaimCatalogUnavailable(
+                UnavailableClaimCatalog(
+                    command.target,
+                    "target-owned claim catalog resolver is unavailable",
+                )
+            )
+        resolution = await self._claim_catalog.resolve(
+            command.target,
+            scope.claim_id,
+            effective_at=command.effective_at,
+            known_at=known_at,
+        )
+        if isinstance(resolution, ResolvedClaimMembership):
+            if (
+                resolution.target != command.target
+                or resolution.claim_id != scope.claim_id
+                or type(resolution.catalog_version) is not ClaimCatalogVersion
+            ):
+                raise EvidenceBindingClaimMembershipRejected(
+                    InvalidClaimReference(command.target, scope.claim_id)
+                )
+            return
+        if isinstance(resolution, UnavailableClaimCatalog):
+            raise EvidenceBindingClaimCatalogUnavailable(resolution)
+        raise EvidenceBindingClaimMembershipRejected(resolution)
 
     async def _read_receipt(
         self, operation_id: OperationId

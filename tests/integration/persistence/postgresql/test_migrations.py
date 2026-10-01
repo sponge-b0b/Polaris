@@ -211,6 +211,9 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
         }
         & relationship_columns
     )
+    assert "claim_id" in asyncio.run(
+        _column_names(postgres_target, "evidence_bindings")
+    )
 
 
 def test_binding_migration_preserves_canonical_constraint_names(

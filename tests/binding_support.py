@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from polaris.application.evidence import (
+    ClaimCatalogMembershipResolver,
     EvidenceBindingService,
     EvidenceBindingStore,
     RecordEvidenceBindingCommand,
@@ -22,6 +23,7 @@ from polaris.domain.evidence.bindings import (
     EvidenceRole,
 )
 from polaris.domain.evidence.judgments import (
+    EvidenceScope,
     EvidenceUse,
     InvestmentRecommendationRef,
     JudgmentWideEvidenceScope,
@@ -53,12 +55,13 @@ def binding_command(
     target_id: UUID = TARGET_ID,
     with_freshness: bool = False,
     qualification: str | None = "decision-grade source",
+    scope: EvidenceScope | None = None,
 ) -> RecordEvidenceBindingCommand:
     return RecordEvidenceBindingCommand(
         operation_id=OperationId(operation_id),
         observation_id=EvidenceObservationId(OBSERVATION_ID),
         target=InvestmentRecommendationRef(target_id),
-        scope=JudgmentWideEvidenceScope(),
+        scope=scope or JudgmentWideEvidenceScope(),
         evidence_use=EvidenceUse.JUDGMENT_BASIS,
         role=role,
         availability=availability,
@@ -93,10 +96,12 @@ def binding_command(
 def binding_service(
     store: EvidenceBindingStore,
     *identities: UUID,
+    claim_catalog: ClaimCatalogMembershipResolver | None = None,
 ) -> EvidenceBindingService:
     values = iter(identities)
     return EvidenceBindingService(
         store=store,
         now=lambda: BINDING_RECORDED_AT,
         new_uuid=lambda: next(values),
+        claim_catalog=claim_catalog,
     )

@@ -22,11 +22,16 @@ from polaris.domain.evidence.bindings import (
     EvidenceRole,
 )
 from polaris.domain.evidence.judgments import (
+    ClaimId,
+    ClaimSpecificEvidenceScope,
     EvidenceJudgmentFamily,
+    EvidenceScope,
+    EvidenceScopeKind,
     EvidenceUse,
     JudgmentWideEvidenceScope,
     evidence_judgment_family,
     evidence_judgment_ref,
+    evidence_scope_kind,
 )
 from polaris.domain.evidence.observations import (
     EvidenceBindingId,
@@ -52,7 +57,7 @@ def binding_request_payload(request: EvidenceBindingSemanticRequest) -> JsonObje
             "family": evidence_judgment_family(request.target).value,
             "id": str(request.target.value),
         },
-        "scope": "judgment_wide",
+        "scope": _scope_payload(request.scope),
         "evidence_use": request.evidence_use.value,
         "role": request.role.value,
         "availability": request.availability.value,
@@ -86,7 +91,12 @@ def binding_values(binding: EvidenceBinding) -> dict[str, object]:
         "observation_id": binding.observation_id.value,
         "target_family": evidence_judgment_family(binding.target).value,
         "target_id": binding.target.value,
-        "scope_kind": "judgment_wide",
+        "scope_kind": evidence_scope_kind(binding.scope).value,
+        "claim_id": (
+            binding.scope.claim_id.value
+            if type(binding.scope) is ClaimSpecificEvidenceScope
+            else None
+        ),
         "evidence_use": binding.evidence_use.value,
         "role": binding.role.value,
         "availability": binding.availability.value,
@@ -126,7 +136,7 @@ def binding_from_row(row: RowMapping) -> EvidenceBinding:
             ),
             uuid_value(row["target_id"], "target_id"),
         ),
-        scope=JudgmentWideEvidenceScope(),
+        scope=_scope_from_values(row["scope_kind"], row["claim_id"]),
         evidence_use=EvidenceUse(nonempty_string(row["evidence_use"], "evidence_use")),
         role=EvidenceRole(nonempty_string(row["role"], "role")),
         availability=EvidenceAvailability(
@@ -173,9 +183,7 @@ def _request_from_payload(payload: JsonObject) -> EvidenceBindingSemanticRequest
         "material_qualification",
     )
     authority, basis = _freshness_from_payload(freshness)
-    scope = nonempty_string(payload.get("scope"), "scope")
-    if scope != "judgment_wide":
-        raise ValueError("binding receipt scope must be judgment_wide")
+    scope = _scope_from_payload(payload.get("scope"))
     return EvidenceBindingSemanticRequest(
         observation_id=EvidenceObservationId(
             uuid_value(payload.get("observation_id"), "observation_id")
@@ -186,7 +194,7 @@ def _request_from_payload(payload: JsonObject) -> EvidenceBindingSemanticRequest
             ),
             uuid_value(target.get("id"), "target id"),
         ),
-        scope=JudgmentWideEvidenceScope(),
+        scope=scope,
         evidence_use=EvidenceUse(
             nonempty_string(payload.get("evidence_use"), "evidence_use")
         ),
@@ -204,6 +212,31 @@ def _request_from_payload(payload: JsonObject) -> EvidenceBindingSemanticRequest
         freshness_authority=authority,
         freshness_basis=basis,
     )
+
+
+def _scope_payload(scope: EvidenceScope) -> JsonObject:
+    if type(scope) is JudgmentWideEvidenceScope:
+        return {"kind": EvidenceScopeKind.JUDGMENT_WIDE.value, "claim_id": None}
+    if type(scope) is ClaimSpecificEvidenceScope:
+        return {
+            "kind": EvidenceScopeKind.CLAIM_SPECIFIC.value,
+            "claim_id": str(scope.claim_id.value),
+        }
+    raise TypeError("scope must be an EvidenceScope")
+
+
+def _scope_from_payload(value: object) -> EvidenceScope:
+    payload = json_object(value, "scope")
+    return _scope_from_values(payload.get("kind"), payload.get("claim_id"))
+
+
+def _scope_from_values(kind_value: object, claim_value: object) -> EvidenceScope:
+    kind = EvidenceScopeKind(nonempty_string(kind_value, "scope kind"))
+    if kind is EvidenceScopeKind.JUDGMENT_WIDE:
+        if claim_value is not None:
+            raise ValueError("judgment-wide binding scope must not carry claim_id")
+        return JudgmentWideEvidenceScope()
+    return ClaimSpecificEvidenceScope(ClaimId(uuid_value(claim_value, "claim_id")))
 
 
 def _freshness_payload(

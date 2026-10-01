@@ -1,3 +1,12 @@
+from .claims import (
+    ClaimCatalog,
+    ClaimCatalogRevision,
+    ClaimCatalogVersion,
+    ContestedClaimCatalogHistory,
+    InvalidClaimCatalog,
+    InvalidClaimCatalogHistory,
+    validate_claim_catalog_history,
+)
 from .judgments import (
     ClaimId,
     ClaimSpecificEvidenceScope,
@@ -37,8 +46,12 @@ from .observations import (
 )
 
 __all__ = [
+    "ClaimCatalog",
+    "ClaimCatalogRevision",
+    "ClaimCatalogVersion",
     "ClaimId",
     "ClaimSpecificEvidenceScope",
+    "ContestedClaimCatalogHistory",
     "DecisionEvaluationRef",
     "EvidenceBindingId",
     "EvidenceCorrectionId",
@@ -57,6 +70,8 @@ __all__ = [
     "HumanInvestmentDecisionRef",
     "InvalidEvidenceIdentity",
     "InvalidEvidenceObservation",
+    "InvalidClaimCatalog",
+    "InvalidClaimCatalogHistory",
     "InvestmentHypothesisRef",
     "InvestmentRecommendationRef",
     "InvestmentViewRef",
@@ -70,4 +85,5 @@ __all__ = [
     "evidence_judgment_ref",
     "evidence_scope_kind",
     "is_evidence_judgment_ref",
+    "validate_claim_catalog_history",
 ]

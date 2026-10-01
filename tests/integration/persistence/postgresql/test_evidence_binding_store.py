@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+from datetime import datetime
 from uuid import UUID
 
 import pytest
@@ -9,17 +10,25 @@ from sqlalchemy import update
 from sqlalchemy.exc import SQLAlchemyError
 
 from polaris.application.evidence import (
+    ClaimMembershipResolution,
     EvidenceBindingObservationReferenceConflict,
     EvidenceBindingResult,
     EvidenceBindingStore,
     EvidencePersistenceUnavailable,
     EvidenceRequirementVersionAppended,
     RecordEvidenceBindingCommand,
+    ResolvedClaimMembership,
 )
 from polaris.domain.evidence.bindings import (
     EvidenceAvailability,
     EvidenceBinding,
     EvidenceRole,
+)
+from polaris.domain.evidence.claims import ClaimCatalogVersion
+from polaris.domain.evidence.judgments import (
+    ClaimId,
+    ClaimSpecificEvidenceScope,
+    EvidenceJudgmentRef,
 )
 from polaris.domain.evidence.observations import EvidenceBindingId
 from polaris.infrastructure.persistence.postgresql import (
@@ -48,6 +57,21 @@ from tests.evidence_support import (
 )
 
 from .conftest import PostgresTestTarget, postgres_row_counts, postgres_store
+
+CLAIM_ID = UUID("00000000-0000-4000-8000-000000000431")
+
+
+class _ConfirmedClaimResolver:
+    async def resolve(
+        self,
+        target: EvidenceJudgmentRef,
+        claim_id: ClaimId,
+        *,
+        effective_at: datetime,
+        known_at: datetime,
+    ) -> ClaimMembershipResolution:
+        del effective_at, known_at
+        return ResolvedClaimMembership(target, claim_id, ClaimCatalogVersion(1))
 
 
 async def _seed_observation(target: PostgresTestTarget) -> None:
@@ -83,9 +107,11 @@ async def _record_binding(
     command: RecordEvidenceBindingCommand | None = None,
 ) -> EvidenceBindingResult:
     async with postgres_store(target, PostgresEvidenceBindingStore) as (_, store):
-        return await binding_service(store, identity).record(
-            command or binding_command()
-        )
+        return await binding_service(
+            store,
+            identity,
+            claim_catalog=_ConfirmedClaimResolver(),
+        ).record(command or binding_command())
 
 
 async def _record_binding_pair(
@@ -158,6 +184,23 @@ def test_historical_unknown_availability_round_trips_without_material_use(
         assert binding.availability is EvidenceAvailability.UNKNOWN
         assert binding.materially_used is False
         assert binding.effective_at == BINDING_EFFECTIVE_AT
+
+    asyncio.run(scenario())
+
+
+def test_claim_specific_binding_round_trips_with_dependent_identity(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        await _seed_observation(postgres_target)
+        scope = ClaimSpecificEvidenceScope(ClaimId(CLAIM_ID))
+
+        binding = await _record_and_reload_binding(
+            postgres_target,
+            command=binding_command(scope=scope),
+        )
+
+        assert binding.scope == scope
 
     asyncio.run(scenario())
 

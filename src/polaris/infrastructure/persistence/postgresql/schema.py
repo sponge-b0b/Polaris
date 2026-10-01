@@ -488,6 +488,7 @@ evidence_bindings = Table(
     Column("target_family", String(48), nullable=False),
     Column("target_id", UUID(as_uuid=True), nullable=False),
     Column("scope_kind", String(24), nullable=False),
+    Column("claim_id", UUID(as_uuid=True)),
     Column("evidence_use", String(40), nullable=False),
     Column("role", String(24), nullable=False),
     Column("availability", String(16), nullable=False),
@@ -523,7 +524,11 @@ evidence_bindings = Table(
         ")",
         name="target_family",
     ),
-    CheckConstraint("scope_kind = 'judgment_wide'", name="scope_kind"),
+    CheckConstraint(
+        "(scope_kind = 'judgment_wide' AND claim_id IS NULL) OR "
+        "(scope_kind = 'claim_specific' AND claim_id IS NOT NULL)",
+        name="scope_kind",
+    ),
     CheckConstraint(
         "evidence_use IN ("
         "'judgment_basis', 'challenge_basis', 'current_support_check', "

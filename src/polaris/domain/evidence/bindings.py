@@ -11,6 +11,7 @@ from polaris.domain.configuration.evidence_requirements import (
 )
 
 from .judgments import (
+    ClaimSpecificEvidenceScope,
     EvidenceJudgmentRef,
     EvidenceScope,
     EvidenceUse,
@@ -148,14 +149,11 @@ def _validate_binding_endpoints(binding: EvidenceBinding) -> None:
     if not is_evidence_judgment_ref(binding.target):
         raise TypeError("target must be an EvidenceJudgmentRef")
 
-    # Claim-specific scope is already part of the accepted vocabulary, but
-    # admission requires target-owned historical claim validation implemented
-    # by the next ticket. This ticket establishes the judgment-wide root only.
-    if type(binding.scope) is not JudgmentWideEvidenceScope:
-        raise InvalidEvidenceBinding(
-            "binding scope must be judgment-wide until target-owned "
-            "claim validation is available"
-        )
+    if type(binding.scope) not in (
+        JudgmentWideEvidenceScope,
+        ClaimSpecificEvidenceScope,
+    ):
+        raise TypeError("scope must be an EvidenceScope")
     if type(binding.evidence_use) is not EvidenceUse:
         raise TypeError("evidence_use must be EvidenceUse")
 

@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import replace
+from datetime import datetime
+from uuid import UUID
 
 import pytest
 
 from polaris.application.evidence import (
+    ClaimMembershipResolution,
+    EvidenceBindingClaimMembershipRejected,
     EvidenceBindingCommit,
     EvidenceBindingCommitOutcome,
     EvidenceBindingCommitted,
@@ -17,9 +21,19 @@ from polaris.application.evidence import (
     EvidenceBindingResult,
     EvidenceBindingStore,
     EvidenceIdempotencyConflict,
+    InvalidClaimReference,
+    RecordEvidenceBindingCommand,
+    ResolvedClaimMembership,
 )
 from polaris.domain.decisions import OperationId
 from polaris.domain.evidence.bindings import EvidenceBinding
+from polaris.domain.evidence.claims import ClaimCatalogVersion
+from polaris.domain.evidence.judgments import (
+    ClaimId,
+    ClaimSpecificEvidenceScope,
+    EvidenceJudgmentRef,
+    InvestmentRecommendationRef,
+)
 from polaris.domain.evidence.observations import (
     EvidenceBindingId,
     EvidenceObservationId,
@@ -33,6 +47,52 @@ from tests.binding_support import (
     binding_service,
 )
 from tests.evidence_support import OBSERVATION_ID
+
+CLAIM_ID = UUID("00000000-0000-4000-8000-000000000421")
+SECOND_CLAIM_ID = UUID("00000000-0000-4000-8000-000000000422")
+
+
+class _ClaimResolver:
+    def __init__(self, result: ClaimMembershipResolution) -> None:
+        self.result = result
+
+    async def resolve(
+        self,
+        target: EvidenceJudgmentRef,
+        claim_id: ClaimId,
+        *,
+        effective_at: datetime,
+        known_at: datetime,
+    ) -> ClaimMembershipResolution:
+        del target, claim_id, effective_at, known_at
+        return self.result
+
+
+def _claim_command_and_resolver() -> tuple[
+    RecordEvidenceBindingCommand,
+    _ClaimResolver,
+]:
+    command = binding_command(scope=ClaimSpecificEvidenceScope(ClaimId(CLAIM_ID)))
+    return command, _ClaimResolver(
+        ResolvedClaimMembership(
+            command.target,
+            ClaimId(CLAIM_ID),
+            ClaimCatalogVersion(1),
+        )
+    )
+
+
+def _membership_rejection(
+    command: RecordEvidenceBindingCommand,
+    resolver: _ClaimResolver,
+) -> EvidenceBindingClaimMembershipRejected:
+    store = _FakeBindingStore()
+    with pytest.raises(EvidenceBindingClaimMembershipRejected) as raised:
+        asyncio.run(
+            binding_service(store, BINDING_ID, claim_catalog=resolver).record(command)
+        )
+    assert not store.bindings
+    return raised.value
 
 
 class _FakeBindingStore(EvidenceBindingStore):
@@ -166,3 +226,70 @@ def test_missing_observation_fails_with_typed_reference_conflict() -> None:
         asyncio.run(binding_service(store, BINDING_ID).record(binding_command()))
 
     assert raised.value.observation_id == EvidenceObservationId(OBSERVATION_ID)
+
+
+def test_claim_specific_binding_requires_confirmed_membership() -> None:
+    command, resolver = _claim_command_and_resolver()
+    store = _FakeBindingStore()
+
+    result = asyncio.run(
+        binding_service(store, BINDING_ID, claim_catalog=resolver).record(command)
+    )
+
+    assert store.bindings[result.binding_id].scope == command.scope
+
+
+def test_wrong_target_claim_is_rejected_before_binding_commit() -> None:
+    command = binding_command(scope=ClaimSpecificEvidenceScope(ClaimId(CLAIM_ID)))
+    resolver = _ClaimResolver(
+        InvalidClaimReference(
+            InvestmentRecommendationRef(SECOND_TARGET_ID),
+            ClaimId(CLAIM_ID),
+        )
+    )
+    rejection = _membership_rejection(command, resolver)
+
+    assert isinstance(rejection.resolution, InvalidClaimReference)
+
+
+@pytest.mark.parametrize("mismatched_field", ["target", "claim_id"])
+def test_contradictory_positive_membership_is_rejected_before_commit(
+    mismatched_field: str,
+) -> None:
+    command = binding_command(scope=ClaimSpecificEvidenceScope(ClaimId(CLAIM_ID)))
+    resolver = _ClaimResolver(
+        ResolvedClaimMembership(
+            (
+                InvestmentRecommendationRef(SECOND_TARGET_ID)
+                if mismatched_field == "target"
+                else command.target
+            ),
+            (
+                ClaimId(SECOND_CLAIM_ID)
+                if mismatched_field == "claim_id"
+                else ClaimId(CLAIM_ID)
+            ),
+            ClaimCatalogVersion(1),
+        )
+    )
+    rejection = _membership_rejection(command, resolver)
+
+    assert rejection.resolution == InvalidClaimReference(
+        command.target,
+        ClaimId(CLAIM_ID),
+    )
+
+
+def test_exact_retry_does_not_revalidate_a_fixed_historical_endpoint() -> None:
+    command, resolver = _claim_command_and_resolver()
+    service = binding_service(
+        _FakeBindingStore(),
+        BINDING_ID,
+        claim_catalog=resolver,
+    )
+
+    first = asyncio.run(service.record(command))
+    resolver.result = InvalidClaimReference(command.target, ClaimId(CLAIM_ID))
+    replay = asyncio.run(service.record(command))
+
+    assert replay == replace(first, replayed=True)

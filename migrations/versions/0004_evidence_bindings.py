@@ -27,6 +27,7 @@ def upgrade() -> None:
         sa.Column("target_family", sa.String(length=48), nullable=False),
         sa.Column("target_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("scope_kind", sa.String(length=24), nullable=False),
+        sa.Column("claim_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("evidence_use", sa.String(length=40), nullable=False),
         sa.Column("role", sa.String(length=24), nullable=False),
         sa.Column("availability", sa.String(length=16), nullable=False),
@@ -61,7 +62,8 @@ def upgrade() -> None:
         ),
         # arid: enable
         sa.CheckConstraint(
-            "scope_kind = 'judgment_wide'",
+            "(scope_kind = 'judgment_wide' AND claim_id IS NULL) OR "
+            "(scope_kind = 'claim_specific' AND claim_id IS NOT NULL)",
             name=op.f("ck_evidence_bindings_scope_kind"),
         ),
         sa.CheckConstraint(

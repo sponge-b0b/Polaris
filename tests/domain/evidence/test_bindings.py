@@ -143,11 +143,16 @@ def test_material_use_requires_available_judgment_time_evidence() -> None:
     )
 
 
-def test_claim_specific_scope_is_rejected_until_target_catalog_admission_exists() -> (
-    None
-):
-    with pytest.raises(InvalidEvidenceBinding, match="claim validation"):
-        _binding(scope=ClaimSpecificEvidenceScope(ClaimId(uuid4())))
+def test_scope_is_exactly_judgment_wide_or_claim_specific() -> None:
+    claim_id = ClaimId(uuid4())
+
+    assert isinstance(_binding().scope, JudgmentWideEvidenceScope)
+    assert _binding(scope=ClaimSpecificEvidenceScope(claim_id)).scope == (
+        ClaimSpecificEvidenceScope(claim_id)
+    )
+
+    with pytest.raises(TypeError, match="EvidenceScope"):
+        _binding(scope=cast(EvidenceScope, object()))
 
 
 def test_binding_endpoints_are_fixed_and_duplicate_tuples_remain_distinct() -> None:

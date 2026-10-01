@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from uuid import UUID
 
 from sqlalchemy.engine import RowMapping
@@ -297,6 +297,7 @@ def applicability_from_payload(
         instrument_id=instrument_id,
         investment_horizon=investment_horizon,
     )
+
 
 def _definition_from_row(
     row: RowMapping,

@@ -102,17 +102,6 @@ class RequirementResolutionStub:
         return self.result
 
 
-class RequirementVersionStoreStub:
-    def __init__(self, versions: object) -> None:
-        self.versions = tuple(versions)
-
-    async def load_requirement_versions(self):
-        return self.versions
-
-    async def append_requirement_version(self, version):
-        raise AssertionError("not used by requirement-resolution tests")
-
-
 def requirement_version(
     version_id: UUID = ROOT_VERSION_ID,
     *,

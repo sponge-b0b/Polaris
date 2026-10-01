@@ -110,9 +110,6 @@ def upgrade() -> None:
             "material_qualification IS NULL OR btrim(material_qualification) <> ''",
             name=op.f("ck_evidence_bindings_material_qualification_nonempty"),
         ),
-        # duplicate-code: immutable migration snapshots must retain their exact
-        # historical constraint text instead of importing mutable live schema.
-        # arid: disable
         sa.CheckConstraint(
             "freshness_state IN ("
             "'applicable', 'not_applicable', 'missing_authority', "
@@ -125,7 +122,6 @@ def upgrade() -> None:
             "freshness_result IN ('fresh', 'stale', 'indeterminate')",
             name=op.f("ck_evidence_bindings_freshness_result"),
         ),
-        # arid: enable
         sa.CheckConstraint(
             "btrim(freshness_basis_reference) <> ''",
             name=op.f("ck_evidence_bindings_freshness_basis_reference_nonempty"),

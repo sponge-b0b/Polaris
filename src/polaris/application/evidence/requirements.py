@@ -90,6 +90,16 @@ type EvidenceRequirementResolution = (
 )
 
 
+class EvidenceRequirementVersionResolver(Protocol):
+    async def resolve(
+        self,
+        key: EvidenceRequirementApplicabilityKey,
+        *,
+        effective_at: datetime,
+        known_at: datetime,
+    ) -> EvidenceRequirementResolution: ...
+
+
 class EvidenceRequirementResolver:
     def __init__(self, store: EvidenceRequirementStore) -> None:
         self._store = store

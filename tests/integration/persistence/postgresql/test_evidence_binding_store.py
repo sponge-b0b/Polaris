@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+from dataclasses import replace
 from datetime import datetime
 from uuid import UUID
 
@@ -14,6 +15,7 @@ from polaris.application.evidence import (
     EvidenceBindingObservationReferenceConflict,
     EvidenceBindingResult,
     EvidenceBindingStore,
+    EvidenceRequirementResolver,
     EvidencePersistenceUnavailable,
     EvidenceRequirementVersionAppended,
     RecordEvidenceBindingCommand,
@@ -23,6 +25,12 @@ from polaris.domain.evidence.bindings import (
     EvidenceAvailability,
     EvidenceBinding,
     EvidenceRole,
+)
+from polaris.domain.evidence.freshness import (
+    EvidenceFreshnessApplicable,
+    EvidenceFreshnessMissingAuthority,
+    EvidenceFreshnessNotApplicable,
+    EvidenceFreshnessResult,
 )
 from polaris.domain.evidence.claims import ClaimCatalogVersion
 from polaris.domain.evidence.judgments import (
@@ -79,9 +87,9 @@ async def _seed_observation(target: PostgresTestTarget) -> None:
         await evidence_service(store, OBSERVATION_ID).record(evidence_command())
 
 
-async def _seed_requirement(target: PostgresTestTarget) -> None:
+async def _seed_requirement(target: PostgresTestTarget, version=None) -> None:
     async with postgres_store(target, PostgresEvidenceRequirementStore) as (_, store):
-        outcome = await store.append_requirement_version(requirement_version())
+        outcome = await store.append_requirement_version(version or requirement_version())
         assert isinstance(outcome, EvidenceRequirementVersionAppended)
 
 
@@ -106,11 +114,14 @@ async def _record_binding(
     identity: UUID = BINDING_ID,
     command: RecordEvidenceBindingCommand | None = None,
 ) -> EvidenceBindingResult:
-    async with postgres_store(target, PostgresEvidenceBindingStore) as (_, store):
+    async with postgres_store(target, PostgresEvidenceBindingStore) as (engine, store):
         return await binding_service(
             store,
             identity,
             claim_catalog=_ConfirmedClaimResolver(),
+            requirements=EvidenceRequirementResolver(
+                PostgresEvidenceRequirementStore(engine)
+            ),
         ).record(command or binding_command())
 
 
@@ -153,7 +164,7 @@ def test_binding_round_trips_across_restart_with_exact_contract(
 
         binding = await _record_and_reload_binding(
             postgres_target,
-            command=binding_command(with_freshness=True),
+            command=binding_command(),
         )
         assert binding.binding_id == EvidenceBindingId(BINDING_ID)
         assert binding.observation_id.value == OBSERVATION_ID
@@ -162,9 +173,46 @@ def test_binding_round_trips_across_restart_with_exact_contract(
         assert binding.materially_used is True
         assert binding.material_qualification is not None
         assert binding.material_qualification.statement == "decision-grade source"
-        assert binding.freshness_authority is not None
-        assert binding.freshness_basis is not None
-        assert binding.freshness_basis.reference == "observation:market-price:SPY"
+        assert isinstance(binding.freshness, EvidenceFreshnessApplicable)
+        assert binding.freshness.result is EvidenceFreshnessResult.FRESH
+        assert binding.freshness.authority.version_id.value == requirement_version().version_id.value
+        assert binding.freshness.basis.reference == "observation:market-price:SPY"
+        assert binding.freshness.basis.as_of_at == BINDING_EFFECTIVE_AT
+
+    asyncio.run(scenario())
+
+
+def test_missing_requirement_authority_round_trips_as_indeterminate(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        await _seed_observation(postgres_target)
+        binding = await _record_and_reload_binding(
+            postgres_target,
+            command=binding_command(),
+        )
+
+        assert isinstance(binding.freshness, EvidenceFreshnessMissingAuthority)
+        assert binding.freshness.result is EvidenceFreshnessResult.INDETERMINATE
+
+    asyncio.run(scenario())
+
+
+def test_no_freshness_requirement_round_trips_with_resolved_negative_witness(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        await _seed_observation(postgres_target)
+        version = replace(requirement_version(), requirements=())
+        await _seed_requirement(postgres_target, version)
+        binding = await _record_and_reload_binding(
+            postgres_target,
+            command=binding_command(),
+        )
+
+        assert isinstance(binding.freshness, EvidenceFreshnessNotApplicable)
+        assert binding.freshness.witness.set_id == version.set_id
+        assert binding.freshness.witness.version_id == version.version_id
 
     asyncio.run(scenario())
 

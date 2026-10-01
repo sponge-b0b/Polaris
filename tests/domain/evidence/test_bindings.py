@@ -6,20 +6,18 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from polaris.domain.configuration import (
-    EvidenceRequirementId,
-    EvidenceRequirementSetId,
-    EvidenceRequirementSetVersionId,
-)
 from polaris.domain.decisions import InvestmentDecisionId
 from polaris.domain.evidence.bindings import (
     EvidenceAvailability,
     EvidenceBinding,
-    EvidenceFreshnessAuthorityReference,
-    EvidenceFreshnessBasisReference,
     EvidenceMaterialQualification,
     EvidenceRole,
     InvalidEvidenceBinding,
+)
+from polaris.domain.evidence.freshness import (
+    EvidenceFreshnessBasisReference,
+    EvidenceFreshnessEvaluation,
+    EvidenceFreshnessMissingAuthority,
 )
 from polaris.domain.evidence.judgments import (
     ClaimId,
@@ -55,7 +53,7 @@ def _binding(
     availability: EvidenceAvailability = EvidenceAvailability.AVAILABLE,
     materially_used: bool = True,
     scope: EvidenceScope | None = None,
-    freshness: bool = False,
+    freshness: EvidenceFreshnessEvaluation | None = None,
 ) -> EvidenceBinding:
     return EvidenceBinding(
         binding_id=EvidenceBindingId(binding_id or uuid4()),
@@ -68,19 +66,16 @@ def _binding(
         materially_used=materially_used,
         effective_at=BINDING_EFFECTIVE_AT,
         recorded_at=BINDING_RECORDED_AT,
-        material_qualification=EvidenceMaterialQualification("qualified"),
-        freshness_authority=(
-            EvidenceFreshnessAuthorityReference(
-                EvidenceRequirementSetId(uuid4()),
-                EvidenceRequirementSetVersionId(uuid4()),
-                EvidenceRequirementId(uuid4()),
+        freshness=(
+            freshness
+            or EvidenceFreshnessMissingAuthority(
+                EvidenceFreshnessBasisReference(
+                    "basis:exact",
+                    BINDING_EFFECTIVE_AT,
+                )
             )
-            if freshness
-            else None
         ),
-        freshness_basis=(
-            EvidenceFreshnessBasisReference("basis:exact") if freshness else None
-        ),
+        material_qualification=EvidenceMaterialQualification("qualified"),
     )
 
 
@@ -167,22 +162,10 @@ def test_binding_endpoints_are_fixed_and_duplicate_tuples_remain_distinct() -> N
         first.__setattr__("target", InvestmentRecommendationRef(uuid4()))
 
 
-def test_freshness_authority_and_basis_references_are_atomic() -> None:
-    full = _binding(freshness=True)
-    assert full.freshness_authority is not None
-    assert full.freshness_basis is not None
+def test_binding_requires_typed_freshness_evaluation() -> None:
+    binding = _binding()
 
-    with pytest.raises(InvalidEvidenceBinding, match="present together"):
-        EvidenceBinding(
-            binding_id=EvidenceBindingId(uuid4()),
-            observation_id=EvidenceObservationId(uuid4()),
-            target=InvestmentRecommendationRef(uuid4()),
-            scope=JudgmentWideEvidenceScope(),
-            evidence_use=EvidenceUse.JUDGMENT_BASIS,
-            role=EvidenceRole.SUPPORTING,
-            availability=EvidenceAvailability.AVAILABLE,
-            materially_used=True,
-            effective_at=BINDING_EFFECTIVE_AT,
-            recorded_at=BINDING_RECORDED_AT,
-            freshness_basis=EvidenceFreshnessBasisReference("basis:orphan"),
-        )
+    assert isinstance(binding.freshness, EvidenceFreshnessMissingAuthority)
+
+    with pytest.raises(TypeError, match="EvidenceFreshnessEvaluation"):
+        _binding(freshness=cast(EvidenceFreshnessEvaluation, object()))

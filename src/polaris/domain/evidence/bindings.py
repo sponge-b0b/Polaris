@@ -4,12 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
-from polaris.domain.configuration.evidence_requirements import (
-    EvidenceRequirementId,
-    EvidenceRequirementSetId,
-    EvidenceRequirementSetVersionId,
-)
-
+from .freshness import EvidenceFreshnessEvaluation, is_evidence_freshness_evaluation
 from .judgments import (
     ClaimSpecificEvidenceScope,
     EvidenceJudgmentRef,
@@ -84,42 +79,6 @@ class EvidenceMaterialQualification:
 
 
 @dataclass(frozen=True, slots=True)
-class EvidenceFreshnessAuthorityReference:
-    """Exact Configuration authority used by later freshness evaluation."""
-
-    set_id: EvidenceRequirementSetId
-    version_id: EvidenceRequirementSetVersionId
-    requirement_id: EvidenceRequirementId
-
-    # duplicate-code: this binding-side reference validates an exact external
-    # Configuration identity triple without owning Configuration aggregate rules.
-    # arid: disable
-    def __post_init__(self) -> None:
-        if type(self.set_id) is not EvidenceRequirementSetId:
-            raise TypeError("set_id must be EvidenceRequirementSetId")
-        if type(self.version_id) is not EvidenceRequirementSetVersionId:
-            raise TypeError("version_id must be EvidenceRequirementSetVersionId")
-        if type(self.requirement_id) is not EvidenceRequirementId:
-            raise TypeError("requirement_id must be EvidenceRequirementId")
-
-    # arid: enable
-
-
-@dataclass(frozen=True, slots=True)
-class EvidenceFreshnessBasisReference:
-    """Opaque durable handle to the exact basis used by freshness evaluation."""
-
-    reference: str
-
-    def __post_init__(self) -> None:
-        object.__setattr__(
-            self,
-            "reference",
-            _text(self.reference, "EvidenceFreshnessBasisReference.reference"),
-        )
-
-
-@dataclass(frozen=True, slots=True)
 class EvidenceBinding:
     binding_id: EvidenceBindingId
     observation_id: EvidenceObservationId
@@ -131,9 +90,8 @@ class EvidenceBinding:
     materially_used: bool
     effective_at: datetime
     recorded_at: datetime
+    freshness: EvidenceFreshnessEvaluation
     material_qualification: EvidenceMaterialQualification | None = None
-    freshness_authority: EvidenceFreshnessAuthorityReference | None = None
-    freshness_basis: EvidenceFreshnessBasisReference | None = None
 
     def __post_init__(self) -> None:
         _validate_binding_endpoints(self)
@@ -186,33 +144,13 @@ def _validate_binding_optional_metadata(binding: EvidenceBinding) -> None:
         raise TypeError(
             "material_qualification must be EvidenceMaterialQualification or None"
         )
-    freshness_authority = binding.freshness_authority
-    if (
-        freshness_authority is not None
-        and type(freshness_authority) is not EvidenceFreshnessAuthorityReference
-    ):
-        raise TypeError(
-            "freshness_authority must be "
-            + "EvidenceFreshnessAuthorityReference or None"
-        )
-    if (
-        binding.freshness_basis is not None
-        and type(binding.freshness_basis) is not EvidenceFreshnessBasisReference
-    ):
-        raise TypeError(
-            "freshness_basis must be EvidenceFreshnessBasisReference or None"
-        )
-    if (binding.freshness_authority is None) != (binding.freshness_basis is None):
-        raise InvalidEvidenceBinding(
-            "freshness authority and basis references must be present together"
-        )
+    if not is_evidence_freshness_evaluation(binding.freshness):
+        raise TypeError("freshness must be an EvidenceFreshnessEvaluation")
 
 
 __all__ = [
     "EvidenceAvailability",
     "EvidenceBinding",
-    "EvidenceFreshnessAuthorityReference",
-    "EvidenceFreshnessBasisReference",
     "EvidenceMaterialQualification",
     "EvidenceRole",
     "InvalidEvidenceBinding",

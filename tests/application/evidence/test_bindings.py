@@ -21,9 +21,11 @@ from polaris.application.evidence import (
     EvidenceBindingResult,
     EvidenceBindingStore,
     EvidenceIdempotencyConflict,
+    MissingEvidenceRequirementAuthority,
     InvalidClaimReference,
     RecordEvidenceBindingCommand,
     ResolvedClaimMembership,
+    ResolvedEvidenceRequirementVersion,
 )
 from polaris.domain.decisions import OperationId
 from polaris.domain.evidence.bindings import EvidenceBinding
@@ -46,10 +48,28 @@ from tests.binding_support import (
     binding_command,
     binding_service,
 )
+from tests.configuration_support import requirement_version
 from tests.evidence_support import OBSERVATION_ID
 
 CLAIM_ID = UUID("00000000-0000-4000-8000-000000000421")
 SECOND_CLAIM_ID = UUID("00000000-0000-4000-8000-000000000422")
+
+
+class _RequirementResolver:
+    def __init__(self, result) -> None:
+        self.result = result
+        self.calls = 0
+
+    async def resolve(
+        self,
+        key,
+        *,
+        effective_at: datetime,
+        known_at: datetime,
+    ):
+        del key, effective_at, known_at
+        self.calls += 1
+        return self.result
 
 
 class _ClaimResolver:
@@ -281,15 +301,24 @@ def test_contradictory_positive_membership_is_rejected_before_commit(
 
 
 def test_exact_retry_does_not_revalidate_a_fixed_historical_endpoint() -> None:
-    command, resolver = _claim_command_and_resolver()
+    command, claim_resolver = _claim_command_and_resolver()
+    requirement_resolver = _RequirementResolver(
+        ResolvedEvidenceRequirementVersion(requirement_version())
+    )
+    store = _FakeBindingStore()
     service = binding_service(
-        _FakeBindingStore(),
+        store,
         BINDING_ID,
-        claim_catalog=resolver,
+        claim_catalog=claim_resolver,
+        requirements=requirement_resolver,
     )
 
     first = asyncio.run(service.record(command))
-    resolver.result = InvalidClaimReference(command.target, ClaimId(CLAIM_ID))
+    committed_freshness = store.bindings[first.binding_id].freshness
+    claim_resolver.result = InvalidClaimReference(command.target, ClaimId(CLAIM_ID))
+    requirement_resolver.result = MissingEvidenceRequirementAuthority()
     replay = asyncio.run(service.record(command))
 
     assert replay == replace(first, replayed=True)
+    assert requirement_resolver.calls == 1
+    assert store.bindings[first.binding_id].freshness == committed_freshness

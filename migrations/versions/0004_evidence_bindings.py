@@ -35,6 +35,7 @@ def upgrade() -> None:
         sa.Column("effective_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("recorded_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("material_qualification", sa.Text(), nullable=True),
+        sa.Column("freshness_state", sa.String(length=24), nullable=False),
         sa.Column("freshness_set_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column(
             "freshness_version_id",
@@ -46,7 +47,19 @@ def upgrade() -> None:
             postgresql.UUID(as_uuid=True),
             nullable=True,
         ),
-        sa.Column("freshness_basis_reference", sa.Text(), nullable=True),
+        sa.Column("freshness_basis_reference", sa.Text(), nullable=False),
+        sa.Column(
+            "freshness_basis_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+        ),
+        sa.Column("freshness_result", sa.String(length=16), nullable=True),
+        sa.Column("freshness_failure_reason", sa.Text(), nullable=True),
+        sa.Column(
+            "freshness_contested_version_ids",
+            postgresql.ARRAY(postgresql.UUID(as_uuid=True)),
+            nullable=True,
+        ),
         # duplicate-code: immutable migration snapshots must retain their exact
         # historical constraint text instead of importing mutable live schema.
         # arid: disable
@@ -96,26 +109,88 @@ def upgrade() -> None:
         # historical constraint text instead of importing mutable live schema.
         # arid: disable
         sa.CheckConstraint(
-            "("
-            "freshness_set_id IS NULL AND freshness_version_id IS NULL AND "
-            "freshness_requirement_id IS NULL AND freshness_basis_reference IS NULL"
-            ") OR ("
-            "freshness_set_id IS NOT NULL AND freshness_version_id IS NOT NULL AND "
-            "freshness_requirement_id IS NOT NULL AND "
-            "freshness_basis_reference IS NOT NULL"
+            "freshness_state IN ("
+            "'applicable', 'not_applicable', 'missing_authority', "
+            "'unavailable_authority', 'contested_authority', 'invalid_authority'"
             ")",
-            name=op.f("ck_evidence_bindings_freshness_reference_complete"),
+            name=op.f("ck_evidence_bindings_freshness_state"),
+        ),
+        sa.CheckConstraint(
+            "freshness_result IS NULL OR "
+            "freshness_result IN ('fresh', 'stale', 'indeterminate')",
+            name=op.f("ck_evidence_bindings_freshness_result"),
         ),
         # arid: enable
         sa.CheckConstraint(
-            "freshness_basis_reference IS NULL OR "
             "btrim(freshness_basis_reference) <> ''",
             name=op.f("ck_evidence_bindings_freshness_basis_reference_nonempty"),
         ),
+        sa.CheckConstraint(
+            "freshness_failure_reason IS NULL OR "
+            "btrim(freshness_failure_reason) <> ''",
+            name=op.f("ck_evidence_bindings_freshness_failure_reason_nonempty"),
+        ),
+        # duplicate-code: frozen migration shape must mirror the live binding
+        # contract without importing mutable schema construction.
+        # arid: disable
+        sa.CheckConstraint(
+            "("
+            "freshness_state = 'applicable' AND "
+            "freshness_set_id IS NOT NULL AND freshness_version_id IS NOT NULL AND "
+            "freshness_requirement_id IS NOT NULL AND "
+            "freshness_result IN ('fresh', 'stale', 'indeterminate') AND "
+            "freshness_failure_reason IS NULL AND "
+            "freshness_contested_version_ids IS NULL"
+            ") OR ("
+            "freshness_state = 'not_applicable' AND "
+            "freshness_set_id IS NOT NULL AND freshness_version_id IS NOT NULL AND "
+            "freshness_requirement_id IS NULL AND freshness_result IS NULL AND "
+            "freshness_failure_reason IS NULL AND "
+            "freshness_contested_version_ids IS NULL"
+            ") OR ("
+            "freshness_state = 'missing_authority' AND "
+            "freshness_set_id IS NULL AND freshness_version_id IS NULL AND "
+            "freshness_requirement_id IS NULL AND "
+            "freshness_result = 'indeterminate' AND "
+            "freshness_failure_reason IS NULL AND "
+            "freshness_contested_version_ids IS NULL"
+            ") OR ("
+            "freshness_state = 'unavailable_authority' AND "
+            "freshness_set_id IS NULL AND freshness_version_id IS NULL AND "
+            "freshness_requirement_id IS NULL AND "
+            "freshness_result = 'indeterminate' AND "
+            "freshness_failure_reason IS NOT NULL AND "
+            "freshness_contested_version_ids IS NULL"
+            ") OR ("
+            "freshness_state = 'contested_authority' AND "
+            "freshness_set_id IS NULL AND freshness_version_id IS NULL AND "
+            "freshness_requirement_id IS NULL AND "
+            "freshness_result = 'indeterminate' AND "
+            "freshness_failure_reason IS NULL AND "
+            "cardinality(freshness_contested_version_ids) > 1"
+            ") OR ("
+            "freshness_state = 'invalid_authority' AND "
+            "freshness_set_id IS NULL AND freshness_version_id IS NULL AND "
+            "freshness_requirement_id IS NULL AND freshness_result IS NULL AND "
+            "freshness_failure_reason IS NOT NULL AND "
+            "freshness_contested_version_ids IS NULL"
+            ")",
+            name=op.f("ck_evidence_bindings_freshness_shape"),
+        ),
+        # arid: enable
         sa.ForeignKeyConstraint(
             ["observation_id"],
             ["evidence_observations.observation_id"],
             name="fk_evidence_binding_observation",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["freshness_set_id", "freshness_version_id"],
+            [
+                "evidence_requirement_set_versions.set_id",
+                "evidence_requirement_set_versions.version_id",
+            ],
+            name="fk_evidence_binding_freshness_version",
             ondelete="RESTRICT",
         ),
         # duplicate-code: migration FK declarations are frozen historical DDL;

@@ -496,10 +496,24 @@ evidence_bindings = Table(
     Column("effective_at", DateTime(timezone=True), nullable=False),
     Column("recorded_at", DateTime(timezone=True), nullable=False),
     Column("material_qualification", Text),
+    Column("freshness_state", String(24), nullable=False),
     Column("freshness_set_id", UUID(as_uuid=True)),
     Column("freshness_version_id", UUID(as_uuid=True)),
     Column("freshness_requirement_id", UUID(as_uuid=True)),
-    Column("freshness_basis_reference", Text),
+    Column("freshness_basis_reference", Text, nullable=False),
+    Column("freshness_basis_at", DateTime(timezone=True), nullable=False),
+    Column("freshness_result", String(16)),
+    Column("freshness_failure_reason", Text),
+    Column("freshness_contested_version_ids", _uuid_array()),
+    ForeignKeyConstraint(
+        ["freshness_set_id", "freshness_version_id"],
+        [
+            "evidence_requirement_set_versions.set_id",
+            "evidence_requirement_set_versions.version_id",
+        ],
+        name="fk_evidence_binding_freshness_version",
+        ondelete="RESTRICT",
+    ),
     ForeignKeyConstraint(
         [
             "freshness_set_id",
@@ -556,18 +570,68 @@ evidence_bindings = Table(
         name="material_qualification_nonempty",
     ),
     CheckConstraint(
-        "("
-        "freshness_set_id IS NULL AND freshness_version_id IS NULL AND "
-        "freshness_requirement_id IS NULL AND freshness_basis_reference IS NULL"
-        ") OR ("
-        "freshness_set_id IS NOT NULL AND freshness_version_id IS NOT NULL AND "
-        "freshness_requirement_id IS NOT NULL AND freshness_basis_reference IS NOT NULL"
+        "freshness_state IN ("
+        "'applicable', 'not_applicable', 'missing_authority', "
+        "'unavailable_authority', 'contested_authority', 'invalid_authority'"
         ")",
-        name="freshness_reference_complete",
+        name="freshness_state",
     ),
     CheckConstraint(
-        "freshness_basis_reference IS NULL OR btrim(freshness_basis_reference) <> ''",
+        "freshness_result IS NULL OR "
+        "freshness_result IN ('fresh', 'stale', 'indeterminate')",
+        name="freshness_result",
+    ),
+    CheckConstraint(
+        "btrim(freshness_basis_reference) <> ''",
         name="freshness_basis_reference_nonempty",
+    ),
+    CheckConstraint(
+        "freshness_failure_reason IS NULL OR btrim(freshness_failure_reason) <> ''",
+        name="freshness_failure_reason_nonempty",
+    ),
+    CheckConstraint(
+        "("
+        "freshness_state = 'applicable' AND "
+        "freshness_set_id IS NOT NULL AND freshness_version_id IS NOT NULL AND "
+        "freshness_requirement_id IS NOT NULL AND "
+        "freshness_result IN ('fresh', 'stale', 'indeterminate') AND "
+        "freshness_failure_reason IS NULL AND "
+        "freshness_contested_version_ids IS NULL"
+        ") OR ("
+        "freshness_state = 'not_applicable' AND "
+        "freshness_set_id IS NOT NULL AND freshness_version_id IS NOT NULL AND "
+        "freshness_requirement_id IS NULL AND freshness_result IS NULL AND "
+        "freshness_failure_reason IS NULL AND "
+        "freshness_contested_version_ids IS NULL"
+        ") OR ("
+        "freshness_state = 'missing_authority' AND "
+        "freshness_set_id IS NULL AND freshness_version_id IS NULL AND "
+        "freshness_requirement_id IS NULL AND "
+        "freshness_result = 'indeterminate' AND "
+        "freshness_failure_reason IS NULL AND "
+        "freshness_contested_version_ids IS NULL"
+        ") OR ("
+        "freshness_state = 'unavailable_authority' AND "
+        "freshness_set_id IS NULL AND freshness_version_id IS NULL AND "
+        "freshness_requirement_id IS NULL AND "
+        "freshness_result = 'indeterminate' AND "
+        "freshness_failure_reason IS NOT NULL AND "
+        "freshness_contested_version_ids IS NULL"
+        ") OR ("
+        "freshness_state = 'contested_authority' AND "
+        "freshness_set_id IS NULL AND freshness_version_id IS NULL AND "
+        "freshness_requirement_id IS NULL AND "
+        "freshness_result = 'indeterminate' AND "
+        "freshness_failure_reason IS NULL AND "
+        "cardinality(freshness_contested_version_ids) > 1"
+        ") OR ("
+        "freshness_state = 'invalid_authority' AND "
+        "freshness_set_id IS NULL AND freshness_version_id IS NULL AND "
+        "freshness_requirement_id IS NULL AND freshness_result IS NULL AND "
+        "freshness_failure_reason IS NOT NULL AND "
+        "freshness_contested_version_ids IS NULL"
+        ")",
+        name="freshness_shape",
     ),
 )
 

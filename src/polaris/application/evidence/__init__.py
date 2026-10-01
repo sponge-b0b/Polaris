@@ -18,6 +18,7 @@ from .bindings import (
     EvidenceBindingObservationReferenceConflict,
     EvidenceBindingService,
 )
+from .freshness import evaluate_binding_freshness
 from .claims import (
     ClaimCatalogMembershipResolver,
     ClaimCatalogReadUnavailable,
@@ -65,6 +66,7 @@ from .requirements import (
     EvidenceRequirementResolution,
     EvidenceRequirementResolver,
     EvidenceRequirementStore,
+    EvidenceRequirementVersionResolver,
     EvidenceRequirementStoreUnavailable,
     EvidenceRequirementVersionAppended,
     EvidenceRequirementVersionConflict,
@@ -129,6 +131,7 @@ __all__ = [
     "EvidenceRequirementReadUnavailable",
     "EvidenceRequirementResolution",
     "EvidenceRequirementResolver",
+    "EvidenceRequirementVersionResolver",
     "EvidenceRequirementStore",
     "EvidenceRequirementStoreUnavailable",
     "EvidenceRequirementVersionAppended",
@@ -141,5 +144,6 @@ __all__ = [
     "ResolvedEvidenceRequirementVersion",
     "UnavailableEvidenceRequirementAuthority",
     "resolve_requirement_version",
+    "evaluate_binding_freshness",
     "resolve_claim_membership",
 ]

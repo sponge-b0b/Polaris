@@ -211,9 +211,17 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
         }
         & relationship_columns
     )
-    assert "claim_id" in asyncio.run(
+    binding_columns = asyncio.run(
         _column_names(postgres_target, "evidence_bindings")
     )
+    assert {
+        "claim_id",
+        "freshness_state",
+        "freshness_basis_at",
+        "freshness_result",
+        "freshness_failure_reason",
+        "freshness_contested_version_ids",
+    } <= binding_columns
 
 
 def test_binding_migration_preserves_canonical_constraint_names(
@@ -230,9 +238,13 @@ def test_binding_migration_preserves_canonical_constraint_names(
         "ck_evidence_bindings_availability",
         "ck_evidence_bindings_material_use_requires_available",
         "ck_evidence_bindings_material_qualification_nonempty",
-        "ck_evidence_bindings_freshness_reference_complete",
+        "ck_evidence_bindings_freshness_state",
+        "ck_evidence_bindings_freshness_result",
         "ck_evidence_bindings_freshness_basis_reference_nonempty",
+        "ck_evidence_bindings_freshness_failure_reason_nonempty",
+        "ck_evidence_bindings_freshness_shape",
         "fk_evidence_binding_observation",
+        "fk_evidence_binding_freshness_version",
         "fk_evidence_binding_freshness_requirement",
         "pk_evidence_bindings",
         "uq_evidence_bindings_binding_id",

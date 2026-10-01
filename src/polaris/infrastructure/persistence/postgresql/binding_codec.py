@@ -16,10 +16,21 @@ from polaris.domain.decisions import OperationId
 from polaris.domain.evidence.bindings import (
     EvidenceAvailability,
     EvidenceBinding,
-    EvidenceFreshnessAuthorityReference,
-    EvidenceFreshnessBasisReference,
     EvidenceMaterialQualification,
     EvidenceRole,
+)
+from polaris.domain.evidence.freshness import (
+    EvidenceFreshnessApplicable,
+    EvidenceFreshnessAuthorityReference,
+    EvidenceFreshnessBasisReference,
+    EvidenceFreshnessContestedAuthority,
+    EvidenceFreshnessEvaluation,
+    EvidenceFreshnessInvalidAuthority,
+    EvidenceFreshnessMissingAuthority,
+    EvidenceFreshnessNoRequirementWitness,
+    EvidenceFreshnessNotApplicable,
+    EvidenceFreshnessResult,
+    EvidenceFreshnessUnavailableAuthority,
 )
 from polaris.domain.evidence.judgments import (
     ClaimId,
@@ -48,6 +59,10 @@ from .codec_support import (
     optional_nonempty_string,
     uuid_value,
 )
+from .requirement_codec import (
+    applicability_key_from_payload,
+    applicability_key_payload,
+)
 
 
 def binding_request_payload(request: EvidenceBindingSemanticRequest) -> JsonObject:
@@ -68,10 +83,8 @@ def binding_request_payload(request: EvidenceBindingSemanticRequest) -> JsonObje
             if request.material_qualification is not None
             else None
         ),
-        "freshness": _freshness_payload(
-            request.freshness_authority,
-            request.freshness_basis,
-        ),
+        "requirement_key": applicability_key_payload(request.requirement_key),
+        "freshness_basis": _basis_payload(request.freshness_basis),
     }
 
 
@@ -84,8 +97,6 @@ def binding_result_payload(result: EvidenceBindingResult) -> JsonObject:
 
 
 def binding_values(binding: EvidenceBinding) -> dict[str, object]:
-    authority = binding.freshness_authority
-    basis = binding.freshness_basis
     return {
         "binding_id": binding.binding_id.value,
         "observation_id": binding.observation_id.value,
@@ -108,23 +119,11 @@ def binding_values(binding: EvidenceBinding) -> dict[str, object]:
             if binding.material_qualification is not None
             else None
         ),
-        "freshness_set_id": authority.set_id.value if authority is not None else None,
-        "freshness_version_id": (
-            authority.version_id.value if authority is not None else None
-        ),
-        "freshness_requirement_id": (
-            authority.requirement_id.value if authority is not None else None
-        ),
-        "freshness_basis_reference": basis.reference if basis is not None else None,
+        **_freshness_values(binding.freshness),
     }
 
 
 def binding_from_row(row: RowMapping) -> EvidenceBinding:
-    authority = _freshness_authority_from_row(row)
-    basis_reference = optional_nonempty_string(
-        row["freshness_basis_reference"],
-        "freshness_basis_reference",
-    )
     return EvidenceBinding(
         binding_id=EvidenceBindingId(uuid_value(row["binding_id"], "binding_id")),
         observation_id=EvidenceObservationId(
@@ -145,17 +144,12 @@ def binding_from_row(row: RowMapping) -> EvidenceBinding:
         materially_used=_bool(row["materially_used"], "materially_used"),
         effective_at=aware_datetime(row["effective_at"], "effective_at"),
         recorded_at=aware_datetime(row["recorded_at"], "recorded_at"),
+        freshness=_freshness_from_row(row),
         material_qualification=(
             EvidenceMaterialQualification(
                 nonempty_string(row["material_qualification"], "material_qualification")
             )
             if row["material_qualification"] is not None
-            else None
-        ),
-        freshness_authority=authority,
-        freshness_basis=(
-            EvidenceFreshnessBasisReference(basis_reference)
-            if basis_reference is not None
             else None
         ),
     )
@@ -177,12 +171,10 @@ def binding_receipt_from_row(row: RowMapping) -> EvidenceBindingReceipt:
 
 def _request_from_payload(payload: JsonObject) -> EvidenceBindingSemanticRequest:
     target = json_object(payload.get("target"), "target")
-    freshness = payload.get("freshness")
     qualification = optional_nonempty_string(
         payload.get("material_qualification"),
         "material_qualification",
     )
-    authority, basis = _freshness_from_payload(freshness)
     scope = _scope_from_payload(payload.get("scope"))
     return EvidenceBindingSemanticRequest(
         observation_id=EvidenceObservationId(
@@ -209,8 +201,12 @@ def _request_from_payload(payload: JsonObject) -> EvidenceBindingSemanticRequest
             if qualification is not None
             else None
         ),
-        freshness_authority=authority,
-        freshness_basis=basis,
+        requirement_key=applicability_key_from_payload(
+            json_object(payload.get("requirement_key"), "requirement_key")
+        ),
+        freshness_basis=_basis_from_payload(
+            json_object(payload.get("freshness_basis"), "freshness_basis")
+        ),
     )
 
 
@@ -239,70 +235,152 @@ def _scope_from_values(kind_value: object, claim_value: object) -> EvidenceScope
     return ClaimSpecificEvidenceScope(ClaimId(uuid_value(claim_value, "claim_id")))
 
 
-def _freshness_payload(
-    authority: EvidenceFreshnessAuthorityReference | None,
-    basis: EvidenceFreshnessBasisReference | None,
-) -> JsonObject | None:
-    if authority is None and basis is None:
-        return None
-    if authority is None or basis is None:
-        raise ValueError("freshness authority and basis must be complete")
+def _basis_payload(basis: EvidenceFreshnessBasisReference) -> JsonObject:
     return {
-        "set_id": str(authority.set_id.value),
-        "version_id": str(authority.version_id.value),
-        "requirement_id": str(authority.requirement_id.value),
-        "basis_reference": basis.reference,
+        "reference": basis.reference,
+        "as_of_at": basis.as_of_at.isoformat(),
     }
 
 
-def _freshness_from_payload(
-    value: object,
-) -> tuple[
-    EvidenceFreshnessAuthorityReference | None,
-    EvidenceFreshnessBasisReference | None,
-]:
-    if value is None:
-        return None, None
-    payload = json_object(value, "freshness")
-    return (
-        EvidenceFreshnessAuthorityReference(
-            set_id=EvidenceRequirementSetId(
-                uuid_value(payload.get("set_id"), "freshness set_id")
-            ),
-            version_id=EvidenceRequirementSetVersionId(
-                uuid_value(payload.get("version_id"), "freshness version_id")
-            ),
-            requirement_id=EvidenceRequirementId(
-                uuid_value(payload.get("requirement_id"), "freshness requirement_id")
-            ),
-        ),
-        EvidenceFreshnessBasisReference(
-            nonempty_string(payload.get("basis_reference"), "freshness basis_reference")
-        ),
+def _basis_from_payload(payload: JsonObject) -> EvidenceFreshnessBasisReference:
+    return EvidenceFreshnessBasisReference(
+        nonempty_string(payload.get("reference"), "freshness basis reference"),
+        iso_aware_datetime(payload.get("as_of_at"), "freshness basis as_of_at"),
     )
 
 
-def _freshness_authority_from_row(
-    row: RowMapping,
-) -> EvidenceFreshnessAuthorityReference | None:
-    values = (
-        row["freshness_set_id"],
-        row["freshness_version_id"],
-        row["freshness_requirement_id"],
+def _freshness_values(freshness: EvidenceFreshnessEvaluation) -> dict[str, object]:
+    state: str
+    set_id = None
+    version_id = None
+    requirement_id = None
+    result = None
+    failure_reason = None
+    contested_version_ids = None
+
+    if isinstance(freshness, EvidenceFreshnessApplicable):
+        state = "applicable"
+        set_id = freshness.authority.set_id.value
+        version_id = freshness.authority.version_id.value
+        requirement_id = freshness.authority.requirement_id.value
+        result = freshness.result.value
+        basis = freshness.basis
+    elif isinstance(freshness, EvidenceFreshnessNotApplicable):
+        state = "not_applicable"
+        set_id = freshness.witness.set_id.value
+        version_id = freshness.witness.version_id.value
+        basis = freshness.basis
+    elif isinstance(freshness, EvidenceFreshnessMissingAuthority):
+        state = "missing_authority"
+        result = freshness.result.value
+        basis = freshness.basis
+    elif isinstance(freshness, EvidenceFreshnessUnavailableAuthority):
+        state = "unavailable_authority"
+        result = freshness.result.value
+        failure_reason = freshness.reason
+        basis = freshness.basis
+    elif isinstance(freshness, EvidenceFreshnessContestedAuthority):
+        state = "contested_authority"
+        result = freshness.result.value
+        contested_version_ids = sorted(
+            (version_id.value for version_id in freshness.version_ids),
+            key=str,
+        )
+        basis = freshness.basis
+    elif isinstance(freshness, EvidenceFreshnessInvalidAuthority):
+        state = "invalid_authority"
+        failure_reason = freshness.reason
+        basis = freshness.basis
+    else:
+        raise TypeError("freshness must be a supported Evidence freshness evaluation")
+
+    return {
+        "freshness_state": state,
+        "freshness_set_id": set_id,
+        "freshness_version_id": version_id,
+        "freshness_requirement_id": requirement_id,
+        "freshness_basis_reference": basis.reference,
+        "freshness_basis_at": basis.as_of_at,
+        "freshness_result": result,
+        "freshness_failure_reason": failure_reason,
+        "freshness_contested_version_ids": contested_version_ids,
+    }
+
+
+def _freshness_from_row(row: RowMapping) -> EvidenceFreshnessEvaluation:
+    state = nonempty_string(row["freshness_state"], "freshness_state")
+    basis = EvidenceFreshnessBasisReference(
+        nonempty_string(row["freshness_basis_reference"], "freshness_basis_reference"),
+        aware_datetime(row["freshness_basis_at"], "freshness_basis_at"),
     )
-    if all(value is None for value in values):
-        return None
-    if any(value is None for value in values):
-        raise ValueError("persisted freshness authority reference is incomplete")
-    return EvidenceFreshnessAuthorityReference(
-        set_id=EvidenceRequirementSetId(uuid_value(values[0], "freshness_set_id")),
-        version_id=EvidenceRequirementSetVersionId(
-            uuid_value(values[1], "freshness_version_id")
-        ),
-        requirement_id=EvidenceRequirementId(
-            uuid_value(values[2], "freshness_requirement_id")
-        ),
+    result_value = row["freshness_result"]
+    result = (
+        EvidenceFreshnessResult(nonempty_string(result_value, "freshness_result"))
+        if result_value is not None
+        else None
     )
+    set_value = row["freshness_set_id"]
+    version_value = row["freshness_version_id"]
+    requirement_value = row["freshness_requirement_id"]
+    reason = optional_nonempty_string(
+        row["freshness_failure_reason"],
+        "freshness_failure_reason",
+    )
+    contested = row["freshness_contested_version_ids"]
+
+    if state == "applicable":
+        if set_value is None or version_value is None or requirement_value is None:
+            raise ValueError("persisted applicable freshness authority is incomplete")
+        if result is None:
+            raise ValueError("persisted applicable freshness result is missing")
+        return EvidenceFreshnessApplicable(
+            EvidenceFreshnessAuthorityReference(
+                EvidenceRequirementSetId(uuid_value(set_value, "freshness_set_id")),
+                EvidenceRequirementSetVersionId(
+                    uuid_value(version_value, "freshness_version_id")
+                ),
+                EvidenceRequirementId(
+                    uuid_value(requirement_value, "freshness_requirement_id")
+                ),
+            ),
+            basis,
+            result,
+        )
+    if state == "not_applicable":
+        if set_value is None or version_value is None:
+            raise ValueError("persisted no-requirement witness is incomplete")
+        return EvidenceFreshnessNotApplicable(
+            EvidenceFreshnessNoRequirementWitness(
+                EvidenceRequirementSetId(uuid_value(set_value, "freshness_set_id")),
+                EvidenceRequirementSetVersionId(
+                    uuid_value(version_value, "freshness_version_id")
+                ),
+            ),
+            basis,
+        )
+    if state == "missing_authority":
+        return EvidenceFreshnessMissingAuthority(basis)
+    if state == "unavailable_authority":
+        if reason is None:
+            raise ValueError("persisted unavailable authority reason is missing")
+        return EvidenceFreshnessUnavailableAuthority(basis, reason)
+    if state == "contested_authority":
+        if not isinstance(contested, (list, tuple)):
+            raise ValueError("persisted contested version IDs are missing")
+        return EvidenceFreshnessContestedAuthority(
+            basis,
+            frozenset(
+                EvidenceRequirementSetVersionId(
+                    uuid_value(value, "freshness_contested_version_id")
+                )
+                for value in contested
+            ),
+        )
+    if state == "invalid_authority":
+        if reason is None:
+            raise ValueError("persisted invalid authority reason is missing")
+        return EvidenceFreshnessInvalidAuthority(basis, reason)
+    raise ValueError("unsupported persisted freshness state")
 
 
 def _bool(value: object, field: str) -> bool:

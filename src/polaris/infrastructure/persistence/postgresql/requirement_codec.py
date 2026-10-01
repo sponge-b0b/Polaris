@@ -8,6 +8,7 @@ from sqlalchemy.engine import RowMapping
 from polaris.domain.configuration import (
     ConfigurationAuthority,
     EvidenceRequirementApplicabilityAssignment,
+    EvidenceRequirementApplicabilityKey,
     EvidenceRequirementId,
     EvidenceRequirementPredecessor,
     EvidenceRequirementPredecessorEffect,
@@ -22,11 +23,15 @@ from polaris.domain.configuration import (
 )
 from polaris.domain.evidence import (
     ClaimId,
+    ClaimSpecificEvidenceScope,
     EvidenceJudgmentFamily,
     EvidenceScopeKind,
     EvidenceSubjectReference,
     EvidenceUse,
+    JudgmentWideEvidenceScope,
+    evidence_judgment_family,
     evidence_judgment_ref,
+    evidence_scope_kind,
 )
 from polaris.domain.portfolio import FinancialInstrumentId, PortfolioId
 
@@ -170,6 +175,84 @@ def applicability_payload(
             else None
         ),
     }
+
+
+def applicability_key_payload(
+    key: EvidenceRequirementApplicabilityKey,
+) -> JsonObject:
+    subject = key.subject
+    return {
+        "target_family": evidence_judgment_family(key.target).value,
+        "target_id": str(key.target.value),
+        "scope_kind": evidence_scope_kind(key.scope).value,
+        "claim_id": (
+            str(key.scope.claim_id.value)
+            if type(key.scope) is ClaimSpecificEvidenceScope
+            else None
+        ),
+        "evidence_use": key.evidence_use.value,
+        "subject": (
+            {
+                "identity": subject.subject_identity,
+                "reference": subject.subject_reference,
+            }
+            if subject is not None
+            else None
+        ),
+        "portfolio_id": (
+            str(key.portfolio_id.value) if key.portfolio_id is not None else None
+        ),
+        "instrument_id": (
+            str(key.instrument_id.value) if key.instrument_id is not None else None
+        ),
+        "investment_horizon": (
+            key.investment_horizon.value
+            if key.investment_horizon is not None
+            else None
+        ),
+    }
+
+
+def applicability_key_from_payload(payload: JsonObject) -> EvidenceRequirementApplicabilityKey:
+    family = EvidenceJudgmentFamily(
+        _string(payload.get("target_family"), "target_family")
+    )
+    target_id = uuid_value(payload.get("target_id"), "target_id")
+    kind = EvidenceScopeKind(_string(payload.get("scope_kind"), "scope_kind"))
+    claim_id = _optional_uuid(payload.get("claim_id"), "claim_id")
+    if kind is EvidenceScopeKind.JUDGMENT_WIDE:
+        if claim_id is not None:
+            raise ValueError("judgment-wide key must not identify a claim")
+        scope = JudgmentWideEvidenceScope()
+    else:
+        if claim_id is None:
+            raise ValueError("claim-specific key must identify a claim")
+        scope = ClaimSpecificEvidenceScope(ClaimId(claim_id))
+    subject_payload = payload.get("subject")
+    portfolio_id = _optional_uuid(payload.get("portfolio_id"), "portfolio_id")
+    instrument_id = _optional_uuid(payload.get("instrument_id"), "instrument_id")
+    horizon = payload.get("investment_horizon")
+    return EvidenceRequirementApplicabilityKey(
+        target=evidence_judgment_ref(family, target_id),
+        scope=scope,
+        evidence_use=EvidenceUse(
+            _string(payload.get("evidence_use"), "evidence_use")
+        ),
+        subject=(
+            _subject_from_payload(_object(subject_payload, "subject"))
+            if subject_payload is not None
+            else None
+        ),
+        portfolio_id=PortfolioId(portfolio_id) if portfolio_id is not None else None,
+        instrument_id=(
+            FinancialInstrumentId(instrument_id) if instrument_id is not None else None
+        ),
+        investment_horizon=(
+            InvestmentHorizon(_string(horizon, "investment_horizon"))
+            if horizon is not None
+            else None
+        ),
+    )
 
 
 def applicability_from_payload(

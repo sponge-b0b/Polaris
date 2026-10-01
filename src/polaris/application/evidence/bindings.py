@@ -23,6 +23,7 @@ from .binding_contracts import (
     EvidenceBindingUnavailable,
     RecordEvidenceBindingCommand,
 )
+from .freshness import evaluate_binding_freshness
 from .claims import (
     ClaimCatalogMembershipResolver,
     ClaimMembershipFailure,
@@ -30,6 +31,7 @@ from .claims import (
     ResolvedClaimMembership,
     UnavailableClaimCatalog,
 )
+from .requirements import EvidenceRequirementVersionResolver
 from .contracts import (
     EvidenceApplicationError,
     EvidenceCommandReadUnavailable,
@@ -66,11 +68,13 @@ class EvidenceBindingService:
         now: Callable[[], datetime],
         new_uuid: Callable[[], UUID] = uuid4,
         claim_catalog: ClaimCatalogMembershipResolver | None = None,
+        requirements: EvidenceRequirementVersionResolver,
     ) -> None:
         self._store = store
         self._now = now
         self._new_uuid = new_uuid
         self._claim_catalog = claim_catalog
+        self._requirements = requirements
 
     async def record(
         self,
@@ -84,6 +88,13 @@ class EvidenceBindingService:
         committed_at = self._now()
         require_aware_recording_time(committed_at)
         await self._validate_claim_membership(command, known_at=committed_at)
+        freshness = await evaluate_binding_freshness(
+            self._requirements,
+            request.requirement_key,
+            request.freshness_basis,
+            effective_at=command.effective_at,
+            known_at=committed_at,
+        )
         binding = EvidenceBinding(
             binding_id=EvidenceBindingId(self._new_uuid()),
             observation_id=command.observation_id,
@@ -96,8 +107,7 @@ class EvidenceBindingService:
             effective_at=command.effective_at,
             recorded_at=committed_at,
             material_qualification=command.material_qualification,
-            freshness_authority=command.freshness_authority,
-            freshness_basis=command.freshness_basis,
+            freshness=freshness,
         )
         outcome = await self._store.commit_binding(
             EvidenceBindingCommit(

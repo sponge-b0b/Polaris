@@ -163,7 +163,7 @@ Missing private helper structure, local algorithms/data structures with no contr
 
 ### Independent Design Readiness Certification
 
-Before any software Spec is published or amended as implementation-ready, freeze the complete proposed Spec set for this invocation and dispatch exactly one **fresh, non-mutating semantic design-readiness verifier** over:
+Before any software Spec is published or amended as implementation-ready, freeze the complete proposed Spec set for this invocation. Compute one `DESIGN_READINESS_PROPOSAL_ID` as the SHA-256 of the exact frozen design-readiness dispatch packet bytes, including the proposed Spec bodies and intended dependency partition. Dispatch exactly one **fresh, non-mutating semantic design-readiness verifier** over:
 
 * the exact planning source and consumed decision set;
 * the bounded authoritative architecture/design source inventory;
@@ -172,15 +172,18 @@ Before any software Spec is published or amended as implementation-ready, freeze
 
 The verifier independently reconstructs the materially consequential contract universe and attempts to falsify both completeness and every determined / implementation-equivalent / not-applicable disposition. It does not edit the proposal, make missing design decisions, mutate tracker/repository state, or publish Specs.
 
-Return:
+Return exactly one complete semantic result:
 
 ~~~text
 SPEC DESIGN READINESS: PASS | FAIL
+Proposal identity: <DESIGN_READINESS_PROPOSAL_ID>
 Unrepresented material contract candidates: <count + details>
 Unsupported determined/equivalent/not-applicable rows: <count + details>
 Surviving materially-different implementation choices: <count + details>
 Cross-Spec contract/dependency gaps: <count + details>
 ~~~
+
+Apply the repository-wide **Independent Semantic Child Result Admission** rule from `AGENTS.md`. Before consuming the result require the semantic payload to have actually returned, exactly one `SPEC DESIGN READINESS` verdict, the echoed proposal identity to equal `DESIGN_READINESS_PROPOSAL_ID`, and all four required result categories to be present. Pending/ambiguous child state or a missing/malformed/mismatched payload is unresolved, not PASS or FAIL, and cannot authorize publication.
 
 Publication of any affected software Spec requires PASS for the exact frozen proposal. A verifier FAIL returns control to $to-specs for correction or upstream routing; after any semantic proposal change, rerun the parent gate and recertify the exact new proposal. If the fresh verifier context is unavailable, do not substitute same-agent or owner assertion for certification and do not publish the affected software Spec as implementation-ready.
 

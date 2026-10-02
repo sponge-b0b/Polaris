@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-01] R3 Evidence binding freshness | #376 contract realized
+
+Implemented historical Evidence-binding freshness evaluation against the exact Configuration-owned requirement version resolved at `(effective_at, known_at)`. Applicable bindings now preserve exact set/version/requirement identity, basis, and the closed `FRESH | STALE | INDETERMINATE` result; a resolved set with no freshness rule preserves an explicit set/version negative witness; and missing, unavailable, contested, and invalid authority remain distinct through PostgreSQL round trip. Actual historical reconstruction result emission, sufficiency, current-support bases, and atomic command revalidation remain assigned to downstream tickets.
+
 ## [2026-09-30] R3 target-owned claim catalogs | #375 contract realized
 
 Implemented the shared target-owned claim-catalog contract for all ten admitted judgment families without introducing a generic Claim authority or downstream target judgment content. Complete positive catalog versions now preserve explicit claim formation, same-proposition identity continuity, fresh identity for material proposition changes and new roots, retraction without historical erasure, and typed `(effective_at, known_at)` membership outcomes. Evidence binding admission now validates claim-specific scope through the inward cross-owner resolver, exact retry preserves immutable historical endpoints, and PostgreSQL binding storage durably round-trips the dependent `ClaimId`. Broader reconstruction, target-domain judgment implementations, current-support bases, and atomic command revalidation remain with downstream tickets.

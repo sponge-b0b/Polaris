@@ -43,4 +43,4 @@ graphify merge-graphs \
   --out graphify-out/graph.json
 ```
 
-Once `graphify-out/graph.json` exists, the fast path above takes over: any codebase question runs `graphify query` directly on the merged graph — no re-extraction, no size gate.
+Once `graphify-out/graph.json` exists, the fast path applies only after Graphify has been explicitly invoked or selected for a broad corpus question. It never captures ordinary codebase questions merely because the merged graph exists.

@@ -1,6 +1,6 @@
 # graphify reference: query, path, explain
 
-Load this when the user asks a question against an existing graph, or runs `/graphify path` or `/graphify explain`. The core's query stub points here for the full traversal flow. These flows use the `graphify query` CLI when it is available and fall back to an inline NetworkX traversal otherwise.
+Load this only after Graphify has been explicitly invoked or selected by repository routing for a broad corpus question, or when the user runs `/graphify path` or `/graphify explain`. The existence of a graph does not select Graphify for an ordinary codebase question. The core's query stub points here for the full traversal flow. These flows use the `graphify query` CLI when it is available and fall back to an inline NetworkX traversal otherwise.
 
 Two traversal modes - choose based on the question:
 

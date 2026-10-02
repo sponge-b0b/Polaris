@@ -727,7 +727,45 @@ Collect every independent blocker and de-duplicate symptoms of the same question
 
 Do not invoke human-gated `$architecture-remediation` implicitly.
 
-Halt with:
+This transition locally enforces the repository-wide **Fresh-Session Durability Gate** and **Durable architecture-blocker report** contract from `.agents/skills/README.md`. A prose handoff is not legal durable state.
+
+Before emitting the handoff:
+
+1. require at least one current **Architecture Routing Disposition** row with `Disposition: architecture-blocker`;
+2. collect the complete de-duplicated blocker set for this ticket; do not route only the first symptom when several independent unresolved durable choices remain;
+3. resolve the current ticket's `<!-- architecture-blocker:v1 -->` marker to exactly zero or one comment;
+   * more than one marker is ambiguous durable state and is a **Hard Blocker**;
+   * when one marker exists, update that same comment in place rather than creating another;
+4. materialize the report using the canonical schema owned by `.agents/skills/README.md`, with:
+   * `Status: unresolved`;
+   * `Source workflow: $implement-ticket`;
+   * the current ticket as `Source artifact`;
+   * the exact parent Spec;
+   * every independent unresolved question/conflict;
+   * durable evidence sufficient to recover why the blocker exists;
+   * the material consequence;
+   * the exact blocked ticket/Spec acceptance obligation;
+   * the governing ADR/doc/contract/decision authority;
+   * `Disposition: None while unresolved`;
+5. when the blocker originates from a valid `$verify-ticket-closure` result, bind its report evidence to the durable closure checkpoint comment, attempt number, exact candidate state, and the verifier finding(s) that exposed the missing choice; when discovered earlier, bind the strongest equivalent durable source evidence available at that transition;
+6. POST or PATCH the one managed report, then re-read it from the tracker and mechanically require:
+   ```text
+   Architecture blocker marker count: 1
+   Blocker report status: unresolved
+   Source workflow match: yes
+   Source artifact match: yes
+   Parent Spec match: yes
+   Independent blocker set complete: yes
+   Durable evidence/provenance present: yes
+   Blocked obligations present: yes
+   Governing authority present: yes
+   Disposition unresolved: yes
+   ```
+7. if persistence, uniqueness, or readback validation fails, do **not** emit `$architecture-remediation`; stop as a **Hard Blocker** identifying the failed durable-handoff condition.
+
+The report is the fresh-session recovery authority. Surrounding prose may summarize it, but must not carry correctness-critical blocker state that exists nowhere durable.
+
+Only after the persistence gate passes, halt with:
 
 > ⚠️ **Implementation is blocked by unresolved architecture.**
 >
@@ -737,10 +775,12 @@ Halt with:
 > $architecture-remediation - <Current Ticket Title> (<Ticket URL>)
 > ```
 >
+> **Durable blocker report:** <architecture-blocker comment URL>
+>
 > **Architecture blockers:**
 >
 > 1. **<question/conflict>**
->    * Evidence: <concise evidence>
+>    * Evidence: <concise durable evidence>
 >    * Material consequence: <ownership/path/boundary/dependency/lifecycle/source conflict>
 >    * Governing context: <entities / ADRs / docs / Wayfinder decisions>
 
@@ -1284,7 +1324,7 @@ Reason: <why current authority is sufficient or why invention/change is required
 
 Every candidate must be dispositioned. `implementation` requires current authority to determine the durable semantic without invention. `architecture-blocker` requires a concrete unresolved durable choice or authority conflict. A concern may not disappear merely because implementation found a convenient mechanism, and ordinary missing wiring may not be promoted to architecture merely to halt.
 
-These working records need not be copied verbatim into the final human response; they are mandatory transition state that must exist before the corresponding lifecycle transition is legal.
+These working records need not be copied verbatim into the final human response; they are mandatory transition state that must exist before the corresponding lifecycle transition is legal. An `architecture-blocker` disposition is not itself a durable handoff: before `$architecture-remediation` may be presented, the **Architecture Human Handoff Intercept** must project the complete blocker set into the single managed `<!-- architecture-blocker:v1 -->` report and pass its readback gate.
 
 ## Context-Efficient Helper Loading and Candidate-Frozen Final Verification
 

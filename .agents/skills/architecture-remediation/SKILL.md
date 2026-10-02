@@ -350,17 +350,65 @@ Independent remediation may complete or correct architecture required by the exi
 
 If resolving the blocker reveals genuinely new destination scope that should be separately planned, halt and explain that a new planning lifecycle is required. Do not chart that Wayfinder implicitly.
 
-## 5A. Create or Reuse Wayfinder Decision Tickets
+## 5A. Create, Reuse, or Re-enter Wayfinder Decision Tickets
 
 Perform this section only for Wayfinder-managed remediation.
 
-For every blocker still unresolved after the coverage test, inspect the governing map's open child decisions.
+Before creating or selecting decision work, apply the governing `$wayfinder` **Certified Semantic Domain Finality** rules locally. A closed accepted decision is not excluded merely because it is closed: when the blocker is an in-domain falsifier of that decision's certified domain, the same decision/domain remains the mandatory owner.
 
-Reuse an open child only when it represents the same underlying unresolved decision.
+For every coupling group containing an unresolved or partial blocker, materialize one finality reconciliation:
 
-Otherwise create exactly one child decision under the existing governing map using repository Wayfinding operations.
+```text
+Coupling group: <CG-n>
+Blocker(s): <AB IDs>
+Exact governing authority: <sources>
+Applicable certified decision domain: <stable ID | None>
+Prior authority identity: <identity | None>
+Current authority identity: <identity>
+Authority changed: yes | no
+Membership under frozen predicate: in-domain | out-of-domain | ambiguous | no-prior-domain
+Explicit authority contradiction: <None | exact clause/source>
+Map-destination coverage: represented | genuinely-unrepresented | out-of-scope
+Disposition:
+  in-domain-falsifier
+  authority-changed-domain-stale
+  explicit-authority-invalidates-prior-domain
+  genuinely-unrepresented-map-obligation
+  domain-expansion
+  ambiguous
+Decision action: reopen-existing | reuse-open | create-new | attention-only | blocked
+Decision ticket: <#n | None>
+```
 
-Use `wayfinder:grilling` unless the caller established another appropriate Wayfinder ticket type.
+Apply these rules:
+
+* **`in-domain-falsifier` under unchanged authority** → route to the **same certified decision domain**. Never create a sibling decision for the omitted inner contract.
+  * if that decision ticket is open, reuse it;
+  * if it is closed, append one concise durable `## Architecture Remediation Re-entry` record identifying the source blocker/report, coupling group, certified domain, unchanged authority identity, and exact omitted inner contract; reopen that same ticket; re-read it and require state `open`; preserve its accepted historical resolution as authority for unaffected dimensions; update the governing map's durable frontier/route-clarity state as needed so the reopened decision is represented as unresolved work, then re-read the map and require it not to claim route clarity while that decision remains open.
+* **`authority-changed-domain-stale`** or **`explicit-authority-invalidates-prior-domain`** → route to the affected existing decision/domain owner when that owner is recoverable. Reuse it when open or reopen it with the same durable re-entry/readback discipline when closed. Do not create a replacement decision merely because its prior ticket is closed.
+* **`genuinely-unrepresented-map-obligation`** → inspect the governing map's open child decisions. Reuse an open child only when it represents the same underlying unresolved decision; otherwise create exactly one new child under the governing map.
+* **`domain-expansion` under unchanged authority** → Attention only at this boundary. It must not create/reopen decision work or make a previously accepted certified domain incomplete.
+* **`ambiguous`** → fail closed before tracker mutation until domain membership/authority ownership is reconciled.
+* `out-of-scope` destination coverage must not be converted into Wayfinder work merely to keep remediation moving; use the existing scope-boundary rule.
+
+Only after every coupling group has one complete finality reconciliation may decision creation/reuse/re-entry proceed. Before routing the source blocker report or emitting the `$wayfinder` Human Handoff require:
+
+```text
+Wayfinder blocker coupling groups: <n>
+Finality reconciliations: <n>
+Groups without reconciliation: 0
+In-domain falsifiers routed to sibling decisions: 0
+Domain-expansion candidates creating/reopening work: 0
+Ambiguous finality dispositions: 0
+Reopened certified decisions verified open: <n>/<n>
+Reopened decisions absent from governing-map unresolved/frontier state: 0
+Governing maps falsely route-clear with reopened decisions: 0
+Unresolved groups without exactly one open owning decision: 0
+```
+
+Otherwise fail closed and do not mark the source blocker report `routed`.
+
+Use `wayfinder:grilling` for a genuinely new decision unless the caller established another appropriate Wayfinder ticket type.
 
 Use:
 
@@ -489,25 +537,24 @@ After the receipt and all required repository/Spec synchronization are durable, 
 
 For blocker-remediation mode, only after that completed-checkpoint readback succeeds, update the source `architecture-blocker:v1` report to `Status: resolved`, record the receipt URL and controlling authority in `Disposition`, and verify the readback before the `$to-tickets` Human Handoff.
 
-## Mandatory Project Reconciliation
+## Project Delivery and Project Projection Cadence
 
-After every architecture-remediation tracker transition is durable, invoke `$project-tracking` as prescribed internal composition **before** any Human Handoff or ordinary return.
+Authoritative tracker/repository lifecycle state and public GitHub Project projection are separate.
 
-For Wayfinder-managed remediation, first perform the existing required `$project-delivery-management` reconciliation after Wayfinder mutations.
+For Wayfinder-managed remediation, perform the required `$project-delivery-management` `reconcile` after authoritative Wayfinder map/decision mutations. This keeps canonical focus/frontier truth current and may remove invalid focus, but it must never auto-focus, switch, or broaden focus.
 
-Synchronize only formal artifacts whose authoritative lifecycle state this skill actually created, reopened, or changed:
+Do **not** invoke `$project-tracking` merely because this workflow created, reopened, closed, routed, resolved, or otherwise changed an architecture-remediation artifact. The repository-wide **Workflow Project tracking** rule in `AGENTS.md` and the invocation boundary in `$project-tracking` supersede any older automatic-sync wording.
 
-* a governing Wayfinder map reopened or kept active because unresolved architectural decision work now exists → base `Wayfinder Map / Architecture Decision / $wayfinder / Ready`;
-* each newly created or lifecycle-changed open Wayfinder decision → base `Wayfinder Decision / Architecture Decision / $wayfinder / Ready`;
-* an Independent parent Spec successfully amended and architecture-complete but requiring existing ticket reconciliation → base `Spec / Ready to Ticket / $to-tickets / Ready`;
-* a source Implementation Ticket or review artifact only when this skill itself durably records a lifecycle change for that artifact;
-* any additional formal artifact whose lifecycle state this skill durably changes.
+Routine `$architecture-remediation` transitions therefore leave the public Project intentionally eventually consistent. Do not:
 
-Do not manufacture a source-artifact transition merely because the caller arrived with an architecture blocker. A blocker-report status update alone is provenance/disposition, not a Project lifecycle mutation. When existing authority fully resolves the blocker set and this skill makes no lifecycle mutation, there may be no Project reconciliation target; return control to the caller without inventing one.
+* use current Project membership/fields as lifecycle, focus, frontier, or handoff authority;
+* create a pending Project-sync flag, comment, queue, or shadow registry;
+* report `PROJECT TRACKING: DRIFT` merely because an ordinary remediation transition has not refreshed the board;
+* suppress an otherwise-authorized handoff because Project fields are stale.
 
-Supply current Project Delivery State separately from the base lifecycle projection. Independent Specs remain outside Wayfinder delivery-focus governance. `$project-tracking` owns validation, delivery overlay, and Project mutation; it does not discover which artifacts this skill changed.
+Invoke `$project-tracking` only when the **current invocation independently satisfies one of its authorized projection boundaries**—for example an explicit human-requested board reconciliation. Spec-completion projection remains owned by `$spec-merge-cleanup`; bootstrap/migration projection remains owned by its separately authorized workflow. When no authorized projection boundary exists, deferred projection is the required behavior, not a skipped gate.
 
-If Project synchronization fails, report `PROJECT TRACKING: DRIFT`. Do not undo durable architecture/Spec state and do not suppress an otherwise-authorized handoff or resolved-authority return.
+A blocker-report status update alone remains provenance/disposition state and never manufactures a separate Project lifecycle transition.
 
 ## 6. Human Handoff Intercept
 
@@ -537,7 +584,7 @@ Do not resume implementation, review remediation, or Spec amendment until the ap
 
 ### Independent Spec resolution complete
 
-After Independent-Spec architecture authority, Spec amendment, receipt persistence, blocker-report resolution when applicable, and Project reconciliation are complete, do not return directly to the previously blocked implementation ticket.
+After Independent-Spec architecture authority, Spec amendment, receipt persistence, and blocker-report resolution when applicable are complete, do not return directly to the previously blocked implementation ticket. Any separately authorized Project projection follows the repository-wide cadence rule and is not an ordinary remediation completion prerequisite.
 
 Present:
 
@@ -616,7 +663,7 @@ This skill is complete when:
 * existing accepted authority is tested against the exact missing durable choices;
 * no duplicate or artificially split decisions are introduced;
 * every blocker-remediation report is durably `routed` or `resolved` before the corresponding handoff/return;
-* mandatory `$project-tracking` reconciliation runs for every formal artifact whose lifecycle state this skill changed;
+* repository-wide Project projection cadence is obeyed: ordinary remediation does not invoke `$project-tracking`, while any separately authorized projection boundary is handled only under its owning contract;
 * the mode-specific completion conditions below are satisfied.
 
 For **Wayfinder-managed** remediation:
@@ -667,7 +714,7 @@ Decision Coupling must itself be reflected by the `Coupling group`: every blocke
 
 `Existing authority: resolves` and `Result: return-to-caller` are legal only when the recorded authority directly determines every durable choice required by that blocker. Apply this counterexample test: **could the blocked work still have to invent a durable semantic while all cited authority remains true?** If yes, the blocker is `partial` or `unresolved`, not resolved.
 
-For Wayfinder-managed remediation, every coupling group containing any unresolved/partial blocker requires exactly one open governing Wayfinder decision unless authoritative existing tracker state already provides that exact ticket.
+For Wayfinder-managed remediation, every coupling group containing any unresolved/partial blocker requires one complete Certified Semantic Domain Finality reconciliation and exactly one open governing Wayfinder decision owner. An in-domain falsifier must reuse or reopen its existing certified decision; it may not satisfy this invariant with a sibling ticket.
 
 For Independent-Spec remediation, every coupling group containing any unresolved/partial blocker requires one explicit owner decision inside this workflow and must pass bounded design-completeness closure before persistence. No Wayfinder decision ticket is required or permitted solely for this remediation mode.
 
@@ -680,6 +727,10 @@ Missing blockers: 0
 Unassigned coupling groups: 0
 Resolved blockers with incomplete durable-choice proof: 0
 Wayfinder unresolved groups without exactly one open decision ticket: 0
+Wayfinder groups missing certified-domain finality reconciliation: 0
+In-domain falsifiers routed to sibling decisions: 0
+Domain-expansion candidates creating/reopening work: 0
+Ambiguous Wayfinder finality dispositions: 0
 Independent unresolved groups without explicit owner decision: 0
 Independent unresolved material choices after bounded closure: 0
 Independent active remediation without recoverable checkpoint: 0

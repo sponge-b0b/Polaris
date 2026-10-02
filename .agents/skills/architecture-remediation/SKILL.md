@@ -384,7 +384,7 @@ Apply these rules:
 
 * **`in-domain-falsifier` under unchanged authority** → route to the **same certified decision domain**. Never create a sibling decision for the omitted inner contract.
   * if that decision ticket is open, reuse it;
-  * if it is closed, append one concise durable `## Architecture Remediation Re-entry` record identifying the source blocker/report, coupling group, certified domain, unchanged authority identity, and exact omitted inner contract; reopen that same ticket; re-read it and require state `open`; preserve its accepted historical resolution as authority for unaffected dimensions.
+  * if it is closed, append one concise durable `## Architecture Remediation Re-entry` record identifying the source blocker/report, coupling group, certified domain, unchanged authority identity, and exact omitted inner contract; reopen that same ticket; re-read it and require state `open`; preserve its accepted historical resolution as authority for unaffected dimensions; update the governing map's durable frontier/route-clarity state as needed so the reopened decision is represented as unresolved work, then re-read the map and require it not to claim route clarity while that decision remains open.
 * **`authority-changed-domain-stale`** or **`explicit-authority-invalidates-prior-domain`** → route to the affected existing decision/domain owner when that owner is recoverable. Reuse it when open or reopen it with the same durable re-entry/readback discipline when closed. Do not create a replacement decision merely because its prior ticket is closed.
 * **`genuinely-unrepresented-map-obligation`** → inspect the governing map's open child decisions. Reuse an open child only when it represents the same underlying unresolved decision; otherwise create exactly one new child under the governing map.
 * **`domain-expansion` under unchanged authority** → Attention only at this boundary. It must not create/reopen decision work or make a previously accepted certified domain incomplete.
@@ -401,6 +401,8 @@ In-domain falsifiers routed to sibling decisions: 0
 Domain-expansion candidates creating/reopening work: 0
 Ambiguous finality dispositions: 0
 Reopened certified decisions verified open: <n>/<n>
+Reopened decisions absent from governing-map unresolved/frontier state: 0
+Governing maps falsely route-clear with reopened decisions: 0
 Unresolved groups without exactly one open owning decision: 0
 ```
 

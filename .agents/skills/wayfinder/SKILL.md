@@ -218,7 +218,7 @@ Unresolved: 0
 Unclassified/omitted material dimensions: 0
 ~~~
 
-Immediately before the route-clear transition, run one **fresh, non-mutating semantic route-clarity challenger** over the frozen map, accepted decisions, their applicable **Certified Decision Contract Domains**, unresolved fog, bounded authoritative source universe, and the Material Contract Closure Record.
+Immediately before the route-clear transition, freeze those exact route-clarity inputs and compute one `ROUTE_CLARITY_CANDIDATE_ID` as the SHA-256 of the exact challenger dispatch packet bytes. Then run one **fresh, non-mutating semantic route-clarity challenger** over the frozen map, accepted decisions, their applicable **Certified Decision Contract Domains**, unresolved fog, bounded authoritative source universe, and the Material Contract Closure Record.
 
 The route-level challenger owns only two questions:
 
@@ -272,15 +272,18 @@ In-domain omissions routed to original decision domain: <n>
 Genuinely unrepresented map obligations: <n>
 ~~~
 
-The challenger itself remains non-mutating. Its terminal result is:
+The challenger itself remains non-mutating. Its terminal result is exactly one complete semantic payload:
 
 ~~~text
 WAYFINDER ROUTE CLARITY: PASS | FAIL
+Route clarity candidate identity: <ROUTE_CLARITY_CANDIDATE_ID>
 Unrepresented map obligations: <count + details>
 Certified-domain falsifiers/authority changes: <count + details>
 Domain-expansion observations: <count + details>
 Candidates awaiting finality reconciliation: <count + details>
 ~~~
+
+Apply the repository-wide **Independent Semantic Child Result Admission** rule from `AGENTS.md`. Before consuming route clarity require the payload to have actually returned, exactly one terminal route-clarity verdict, an exact candidate-identity match, and every required result category. Pending/ambiguous child state or a missing/malformed/mismatched payload is unresolved and cannot produce `Route clarity: clear`.
 
 Route clarity requires PASS and zero unreconciled candidates. A same-agent or owner-declared substitute is not an equivalent certification boundary; if a fresh challenger is unavailable, do not declare the software route clear.
 
@@ -458,9 +461,10 @@ Before presenting the recommendation to the human:
 1. freeze the proposed recommendation;
 2. build one **Decision Contract Domain** from the ticket question, governing authority, affected canonical contract(s), and known direct downstream consumers of that decision;
 3. disposition every materially consequential design dimension inside that bounded domain using the same material-contract dimensions defined under **Material Contract Universe Closure**;
-4. dispatch exactly one fresh, non-mutating **decision-domain challenger** over that frozen domain and recommendation;
-5. if the challenger finds an in-domain omission or unsupported disposition, revise the same decision recommendation, persist a `## Recommendation Revision` when required, rebuild the affected domain rows, and recertify before asking the human;
-6. only after certification PASS may the HITL yes/no gate be presented.
+4. compute one `DECISION_CERTIFICATION_ID` as the SHA-256 of the exact frozen challenger dispatch packet bytes for that recommendation/domain/authority state;
+5. dispatch exactly one fresh, non-mutating **decision-domain challenger** over that frozen domain and recommendation;
+6. if the challenger finds an in-domain omission or unsupported disposition, revise the same decision recommendation, persist a `## Recommendation Revision` when required, rebuild the affected domain rows, and recertify before asking the human;
+7. only after certification PASS may the HITL yes/no gate be presented.
 
 Persist the compact certification state with the decision analysis/revision:
 
@@ -476,14 +480,17 @@ Decision-domain challenger: PASS
 Finality: frozen-under-unchanged-authority after human acceptance
 ~~~
 
-The decision-domain challenger returns:
+The decision-domain challenger returns exactly one complete semantic result:
 
 ~~~text
 DECISION CONTRACT CERTIFICATION: PASS | FAIL
+Certification identity: <DECISION_CERTIFICATION_ID>
 In-domain omitted dimensions: <count + details>
 Unsupported non-blocking dispositions: <count + details>
 Out-of-domain observations: <count + concise observations>
 ~~~
+
+Apply the repository-wide **Independent Semantic Child Result Admission** rule from `AGENTS.md`. Before consuming the result require the payload to have actually returned, exactly one `DECISION CONTRACT CERTIFICATION` verdict, an exact certification-identity match, and all required result categories. Pending/ambiguous child state or a missing/malformed/mismatched payload is unresolved and cannot open the human yes/no gate.
 
 Rules:
 

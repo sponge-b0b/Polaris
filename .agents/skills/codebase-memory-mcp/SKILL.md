@@ -1,12 +1,17 @@
 ---
 name: codebase-memory-mcp
-description: Optimizes local code intelligence and discovery using a high-performance, Tree-sitter-backed structural knowledge graph instead of expensive token-heavy file searches. Use for understanding code architecture, tracing function call chains, finding cross-file dependencies, analyzing git diff blast radiuses, running complex graph queries, or discovering specific functions, classes, or routes within the repository without scanning full files.
+description: Default exact structural-code discovery for symbols, callers/callees, dependencies, code architecture, diff blast radius, complex graph queries, and cross-service paths. Do not use for repository health/history, implicit runtime dispatch, broad cross-document exploration, or literal and non-code searches.
 ---
 
 # Codebase Knowledge Graph (codebase-memory-mcp)
 
 This project uses codebase-memory-mcp to maintain a knowledge graph of the codebase.
-ALWAYS prefer MCP graph tools over grep/glob/file-search for code discovery.
+
+## Routing Boundary
+
+Select this skill by default when the material question requires exact structural evidence from code: symbol discovery, static callers/callees, cross-file dependencies, code architecture, change impact, or cross-service paths. Once selected, prefer its MCP graph tools over broad grep/glob/file scanning.
+
+Use `$repowise` for behavioral location, repository health, risk, history, or dead-code triage; `$codegraph` for implicit runtime dispatch; `$graphify` for broad corpus/community exploration; and `rg` or direct reads for literals, configuration, Markdown/policy, or graph coverage gaps.
 
 ## Priority Order
 1. `search_graph` — find functions, classes, routes, variables by pattern

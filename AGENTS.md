@@ -438,14 +438,17 @@ Reuse still-valid discovery/evidence within the same lifecycle when its target, 
 
 Use the smallest discovery tool sufficient for the question rather than broad manual scanning.
 
-* `$repowise` — repository status, hot spots, health, and behavioral location.
-* `$graphify` — broad structural/dependency relationships.
-* `$codegraph` — implicit/dynamic call paths and dispatch.
-* `$codebase-memory-mcp` — graph-backed discovery, architecture, impact, dead-code, and cross-service analysis.
+* `$repowise` — behavioral location, repository status, hot spots, health, change risk, historical rationale, and dead-code triage.
+* `$codebase-memory-mcp` — the default for exact structural code discovery: symbols, callers/callees, cross-file dependencies, code architecture, diff blast radius, and cross-service analysis.
+* `$codegraph` — implicit/dynamic runtime paths such as decorators, event emitters, callbacks, string-keyed handlers, abstract dispatch, and asynchronous routing.
+* `$graphify` — broad exploratory relationships across code, documentation, decisions, and communities, including cross-document connections and corpus-level structure.
+* `rg` or direct reads — exact literals, configuration, Markdown/policy, ground-truth verification, and graph coverage gaps.
 
-These tools are complementary capabilities, not a mandatory pipeline. A tool skill's broad local preference such as `always prefer`, `any codebase question`, or similar automatic-routing language does not override **Context and Discovery Efficiency** above. Explicit human invocation or a transition owner that specifically requires a tool remains authoritative.
+These tools are complementary capabilities, not a mandatory pipeline. Select one smallest sufficient tool first. Combine tools only when distinct material questions require different evidence or the first bounded result leaves a material gap.
 
-Exact literal searches remain appropriate when graph analysis provides no advantage.
+A skill frontmatter description, skill-body preference, generated hook, or MCP connector description such as `always prefer`, `any codebase question`, `primary for almost any question`, or similar automatic-routing language does not override **Context and Discovery Efficiency** or the routing above. The mere presence of an existing graph or the fact that Python is changing does not select a tool. Explicit human invocation or a transition owner that specifically requires a tool remains authoritative.
+
+A Graphify vendor refresh must preserve this routing boundary. Treat restored catchall activation language as workflow-policy drift and reconcile it before accepting the refresh.
 
 For current greenfield analysis, exclude `legacy/` unless the task explicitly requires donor/reference inspection.
 

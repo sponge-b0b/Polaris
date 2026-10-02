@@ -1,12 +1,16 @@
 ---
 name: codegraph
-description: Traces implicit function paths, event loops, framework decorators, and decoupled execution targets via CodeGraph tools. Use for tracing Python-specific routing (FastAPI/Django decorators), event emitters (emit/on loops), callback handlers, or abstract dispatch before tracing raw files manually.
+description: Trace implicit runtime paths, event loops, framework decorators, and decoupled execution targets with CodeGraph. Use for Python routing, emit/on loops, callbacks, string-keyed handlers, or abstract dispatch—not ordinary static symbol, dependency, or blast-radius analysis.
 ---
 
 # CodeGraph Analysis Skill
 
 ## Objective
 Expose the dynamic edge-synthesizer engine to trace implicit Python execution flows, runtime framework routing configurations, asynchronous event loops, and string-keyed callbacks that static AST tools or raw grep queries miss.
+
+## Routing Boundary
+
+Select CodeGraph only when the material path depends on implicit or decoupled runtime dispatch. Do not select it merely because Python is changing or for ordinary symbol lookup, imports, direct call graphs, static dependencies, or diff impact; use `$codebase-memory-mcp` for those. Use `$repowise` for behavioral location and repository risk/history, `$graphify` for broad corpus/community exploration, and `rg` or direct reads for literals and non-code authority.
 
 ## Context Inputs
 - **Authoritative Edge Registry:** `.codegraph/` (Driven by a native, always-on SQLite backend).
@@ -26,7 +30,7 @@ Before initializing dynamic code exploration, verify that the local repository b
 - Run: `codegraph status` to validate the state of the active tracking databases.
 
 ### 2. High-Efficiency Single-Pass Single Symbol Exploration
-Gather callers, callees, structural dependencies, and impact radii for a specific function name, class, or decorator target in one command without manual sweeps:
+Gather the implicit callers, callees, routing decorators, and dispatch context for a specific function, class, event, callback, or route target in one command without manual sweeps:
 - Run: `codegraph_explore(query="<symbol_name>")` via the native MCP tool connector.
 
 ## Examples

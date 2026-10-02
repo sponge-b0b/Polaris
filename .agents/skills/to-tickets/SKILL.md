@@ -698,6 +698,20 @@ Pass the verifier the complete required input defined by `$verify-ticket-decompo
 
 The owning `$to-tickets` agent must not provide the verifier with an asserted semantic conclusion beyond its explicit parent-owned artifacts, must not certify the candidate itself while the verifier runs, and must not mutate the candidate until a verdict is returned.
 
+Apply the repository-wide **Independent Semantic Child Result Admission** rule from `AGENTS.md`. Before consuming the decomposition result require:
+
+```text
+Verifier result payload received: yes
+Terminal TICKET DECOMPOSITION verdicts: 1
+Returned proposal identity: <sha256>
+Expected proposal identity: <sha256>
+Proposal identity match: yes
+Required verdict witness structurally complete: yes
+Verifier result pending/ambiguous: no
+```
+
+A child/task lifecycle status is not decomposition evidence. If the semantic payload has not actually returned, independent decomposition certification remains unresolved: do not assert `TICKET DECOMPOSITION: PASS | FAIL`, do not present an approval-ready proposal, and do not publish. If the verifier context is genuinely lost, use only the replacement-verifier recovery rule below.
+
 Require exactly one valid verdict bound to the current proposal identity:
 
 ```text

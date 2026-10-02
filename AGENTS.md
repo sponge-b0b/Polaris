@@ -554,6 +554,26 @@ When a skill prescribes another repository skill as internal composition:
 4. `disable-model-invocation: true` and `allow_implicit_invocation: false` do not prohibit prescribed parent → child composition.
 5. Report the child unavailable only when its repository `SKILL.md` is absent or unreadable.
 
+### Independent Semantic Child Result Admission
+
+This repository-wide rule applies whenever a parent workflow depends on a fresh independent semantic verifier, reviewer, challenger, certifier, or equivalent child result before a semantic lifecycle transition. It is the minimum admission rule; stronger workflow-specific dispatcher/result contracts remain authoritative and must not be weakened.
+
+**Dispatch is not a verdict.** Successful child creation, task/process completion, wait completion, polling state, absence of an execution error, or any other child-lifecycle status does not establish semantic `PASS`, `FAIL`, clean review coverage, or an equivalent semantic result.
+
+Before a parent consumes an independent semantic child result, require all of the following:
+
+* the semantic result payload was actually received by the parent;
+* the payload contains exactly one terminal semantic verdict/result shape required by the child contract;
+* the returned candidate/proposal/recommendation/review identity exactly matches the identity frozen at dispatch;
+* every mechanically required witness field for that child result is present and internally valid;
+* any required candidate/tracker immutability or freshness checks still pass;
+* child execution/result state is not pending, ambiguous, missing, malformed, contradictory, or identity-mismatched;
+* the parent has not substituted its own semantic conclusion for the child's result.
+
+A pending, missing, malformed, contradictory, or identity-mismatched child result is **unresolved/invalid**, never semantic `PASS` or `FAIL`. The parent must not cross a human-approval gate, persist a semantic lifecycle transition, publish a certified artifact, or report independent certification from such a result.
+
+When the original child context is genuinely unavailable, use only the owning workflow's explicit replacement/recovery rule. If that workflow defines no replacement path, halt at the unresolved independent-result boundary rather than inventing one. Child unavailability never becomes semantic success.
+
 ### Workflow Project tracking
 
 The public Polaris GitHub Project is an operational projection, not workflow authority. **Authoritative repository/tracker state is immediate; Project projection is intentionally eventually consistent.**

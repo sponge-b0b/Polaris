@@ -737,7 +737,7 @@ Under fallback, execute the same axis-isolated passes sequentially in the parent
 
 ## 7. Dispatch One Review Agent
 
-Dispatch exactly one fresh semantic review sub-agent for the invocation. It must execute the applicable axes sequentially in this fixed order:
+Freeze the exact reviewer dispatch packet permitted below and compute `REVIEW_CANDIDATE_ID` as the SHA-256 of those exact bytes. Dispatch exactly one fresh semantic review sub-agent for the invocation. It must execute the applicable axes sequentially in this fixed order:
 
 1. Standards, when applicable;
 2. Spec, always;
@@ -745,6 +745,7 @@ Dispatch exactly one fresh semantic review sub-agent for the invocation. It must
 
 Give the reviewer only:
 
+- `Review candidate identity: <REVIEW_CANDIDATE_ID>`;
 - the complete authority and cell universe for each applicable axis;
 - every required `RFC-RF-*` continuity cell derived from a stale open finding, expressed as an invariant/current-proof question rather than a prior conclusion;
 - relevant evidence pointers/semantically current surfaces;
@@ -766,15 +767,25 @@ checked-no-finding | blocking | advisory | not-applicable
 
 For every material cell, the reviewer must internally establish claim/predicate/domain/falsifier/evidence and exclude the falsifier before `checked-no-finding`. Material assumptions must themselves be proven.
 
-Do **not** serialize full predicate/falsifier prose for clean cells merely for bookkeeping. Return compact coverage groups plus full provisional findings. A useful per-axis result is:
+Do **not** serialize full predicate/falsifier prose for clean cells merely for bookkeeping. Return one complete reviewer payload beginning with:
 
 ```text
+Review candidate identity: <REVIEW_CANDIDATE_ID>
+Reviewer execution: single-fresh-subagent-three-axis-passes
+```
+
+and then one compact result for every applicable axis:
+
+```text
+Axis: Standards | Spec | Architecture
 Coverage: <cell IDs grouped by disposition>; missing 0; unchecked 0
 Blocking: <full provisional finding records>
 Advisory: <records>
 N/A: <cells + reasons>
 Challenge triggers: <None | exact cell/question>
 ```
+
+Apply the repository-wide **Independent Semantic Child Result Admission** rule from `AGENTS.md`. The parent may consume review findings/coverage only after the semantic payload has actually returned, the echoed review-candidate identity matches exactly, every applicable axis appears exactly once, and every axis result contains the required coverage/findings fields with `missing 0; unchecked 0`. Pending/ambiguous child state or a missing/malformed/mismatched payload leaves review execution unresolved; it cannot be treated as clean coverage, persisted as reviewer findings, or used to satisfy the Exit Gate. This workflow defines no automatic replacement reviewer for an unavailable result; absent explicit current-invocation authorization allowed by the reviewer-execution rules, halt at the unresolved review boundary.
 
 Axis blocker authority remains necessary but is not sufficient for a finding that would reopen an applicable certified root; Domain Finality Reconciliation must also survive.
 

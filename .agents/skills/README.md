@@ -301,6 +301,40 @@ Remediation ticketing is root-driven rather than symptom-driven. Closed tickets 
 
 All tickets for one Spec share the same Spec branch and fixed Spec baseline. Each ticket owns its own immutable Ticket baseline after `$implement-ticket` replaces `Pending` before first mutation.
 
+#### Live-WIP Ticket Reslicing
+
+Ticket reconciliation may discover that current accepted authority requires splitting or reassigning work **after an existing ticket has already accumulated uncommitted implementation WIP on the shared Spec branch**. That local candidate is lifecycle state even though it is not tracker authority.
+
+Do not create a deadlock by publishing a new prerequisite with ordinary `Ticket baseline: Pending` semantics while the newly blocked source ticket owns dirty WIP that must remain preserved.
+
+When a substantive existing-ticket reconciliation creates a new prerequisite or otherwise moves implementation ownership out of an already-started open ticket:
+
+1. detect whether the affected source ticket has active local WIP or another nonterminal implementation candidate on the shared Spec branch;
+2. if no active WIP exists, ordinary ticket publication/baseline rules apply;
+3. if active WIP exists, the approved proposal must classify the transition as a **live-WIP reslice** and persist exactly one machine-managed recovery record on the newly created destination/prerequisite ticket:
+
+```markdown
+<!-- ticket-reslice-recovery:v1 -->
+## Ticket Reslice Recovery
+
+**Status:** pending-prerequisite | prerequisite-complete | source-reconciled
+**Source ticket:** #<existing active ticket>
+**Destination ticket:** #<new prerequisite/remediation ticket>
+**Shared branch:** <spec branch>
+**Source ticket baseline:** <full SHA>
+**Reslice branch anchor:** <full remote branch SHA at publication>
+**Recovery mode:** isolated-worktree
+```
+
+4. the source ticket's pinned baseline remains immutable; the destination ticket may remain `Pending` until its own implementation entry;
+5. `$implement-ticket` for the destination must protect the dirty source checkout, create an isolated worktree at the frozen/current remote Spec-branch tip, pin the destination baseline there, and implement/verify/commit from the isolated worktree;
+6. donor WIP may be **read/copied only after explicit path/hunk ownership classification** against the reconciled ticket contracts. Destination-owned changes may be transplanted; source-owned changes stay protected; ambiguous/shared ownership blocks transplantation until resolved from durable authority;
+7. after the prerequisite closes, `$implement-ticket` for the source ticket resumes in an isolated worktree based on the current remote Spec branch and may transplant only the remaining source-owned WIP. It must not require the protected dirty caller checkout to be cleaned, stashed, reset, or committed first;
+8. the protected caller checkout is fingerprinted before and after every isolation/transplant operation. Any unexpected mutation is a hard blocker;
+9. completion of the prerequisite updates the same recovery record to `prerequisite-complete`; completion/reconciliation of the source updates it to `source-reconciled`.
+
+This is a recovery/isolation mechanism, not permission to blur ticket semantics. Each ticket is independently certified against its own contract, and the source/destination ownership split published by `$to-tickets` remains authoritative.
+
 ### Review and Remediation Loop
 
 `$review-spec` owns independent review and parent reconciliation.

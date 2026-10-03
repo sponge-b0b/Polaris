@@ -423,6 +423,31 @@ This exception is narrow. It does not authorize `$wayfinder` to merge conflicted
 
 When `semantic-reconciliation-required` is present, the Route Clarity Record and Human Handoff must carry the canonical authority commit, exact continuation branch, and conflict-path set as durable transition context. The receiving reconciliation workflow must be able to recover those facts without relying on chat/session prose.
 
+Before the reconciliation handoff, also materialize that state on the governing Wayfinder map body using exactly one machine-managed block:
+
+```markdown
+<!-- continuation-reconciliation:v1 -->
+## Continuation Reconciliation
+
+**Status:** required | synchronized | not-applicable
+**Canonical authority:** <main commit | None>
+**Continuation branch:** <branch | None>
+**Conflict paths:** <exact paths | None>
+**Reconciliation owner:** <$to-specs | None>
+```
+
+Rules:
+
+* maintain zero or one `<!-- continuation-reconciliation:v1 -->` block on the map; update it in place rather than appending competing state;
+* `required` is valid only for `semantic-reconciliation-required` and must name `$to-specs` as owner;
+* `synchronized` requires successful continuation ancestry readback;
+* `not-applicable` requires no durable continuation branch;
+* `blocked-by-concurrency` and `blocked-by-missing-branch` do not cross a reconciliation handoff, so do not mislabel them `required`;
+* after writing/updating the block, re-read the map body and require exact status, canonical commit, continuation branch, conflict paths, and reconciliation owner before emitting the handoff;
+* the block is transition/recovery state, not architecture authority and not a substitute for the canonical ADRs/decisions.
+
+A fresh `$to-specs` invocation against the map must therefore be able to recover that downstream semantic reconciliation is intentional and which canonical authority/conflicted continuation state it must reconcile, even when the human supplies only the ordinary map command.
+
 If there is no durable continuation branch, do not manufacture one merely to restore the caller's checkout.
 
 ### Persistence Failure Semantics
@@ -872,7 +897,7 @@ Route clarity: <clear | not-clear>
 * required authoritative records unreconciled = 0;
 * no required Wayfinder-owned repository persistence remains;
 * continuation inheritance is not `blocked-by-concurrency` or `blocked-by-missing-branch`;
-* `semantic-reconciliation-required` is permitted only when the emitted next step is the owning downstream reconciliation workflow and the Route Clarity Record durably carries the canonical commit, continuation branch, and exact conflict paths;
+* `semantic-reconciliation-required` is permitted only when the emitted next step is the owning downstream reconciliation workflow, the Route Clarity Record durably carries the canonical commit/continuation branch/exact conflict paths, and the governing map's single `continuation-reconciliation:v1` block has been written and read back with `Status: required`;
 * required project-delivery reconciliation is complete.
 
 Every current `Not yet specified` item must either remain explicitly unresolved, have graduated to a decision ticket, have been durably resolved/represented, or have moved out of scope with authority. It may not vanish because the known decision tickets are closed.

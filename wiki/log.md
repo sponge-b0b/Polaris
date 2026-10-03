@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-03] R3 executable Evidence-sufficiency requirements | #385 contract realized
+
+Extended immutable Configuration requirement-set versions with the Evidence-owned executable `MinimumEligibleEvidence` predicate, closed eligible-role validation, explicit `REQUIRED | NOT_APPLICABLE` state, and exact negative witnesses derived only from resolved authority. PostgreSQL now round-trips the typed definition and defends its JSON shape in the committed migration lineage. This ticket establishes the requirement contract and witness foundation; Evidence selection, sufficiency evaluation, assessment persistence, and reconstruction remain assigned to downstream tickets.
+
 ## [2026-10-01] R3 Evidence binding freshness | #376 contract realized
 
 Implemented historical Evidence-binding freshness evaluation against the exact Configuration-owned requirement version resolved at `(effective_at, known_at)`. Applicable bindings now preserve exact set/version/requirement identity, basis, and the closed `FRESH | STALE | INDETERMINATE` result; a resolved set with no freshness rule preserves an explicit set/version negative witness; and missing, unavailable, contested, and invalid authority remain distinct through PostgreSQL round trip. Actual historical reconstruction result emission, sufficiency, current-support bases, and atomic command revalidation remain assigned to downstream tickets.

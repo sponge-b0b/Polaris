@@ -8,6 +8,7 @@ from uuid import UUID
 import pytest
 
 from polaris.domain.configuration import (
+    EvidenceNoSufficiencyRequirementsWitness,
     EvidenceRequirementApplicabilityAssignment,
     EvidenceRequirementId,
     EvidenceRequirementPredecessor,
@@ -19,6 +20,7 @@ from polaris.domain.configuration import (
     FreshnessRequirementDefinition,
     InvalidEvidenceRequirement,
     InvalidEvidenceRequirementHistory,
+    SufficiencyRequirementApplicabilityState,
     SufficiencyRequirementDefinition,
     validate_requirement_history,
 )
@@ -28,8 +30,11 @@ from polaris.domain.evidence import (
     EvidenceJudgmentFamily,
     EvidenceScopeKind,
     EvidenceUse,
+    InvalidEvidenceSufficiencyPredicate,
     InvestmentViewRef,
+    MinimumEligibleEvidence,
 )
+from polaris.domain.evidence.bindings import EvidenceRole
 from tests.configuration_support import (
     CLAIM_ID,
     ROOT_VERSION_ID,
@@ -67,6 +72,56 @@ def test_complete_version_preserves_authority_applicability_and_definitions() ->
     assert version.applicability.investment_horizon == key.investment_horizon
     assert isinstance(version.requirements[0], FreshnessRequirementDefinition)
     assert isinstance(version.requirements[1], SufficiencyRequirementDefinition)
+    sufficiency = version.requirements[1]
+    assert sufficiency.predicate == MinimumEligibleEvidence(
+        1,
+        frozenset({EvidenceRole.SUPPORTING}),
+    )
+    assert (
+        sufficiency.applicability_state
+        is SufficiencyRequirementApplicabilityState.REQUIRED
+    )
+
+
+@pytest.mark.parametrize("minimum", [0, -1, True])
+def test_minimum_eligible_evidence_requires_a_positive_integer(minimum: int) -> None:
+    with pytest.raises(InvalidEvidenceSufficiencyPredicate, match="positive"):
+        MinimumEligibleEvidence(
+            minimum,
+            frozenset({EvidenceRole.SUPPORTING}),
+        )
+
+
+@pytest.mark.parametrize(
+    "roles",
+    [
+        frozenset(),
+        frozenset({EvidenceRole.CONTEXTUAL}),
+        frozenset({EvidenceRole.RECONSTRUCTION}),
+    ],
+)
+def test_minimum_eligible_evidence_rejects_non_readiness_roles(
+    roles: frozenset[EvidenceRole],
+) -> None:
+    with pytest.raises(InvalidEvidenceSufficiencyPredicate):
+        MinimumEligibleEvidence(1, roles)
+
+
+def test_minimum_eligible_evidence_accepts_the_complete_readiness_role_set() -> None:
+    # duplicate-code: this test independently enumerates the public accepted-role
+    # contract; importing a production-owned set would make the proof self-fulfilling.
+    # arid: disable
+    roles = frozenset(
+        {
+            EvidenceRole.SUPPORTING,
+            EvidenceRole.CONFLICTING,
+            EvidenceRole.CONSTRAINING,
+            EvidenceRole.QUALIFYING,
+        }
+    )
+    # arid: enable
+
+    assert MinimumEligibleEvidence(2, roles).qualifying_roles == roles
 
 
 def test_claim_assignment_requires_exact_target_and_typed_scope() -> None:
@@ -175,12 +230,73 @@ def test_requirement_identity_cannot_survive_changed_predicate_meaning() -> None
     with pytest.raises(InvalidEvidenceRequirementHistory, match="semantic predicate"):
         validate_requirement_history((root, changed))
 
+    changed_sufficiency = requirement_version(
+        SECOND_VERSION_ID,
+        predecessor_id=ROOT_VERSION_ID,
+        minimum_distinct_observations=2,
+    )
+    with pytest.raises(InvalidEvidenceRequirementHistory, match="semantic predicate"):
+        validate_requirement_history((root, changed_sufficiency))
+
+
+def test_narrative_and_applicability_do_not_redefine_requirement_identity() -> None:
+    # duplicate-code: this positive identity-continuity proof must remain distinct
+    # from the preceding rejection falsifier; sharing setup would obscure the inverse.
+    # arid: disable
+    root = requirement_version()
+    changed = requirement_version(
+        SECOND_VERSION_ID,
+        predecessor_id=ROOT_VERSION_ID,
+        sufficiency_applicability=(
+            SufficiencyRequirementApplicabilityState.NOT_APPLICABLE
+        ),
+        description="temporarily excluded by authoritative configuration",
+    )
+    # arid: enable
+
+    validate_requirement_history((root, changed))
+    assert root.requirements[1].requirement_id == changed.requirements[1].requirement_id
+    assert root.requirements[1].semantic_predicate == (
+        changed.requirements[1].semantic_predicate
+    )
+
 
 def test_empty_complete_version_represents_explicit_no_requirements() -> None:
     version = replace(requirement_version(), requirements=())
 
     validate_requirement_history((version,))
     assert version.requirements == ()
+
+
+def test_negative_witnesses_require_exact_resolved_version_authority() -> None:
+    key = requirement_key()
+    required = requirement_version()
+    not_applicable = requirement_version(
+        sufficiency_applicability=(
+            SufficiencyRequirementApplicabilityState.NOT_APPLICABLE
+        )
+    )
+    zero_sufficiency = replace(
+        required,
+        requirements=(required.requirements[0],),
+    )
+    sufficiency_id = required.requirements[1].requirement_id
+
+    assert required.not_applicable_witness(sufficiency_id, key) is None
+    witness = not_applicable.not_applicable_witness(sufficiency_id, key)
+    assert witness is not None
+    assert witness.set_id == not_applicable.set_id
+    assert witness.version_id == not_applicable.version_id
+    assert witness.requirement_id == sufficiency_id
+    assert witness.applicability_key == key
+    assert required.no_sufficiency_requirements_witness(key) is None
+    assert zero_sufficiency.no_sufficiency_requirements_witness(key) == (
+        EvidenceNoSufficiencyRequirementsWitness(
+            zero_sufficiency.set_id,
+            zero_sufficiency.version_id,
+            key,
+        )
+    )
 
 
 def test_one_assignment_cannot_define_multiple_freshness_requirements() -> None:

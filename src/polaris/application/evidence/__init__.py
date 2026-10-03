@@ -74,6 +74,8 @@ from .requirements import (
     MissingEvidenceRequirementAuthority,
     ResolvedEvidenceRequirementVersion,
     UnavailableEvidenceRequirementAuthority,
+    no_sufficiency_requirements_witness,
+    requirement_not_applicable_witness,
     resolve_requirement_version,
 )
 
@@ -143,6 +145,8 @@ __all__ = [
     "RecordEvidenceObservationCommand",
     "ResolvedEvidenceRequirementVersion",
     "UnavailableEvidenceRequirementAuthority",
+    "no_sufficiency_requirements_witness",
+    "requirement_not_applicable_witness",
     "resolve_requirement_version",
     "evaluate_binding_freshness",
     "resolve_claim_membership",

@@ -20,6 +20,7 @@ from polaris.domain.configuration import (
     EvidenceRequirementTargetAssignment,
     FreshnessRequirementDefinition,
     InvestmentHorizon,
+    SufficiencyRequirementApplicabilityState,
     SufficiencyRequirementDefinition,
 )
 from polaris.domain.evidence import (
@@ -30,10 +31,12 @@ from polaris.domain.evidence import (
     EvidenceSubjectReference,
     EvidenceUse,
     JudgmentWideEvidenceScope,
+    MinimumEligibleEvidence,
     evidence_judgment_family,
     evidence_judgment_ref,
     evidence_scope_kind,
 )
+from polaris.domain.evidence.bindings import EvidenceRole
 from polaris.domain.portfolio import FinancialInstrumentId, PortfolioId
 
 from .codec_support import (
@@ -86,7 +89,16 @@ def requirement_definition_values(
             }
         else:
             kind = "sufficiency"
-            payload = {"predicate": definition.predicate}
+            payload = {
+                "minimum_distinct_observations": (
+                    definition.predicate.minimum_distinct_observations
+                ),
+                "qualifying_roles": sorted(
+                    role.value for role in definition.predicate.qualifying_roles
+                ),
+                "applicability_state": definition.applicability_state.value,
+                "description": definition.description,
+            }
         rows.append(
             {
                 "set_id": version.set_id.value,
@@ -316,7 +328,26 @@ def _definition_from_row(
     if kind == "sufficiency":
         return SufficiencyRequirementDefinition(
             requirement_id,
-            nonempty_string(payload.get("predicate"), "predicate"),
+            MinimumEligibleEvidence(
+                _integer(
+                    payload.get("minimum_distinct_observations"),
+                    "minimum_distinct_observations",
+                ),
+                frozenset(
+                    EvidenceRole(role)
+                    for role in _string_array(
+                        payload.get("qualifying_roles"),
+                        "qualifying_roles",
+                    )
+                ),
+            ),
+            SufficiencyRequirementApplicabilityState(
+                nonempty_string(
+                    payload.get("applicability_state"),
+                    "applicability_state",
+                )
+            ),
+            nonempty_string(payload.get("description"), "description"),
         )
     raise ValueError("unsupported requirement kind")
 
@@ -336,6 +367,12 @@ def _integer(value: object, field: str) -> int:
     if not isinstance(value, int) or isinstance(value, bool):
         raise ValueError(f"{field} must be an integer")
     return value
+
+
+def _string_array(value: object, field: str) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        raise ValueError(f"{field} must be an array")
+    return tuple(nonempty_string(item, field) for item in value)
 
 
 def _optional_uuid(value: object, field: str) -> UUID | None:

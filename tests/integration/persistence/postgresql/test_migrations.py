@@ -156,6 +156,9 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
     binding_migration = Path("migrations/versions/0004_evidence_bindings.py").read_text(
         encoding="utf-8"
     )
+    sufficiency_requirement_migration = Path(
+        "migrations/versions/0005_evidence_sufficiency_requirements.py"
+    ).read_text(encoding="utf-8")
     assert "down_revision: str | None = None" in decision_migration
     assert (
         'down_revision: str | None = "0001_decision_persistence"' in evidence_migration
@@ -167,10 +170,15 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
     assert (
         'down_revision: str | None = "0003_evidence_requirements"' in binding_migration
     )
+    assert (
+        'down_revision: str | None = "0004_evidence_bindings"'
+        in sufficiency_requirement_migration
+    )
     assert "legacy" not in decision_migration.lower()
     assert "legacy" not in evidence_migration.lower()
     assert "legacy" not in requirement_migration.lower()
     assert "legacy" not in binding_migration.lower()
+    assert "legacy" not in sufficiency_requirement_migration.lower()
 
     tables = asyncio.run(_table_names(postgres_target))
     assert tables == POLARIS_TABLE_NAMES | {"alembic_version"}
@@ -267,6 +275,25 @@ def test_binding_migration_preserves_canonical_constraint_names(
             "ck_evidence_binding_command_receipts_ck_evidence_binding_command_receipts_"
         )
     }
+
+
+def test_sufficiency_requirement_migration_constrains_definition_shape(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    constraint = "ck_evidence_requirement_definitions_definition_shape"
+    assert constraint in asyncio.run(
+        _constraint_names(postgres_target, "evidence_requirement_definitions")
+    )
+
+    alembic = Config("alembic.ini")
+    command.downgrade(alembic, "0004_evidence_bindings")
+    assert constraint not in asyncio.run(
+        _constraint_names(postgres_target, "evidence_requirement_definitions")
+    )
+    command.upgrade(alembic, "head")
+    assert constraint in asyncio.run(
+        _constraint_names(postgres_target, "evidence_requirement_definitions")
+    )
 
 
 def test_root_downgrades_to_empty_and_reupgrades(

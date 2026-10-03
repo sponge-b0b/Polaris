@@ -17,6 +17,7 @@ from polaris.domain.configuration import (
     EvidenceRequirementTargetAssignment,
     FreshnessRequirementDefinition,
     InvestmentHorizon,
+    SufficiencyRequirementApplicabilityState,
     SufficiencyRequirementDefinition,
 )
 from polaris.domain.evidence import (
@@ -25,9 +26,11 @@ from polaris.domain.evidence import (
     EvidenceUse,
     InvestmentRecommendationRef,
     JudgmentWideEvidenceScope,
+    MinimumEligibleEvidence,
     evidence_judgment_family,
     evidence_scope_kind,
 )
+from polaris.domain.evidence.bindings import EvidenceRole
 from polaris.domain.portfolio import FinancialInstrumentId, PortfolioId
 
 SET_ID = UUID("00000000-0000-4000-8000-000000000201")
@@ -111,7 +114,12 @@ def requirement_version(
         EvidenceRequirementPredecessorEffect.CORRECTS
     ),
     maximum_age: timedelta = timedelta(minutes=2),
-    predicate: str = "one available non-contested supporting price observation",
+    minimum_distinct_observations: int = 1,
+    qualifying_roles: frozenset[EvidenceRole] = frozenset({EvidenceRole.SUPPORTING}),
+    sufficiency_applicability: SufficiencyRequirementApplicabilityState = (
+        SufficiencyRequirementApplicabilityState.REQUIRED
+    ),
+    description: str = "one available non-contested supporting price observation",
     assignment: EvidenceRequirementApplicabilityAssignment | None = None,
 ) -> EvidenceRequirementSetVersion:
     return EvidenceRequirementSetVersion(
@@ -131,7 +139,12 @@ def requirement_version(
             ),
             SufficiencyRequirementDefinition(
                 EvidenceRequirementId(SUFFICIENCY_ID),
-                predicate,
+                MinimumEligibleEvidence(
+                    minimum_distinct_observations,
+                    qualifying_roles,
+                ),
+                sufficiency_applicability,
+                description,
             ),
         ),
         predecessor=(

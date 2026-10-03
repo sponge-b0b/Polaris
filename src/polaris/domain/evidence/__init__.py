@@ -44,6 +44,10 @@ from .observations import (
     InvalidEvidenceIdentity,
     InvalidEvidenceObservation,
 )
+from .sufficiency_requirements import (
+    InvalidEvidenceSufficiencyPredicate,
+    MinimumEligibleEvidence,
+)
 
 __all__ = [
     "ClaimCatalog",
@@ -70,6 +74,7 @@ __all__ = [
     "HumanInvestmentDecisionRef",
     "InvalidEvidenceIdentity",
     "InvalidEvidenceObservation",
+    "InvalidEvidenceSufficiencyPredicate",
     "InvalidClaimCatalog",
     "InvalidClaimCatalogHistory",
     "InvestmentHypothesisRef",
@@ -78,6 +83,7 @@ __all__ = [
     "JudgmentWideEvidenceScope",
     "LessonRef",
     "MeaningfulChallengeResultRef",
+    "MinimumEligibleEvidence",
     "PortfolioRiskAssessmentRef",
     "ProjectedPortfolioConsequenceRef",
     "RecommendationWithholdingJudgmentRef",

@@ -5,7 +5,10 @@ from datetime import datetime
 from typing import Protocol
 
 from polaris.domain.configuration import (
+    EvidenceNoSufficiencyRequirementsWitness,
     EvidenceRequirementApplicabilityKey,
+    EvidenceRequirementId,
+    EvidenceRequirementNotApplicableWitness,
     EvidenceRequirementSetVersion,
     EvidenceRequirementSetVersionId,
     InvalidEvidenceRequirementHistory,
@@ -88,6 +91,28 @@ type EvidenceRequirementResolution = (
     | InvalidEvidenceRequirementAuthority
     | UnavailableEvidenceRequirementAuthority
 )
+
+
+def requirement_not_applicable_witness(
+    resolution: EvidenceRequirementResolution,
+    requirement_id: EvidenceRequirementId,
+    applicability_key: EvidenceRequirementApplicabilityKey,
+) -> EvidenceRequirementNotApplicableWitness | None:
+    if not isinstance(resolution, ResolvedEvidenceRequirementVersion):
+        return None
+    return resolution.version.not_applicable_witness(
+        requirement_id,
+        applicability_key,
+    )
+
+
+def no_sufficiency_requirements_witness(
+    resolution: EvidenceRequirementResolution,
+    applicability_key: EvidenceRequirementApplicabilityKey,
+) -> EvidenceNoSufficiencyRequirementsWitness | None:
+    if not isinstance(resolution, ResolvedEvidenceRequirementVersion):
+        return None
+    return resolution.version.no_sufficiency_requirements_witness(applicability_key)
 
 
 class EvidenceRequirementVersionResolver(Protocol):

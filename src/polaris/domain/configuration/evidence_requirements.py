@@ -18,6 +18,7 @@ from polaris.domain.evidence.judgments import (
     is_evidence_judgment_ref,
 )
 from polaris.domain.evidence.observations import EvidenceSubjectReference
+from polaris.domain.evidence.sufficiency_requirements import MinimumEligibleEvidence
 from polaris.domain.portfolio import FinancialInstrumentId, PortfolioId
 
 
@@ -94,6 +95,11 @@ class InvestmentHorizon:
 class EvidenceRequirementPredecessorEffect(StrEnum):
     CORRECTS = "corrects"
     SUPERSEDES = "supersedes"
+
+
+class SufficiencyRequirementApplicabilityState(StrEnum):
+    REQUIRED = "required"
+    NOT_APPLICABLE = "not_applicable"
 
 
 @dataclass(frozen=True, slots=True)
@@ -246,20 +252,76 @@ class FreshnessRequirementDefinition:
 @dataclass(frozen=True, slots=True)
 class SufficiencyRequirementDefinition:
     requirement_id: EvidenceRequirementId
-    predicate: str
+    predicate: MinimumEligibleEvidence
+    applicability_state: SufficiencyRequirementApplicabilityState
+    description: str
 
     def __post_init__(self) -> None:
         if type(self.requirement_id) is not EvidenceRequirementId:
             raise TypeError("requirement_id must be EvidenceRequirementId")
+        if type(self.predicate) is not MinimumEligibleEvidence:
+            raise TypeError("predicate must be MinimumEligibleEvidence")
+        if (
+            type(self.applicability_state)
+            is not SufficiencyRequirementApplicabilityState
+        ):
+            raise TypeError(
+                "applicability_state must be SufficiencyRequirementApplicabilityState"
+            )
         object.__setattr__(
             self,
-            "predicate",
-            _text(self.predicate, "SufficiencyRequirementDefinition.predicate"),
+            "description",
+            _text(self.description, "SufficiencyRequirementDefinition.description"),
         )
 
     @property
-    def semantic_predicate(self) -> tuple[str, str]:
+    def semantic_predicate(
+        self,
+    ) -> tuple[str, MinimumEligibleEvidence]:
         return ("sufficiency", self.predicate)
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceRequirementNotApplicableWitness:
+    set_id: EvidenceRequirementSetId
+    version_id: EvidenceRequirementSetVersionId
+    requirement_id: EvidenceRequirementId
+    applicability_key: EvidenceRequirementApplicabilityKey
+
+    def __post_init__(self) -> None:
+        _validate_sufficiency_witness_coordinates(self)
+        if type(self.requirement_id) is not EvidenceRequirementId:
+            raise TypeError("requirement_id must be EvidenceRequirementId")
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceNoSufficiencyRequirementsWitness:
+    set_id: EvidenceRequirementSetId
+    version_id: EvidenceRequirementSetVersionId
+    applicability_key: EvidenceRequirementApplicabilityKey
+
+    def __post_init__(self) -> None:
+        _validate_sufficiency_witness_coordinates(self)
+
+
+def _validate_sufficiency_witness_coordinates(
+    witness: (
+        EvidenceRequirementNotApplicableWitness
+        | EvidenceNoSufficiencyRequirementsWitness
+    ),
+) -> None:
+    coordinates = (
+        (witness.set_id, EvidenceRequirementSetId, "set_id"),
+        (witness.version_id, EvidenceRequirementSetVersionId, "version_id"),
+        (
+            witness.applicability_key,
+            EvidenceRequirementApplicabilityKey,
+            "applicability_key",
+        ),
+    )
+    for value, expected_type, field_name in coordinates:
+        if type(value) is not expected_type:
+            raise TypeError(f"{field_name} must be {expected_type.__name__}")
 
 
 type EvidenceRequirementDefinition = (
@@ -353,6 +415,57 @@ class EvidenceRequirementSetVersion:
             and self.predecessor.version_id == self.version_id
         ):
             raise InvalidEvidenceRequirement("a version cannot precede itself")
+
+    def not_applicable_witness(
+        self,
+        requirement_id: EvidenceRequirementId,
+        applicability_key: EvidenceRequirementApplicabilityKey,
+    ) -> EvidenceRequirementNotApplicableWitness | None:
+        if (
+            type(requirement_id) is not EvidenceRequirementId
+            or type(applicability_key) is not EvidenceRequirementApplicabilityKey
+            or not self.applicability.matches(applicability_key)
+        ):
+            return None
+        requirement = next(
+            (
+                candidate
+                for candidate in self.requirements
+                if candidate.requirement_id == requirement_id
+            ),
+            None,
+        )
+        if (
+            not isinstance(requirement, SufficiencyRequirementDefinition)
+            or requirement.applicability_state
+            is not SufficiencyRequirementApplicabilityState.NOT_APPLICABLE
+        ):
+            return None
+        return EvidenceRequirementNotApplicableWitness(
+            self.set_id,
+            self.version_id,
+            requirement_id,
+            applicability_key,
+        )
+
+    def no_sufficiency_requirements_witness(
+        self,
+        applicability_key: EvidenceRequirementApplicabilityKey,
+    ) -> EvidenceNoSufficiencyRequirementsWitness | None:
+        if (
+            type(applicability_key) is not EvidenceRequirementApplicabilityKey
+            or not self.applicability.matches(applicability_key)
+            or any(
+                isinstance(requirement, SufficiencyRequirementDefinition)
+                for requirement in self.requirements
+            )
+        ):
+            return None
+        return EvidenceNoSufficiencyRequirementsWitness(
+            self.set_id,
+            self.version_id,
+            applicability_key,
+        )
 
 
 def validate_requirement_history(

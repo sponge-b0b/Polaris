@@ -12,9 +12,14 @@ from polaris.application.evidence import (
     MissingEvidenceRequirementAuthority,
     ResolvedEvidenceRequirementVersion,
     UnavailableEvidenceRequirementAuthority,
+    no_sufficiency_requirements_witness,
+    requirement_not_applicable_witness,
     resolve_requirement_version,
 )
-from polaris.domain.configuration import EvidenceRequirementPredecessorEffect
+from polaris.domain.configuration import (
+    EvidenceRequirementPredecessorEffect,
+    SufficiencyRequirementApplicabilityState,
+)
 from polaris.domain.evidence import EvidenceUse
 from tests.configuration_support import (
     EFFECTIVE_AT,
@@ -216,3 +221,63 @@ def test_family_wide_assignment_matches_exact_target_without_rule_graph() -> Non
     )
 
     assert result == ResolvedEvidenceRequirementVersion(version)
+
+
+def test_resolved_authority_supplies_only_its_exact_negative_witnesses() -> None:
+    key = requirement_key()
+    not_applicable = requirement_version(
+        sufficiency_applicability=(
+            SufficiencyRequirementApplicabilityState.NOT_APPLICABLE
+        )
+    )
+    resolution = ResolvedEvidenceRequirementVersion(not_applicable)
+    requirement_id = not_applicable.requirements[1].requirement_id
+
+    witness = requirement_not_applicable_witness(
+        resolution,
+        requirement_id,
+        key,
+    )
+    assert witness is not None
+    assert witness.version_id == not_applicable.version_id
+    assert no_sufficiency_requirements_witness(resolution, key) is None
+
+
+def test_authority_failures_supply_no_negative_witness() -> None:
+    key = requirement_key()
+    requirement_id = requirement_version().requirements[1].requirement_id
+    failures = (
+        MissingEvidenceRequirementAuthority(),
+        UnavailableEvidenceRequirementAuthority("unavailable"),
+        ContestedEvidenceRequirementAuthority(
+            frozenset({requirement_version().version_id})
+        ),
+        InvalidEvidenceRequirementAuthority("invalid"),
+    )
+
+    for failure in failures:
+        assert (
+            requirement_not_applicable_witness(
+                failure,
+                requirement_id,
+                key,
+            )
+            is None
+        )
+        assert no_sufficiency_requirements_witness(failure, key) is None
+
+
+def test_zero_sufficiency_definition_has_a_distinct_version_witness() -> None:
+    version = requirement_version()
+    version = replace(version, requirements=(version.requirements[0],))
+    key = requirement_key()
+
+    witness = no_sufficiency_requirements_witness(
+        ResolvedEvidenceRequirementVersion(version),
+        key,
+    )
+
+    assert witness is not None
+    assert witness.set_id == version.set_id
+    assert witness.version_id == version.version_id
+    assert witness.applicability_key == key

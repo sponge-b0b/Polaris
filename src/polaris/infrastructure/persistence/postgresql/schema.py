@@ -468,6 +468,23 @@ evidence_requirement_definitions = Table(
         "requirement_kind IN ('freshness', 'sufficiency')",
         name="requirement_kind",
     ),
+    CheckConstraint(
+        "COALESCE((requirement_kind = 'freshness' AND "
+        "jsonb_typeof(definition -> 'maximum_age_microseconds') = 'number' AND "
+        "(definition ->> 'maximum_age_microseconds')::bigint > 0) OR "
+        "(requirement_kind = 'sufficiency' AND "
+        "jsonb_typeof(definition -> 'minimum_distinct_observations') = 'number' AND "
+        "definition ->> 'minimum_distinct_observations' ~ '^[1-9][0-9]*$' AND "
+        "jsonb_typeof(definition -> 'qualifying_roles') = 'array' AND "
+        "jsonb_array_length(definition -> 'qualifying_roles') > 0 AND "
+        "definition -> 'qualifying_roles' <@ "
+        '\'["supporting", "conflicting", "constraining", "qualifying"]\'::jsonb '
+        "AND definition ->> 'applicability_state' "
+        "IN ('required', 'not_applicable') "
+        "AND jsonb_typeof(definition -> 'description') = 'string' AND "
+        "btrim(definition ->> 'description') <> ''), FALSE)",
+        name="definition_shape",
+    ),
 )
 
 evidence_bindings = Table(

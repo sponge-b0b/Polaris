@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+from dataclasses import replace
 from datetime import timedelta
+from uuid import UUID
 
 import pytest
-from sqlalchemy import update
+from sqlalchemy import insert, update
 from sqlalchemy.exc import SQLAlchemyError
 
 from polaris.application.evidence import (
@@ -16,6 +18,7 @@ from polaris.application.evidence import (
     ResolvedEvidenceRequirementVersion,
     resolve_requirement_version,
 )
+from polaris.domain.configuration import SufficiencyRequirementApplicabilityState
 from polaris.infrastructure.persistence.postgresql import (
     PostgresEvidenceRequirementStore,
 )
@@ -43,11 +46,19 @@ def test_complete_requirement_versions_round_trip_and_resolve_after_restart(
     postgres_target: PostgresTestTarget,
 ) -> None:
     async def scenario() -> None:
-        root = requirement_version()
-        corrected = requirement_version(
+        root = requirement_version(
+            sufficiency_applicability=(
+                SufficiencyRequirementApplicabilityState.NOT_APPLICABLE
+            )
+        )
+        corrected_with_sufficiency = requirement_version(
             SECOND_VERSION_ID,
             recorded_at=RECORDED_AT + timedelta(minutes=1),
             predecessor_id=ROOT_VERSION_ID,
+        )
+        corrected = replace(
+            corrected_with_sufficiency,
+            requirements=(corrected_with_sufficiency.requirements[0],),
         )
         async with postgres_store(
             postgres_target, PostgresEvidenceRequirementStore
@@ -64,9 +75,20 @@ def test_complete_requirement_versions_round_trip_and_resolve_after_restart(
         ) as (_, restarted):
             history = await restarted.load_requirement_versions()
             assert history == (root, corrected)
+            key = requirement_key()
+            requirement_id = root.requirements[1].requirement_id
+            not_applicable_witness = root.not_applicable_witness(
+                requirement_id,
+                key,
+            )
+            assert not_applicable_witness is not None
+            assert not_applicable_witness.version_id == root.version_id
+            no_requirements_witness = corrected.no_sufficiency_requirements_witness(key)
+            assert no_requirements_witness is not None
+            assert no_requirements_witness.version_id == corrected.version_id
             result = resolve_requirement_version(
                 history,
-                requirement_key(),
+                key,
                 effective_at=RECORDED_AT + timedelta(hours=1),
                 known_at=RECORDED_AT + timedelta(hours=1),
             )
@@ -129,6 +151,37 @@ def test_requirement_versions_and_definitions_are_database_immutable(
                             authority_identity="rewritten authority"
                         )
                     )
+
+    asyncio.run(scenario())
+
+
+def test_database_rejects_non_readiness_sufficiency_role(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        version = requirement_version()
+        async with postgres_store(
+            postgres_target, PostgresEvidenceRequirementStore
+        ) as (engine, store):
+            await store.append_requirement_version(version)
+            with pytest.raises(SQLAlchemyError):
+                async with engine.begin() as connection:
+                    await connection.execute(
+                        insert(evidence_requirement_definitions).values(
+                            set_id=version.set_id.value,
+                            version_id=version.version_id.value,
+                            requirement_id=UUID("00000000-0000-4000-8000-00000000020c"),
+                            position=2,
+                            requirement_kind="sufficiency",
+                            definition={
+                                "minimum_distinct_observations": 1,
+                                "qualifying_roles": ["contextual"],
+                                "applicability_state": "required",
+                                "description": "invalid readiness role",
+                            },
+                        )
+                    )
+            assert await postgres_row_counts(engine, *REQUIREMENT_TABLES) == (1, 2)
 
     asyncio.run(scenario())
 

@@ -1,0 +1,23 @@
+name: ChatGPT publish certified Specs
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/chatgpt-publish-specs.yml
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact transport commit
+        uses: actions/checkout@v6
+
+      - name: Publish exact certified Spec bodies
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python .github/chatgpt-publish-specs.py

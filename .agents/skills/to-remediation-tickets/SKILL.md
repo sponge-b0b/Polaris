@@ -203,6 +203,47 @@ A closed ticket is historical evidence, not proof by itself and not active remed
 
 For open tickets no longer required by an amended Spec, return them for closure as superseded.
 
+### Active Implementation / Live-WIP Reslice Guard
+
+Before returning a delta that creates a new prerequisite, moves implementation ownership between tickets, or adds a blocker to an already-started open ticket, inspect the affected existing ticket's implementation state.
+
+Treat an existing ticket as **already-started** when any of the following is true:
+
+* `Ticket baseline` is a full SHA and the shared Spec-branch caller checkout contains attributable dirty WIP for that ticket;
+* a durable nonterminal implementation/closure checkpoint exists for that ticket;
+* current local candidate evidence proves implementation began after the pinned baseline even though closure did not complete.
+
+For each proposed ownership/dependency change record:
+
+```text
+Source ticket: #<n>
+Already-started: yes | no
+Active local WIP: yes | no | unavailable
+Current pinned baseline: <SHA | Pending>
+Proposed moved/new prerequisite scope: <ticket/destination>
+WIP overlap with moved scope: yes | no | unknown
+Disposition: ordinary-reconciliation | live-WIP-reslice | hard-block
+```
+
+Rules:
+
+* if the source ticket is not already-started, ordinary reconciliation applies;
+* if it is already-started but the proposed delta does not move/precede any of its implementation ownership, ordinary reconciliation applies;
+* if the delta creates a new prerequisite or moves scope that may already exist in the source ticket's active WIP, classify `live-WIP-reslice`;
+* if local WIP presence/ownership cannot be inspected from the current execution context, return that uncertainty to `$to-tickets`; do not pretend the new ticket is ordinary greenfield work;
+* never require the source WIP to be committed, stashed, reset, or discarded merely to make the new prerequisite publishable.
+
+For each `live-WIP-reslice`, return a required recovery record contract to `$to-tickets` with:
+
+* source ticket ID;
+* destination/new prerequisite proposal identity;
+* shared Spec branch;
+* source ticket baseline;
+* current remote Spec-branch anchor used for publication;
+* `Recovery mode: isolated-worktree`.
+
+The destination ticket still carries ordinary semantic acceptance criteria. The recovery record is lifecycle metadata and does not transfer semantic ownership back to the source ticket.
+
 ### Legacy Execution Metadata
 
 For every existing open ticket retained or updated by this remediation, inspect `Ticket baseline`.

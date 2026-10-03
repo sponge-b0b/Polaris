@@ -293,78 +293,122 @@ This route-level certification is intentionally narrower than **Decision-Bounded
 
 This invariant applies whenever `$wayfinder` creates or modifies repository files.
 
-### Canonical Authority Branch
+### Canonical Persistence Isolation
 
-Wayfinder-owned repository authority is canonical on `main`. The branch that happened to be checked out when `$wayfinder` was invoked is execution context only and must never determine where an accepted Wayfinder decision becomes authoritative.
+Wayfinder-owned repository authority is canonical on `main`. The checkout from which `$wayfinder` was invoked is a **protected caller worktree**, not the place where canonical authority must be authored.
+
+A dirty caller worktree is valid execution context. It must never force Wayfinder to stash, commit, discard, carry, or otherwise rewrite unrelated downstream work merely to persist accepted architecture.
 
 Before invoking any repository-writing child skill or making the first Wayfinder-owned repository mutation:
 
-1. record the invocation branch:
+1. identify and fingerprint the protected caller worktree. Record at minimum:
+   * repository root;
+   * caller branch or detached-HEAD state;
+   * caller HEAD;
+   * staged diff identity;
+   * unstaged tracked diff identity;
+   * untracked path-and-content identity.
 
-   ```bash
-   CALLER_BRANCH=$(git branch --show-current)
+   The fingerprint must distinguish staged from unstaged state and must detect content changes to existing untracked files; `git status` text alone is insufficient.
+
+2. fetch `origin/main` without switching the caller checkout and freeze:
+   ```text
+   CANONICAL_MAIN_BASE = exact fetched origin/main SHA
    ```
 
-2. note pre-existing working-tree changes so they are not absorbed into Wayfinder's commit;
-3. if `CALLER_BRANCH != main` and the worktree is dirty, fail closed before branch transition; do not stash, carry, commit, or discard unrelated work merely to reach `main`;
-4. fetch and enter the canonical branch using fast-forward-only reconciliation:
+3. create a temporary **isolated Git worktree** detached at exactly `CANONICAL_MAIN_BASE`. Require that isolated worktree to begin clean.
 
-   ```bash
-   git fetch origin main
-   if git show-ref --verify --quiet refs/heads/main; then
-     git switch main
-     git pull --ff-only origin main
-   else
-     git switch -c main --track origin/main
-   fi
-   ```
+4. run every Wayfinder-owned repository-writing operation inside that isolated worktree, including repository-writing child skills such as `$to-adr-doc` and `$wiki-sync`. A child whose repository mutations cannot be constrained to the isolated worktree is unavailable for this transition; do not fall back to mutating the caller checkout.
 
-5. only after `main` is current may `$wayfinder` invoke repository-writing children such as `$to-adr-doc` or `$wiki-sync`, or directly create/modify canonical repository authority.
+5. never switch branches in, stage from, clean, reset, stash, commit from, or otherwise mutate the protected caller worktree as a prerequisite to canonical persistence.
 
 When `$wayfinder` is parent, repository-writing child skills contribute their changes to the Wayfinder commit rather than committing separately.
 
-If repository files change:
+### Canonical Commit and Concurrency Gate
 
-1. require the active branch to be `main`;
-2. stage only Wayfinder-owned files;
-3. invoke `$conventional-commits`;
-4. commit;
-5. push explicitly to the canonical branch:
+If the isolated canonical worktree contains repository changes:
 
+1. require every changed path to be Wayfinder-owned for the accepted decision. Unexpected paths are a hard stop; do not broaden staging to absorb them.
+2. stage only the intended files. Never use `git add .`.
+3. invoke `$conventional-commits` and commit in the isolated worktree. A detached-HEAD commit is valid because `main` is the push destination, not the execution checkout.
+4. immediately before push, fetch `origin/main` again and require it still equals `CANONICAL_MAIN_BASE`. If it moved, fail closed and rebuild/reconcile from the new canonical base; never force-push or silently rebase an accepted authority mutation.
+5. push normally, without force:
    ```bash
-   git push origin main
+   git push origin HEAD:main
    ```
+   A concurrent non-fast-forward rejection is unresolved canonical persistence, never permission to overwrite.
+6. fetch `origin/main` and require its exact SHA to equal the committed Wayfinder authority.
+7. verify the committed diff contains only the intended Wayfinder-owned files.
 
-6. verify that `origin/main` resolves to the committed Wayfinder authority before tracker resolution or downstream handoff.
+If no repository files changed, skip commit/push but still preserve the caller-worktree isolation invariant.
 
-Do not use `git add .` when unrelated working-tree changes exist.
+After canonical persistence succeeds, `main` is authoritative even if a downstream continuation branch has not yet inherited that commit.
 
-If the invocation began on a non-`main` durable branch because downstream work was routed back to Wayfinder, and that branch remains the continuation branch after the accepted upstream repair, synchronize canonical authority back into it only **after** the `main` push succeeds:
+### Protected Caller Worktree Integrity Gate
 
-```bash
-git switch "$CALLER_BRANCH"
-git merge --no-edit main
-git push origin "$CALLER_BRANCH"
-git fetch origin main "$CALLER_BRANCH"
-git merge-base --is-ancestor origin/main "origin/$CALLER_BRANCH"
+Before removing the isolated canonical worktree, and again before any Human Handoff or ordinary return, recompute the protected caller-worktree fingerprint and require an exact match with the pre-persistence fingerprint:
+
+```text
+Caller branch/HEAD unchanged: yes
+Caller staged state unchanged: yes
+Caller unstaged tracked state unchanged: yes
+Caller untracked path/content state unchanged: yes
 ```
 
-This synchronization is inheritance of canonical authority, not creation of branch-local authority. Never create or edit the ADR/wiki authority first on the downstream branch and later treat that branch as its source of truth. If synchronization conflicts or fails, `main` remains authoritative, but do not present a downstream handoff that assumes the stale continuation branch has consumed the new authority.
+A mismatch is a **Hard Blocker**. Do not attempt to "repair" the caller worktree automatically, because doing so could destroy downstream work. Canonical `main` authority already persisted successfully remains authoritative; report the caller-worktree integrity failure separately.
 
-If the invocation branch is not a continuation branch, do not manufacture a synchronization merge merely to restore the caller's checkout.
+After successful canonical readback and caller-integrity verification, remove/prune the temporary canonical worktree. Temporary execution worktrees and detached commits are mechanics, never durable authority.
 
-Tracker-only changes require no repository commit or branch transition.
+### Continuation-Branch Inheritance
 
-If no repository files changed, skip commit and push.
+When downstream work was routed back to Wayfinder from an existing durable non-`main` continuation branch, inheritance of the canonical repair is a **separate downstream-readiness transition**. It is not a prerequisite for the accepted architecture to become canonical or for the Wayfinder decision itself to be resolved.
 
-If branch transition, staging, commit, push, canonical readback, or required continuation-branch synchronization fails:
+After canonical `main` persistence:
 
-* do not mark the affected decision or map complete;
-* do not close a decision whose repository-side architectural record is unpersisted;
-* do not present a downstream Human Handoff;
-* report the failure.
+1. identify the exact durable continuation branch from tracker/branch lineage. Do not infer a continuation branch merely from whichever checkout happened to invoke Wayfinder.
+2. fetch both `origin/main` and the exact remote continuation branch and freeze the continuation remote tip.
+3. create a second temporary isolated worktree detached at that exact continuation tip. Do not use or mutate the protected caller worktree for inheritance.
+4. merge the exact persisted canonical `main` commit into the isolated continuation worktree using an ordinary merge. If it conflicts, abort only that isolated merge and classify continuation inheritance as blocked; canonical `main` remains authoritative.
+5. before pushing, fetch the remote continuation branch again and require its tip still equals the frozen continuation tip. If it moved, fail the inheritance attempt closed rather than overwrite concurrent downstream work.
+6. push the isolated merge normally to the exact continuation branch, never with force.
+7. fetch both refs and require:
+   ```bash
+   git merge-base --is-ancestor origin/main "origin/$CONTINUATION_BRANCH"
+   ```
+8. remove/prune the isolated continuation worktree after successful readback.
 
-A Wayfinder decision that changes repository-side architectural records is incomplete until those records are committed to and read back from `main`; when downstream work is resuming on an existing durable branch, that branch must also inherit the canonical commit before handoff.
+The protected caller worktree may still point at an older local tip after remote continuation inheritance. Do not advance or rewrite that checkout to make it appear synchronized. A later workflow executing there must perform its own branch-freshness/worktree guard before mutation.
+
+If continuation inheritance succeeds, downstream durable branch authority is synchronized even though the protected local checkout remains untouched.
+
+If continuation inheritance cannot safely complete, report:
+
+```text
+CONTINUATION SYNC: BLOCKED
+Canonical main authority: <commit>
+Continuation branch: <branch>
+Reason: <exact conflict/concurrency/missing-branch failure>
+```
+
+Do **not** roll back, reopen, or invalidate the accepted Wayfinder decision solely because continuation synchronization failed. Do not present a downstream Human Handoff that claims or requires the stale continuation branch to have consumed the new authority. Resume only the inheritance/handoff portion once that branch can be reconciled safely.
+
+If there is no durable continuation branch, do not manufacture one merely to restore the caller's checkout.
+
+### Persistence Failure Semantics
+
+Tracker-only changes require no repository commit or canonical worktree.
+
+If isolated canonical worktree creation, repository-writing child isolation, staging, commit, canonical concurrency validation, push, canonical readback, or caller-worktree integrity verification fails:
+
+* do not close a decision whose repository-side architectural record is still unpersisted on `main`;
+* do not claim canonical persistence succeeded;
+* do not present a downstream Human Handoff that depends on the missing authority;
+* preserve the protected caller worktree and report the exact failure.
+
+Once accepted repository-side architecture is committed and read back from `main`, that canonical decision authority is durable. A later continuation-sync failure is a downstream-readiness failure, not a canonical-persistence failure.
+
+A Wayfinder decision that changes repository-side architectural records is repository-complete when those records are committed to and read back from `main`, the committed diff is bounded to Wayfinder-owned paths, and the protected caller worktree is proven unchanged. Continuation-branch inheritance is required only before a downstream handoff that depends on that branch containing the new authority.
+
 
 ## Refer by Name
 

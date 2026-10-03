@@ -1,0 +1,15 @@
+name: ChatGPT fresh-model probe
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe hosted runner
+        run: echo "CHATGPT_FRESH_MODEL_PROBE_OK"

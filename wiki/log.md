@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-02] R3 Evidence sufficiency entailment | executable predicate and proof contract frozen
+
+Accepted ADR 0014 to close the in-domain Configuration-to-Evidence omission exposed during Spec #357 implementation. Configuration now supplies immutable typed `MinimumEligibleEvidence` values and explicit applicability authority while Evidence derives dispositions from the complete interpreted binding universe, counts distinct observations, preserves contributor and deficiency proof, and requires exact per-requirement or zero-definition negative witnesses. Commit-time assessment revalidation remains atomic across requirement authority, binding/correction history, support versions, temporal freshness, and relied-upon absence. Updated the affected Evidence, Configuration, Application Use Cases, and Durable Persistence knowledge; implementation remains pending.
+
 ## [2026-09-29] R3 Evidence contract completion | claims, requirement authority, and command basis frozen
 
 Accepted ADR 0013 to complete the three in-domain omissions in ADR 0012. Claim-specific Evidence now depends on target-owned UUIDv4 `ClaimId` values and versioned historical claim catalogs; Freshness and sufficiency definitions are immutable Configuration-owned requirement-set versions with typed applicability and append-only correction/supersession; and command-bound current support protects the exact Decision/target/scope/use basis through support-sensitive versions, negative predicates, commit-time temporal re-evaluation, and atomic cross-owner validation. Updated the affected Evidence, Configuration, Application, Persistence, Investment Intelligence, Portfolio & Risk, Governance & Authority, and Learning knowledge; implementation remains pending.

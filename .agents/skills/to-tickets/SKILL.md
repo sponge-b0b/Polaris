@@ -1290,6 +1290,45 @@ Use the actual parent Spec title and URL. Do not continue ordinary ticket remedi
 
 If it returns a delta, treat each returned ticket block as the authoritative semantic input for Step 4. You may improve presentation, but do not condense, reclassify, merge, or omit any returned remediation, verification, preservation, root-complete sweep, dependency, or metadata obligation.
 
+### Live-WIP Reslice Publication Gate
+
+Consume every live-WIP classification returned by `$to-remediation-tickets` before proposal freeze.
+
+For each `live-WIP-reslice` require the proposal to show, as lifecycle metadata:
+
+```text
+Live-WIP reslice: yes
+Source active ticket: #<n>
+Destination/new prerequisite: <proposal alias/title>
+Shared branch: <branch>
+Source ticket baseline: <full SHA>
+Remote branch anchor: <full SHA>
+Recovery mode: isolated-worktree
+Source caller WIP must remain untouched: yes
+```
+
+Before approval require:
+
+* the source ticket is open and its pinned baseline is exact/current durable metadata;
+* the source/destination semantic split is already independently justified by the ticket decomposition;
+* the proposed destination is a genuine prerequisite/ownership destination rather than a convenience extraction;
+* the remote branch anchor is frozen/readable;
+* the active dirty caller state will not be used as the destination ticket's baseline;
+* no proposal step requires stash/reset/clean/commit of the protected source WIP.
+
+After publication, for every realized live-WIP destination create exactly one managed comment on that destination ticket using the repository-wide `<!-- ticket-reslice-recovery:v1 -->` schema. Substitute the actual created issue number/URL for the approved proposal alias, preserve the approved source ticket/baseline/shared-branch/anchor, set `Status: pending-prerequisite`, and read it back exactly.
+
+A live-WIP reslice is not publication-complete until:
+
+```text
+Live-WIP recovery records required: <n>
+Recovery records persisted/read-back: <n>/<n>
+Source WIP mutation required by publication: 0
+Unresolved recovery metadata: 0
+```
+
+Do not hand the destination to ordinary `$implement-ticket` semantics without that durable recovery record. The record activates the isolated-worktree implementation path; the destination may retain `Ticket baseline: Pending` because `$implement-ticket` will pin it against the isolated remote-branch worktree rather than the dirty caller checkout.
+
 Do not discard or collapse Root Blocker preservation obligations merely because they require no new implementation.
 
 If it returns an empty delta, do not hand off to implementation yet. First complete **Architecture Readiness Saturation and Remediation Human Handoff** over the full applicable existing-ticket reconciliation universe. Any `architecture-blocked` or `upstream-readiness-deferred` result supersedes the empty-delta implementation handoff and must be handled by that saturation contract.
@@ -1468,6 +1507,7 @@ Do not use transitive provenance as native hierarchy. In particular, the origina
 
 New tickets must:
 
+* when the approved proposal classifies the ticket as a live-WIP reslice destination, receive the exact managed `ticket-reslice-recovery:v1` comment and exact readback before implementation handoff;
 * record lineage according to ticket mode:
   * ordinary Spec ticket → `Parent Spec: #<spec_issue_number>`;
   * Spec Review remediation ticket → `Remediation parent: Spec Review #<review_issue_number>` and `Parent Spec: #<spec_issue_number>`;

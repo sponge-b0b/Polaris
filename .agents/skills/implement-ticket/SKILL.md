@@ -648,6 +648,76 @@ That exception:
 
 It must be `Pending` or a full commit SHA.
 
+Before applying ordinary baseline semantics, resolve live-WIP reslice recovery:
+
+1. read the current ticket's comments for exactly zero or one `<!-- ticket-reslice-recovery:v1 -->` record;
+2. when no current-ticket record exists, inspect direct blocker tickets only when needed to determine whether the current ticket is the **Source ticket** of a completed live-WIP reslice;
+3. malformed, duplicate, contradictory, or mismatched source/destination/branch state fails closed.
+
+#### Destination live-WIP recovery
+
+When the current ticket is the recovery record's **Destination ticket** and `Status: pending-prerequisite`:
+
+* require `Recovery mode: isolated-worktree`;
+* require the declared shared branch to equal the ticket's `Ticket branch`;
+* require the source ticket to exist, remain in the same parent Spec lineage, and carry the exact recorded full-SHA source baseline;
+* fingerprint the protected caller checkout strongly: branch/HEAD, staged diff, unstaged tracked diff, and untracked path+content state;
+* fetch the shared branch and require the recorded reslice branch anchor to be an ancestor of the current remote tip. Any post-anchor delta that changes product/ticket semantics relevant to source/destination ownership must be reconciled through `$to-tickets` before implementation; workflow-policy-only or otherwise proven semantically independent advancement may remain in the current remote tip;
+* create a temporary isolated worktree detached at the exact frozen current remote shared-branch tip;
+* when this destination ticket still has `Ticket baseline: Pending`, persist that isolated-worktree HEAD as its immutable Ticket baseline and read it back exactly;
+* from that point through candidate certification/commit/push, execute repository mutation and candidate-state commands in the isolated worktree. The protected caller checkout is not the destination candidate.
+
+The dirty caller checkout may be used only as **read-only donor state**. Before copying any donor change, build a complete WIP attribution manifest over every dirty tracked hunk and untracked path visible in the protected caller checkout:
+
+```text
+Donor item: <path + hunk/range or untracked path>
+Durable owner: destination ticket | source ticket | neither
+Authority: <exact ticket/Spec/ADR obligation>
+Disposition: transplant | preserve-source | exclude
+```
+
+Requirements:
+
+* every donor item is dispositioned exactly once;
+* destination-owned donor work may be copied into the isolated worktree and then independently repaired/completed there;
+* source-owned donor work remains untouched in the protected caller checkout;
+* `neither` is excluded from the destination candidate;
+* ambiguous/shared ownership is a hard blocker until durable authority determines the minimum correct destination; do not guess from filenames or implementation convenience;
+* never stash, reset, clean, commit, checkout-overwrite, or otherwise mutate the protected caller checkout to make the destination implementable.
+
+Before every Human Handoff/ordinary return and before removing the isolated destination worktree, recompute the protected caller fingerprint and require exact equality. Unexpected caller mutation is a hard blocker.
+
+After the destination ticket is independently certified, committed, pushed to the shared branch, read back at the exact pushed commit, and closed under the ordinary lifecycle, update the same recovery record to:
+
+```text
+Status: prerequisite-complete
+Destination baseline: <ticket baseline SHA>
+Destination completion commit: <certified pushed SHA>
+```
+
+Preserve all original source/destination/branch/reslice fields.
+
+#### Source live-WIP reconciliation after prerequisite completion
+
+When the current ticket is named as **Source ticket** by exactly one direct blocker ticket's recovery record with `Status: prerequisite-complete`, and that blocker is closed:
+
+* preserve the source ticket's already-pinned baseline exactly; never rebase or overwrite it;
+* fingerprint the protected caller checkout using the same strong representation above;
+* fetch the shared branch and create a new isolated worktree detached at the exact current remote tip, which must include the certified destination completion commit;
+* build a complete donor-WIP attribution manifest against the **current reconciled source and destination ticket contracts**;
+* transplant only remaining source-owned donor changes into the isolated source worktree;
+* changes now owned/satisfied by the completed destination ticket are not transplanted merely because an older source candidate contained them;
+* use current committed destination behavior as the prerequisite authority when overlapping old WIP must be re-shaped;
+* ambiguous donor ownership or a transplant conflict whose semantic resolution is not fixed by current authority fails closed rather than mutating the protected caller checkout.
+
+Continue the source ticket's implementation, verification, certification, commit/push, and closure from that isolated worktree. The old dirty checkout remains protected donor/recovery state and is excluded from candidate hashing.
+
+After source closure, update the destination ticket's same recovery record to `Status: source-reconciled` with the certified source completion commit. Do not automatically delete/reset/clean the protected caller checkout; its later retirement requires an exact proof that no unique owner-local state remains.
+
+#### Ordinary baseline path
+
+When neither destination nor source live-WIP recovery mode applies:
+
 If `Pending`:
 
 1. require a clean worktree;
@@ -665,6 +735,8 @@ git rev-parse "$TICKET_BASELINE^{commit}"
 ```
 
 Use that exact value. Never recompute or overwrite it.
+
+Live-WIP recovery changes only the execution substrate and baseline-capture location. It does not weaken hierarchy, dependency, architecture, proof-plan, candidate-freeze, independent-verifier, commit/push/readback, or closure requirements.
 
 ## 2. Implement
 

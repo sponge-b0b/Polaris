@@ -368,29 +368,60 @@ After canonical `main` persistence:
 1. identify the exact durable continuation branch from tracker/branch lineage. Do not infer a continuation branch merely from whichever checkout happened to invoke Wayfinder.
 2. fetch both `origin/main` and the exact remote continuation branch and freeze the continuation remote tip.
 3. create a second temporary isolated worktree detached at that exact continuation tip. Do not use or mutate the protected caller worktree for inheritance.
-4. merge the exact persisted canonical `main` commit into the isolated continuation worktree using an ordinary merge. If it conflicts, abort only that isolated merge and classify continuation inheritance as blocked; canonical `main` remains authoritative.
-5. before pushing, fetch the remote continuation branch again and require its tip still equals the frozen continuation tip. If it moved, fail the inheritance attempt closed rather than overwrite concurrent downstream work.
-6. push the isolated merge normally to the exact continuation branch, never with force.
-7. fetch both refs and require:
+4. merge the exact persisted canonical `main` commit into the isolated continuation worktree using an ordinary merge.
+5. if the merge is clean, continue with the concurrency/push/readback gates below.
+6. if the merge conflicts, capture the exact conflict-path set, abort only that isolated merge, remove/prune the isolated worktree, and classify continuation inheritance as **semantic reconciliation required**. Do not choose `ours`, `theirs`, manually resolve conflict content, or otherwise let `$wayfinder` decide how downstream implementation/derived state must change to conform to the new authority.
+7. before any clean inheritance push, fetch the remote continuation branch again and require its tip still equals the frozen continuation tip. If it moved, fail the inheritance attempt closed rather than overwrite concurrent downstream work.
+8. push the isolated merge normally to the exact continuation branch, never with force.
+9. fetch both refs and require:
    ```bash
    git merge-base --is-ancestor origin/main "origin/$CONTINUATION_BRANCH"
    ```
-8. remove/prune the isolated continuation worktree after successful readback.
+10. remove/prune the isolated continuation worktree after successful readback.
 
 The protected caller worktree may still point at an older local tip after remote continuation inheritance. Do not advance or rewrite that checkout to make it appear synchronized. A later workflow executing there must perform its own branch-freshness/worktree guard before mutation.
 
 If continuation inheritance succeeds, downstream durable branch authority is synchronized even though the protected local checkout remains untouched.
 
-If continuation inheritance cannot safely complete, report:
+If automatic continuation inheritance does not safely complete, classify the result explicitly:
 
 ```text
-CONTINUATION SYNC: BLOCKED
-Canonical main authority: <commit>
 Continuation branch: <branch>
-Reason: <exact conflict/concurrency/missing-branch failure>
+Canonical main authority: <commit>
+Continuation inheritance:
+  synchronized
+  semantic-reconciliation-required
+  blocked-by-concurrency
+  blocked-by-missing-branch
+  not-applicable
+Conflict paths: <exact set | None>
 ```
 
-Do **not** roll back, reopen, or invalidate the accepted Wayfinder decision solely because continuation synchronization failed. Do not present a downstream Human Handoff that claims or requires the stale continuation branch to have consumed the new authority. Resume only the inheritance/handoff portion once that branch can be reconciled safely.
+The dispositions have different consequences:
+
+* `synchronized` — branch-dependent downstream execution may proceed subject to its own guards.
+* `semantic-reconciliation-required` — canonical authority and downstream branch state both remain valid inputs, but Git cannot determine their semantic combination. Preserve both. Route through the owning downstream reconciliation lifecycle; do not retry the same merge as if conflict resolution were merely mechanical.
+* `blocked-by-concurrency` or `blocked-by-missing-branch` — no downstream workflow may claim the continuation state is current until branch identity/concurrency is recovered.
+* `not-applicable` — no durable continuation branch exists for this transition.
+
+A continuation conflict is **not** by itself an unresolved architecture choice or a route-clarity failure. It is evidence that downstream artifacts created under older authority require semantic reconciliation.
+
+Do **not** roll back, reopen, or invalidate the accepted Wayfinder decision solely because continuation synchronization failed.
+
+### Reconciliation Handoff Exception
+
+The prohibition on handing off against stale continuation state applies to workflows that **consume the continuation branch as already-conformant execution state**. It does not apply to a reconciliation workflow whose explicit purpose is to reconcile downstream contracts/state against the newly canonical Wayfinder authority.
+
+For a route-clear Wayfinder whose destination is specification:
+
+* `$to-specs` remains a legal Human Handoff when continuation inheritance is `semantic-reconciliation-required`;
+* `$to-specs` owns determining whether the canonical decisions create new Specs or whether existing governed Specs require `$to-remediation-specs`;
+* `$to-remediation-specs` owns reconciling the existing Spec contract against the new authority before ticket reconciliation;
+* later `$to-tickets` / implementation/review workflows must not treat stale branch-local Spec/ticket/derived state as conformant merely because it still exists.
+
+This exception is narrow. It does not authorize `$wayfinder` to merge conflicted implementation, tests, migrations, derived wiki realization, or other downstream-owned content. It authorizes only the **reconciliation handoff** that makes those downstream states semantically current.
+
+When `semantic-reconciliation-required` is present, the Route Clarity Record and Human Handoff must carry the canonical authority commit, exact continuation branch, and conflict-path set as durable transition context. The receiving reconciliation workflow must be able to recover those facts without relying on chat/session prose.
 
 If there is no durable continuation branch, do not manufacture one merely to restore the caller's checkout.
 
@@ -763,7 +794,9 @@ The route is not clear while:
 * Wayfinder-owned repository changes remain uncommitted or unpushed;
 * project-delivery reconciliation required by the current transition remains unresolved.
 
-When the Post-Resolution Gate passes and the destination is an implementation specification, halt with a Human Handoff Intercept:
+When the Post-Resolution Gate passes and the destination is an implementation specification, halt with a Human Handoff Intercept.
+
+If continuation inheritance is `synchronized` or `not-applicable`:
 
 > ✅ **Wayfinder route is clear.**
 >
@@ -772,6 +805,24 @@ When the Post-Resolution Gate passes and the destination is an implementation sp
 > ```
 > $to-specs - <Wayfinder Map Title> (<Map URL>)
 > ```
+
+If continuation inheritance is `semantic-reconciliation-required`, the route is still architecturally clear, but say so explicitly:
+
+> ✅ **Wayfinder route is clear; downstream semantic reconciliation is required.**
+>
+> Canonical authority: `<main commit>`
+> Continuation branch: `<branch>`
+> Automatic inheritance conflicts: `<exact paths>`
+>
+> Please run:
+>
+> ```
+> $to-specs - <Wayfinder Map Title> (<Map URL>)
+> ```
+>
+> `$to-specs` must reconcile existing governed Specs against the canonical authority before downstream implementation/review resumes.
+
+Do not emit the `$to-specs` handoff for `blocked-by-concurrency` or `blocked-by-missing-branch`; first recover the branch identity/concurrency condition.
 
 Always hand `$to-specs` the **Wayfinder map**, never an individual decision ticket or derived Spec.
 
@@ -799,6 +850,10 @@ Domain-expansion candidates creating work: <count>
 Unresolved source/authority conflicts: <count + items>
 Required authoritative records unreconciled: <count + items>
 Wayfinder-owned repository state uncommitted/unpushed: <count/state>
+Continuation branch: <branch | None>
+Canonical authority commit: <sha | None>
+Continuation inheritance: <synchronized | semantic-reconciliation-required | blocked-by-concurrency | blocked-by-missing-branch | not-applicable>
+Continuation conflict paths: <exact set | None>
 Required project-delivery reconciliation: <complete | unresolved>
 Route clarity: <clear | not-clear>
 ```
@@ -816,6 +871,8 @@ Route clarity: <clear | not-clear>
 * unresolved source/authority conflicts = 0;
 * required authoritative records unreconciled = 0;
 * no required Wayfinder-owned repository persistence remains;
+* continuation inheritance is not `blocked-by-concurrency` or `blocked-by-missing-branch`;
+* `semantic-reconciliation-required` is permitted only when the emitted next step is the owning downstream reconciliation workflow and the Route Clarity Record durably carries the canonical commit, continuation branch, and exact conflict paths;
 * required project-delivery reconciliation is complete.
 
 Every current `Not yet specified` item must either remain explicitly unresolved, have graduated to a decision ticket, have been durably resolved/represented, or have moved out of scope with authority. It may not vanish because the known decision tickets are closed.

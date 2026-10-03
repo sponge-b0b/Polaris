@@ -381,6 +381,60 @@ Rules:
 - an open native blocker is never by itself evidence of an architecture/design gap;
 - never create an `architecture-blocker:v1` report solely because another ticket blocks the ticket.
 
+#### Routed Architecture-Blocker Finalization Gate
+
+For every open ticket in the existing-ticket reconciliation universe, resolve the ticket's machine-managed `<!-- architecture-blocker:v1 -->` marker to exactly zero or one comment before readiness can be final.
+
+Classify the marker state:
+
+```text
+absent | unresolved | routed | resolved
+```
+
+Apply these rules:
+
+* `absent` — continue with the ordinary architecture-readiness classification.
+* `unresolved` — the ticket remains `architecture-blocked`; ordinary ticket publication/handoff may not bypass the existing blocker report.
+* `routed` — independently re-evaluate the complete persisted blocker set against **current accepted authority and the current parent Spec**:
+  * if any blocker question is still unresolved, its governing decision is not terminal/current, the parent Spec has not consumed the resolving authority, or the evidence is ambiguous, do **not** change the marker; the ticket cannot be classified `design-ready`;
+  * if every persisted blocker question is directly determined by current accepted authority, the parent Spec has consumed the resolving decision state, and no material ticket-owned design choice remains, the ticket is eligible for deterministic blocker finalization;
+* `resolved` — require a non-empty disposition naming the controlling authority/remediation receipt and continue; malformed or authority-free resolution is a hard blocker.
+
+For each eligible `routed → resolved` finalization:
+
+1. preserve the existing marker, source workflow/artifact, parent Spec, blocker questions, evidence, material consequences, blocked obligations, and routing provenance;
+2. update only the status/disposition portion needed to record `Status: resolved` and the exact current controlling decision/ADR/Spec-remediation authority;
+3. PATCH that same managed comment in place;
+4. read the exact comment back and require:
+   ```text
+   Architecture blocker marker count: 1
+   Prior status: routed
+   Current status: resolved
+   Source artifact unchanged: yes
+   Parent Spec unchanged: yes
+   Persisted blocker set unchanged: yes
+   Controlling authority present: yes
+   Controlling authority current: yes
+   Parent Spec consumes authority: yes
+   Readback exact: yes
+   ```
+5. if any field is missing, stale, contradictory, or the readback fails, stop as a hard blocker. Do not recreate the report or infer resolution from ticket wording alone.
+
+This is the only `$to-tickets` authority to mutate an architecture-blocker report. It may finalize `routed → resolved` after architecture/Spec reconciliation; it may not create architecture decisions, change `unresolved → routed`, rewrite blocker semantics, or resolve a report merely because a proposed ticket body appears implementation-ready.
+
+Before proposal-readiness validation and before any implementation Human Handoff require:
+
+```text
+Architecture blocker markers inspected: <n>/<n open reconciliation tickets>
+Unresolved blocker reports: 0
+Routed blocker reports eligible for resolution: <n>
+Routed blocker reports resolved/read-back: <n>/<n>
+Routed blocker reports remaining: 0
+Malformed/ambiguous blocker reports: 0
+```
+
+A ticket cannot be `design-ready` while its managed blocker marker remains `unresolved` or `routed`.
+
 Before any architecture Human Handoff require complete saturation accounting:
 
 ```text
@@ -438,6 +492,10 @@ Attention design-gap findings unresolved: 0
 ```
 
 For existing-ticket reconciliation, readiness validation additionally requires:
+
+* every open ticket's architecture-blocker marker has been inspected under the Routed Architecture-Blocker Finalization Gate;
+* no ticket classified `design-ready` retains `Status: unresolved` or `Status: routed`;
+* every `routed → resolved` finalization required by current authority passed exact comment readback;
 
 ```text
 Architecture-blocked tickets: 0

@@ -1715,6 +1715,15 @@ This value is used only if the Spec branch does not already exist.
 
 The caller worktree is not ticketing authority. Preserve unrelated/in-progress caller work exactly.
 
+Before any branch-guard operation, fingerprint the protected caller worktree strongly enough to detect:
+* branch or detached-HEAD identity;
+* exact HEAD commit;
+* staged diff identity;
+* unstaged tracked diff identity;
+* untracked path-and-content identity.
+
+The fingerprint must distinguish staged from unstaged state and must detect changes to existing untracked files; `git status` text alone is insufficient. The exact fingerprint representation is implementation-owned, but the pre/post comparison is mandatory for the isolated-existing path.
+
 Determine local and remote branch existence once:
 
 ```bash
@@ -1892,10 +1901,16 @@ if [ "$SPEC_BRANCH_GUARD_MODE" = isolated-existing ]; then
   git worktree remove "$SPEC_BRANCH_GUARD_ROOT"
   git worktree prune
 
-  if [ -n "$(git status --porcelain)" ] && [ "$CALLER_WORKTREE_DIRTY" != true ]; then
-    echo "❌ Caller worktree integrity changed during isolated Spec-branch validation."
-    exit 1
-  fi
+  Recompute the protected caller-worktree fingerprint and require an exact match with the pre-guard fingerprint. Require all of:
+
+  ```text
+  Caller branch/HEAD unchanged: yes
+  Caller staged state unchanged: yes
+  Caller unstaged tracked state unchanged: yes
+  Caller untracked path/content state unchanged: yes
+  ```
+
+  Any mismatch is a hard blocker. Do not auto-repair, stash, reset, clean, or otherwise rewrite the caller worktree.
 fi
 ```
 

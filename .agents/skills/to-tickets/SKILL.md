@@ -1713,25 +1713,47 @@ This value is used only if the Spec branch does not already exist.
 
 ### 3. Create or Reuse the Spec Branch
 
-Require a clean worktree before branch setup. Do not carry unrelated work across this checkout.
+The caller worktree is not ticketing authority. Preserve unrelated/in-progress caller work exactly.
+
+Before any branch-guard operation, fingerprint the protected caller worktree strongly enough to detect:
+* branch or detached-HEAD identity;
+* exact HEAD commit;
+* staged diff identity;
+* unstaged tracked diff identity;
+* untracked path-and-content identity.
+
+The fingerprint must distinguish staged from unstaged state and must detect changes to existing untracked files; `git status` text alone is insufficient. The exact fingerprint representation is implementation-owned, but the pre/post comparison is mandatory for the isolated-existing path.
 
 Determine local and remote branch existence once:
 
 ```bash
 LOCAL_BRANCH_EXISTS=false
 REMOTE_BRANCH_EXISTS=false
+CALLER_WORKTREE_DIRTY=false
+SPEC_BRANCH_GUARD_MODE=caller-checkout
+SPEC_BRANCH_GUARD_ROOT=
+SPEC_BRANCH_REMOTE_HEAD=
 
 git show-ref --verify --quiet "refs/heads/$SPEC_BRANCH" \
   && LOCAL_BRANCH_EXISTS=true
 
 git ls-remote --exit-code --heads origin "$SPEC_BRANCH" >/dev/null 2>&1 \
   && REMOTE_BRANCH_EXISTS=true
+
+[ -n "$(git status --porcelain)" ] && CALLER_WORKTREE_DIRTY=true
 ```
 
-On first use, neither branch exists. Require local `main` to match `origin/main`, then create the remote branch through GitHub's issue-development boundary so branch creation and Spec linkage happen together:
+On first use, neither branch exists. Branch creation still requires a clean caller worktree because `gh issue develop --checkout` establishes the first durable branch/linkage and local upstream together. Never stash, commit, discard, or relocate unrelated work merely to satisfy this requirement.
+
+For an **already-durable remote Spec branch**, a dirty caller worktree is not a publication blocker. Validate that branch from an isolated temporary worktree instead of switching the caller checkout.
 
 ```bash
 if [ "$LOCAL_BRANCH_EXISTS" = false ] && [ "$REMOTE_BRANCH_EXISTS" = false ]; then
+  if [ "$CALLER_WORKTREE_DIRTY" = true ]; then
+    echo "❌ First-use Spec branch creation requires a clean caller worktree."
+    exit 1
+  fi
+
   git fetch origin main
   REMOTE_MAIN=$(git rev-parse origin/main)
 
@@ -1746,6 +1768,12 @@ if [ "$LOCAL_BRANCH_EXISTS" = false ] && [ "$REMOTE_BRANCH_EXISTS" = false ]; th
     --checkout
 
   git push -u origin "$SPEC_BRANCH"
+elif [ "$REMOTE_BRANCH_EXISTS" = true ] && [ "$CALLER_WORKTREE_DIRTY" = true ]; then
+  git fetch origin "$SPEC_BRANCH"
+  SPEC_BRANCH_REMOTE_HEAD=$(git rev-parse "origin/$SPEC_BRANCH")
+  SPEC_BRANCH_GUARD_ROOT=$(mktemp -d "/tmp/to-tickets-$SPEC_BRANCH.XXXXXX")
+  git worktree add --detach "$SPEC_BRANCH_GUARD_ROOT" "$SPEC_BRANCH_REMOTE_HEAD"
+  SPEC_BRANCH_GUARD_MODE=isolated-existing
 elif [ "$LOCAL_BRANCH_EXISTS" = true ] && [ "$REMOTE_BRANCH_EXISTS" = true ]; then
   git checkout "$SPEC_BRANCH"
   git branch --set-upstream-to="origin/$SPEC_BRANCH" "$SPEC_BRANCH"
@@ -1758,7 +1786,9 @@ else
 fi
 ```
 
-Do not create another branch for remediation or amended-Spec ticket deltas. Do not silently fall back to a local-only branch if `gh issue develop`, the remote push, or Development linkage is unavailable.
+The isolated-existing path is validation-only. It does not make the protected caller checkout current, clean, or implementation-ready, and it does not authorize merging canonical authority, resolving downstream conflicts, or moving the Spec branch. Those are separate lifecycle operations owned by their applicable workflow.
+
+Do not create another branch for remediation or amended-Spec ticket deltas. Do not silently fall back to a local-only branch if `gh issue develop`, the remote push, Development linkage, isolated worktree creation, or remote-ref readback is unavailable.
 
 #### Legacy pre-existing branch reconciliation
 
@@ -1776,17 +1806,24 @@ When Development linkage is absent for an already-existing remote branch, requir
 
 If any condition fails, halt. Never delete/recreate, rename, or replace a durable existing Spec branch merely to manufacture Development linkage. Every newly created Spec branch continues to require `gh issue develop` so creation and linkage occur together.
 
-Verify branch identity, upstream, and Development linkage or qualified legacy reconciliation before continuing:
+Verify branch identity, remote identity, upstream/linkage where applicable, and Development linkage or qualified legacy reconciliation before continuing:
 
 ```bash
-if [ "$(git branch --show-current)" != "$SPEC_BRANCH" ]; then
-  echo "❌ Expected Spec branch $SPEC_BRANCH is not checked out."
-  exit 1
-fi
+if [ "$SPEC_BRANCH_GUARD_MODE" = isolated-existing ]; then
+  if [ "$(git -C "$SPEC_BRANCH_GUARD_ROOT" rev-parse HEAD)" != "$SPEC_BRANCH_REMOTE_HEAD" ]; then
+    echo "❌ Isolated Spec-branch guard does not match the frozen remote Spec branch."
+    exit 1
+  fi
+else
+  if [ "$(git branch --show-current)" != "$SPEC_BRANCH" ]; then
+    echo "❌ Expected Spec branch $SPEC_BRANCH is not checked out."
+    exit 1
+  fi
 
-if [ "$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" != "origin/$SPEC_BRANCH" ]; then
-  echo "❌ Spec branch is not tracking origin/$SPEC_BRANCH."
-  exit 1
+  if [ "$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)" != "origin/$SPEC_BRANCH" ]; then
+    echo "❌ Spec branch is not tracking origin/$SPEC_BRANCH."
+    exit 1
+  fi
 fi
 
 LINKED_BRANCHES=$(gh issue develop --list "$spec_issue_number")
@@ -1827,7 +1864,13 @@ elif [ "$REMOTE_BRANCH_EXISTS" = true ]; then
     exit 1
   fi
 
-  if ! git cat-file -e "$RECORDED_BASELINE^{commit}" 2>/dev/null \
+  if [ "$SPEC_BRANCH_GUARD_MODE" = isolated-existing ]; then
+    if ! git -C "$SPEC_BRANCH_GUARD_ROOT" cat-file -e "$RECORDED_BASELINE^{commit}" 2>/dev/null \
+      || ! git -C "$SPEC_BRANCH_GUARD_ROOT" merge-base --is-ancestor "$RECORDED_BASELINE" HEAD; then
+      echo "❌ Workspace Metadata baseline is not valid ancestry for the remote Spec branch."
+      exit 1
+    fi
+  elif ! git cat-file -e "$RECORDED_BASELINE^{commit}" 2>/dev/null \
     || ! git merge-base --is-ancestor "$RECORDED_BASELINE" HEAD; then
     echo "❌ Workspace Metadata baseline is not valid ancestry for the current Spec branch."
     exit 1
@@ -1844,7 +1887,34 @@ if [ "$LOCAL_BRANCH_EXISTS" = false ] && [ "$REMOTE_BRANCH_EXISTS" = false ] \
   echo "❌ Newly created Spec branch does not match the captured Spec baseline."
   exit 1
 fi
+
+if [ "$SPEC_BRANCH_GUARD_MODE" = isolated-existing ]; then
+  git fetch origin "$SPEC_BRANCH"
+  CURRENT_REMOTE_SPEC_HEAD=$(git rev-parse "origin/$SPEC_BRANCH")
+
+  if [ "$CURRENT_REMOTE_SPEC_HEAD" != "$SPEC_BRANCH_REMOTE_HEAD" ]; then
+    echo "❌ Remote Spec branch moved during isolated validation. Re-run the Spec Branch Guard."
+    git worktree remove --force "$SPEC_BRANCH_GUARD_ROOT" || true
+    exit 1
+  fi
+
+  git worktree remove "$SPEC_BRANCH_GUARD_ROOT"
+  git worktree prune
+fi
 ```
+
+For the isolated-existing path, recompute the protected caller-worktree fingerprint after isolated cleanup and require an exact match with the pre-guard fingerprint:
+
+```text
+Caller branch/HEAD unchanged: yes
+Caller staged state unchanged: yes
+Caller unstaged tracked state unchanged: yes
+Caller untracked path/content state unchanged: yes
+```
+
+Any mismatch is a hard blocker. Do not auto-repair, stash, reset, clean, or otherwise rewrite the caller worktree.
+
+This guard proves durable branch identity/baseline/linkage for ticket publication. It does **not** independently require the Spec branch to contain every current canonical architecture/document commit; authoritative source freshness is governed by the Architecture / Design Source Inventory and the immediately-before-publication source-identity revalidation. A downstream implementation workflow remains responsible for any branch-content synchronization required before it mutates product code.
 
 ### 4. Record Spec Baseline Metadata Once
 

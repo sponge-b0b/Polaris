@@ -1900,19 +1900,19 @@ if [ "$SPEC_BRANCH_GUARD_MODE" = isolated-existing ]; then
 
   git worktree remove "$SPEC_BRANCH_GUARD_ROOT"
   git worktree prune
-
-  Recompute the protected caller-worktree fingerprint and require an exact match with the pre-guard fingerprint. Require all of:
-
-  ```text
-  Caller branch/HEAD unchanged: yes
-  Caller staged state unchanged: yes
-  Caller unstaged tracked state unchanged: yes
-  Caller untracked path/content state unchanged: yes
-  ```
-
-  Any mismatch is a hard blocker. Do not auto-repair, stash, reset, clean, or otherwise rewrite the caller worktree.
 fi
 ```
+
+For the isolated-existing path, recompute the protected caller-worktree fingerprint after isolated cleanup and require an exact match with the pre-guard fingerprint:
+
+```text
+Caller branch/HEAD unchanged: yes
+Caller staged state unchanged: yes
+Caller unstaged tracked state unchanged: yes
+Caller untracked path/content state unchanged: yes
+```
+
+Any mismatch is a hard blocker. Do not auto-repair, stash, reset, clean, or otherwise rewrite the caller worktree.
 
 This guard proves durable branch identity/baseline/linkage for ticket publication. It does **not** independently require the Spec branch to contain every current canonical architecture/document commit; authoritative source freshness is governed by the Architecture / Design Source Inventory and the immediately-before-publication source-identity revalidation. A downstream implementation workflow remains responsible for any branch-content synchronization required before it mutates product code.
 

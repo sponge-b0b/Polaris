@@ -578,6 +578,34 @@ Require exactly one:
 
 The implementation actor may still discover evidence that falsifies the published sizing assumption. The proof-plan guard below independently challenges whether the actual authoritative work still matches that durable disposition.
 
+### Architecture-Blocker Admission Guard
+
+Before persisting a pending Ticket baseline or making any other substantive tracker/repository mutation, resolve the current ticket's machine-managed `<!-- architecture-blocker:v1 -->` marker to exactly zero or one comment.
+
+* More than one marker is ambiguous durable state and is a hard blocker.
+* No marker means continue.
+* `Status: resolved` is admissible only when `Disposition` names exact controlling authority/remediation evidence; malformed or authority-free resolution fails closed.
+* `Status: unresolved` means architecture is still unresolved. Halt before baseline persistence, implementation, verification, commit, or ticket-state mutation and present the canonical `$architecture-remediation` handoff for this ticket.
+* `Status: routed` is **not** implementation readiness. It means architecture remediation found a durable decision path but downstream ticket reconciliation has not durably finalized that blocker. Halt before baseline persistence, implementation, verification, commit, or ticket-state mutation and return the parent Spec through `$to-tickets` reconciliation. Do not invoke `$architecture-remediation` again solely to flip the status and do not self-resolve the report inside implementation.
+
+For a routed marker, report:
+
+```text
+TICKET ARCHITECTURE ADMISSION: BLOCKED
+Ticket: #<ticket>
+Blocker status: routed
+Required owner: $to-tickets
+Reason: routed architecture-blocker state is nonterminal until current authority/Spec reconciliation finalizes the same managed report to resolved
+```
+
+Then present the canonical parent-Spec handoff:
+
+```text
+$to-tickets - <Parent Spec Title> (<Parent Spec URL>)
+```
+
+This guard is admission-only. `$implement-ticket` never rewrites architecture-blocker status.
+
 ### Project Delivery Actionability Guard
 
 Before persisting a pending Ticket baseline or making any other tracker/repository mutation, resolve the parent Spec and determine whether it is Wayfinder-managed from durable `wayfinder-source`, `wayfinder-remediation`, and reconciled `Spec Handoff` evidence.

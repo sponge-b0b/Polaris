@@ -680,11 +680,23 @@ Use:
 <None while unresolved | routing/resolution references>
 ```
 
-The marker is single-owner state for the source artifact: maintain zero or one active comment containing `<!-- architecture-blocker:v1 -->`; update that comment in place rather than creating competing active reports. `unresolved` means `$architecture-remediation` must consume it. `routed` means the blocker has a durable governing architecture decision path and no longer depends on the producing session. `resolved` means durable authority directly determines the blocker and the disposition names that authority/remediation receipt.
+The marker is single-record state for the source artifact: maintain zero or one active comment containing `<!-- architecture-blocker:v1 -->`; update that comment in place rather than creating competing active reports.
+
+Status ownership is staged and fail-closed:
+
+* `unresolved` means the producing lifecycle has proven a durable architecture/design gap and `$architecture-remediation` must consume it;
+* `routed` means `$architecture-remediation` has durably bound the blocker to its governing decision path, but the blocker is **not yet implementation-ready terminal state**;
+* `resolved` means current durable authority directly determines every blocker question and the disposition names that exact controlling authority/remediation receipt.
+
+For Wayfinder-managed remediation, `$architecture-remediation` owns `unresolved → routed`. After the governing decision becomes accepted and the affected Spec is reconciled, `$to-tickets` is the downstream finalization owner for `routed → resolved` while reconciling the existing ticket universe. That finalization is legal only when current accepted authority directly answers every persisted blocker question, the parent Spec has consumed the governing decision state, and the ticket is classified `design-ready` under the complete architecture-readiness sweep. `$to-tickets` must preserve the original blocker questions/evidence/provenance, update the same managed comment in place with the exact controlling authority, and require exact readback. It may not change `unresolved → routed`, invent authority, suppress a blocker, or mark a report resolved merely because a ticket body was rewritten.
+
+For Independent-Spec remediation, `$architecture-remediation` retains `unresolved → resolved` ownership after its bounded authority/Spec/receipt closure.
+
+A ticket carrying `unresolved` or `routed` architecture-blocker state is not admissible to implementation. Before any `$implement-ticket` mutation, the marker must be absent or durably `resolved`; a stale `routed` marker returns through `$to-tickets` reconciliation rather than being ignored.
 
 When a helper discovers the blocker, it returns structured blocker state to its lifecycle-owning parent; the parent persists the report and owns the Human Handoff.
 
-`$architecture-remediation` is the consumer/disposition owner for blocker reports handed to it. A producer may include a concise blocker summary in surrounding prose, but the report—not the prior session—is the recoverable blocker authority.
+`$architecture-remediation` is the routing/disposition owner for blocker reports handed to it; `$to-tickets` has only the narrow downstream finalization authority above. A producer may include a concise blocker summary in surrounding prose, but the report—not the prior session—is the recoverable blocker authority.
 
 For a pre-Spec handoff directly back to an existing Wayfinder rather than `$architecture-remediation`, apply the same durability rule: the invoked Wayfinder map/decision must durably contain the unresolved question or receive an equivalent persisted blocker record before the handoff.
 

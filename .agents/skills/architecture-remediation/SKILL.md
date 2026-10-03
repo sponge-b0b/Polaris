@@ -457,6 +457,10 @@ After the required decision-ticket/map mutations are durable, invoke `$project-d
 
 For blocker-remediation mode, update the source `architecture-blocker:v1` report to `Status: routed`, record the governing Wayfinder and exact decision ticket references in `Disposition`, and verify the readback before the `$wayfinder` Human Handoff.
 
+For Wayfinder-managed remediation, `routed` is deliberately **nonterminal**. It proves recoverable routing while architectural decision work is still outside the blocked ticket lifecycle; it does not authorize implementation. After `$wayfinder` resolves the decision and `$to-specs` / `$to-remediation-specs` propagates that authority into the affected Spec, the normal return path reaches `$to-tickets`. During its complete existing-ticket architecture-readiness sweep, `$to-tickets` must finalize the same managed blocker report from `routed → resolved` before any affected ticket can be handed to `$implement-ticket`.
+
+Do not create a second blocker record, duplicate the architecture decision, or require a human ping-pong handoff back into `$architecture-remediation` solely to flip this terminal status. The downstream finalization is mechanical only after current accepted authority directly answers every persisted blocker question and the reconciled Spec consumes that authority; otherwise the report remains `routed` and downstream ticketing fails closed.
+
 ## 5B. Persist Independent-Spec Remediation
 
 Perform this section only after Independent-Spec bounded design-completeness closure passes.
@@ -672,6 +676,8 @@ For **Wayfinder-managed** remediation:
 * when unresolved decision work re-enters a closed map, that same map is reopened and verified open before decision work is created/reused;
 * every unresolved decision is represented by exactly one open Wayfinder ticket;
 * project-delivery reconciliation runs after authoritative Wayfinder transitions without auto-focusing a map;
+* a blocker report handed to unresolved Wayfinder work is durably `routed` with exact decision references and is explicitly nonterminal for implementation;
+* the downstream return contract is durable: after Wayfinder/Spec reconciliation, `$to-tickets` must finalize any now-resolved routed report before implementation handoff;
 * the appropriate `$wayfinder` Human Handoff or resolved-authority return is presented.
 
 `$wayfinder` owns architectural resolution and authority reconciliation for Wayfinder-managed Specs. `$to-specs` / `$to-remediation-specs` own propagating those changed decisions back into the governed Spec.

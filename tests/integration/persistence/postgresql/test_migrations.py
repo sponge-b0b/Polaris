@@ -28,6 +28,16 @@ FORBIDDEN_TABLE_FRAGMENTS = {
     "report",
     "workflow",
 }
+# duplicate-code: this independently asserted migration expectation must not
+# consume the runtime schema registry it is intended to falsify.
+# arid: disable
+SUFFICIENCY_TABLE_NAMES = {
+    "evidence_support_versions",
+    "evidence_sufficiency_assessments",
+    "evidence_sufficiency_contributors",
+    "evidence_sufficiency_command_receipts",
+}
+# arid: enable
 
 
 async def _string_values(
@@ -159,6 +169,9 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
     sufficiency_requirement_migration = Path(
         "migrations/versions/0005_evidence_sufficiency_requirements.py"
     ).read_text(encoding="utf-8")
+    sufficiency_assessment_migration = Path(
+        "migrations/versions/0006_evidence_sufficiency_assessments.py"
+    ).read_text(encoding="utf-8")
     assert "down_revision: str | None = None" in decision_migration
     assert (
         'down_revision: str | None = "0001_decision_persistence"' in evidence_migration
@@ -174,11 +187,16 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
         'down_revision: str | None = "0004_evidence_bindings"'
         in sufficiency_requirement_migration
     )
+    assert (
+        'down_revision: str | None = "0005_sufficiency_requirements"'
+        in sufficiency_assessment_migration
+    )
     assert "legacy" not in decision_migration.lower()
     assert "legacy" not in evidence_migration.lower()
     assert "legacy" not in requirement_migration.lower()
     assert "legacy" not in binding_migration.lower()
     assert "legacy" not in sufficiency_requirement_migration.lower()
+    assert "legacy" not in sufficiency_assessment_migration.lower()
 
     tables = asyncio.run(_table_names(postgres_target))
     assert tables == POLARIS_TABLE_NAMES | {"alembic_version"}
@@ -196,6 +214,7 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
     for table_name, column_name in (
         ("evidence_observations", "observation_id"),
         ("evidence_bindings", "binding_id"),
+        ("evidence_sufficiency_assessments", "assessment_id"),
     ):
         assert (
             asyncio.run(
@@ -284,7 +303,6 @@ def test_sufficiency_requirement_migration_constrains_definition_shape(
     assert constraint in asyncio.run(
         _constraint_names(postgres_target, "evidence_requirement_definitions")
     )
-
     alembic = Config("alembic.ini")
     command.downgrade(alembic, "0004_evidence_bindings")
     assert constraint not in asyncio.run(
@@ -294,6 +312,47 @@ def test_sufficiency_requirement_migration_constrains_definition_shape(
     assert constraint in asyncio.run(
         _constraint_names(postgres_target, "evidence_requirement_definitions")
     )
+
+
+def test_sufficiency_assessment_migration_preserves_constraints(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    support_version_constraints = asyncio.run(
+        _constraint_names(postgres_target, "evidence_support_versions")
+    )
+    assert {
+        "ck_evidence_support_versions_evidence_use",
+        "ck_evidence_support_versions_scope_kind",
+        "ck_evidence_support_versions_support_version_positive",
+        "ck_evidence_support_versions_target_family",
+        "fk_evidence_support_version_binding",
+        "uq_evidence_support_versions_binding_id",
+    } <= support_version_constraints
+    assessment_constraints = asyncio.run(
+        _constraint_names(postgres_target, "evidence_sufficiency_assessments")
+    )
+    assert {
+        "ck_evidence_sufficiency_assessments_actor_attribution_kind",
+        "ck_evidence_sufficiency_assessments_actor_attribution_shape",
+        "ck_evidence_sufficiency_assessments_evidence_use",
+        "ck_evidence_sufficiency_assessments_known_before_recorded",
+        "ck_evidence_sufficiency_assessments_reassessment_distinct",
+        "ck_evidence_sufficiency_assessments_result",
+        "ck_evidence_sufficiency_assessments_scope_kind",
+        "ck_evidence_sufficiency_assessments_support_version_nonnegative",
+        "ck_evidence_sufficiency_assessments_target_family",
+        "fk_evidence_sufficiency_reassessment",
+        "fk_evidence_sufficiency_requirement_version",
+        "uq_evidence_sufficiency_assessment_requirement_version",
+    } <= assessment_constraints
+    contributor_constraints = asyncio.run(
+        _constraint_names(postgres_target, "evidence_sufficiency_contributors")
+    )
+    assert {
+        "fk_evidence_sufficiency_contributor_assessment",
+        "fk_evidence_sufficiency_contributor_binding",
+        "uq_evidence_sufficiency_contributor",
+    } <= contributor_constraints
 
 
 def test_root_downgrades_to_empty_and_reupgrades(
@@ -329,6 +388,7 @@ def test_requirement_revision_downgrades_to_evidence_foundation_and_reupgrades(
                 "evidence_requirement_definitions",
                 "evidence_bindings",
                 "evidence_binding_command_receipts",
+                *SUFFICIENCY_TABLE_NAMES,
             }
         )
         | {"alembic_version"},
@@ -346,7 +406,18 @@ def test_binding_revision_downgrades_to_requirement_foundation_and_reupgrades(
             - {
                 "evidence_bindings",
                 "evidence_binding_command_receipts",
+                *SUFFICIENCY_TABLE_NAMES,
             }
         )
         | {"alembic_version"},
+    )
+
+
+def test_sufficiency_revision_downgrades_to_executable_requirements_and_reupgrades(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    _assert_revision_round_trip(
+        postgres_target,
+        "0005_sufficiency_requirements",
+        (POLARIS_TABLE_NAMES - SUFFICIENCY_TABLE_NAMES) | {"alembic_version"},
     )

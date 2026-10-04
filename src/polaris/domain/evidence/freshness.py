@@ -9,6 +9,7 @@ from polaris.domain.configuration.evidence_requirements import (
     EvidenceRequirementId,
     EvidenceRequirementSetId,
     EvidenceRequirementSetVersionId,
+    FreshnessRequirementDefinition,
 )
 
 
@@ -209,6 +210,36 @@ type EvidenceFreshnessEvaluation = (
     | EvidenceFreshnessContestedAuthority
     | EvidenceFreshnessInvalidAuthority
 )
+
+
+def evaluate_evidence_freshness(
+    *,
+    basis: EvidenceFreshnessBasisReference,
+    authority_set_id: EvidenceRequirementSetId,
+    authority_version_id: EvidenceRequirementSetVersionId,
+    requirement: FreshnessRequirementDefinition,
+    effective_at: datetime,
+) -> EvidenceFreshnessApplicable:
+    """Evaluate freshness against one exact resolved Configuration requirement."""
+
+    result = (
+        EvidenceFreshnessResult.INDETERMINATE
+        if basis.as_of_at > effective_at
+        else (
+            EvidenceFreshnessResult.FRESH
+            if effective_at - basis.as_of_at <= requirement.maximum_age
+            else EvidenceFreshnessResult.STALE
+        )
+    )
+    return EvidenceFreshnessApplicable(
+        EvidenceFreshnessAuthorityReference(
+            authority_set_id,
+            authority_version_id,
+            requirement.requirement_id,
+        ),
+        basis,
+        result,
+    )
 
 
 def is_evidence_freshness_evaluation(value: object) -> bool:

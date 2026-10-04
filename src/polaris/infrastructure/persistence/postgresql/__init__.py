@@ -12,6 +12,7 @@ from .schema import (
     POLARIS_TABLE_NAMES,
     metadata,
 )
+from .sufficiency_store import PostgresEvidenceSufficiencyStore
 
 __all__ = [
     "CONFIGURATION_TABLE_NAMES",
@@ -22,6 +23,7 @@ __all__ = [
     "PostgresEvidenceBindingStore",
     "PostgresEvidenceRequirementStore",
     "PostgresEvidenceStore",
+    "PostgresEvidenceSufficiencyStore",
     "create_postgres_engine",
     "metadata",
 ]

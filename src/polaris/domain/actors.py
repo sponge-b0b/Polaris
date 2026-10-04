@@ -49,3 +49,13 @@ class ContestedActorAttribution:
 ActorAttribution = (
     KnownActorAttribution | UnknownActorAttribution | ContestedActorAttribution
 )
+
+
+def is_actor_attribution(value: object) -> bool:
+    """Return whether ``value`` is one of the closed actor-attribution variants."""
+
+    return type(value) in (
+        KnownActorAttribution,
+        UnknownActorAttribution,
+        ContestedActorAttribution,
+    )

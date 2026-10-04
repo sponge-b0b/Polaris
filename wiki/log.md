@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-03] R3 derived Evidence sufficiency | #377 contract realized
+
+Replaced caller-authored dispositions and support subsets with the Evidence-owned deterministic evaluator over the complete exact-key binding universe at explicit `(effective_at, known_at)`. Immutable assessments now preserve the exact requirement predicate and authority, distinct counted observations, every contributor and typed deficiency proof with fact/freshness support, both negative-witness families, a durable target/scope/use-local support epoch, and binding/correction/authority absence guards. Binding commits advance the immutable epoch for current support/provenance changes rather than deriving it from cardinality; future-only appends leave the current epoch unchanged. Application and PostgreSQL validate observation temporal coordinates and re-load and re-derive the complete basis under shared requirement/binding transaction locks before append; invalid Evidence history remains distinct from requirement authority and stale basis, and exact replay, rollback, restart, reassessment history, immutability, and concurrent distinct roots are covered. Evidence correction interpretation remains owned by #378.
+
 ## [2026-10-03] R3 executable Evidence-sufficiency requirements | #385 contract realized
 
 Extended immutable Configuration requirement-set versions with the Evidence-owned executable `MinimumEligibleEvidence` predicate, closed eligible-role validation, explicit `REQUIRED | NOT_APPLICABLE` state, and exact negative witnesses derived only from resolved authority. PostgreSQL now round-trips the typed definition and defends its JSON shape in the committed migration lineage. This ticket establishes the requirement contract and witness foundation; Evidence selection, sufficiency evaluation, assessment persistence, and reconstruction remain assigned to downstream tickets.

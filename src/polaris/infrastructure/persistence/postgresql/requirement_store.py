@@ -33,7 +33,7 @@ from .schema import (
     evidence_requirement_set_versions,
 )
 
-_EVIDENCE_REQUIREMENT_WRITE_LOCK = 4_566_144_311_625_725_310
+EVIDENCE_REQUIREMENT_WRITE_LOCK = 4_566_144_311_625_725_310
 
 
 class PostgresEvidenceRequirementStore:
@@ -53,7 +53,7 @@ class PostgresEvidenceRequirementStore:
     ) -> tuple[EvidenceRequirementSetVersion, ...]:
         try:
             async with self._engine.connect() as connection:
-                return await _load_versions(connection)
+                return await load_requirement_versions_from_connection(connection)
         except (SQLAlchemyError, ValueError, TypeError) as error:
             raise EvidenceRequirementReadUnavailable(
                 "Evidence requirement authority read is unavailable"
@@ -70,7 +70,7 @@ class PostgresEvidenceRequirementStore:
             async with self._engine.begin() as connection:
                 await connection.execute(
                     text("SELECT pg_advisory_xact_lock(:lock_key)"),
-                    {"lock_key": _EVIDENCE_REQUIREMENT_WRITE_LOCK},
+                    {"lock_key": EVIDENCE_REQUIREMENT_WRITE_LOCK},
                 )
                 existing = await _load_version(connection, version.version_id)
                 if existing is not None:
@@ -79,7 +79,7 @@ class PostgresEvidenceRequirementStore:
                     return EvidenceRequirementVersionConflict(version.version_id)
                 # arid: enable
 
-                history = await _load_versions(connection)
+                history = await load_requirement_versions_from_connection(connection)
                 try:
                     validate_requirement_history((*history, version))
                 except InvalidEvidenceRequirementHistory as error:
@@ -108,7 +108,7 @@ class PostgresEvidenceRequirementStore:
         del step
 
 
-async def _load_versions(
+async def load_requirement_versions_from_connection(
     connection: AsyncConnection,
 ) -> tuple[EvidenceRequirementSetVersion, ...]:
     version_rows = (

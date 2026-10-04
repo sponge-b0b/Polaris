@@ -4,8 +4,6 @@ from datetime import datetime
 
 from polaris.domain.configuration import FreshnessRequirementDefinition
 from polaris.domain.evidence.freshness import (
-    EvidenceFreshnessApplicable,
-    EvidenceFreshnessAuthorityReference,
     EvidenceFreshnessBasisReference,
     EvidenceFreshnessContestedAuthority,
     EvidenceFreshnessEvaluation,
@@ -13,8 +11,8 @@ from polaris.domain.evidence.freshness import (
     EvidenceFreshnessMissingAuthority,
     EvidenceFreshnessNoRequirementWitness,
     EvidenceFreshnessNotApplicable,
-    EvidenceFreshnessResult,
     EvidenceFreshnessUnavailableAuthority,
+    evaluate_evidence_freshness,
 )
 
 from .requirements import (
@@ -70,24 +68,17 @@ async def evaluate_binding_freshness(
                 "resolved requirement version has multiple freshness definitions",
             )
         requirement = freshness_requirements[0]
-        result = (
-            EvidenceFreshnessResult.INDETERMINATE
-            if basis.as_of_at > effective_at
-            else (
-                EvidenceFreshnessResult.FRESH
-                if effective_at - basis.as_of_at <= requirement.maximum_age
-                else EvidenceFreshnessResult.STALE
-            )
+        # duplicate-code: freshness resolution and sufficiency proof construction are
+        # separate callers of the canonical domain evaluator, not competing logic.
+        # arid: disable
+        return evaluate_evidence_freshness(
+            basis=basis,
+            authority_set_id=version.set_id,
+            authority_version_id=version.version_id,
+            requirement=requirement,
+            effective_at=effective_at,
         )
-        return EvidenceFreshnessApplicable(
-            EvidenceFreshnessAuthorityReference(
-                version.set_id,
-                version.version_id,
-                requirement.requirement_id,
-            ),
-            basis,
-            result,
-        )
+        # arid: enable
     if isinstance(resolution, MissingEvidenceRequirementAuthority):
         return EvidenceFreshnessMissingAuthority(basis)
     if isinstance(resolution, UnavailableEvidenceRequirementAuthority):

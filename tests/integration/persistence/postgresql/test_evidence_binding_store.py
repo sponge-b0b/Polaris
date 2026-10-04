@@ -47,6 +47,7 @@ from polaris.infrastructure.persistence.postgresql import (
 from polaris.infrastructure.persistence.postgresql.schema import (
     evidence_binding_command_receipts,
     evidence_bindings,
+    evidence_support_versions,
 )
 from tests.binding_support import (
     BINDING_EFFECTIVE_AT,
@@ -310,6 +311,12 @@ class _FailAfterBindingStore(PostgresEvidenceBindingStore):
             raise RuntimeError("injected binding transaction failure")
 
 
+class _FailAfterSupportVersionStore(PostgresEvidenceBindingStore):
+    def _write_completed(self, step: str) -> None:
+        if step == "support_version":
+            raise RuntimeError("injected support-version transaction failure")
+
+
 def test_failure_after_binding_insert_rolls_back_binding_and_receipt(
     postgres_target: PostgresTestTarget,
 ) -> None:
@@ -322,6 +329,27 @@ def test_failure_after_binding_insert_rolls_back_binding_and_receipt(
             with pytest.raises(EvidencePersistenceUnavailable):
                 await binding_service(store, BINDING_ID).record(binding_command())
         await _assert_binding_rows(postgres_target, (0, 0))
+
+    asyncio.run(scenario())
+
+
+def test_failure_after_support_epoch_rolls_back_entire_binding_transaction(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        await _seed_observation(postgres_target)
+        async with postgres_store(
+            postgres_target,
+            _FailAfterSupportVersionStore,
+        ) as (engine, store):
+            with pytest.raises(EvidencePersistenceUnavailable):
+                await binding_service(store, BINDING_ID).record(binding_command())
+            assert await postgres_row_counts(
+                engine,
+                evidence_bindings,
+                evidence_support_versions,
+                evidence_binding_command_receipts,
+            ) == (0, 0, 0)
 
     asyncio.run(scenario())
 
@@ -343,6 +371,31 @@ def test_binding_rows_are_database_immutable(
                     )
 
     asyncio.run(scenario())
+
+
+# duplicate-code: this falsifier targets the support-epoch table's independent
+# trigger; sharing binding-table mutation scaffolding could mask wrong trigger routing.
+# arid: disable
+def test_support_epoch_rows_are_database_immutable(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        await _seed_observation(postgres_target)
+        await _record_binding(postgres_target)
+        async with postgres_store(
+            postgres_target,
+            PostgresEvidenceBindingStore,
+        ) as (engine, _):
+            async with engine.begin() as connection:
+                with pytest.raises(SQLAlchemyError):
+                    await connection.execute(
+                        update(evidence_support_versions).values(support_version=2)
+                    )
+
+    asyncio.run(scenario())
+
+
+# arid: enable
 
 
 def test_inward_binding_port_exposes_no_database_types() -> None:

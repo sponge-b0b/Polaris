@@ -61,12 +61,16 @@ def test_first_class_evidence_identities_are_distinct_uuid4_types() -> None:
 
 @pytest.mark.parametrize(
     "identity_type",
+    # duplicate-code: this test independently enumerates the closed identity union;
+    # deriving cases from production would make the contract proof tautological.
+    # arid: disable
     [
         EvidenceObservationId,
         EvidenceBindingId,
         EvidenceSufficiencyAssessmentId,
         EvidenceCorrectionId,
     ],
+    # arid: enable
 )
 def test_evidence_identities_reject_non_uuid4(identity_type: type[object]) -> None:
     with pytest.raises(InvalidEvidenceIdentity):

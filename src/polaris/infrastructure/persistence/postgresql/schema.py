@@ -78,6 +78,50 @@ def _actor_attribution_constraints() -> tuple[CheckConstraint, ...]:
     )
 
 
+def _request_fingerprint_constraint() -> CheckConstraint:
+    return CheckConstraint(
+        "char_length(request_fingerprint) = 64",
+        name="fingerprint_sha256",
+    )
+
+
+def _evidence_applicability_constraints() -> tuple[CheckConstraint, ...]:
+    return (
+        CheckConstraint(
+            "target_family IN ("
+            "'investment_hypothesis', 'investment_view', "
+            "'meaningful_challenge_result', 'projected_portfolio_consequence', "
+            "'portfolio_risk_assessment', 'investment_recommendation', "
+            "'recommendation_withholding_judgment', 'human_investment_decision', "
+            "'decision_evaluation', 'lesson'"
+            ")",
+            name="target_family",
+        ),
+        CheckConstraint(
+            "(scope_kind = 'judgment_wide' AND claim_id IS NULL) OR "
+            "(scope_kind = 'claim_specific' AND claim_id IS NOT NULL)",
+            name="scope_kind",
+        ),
+        CheckConstraint(
+            "evidence_use IN ("
+            "'judgment_basis', 'challenge_basis', 'current_support_check', "
+            "'retrospective_later_evidence', 'reconstruction_only'"
+            ")",
+            name="evidence_use",
+        ),
+    )
+
+
+def _evidence_applicability_columns() -> tuple[Column[Any], ...]:
+    return (
+        Column("target_family", String(48), nullable=False),
+        Column("target_id", UUID(as_uuid=True), nullable=False),
+        Column("scope_kind", String(24), nullable=False),
+        Column("claim_id", UUID(as_uuid=True)),
+        Column("evidence_use", String(40), nullable=False),
+    )
+
+
 decision_needs = Table(
     "decision_needs",
     metadata,
@@ -311,10 +355,7 @@ investment_decision_command_receipts = Table(
     Column("request_payload", JSONB, nullable=False),
     Column("result_payload", JSONB, nullable=False),
     Column("committed_at", DateTime(timezone=True), nullable=False),
-    CheckConstraint(
-        "char_length(request_fingerprint) = 64",
-        name="fingerprint_sha256",
-    ),
+    _request_fingerprint_constraint(),
 )
 
 evidence_observations = Table(
@@ -502,11 +543,7 @@ evidence_bindings = Table(
         ),
         nullable=False,
     ),
-    Column("target_family", String(48), nullable=False),
-    Column("target_id", UUID(as_uuid=True), nullable=False),
-    Column("scope_kind", String(24), nullable=False),
-    Column("claim_id", UUID(as_uuid=True)),
-    Column("evidence_use", String(40), nullable=False),
+    *_evidence_applicability_columns(),
     Column("role", String(24), nullable=False),
     Column("availability", String(16), nullable=False),
     Column("materially_used", Boolean, nullable=False),
@@ -546,28 +583,7 @@ evidence_bindings = Table(
         name="fk_evidence_binding_freshness_requirement",
         ondelete="RESTRICT",
     ),
-    CheckConstraint(
-        "target_family IN ("
-        "'investment_hypothesis', 'investment_view', "
-        "'meaningful_challenge_result', 'projected_portfolio_consequence', "
-        "'portfolio_risk_assessment', 'investment_recommendation', "
-        "'recommendation_withholding_judgment', 'human_investment_decision', "
-        "'decision_evaluation', 'lesson'"
-        ")",
-        name="target_family",
-    ),
-    CheckConstraint(
-        "(scope_kind = 'judgment_wide' AND claim_id IS NULL) OR "
-        "(scope_kind = 'claim_specific' AND claim_id IS NOT NULL)",
-        name="scope_kind",
-    ),
-    CheckConstraint(
-        "evidence_use IN ("
-        "'judgment_basis', 'challenge_basis', 'current_support_check', "
-        "'retrospective_later_evidence', 'reconstruction_only'"
-        ")",
-        name="evidence_use",
-    ),
+    *_evidence_applicability_constraints(),
     CheckConstraint(
         "role IN ("
         "'supporting', 'conflicting', 'constraining', "
@@ -669,12 +685,153 @@ evidence_binding_command_receipts = Table(
     Column("request_payload", JSONB, nullable=False),
     Column("result_payload", JSONB, nullable=False),
     Column("committed_at", DateTime(timezone=True), nullable=False),
-    CheckConstraint(
-        "char_length(request_fingerprint) = 64",
-        name="fingerprint_sha256",
-    ),
+    _request_fingerprint_constraint(),
 )
 # arid: enable
+
+evidence_support_versions = Table(
+    "evidence_support_versions",
+    metadata,
+    _row_id(),
+    *_evidence_applicability_columns(),
+    # duplicate-code: support-epoch provenance and assessment contributors are
+    # independently constrained facts; sharing their FK column would couple tables.
+    # arid: disable
+    Column(
+        "binding_id",
+        UUID(as_uuid=True),
+        ForeignKey(
+            "evidence_bindings.binding_id",
+            name="fk_evidence_support_version_binding",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+        unique=True,
+    ),
+    # arid: enable
+    Column("support_version", BigInteger, nullable=False),
+    Column("effective_at", DateTime(timezone=True), nullable=False),
+    Column("recorded_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint("support_version > 0", name="support_version_positive"),
+    *_evidence_applicability_constraints(),
+)
+
+Index(
+    "uq_evidence_support_versions_scope_version",
+    evidence_support_versions.c.target_family,
+    evidence_support_versions.c.target_id,
+    evidence_support_versions.c.scope_kind,
+    evidence_support_versions.c.claim_id,
+    evidence_support_versions.c.evidence_use,
+    evidence_support_versions.c.support_version,
+    unique=True,
+    postgresql_nulls_not_distinct=True,
+)
+
+evidence_sufficiency_assessments = Table(
+    "evidence_sufficiency_assessments",
+    metadata,
+    _row_id(),
+    Column("assessment_id", UUID(as_uuid=True), nullable=False, unique=True),
+    *_evidence_applicability_columns(),
+    Column("applicability", JSONB, nullable=False),
+    Column("requirement_set_id", UUID(as_uuid=True), nullable=False),
+    Column("requirement_version_id", UUID(as_uuid=True), nullable=False),
+    Column("support_version", BigInteger, nullable=False),
+    Column("binding_guard_ids", _uuid_array(), nullable=False),
+    Column("correction_guard_ids", _uuid_array(), nullable=False),
+    Column("requirement_authority_guard_ids", _uuid_array(), nullable=False),
+    Column("proof", JSONB, nullable=False),
+    Column("actor_attribution_kind", String(16), nullable=False),
+    Column("actor_id", UUID(as_uuid=True)),
+    Column("actor_candidate_ids", _uuid_array()),
+    Column("effective_at", DateTime(timezone=True), nullable=False),
+    Column("known_at", DateTime(timezone=True), nullable=False),
+    Column("recorded_at", DateTime(timezone=True), nullable=False),
+    Column("result", String(16), nullable=False),
+    Column(
+        "reassesses_assessment_id",
+        UUID(as_uuid=True),
+        ForeignKey(
+            "evidence_sufficiency_assessments.assessment_id",
+            name="fk_evidence_sufficiency_reassessment",
+            ondelete="RESTRICT",
+        ),
+    ),
+    ForeignKeyConstraint(
+        ["requirement_set_id", "requirement_version_id"],
+        [
+            "evidence_requirement_set_versions.set_id",
+            "evidence_requirement_set_versions.version_id",
+        ],
+        name="fk_evidence_sufficiency_requirement_version",
+        ondelete="RESTRICT",
+    ),
+    UniqueConstraint(
+        "assessment_id",
+        "requirement_version_id",
+        name="uq_evidence_sufficiency_assessment_requirement_version",
+    ),
+    *_actor_attribution_constraints(),
+    CheckConstraint("support_version >= 0", name="support_version_nonnegative"),
+    CheckConstraint("known_at <= recorded_at", name="known_before_recorded"),
+    CheckConstraint(
+        "reassesses_assessment_id IS NULL OR reassesses_assessment_id <> assessment_id",
+        name="reassessment_distinct",
+    ),
+    CheckConstraint(
+        "result IN ('sufficient', 'insufficient', 'indeterminate')",
+        name="result",
+    ),
+    *_evidence_applicability_constraints(),
+)
+
+evidence_sufficiency_contributors = Table(
+    "evidence_sufficiency_contributors",
+    metadata,
+    _row_id(),
+    Column(
+        "assessment_id",
+        UUID(as_uuid=True),
+        ForeignKey(
+            "evidence_sufficiency_assessments.assessment_id",
+            name="fk_evidence_sufficiency_contributor_assessment",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+    ),
+    Column(
+        "binding_id",
+        UUID(as_uuid=True),
+        ForeignKey(
+            "evidence_bindings.binding_id",
+            name="fk_evidence_sufficiency_contributor_binding",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+    ),
+    UniqueConstraint(
+        "assessment_id",
+        "binding_id",
+        name="uq_evidence_sufficiency_contributor",
+    ),
+)
+
+evidence_sufficiency_command_receipts = Table(
+    "evidence_sufficiency_command_receipts",
+    metadata,
+    _row_id(),
+    Column("operation_id", UUID(as_uuid=True), nullable=False, unique=True),
+    # duplicate-code: sufficiency receipts are an independently evolvable operation
+    # contract; a shared table factory would falsely couple domain persistence.
+    # arid: disable
+    Column("request_fingerprint", String(64), nullable=False),
+    Column("request_payload", JSONB, nullable=False),
+    Column("result_payload", JSONB, nullable=False),
+    Column("committed_at", DateTime(timezone=True), nullable=False),
+    _request_fingerprint_constraint(),
+    # arid: enable
+)
 
 
 DECISION_TABLE_NAMES = frozenset(
@@ -692,6 +849,10 @@ EVIDENCE_TABLE_NAMES = frozenset(
         "evidence_observation_command_receipts",
         "evidence_bindings",
         "evidence_binding_command_receipts",
+        "evidence_support_versions",
+        "evidence_sufficiency_assessments",
+        "evidence_sufficiency_contributors",
+        "evidence_sufficiency_command_receipts",
     }
 )
 CONFIGURATION_TABLE_NAMES = frozenset(

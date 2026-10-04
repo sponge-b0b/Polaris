@@ -75,6 +75,40 @@ class EvidenceCorrectionId:
         _uuid4(self.value, "EvidenceCorrectionId.value")
 
 
+type EvidenceFactRef = (
+    EvidenceObservationId
+    | EvidenceBindingId
+    | EvidenceSufficiencyAssessmentId
+    | EvidenceCorrectionId
+)
+
+
+def is_evidence_fact_ref(value: object) -> bool:
+    return type(value) in (
+        EvidenceObservationId,
+        EvidenceBindingId,
+        EvidenceSufficiencyAssessmentId,
+        EvidenceCorrectionId,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceSupportVersion:
+    """Scope-local support/provenance version used for atomic revalidation."""
+
+    value: int
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.value, int)
+            or isinstance(self.value, bool)
+            or self.value < 0
+        ):
+            raise InvalidEvidenceIdentity(
+                "EvidenceSupportVersion.value must be a non-negative integer"
+            )
+
+
 @dataclass(frozen=True, slots=True)
 class EvidenceSourceProvenance:
     """Attributable source identity without transferring factual authority."""

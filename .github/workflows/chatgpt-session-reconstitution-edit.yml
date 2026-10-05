@@ -1,0 +1,15 @@
+name: ChatGPT session reconstitution edit transport
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "session-reconstitution transport probe"

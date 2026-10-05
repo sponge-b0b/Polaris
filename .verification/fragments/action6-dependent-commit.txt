@@ -1,0 +1,53 @@
+ACTION 6 — UPDATE TICKET #381
+Title remains: Reject dependent commits against stale Evidence bases atomically
+Complete proposed body:
+
+## Parent
+
+Parent Spec: #357
+
+## Spec obligations
+
+US-17, ID-18, ID-19, ID-20, TD-8, TD-9, TD-10, NORM-8
+
+## Architecture obligations
+
+ARCHSRC-5, ARCHSRC-7
+
+## Architecture context
+
+Application Use Cases; Evidence; Durable Persistence; ADRs 0005, 0011, 0012, 0013, 0014. All architecture and material design decisions currently required by this ticket are accepted; no known implementation-readiness blocker remains unresolved.
+
+## Context fit
+
+one-window
+
+## What to build
+
+Complete the command seam by reconstructing/re-evaluating and atomically revalidating the complete protected current-support basis at a fresh commit instant with the dependent write, including the complete current interpreted observation-correction, binding-correction, and sufficiency-assessment/reassessment/correction state whenever it affects protected support meaning, while preserving semantic transaction boundaries and the existing qualified PostgreSQL runtime boundary.
+
+## Acceptance criteria
+
+* [ ] Commit obtains a fresh trusted instant, reconstructs/re-evaluates at commit `T=K`, and atomically checks all versions, interpreted correction state, and typed negative predicates with the write; matching stored versions alone are insufficient.
+* [ ] Every accepted result-affecting dependency change invalidates the basis while irrelevant/out-of-key changes do not; this explicitly includes correction or succession of a referenced observation, revision/retraction/restoration/contestation of a relevant binding, and sufficiency assessment/reassessment/correction changes that alter or invalidate protected current support meaning.
+* [ ] Commit-time reconstruction observes the complete interpreted observation and binding correction branches plus assessment/reassessment/correction state and rejects a basis read before any later result-affecting correction, even when unrelated endpoint/version fields still match.
+* [ ] Time-only freshness threshold crossing invalidates correctly; unavailable authoritative cross-owner revalidation means no commit.
+* [ ] `StaleEvidenceBasis` preserves exactly the seven accepted categories; invalid history and persistence/source unavailability remain distinct and retry requires a fresh read.
+* [ ] Semantically inseparable material judgment + required Evidence facts commit atomically; long-running source/model calls stay outside durable-store transactions and preconditions are rechecked.
+* [ ] PostgreSQL remains an inward-owned reference adapter: ports expose no PostgreSQL/ORM/SQL/vendor-native objects, use no legacy persistence lineage, do not let runtime/database identity become domain identity, and do not rely on GIL serialization.
+* [ ] Integration/concurrency/architecture tests prove rollback, restart, concurrent observation-correction invalidation, concurrent binding-correction invalidation, assessment-correction invalidation, restoration/contestation invalidation, time-only staleness, no legacy/generic-target/event-store/runtime-identity leakage, no SPY-hard-coded canonical identity, and continued ADR 0005 fail-fast runtime qualification.
+
+## Blocked by
+
+#380 — Return exact current Evidence support bases with scope-local invalidation
+
+## Ticket branch
+
+spec-357
+
+## Ticket baseline
+
+Pending
+
+Required label/status: preserve current ready-for-agent/open state.
+Native relationships unchanged.

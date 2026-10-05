@@ -1,0 +1,11 @@
+ACTION 9 — NATIVE RELATIONSHIP / PUBLICATION REALIZATION
+- Create NEW-BINDING-CORRECTION and NEW-ASSESSMENT-CORRECTION as direct native children of #357.
+- Replace #378's current native blockers #374 and #377 with #372.
+- NEW-BINDING-CORRECTION native blockers: #374 and #378.
+- NEW-ASSESSMENT-CORRECTION native blockers: #377, #378, and NEW-BINDING-CORRECTION.
+- Add NEW-BINDING-CORRECTION and NEW-ASSESSMENT-CORRECTION as native blockers of #379; preserve #375, #377, and #378.
+- #380 and #381 native blockers remain unchanged.
+- No ticket is closed or reopened.
+- Do not mutate any closed ticket body.
+- Do not mutate the source owner-local #378 checkout/WIP.
+- After ticket publication, persist/read back one `ticket-reslice-recovery:v1` comment on each new issue before any implementation handoff.

@@ -651,8 +651,23 @@ It must be `Pending` or a full commit SHA.
 Before applying ordinary baseline semantics, resolve live-WIP reslice recovery:
 
 1. read the current ticket's comments for exactly zero or one `<!-- ticket-reslice-recovery:v1 -->` record;
-2. when no current-ticket record exists, inspect direct blocker tickets only when needed to determine whether the current ticket is the **Source ticket** of a completed live-WIP reslice;
-3. malformed, duplicate, contradictory, or mismatched source/destination/branch state fails closed.
+2. recover the current ticket's native decomposition parent and inspect that parent's direct ticket children only as needed to collect every `<!-- ticket-reslice-recovery:v1 -->` record whose **Source ticket** is the current ticket; do not restrict source discovery to direct blockers, completed destinations, or one destination;
+3. when one or more source recovery records exist, require them to agree on source ticket, source baseline, shared branch, recovery mode, and native-parent lineage; destination identities and lifecycle states may differ;
+4. malformed, duplicate, contradictory, or mismatched source/destination/branch/lineage state fails closed.
+
+#### Live-WIP protected-donor invariant
+
+A live-WIP reslice may place one or more destination tickets before or after the already-started source ticket in native dependency order. Recovery isolation must therefore be **topology-neutral**.
+
+While any valid reslice recovery record names the current ticket as its source and remains nonterminal:
+
+* the protected caller checkout is immutable recovery/donor state, not automatically the source candidate;
+* every reslice participant's candidate must contain only work currently owned by that ticket under durable authority;
+* native dependency relationships determine which ticket is actionable; recovery metadata must never invert or bypass those dependencies;
+* `Status: pending-prerequisite` means the destination recovery record is not yet complete; it does **not** itself require destination-first execution;
+* an actionable source ticket executes from an isolated worktree under **Source live-WIP recovery** below so destination-owned donor state can survive source certification and closure unchanged.
+
+This invariant applies equally to one-to-one and one-to-many reslices and does not depend on ticket numbers, file layout, or which side of the reslice happens to execute first.
 
 #### Destination live-WIP recovery
 
@@ -697,22 +712,44 @@ Destination completion commit: <certified pushed SHA>
 
 Preserve all original source/destination/branch/reslice fields.
 
-#### Source live-WIP reconciliation after prerequisite completion
+#### Source live-WIP recovery
 
-When the current ticket is named as **Source ticket** by exactly one direct blocker ticket's recovery record with `Status: prerequisite-complete`, and that blocker is closed:
+When the current ticket is named as **Source ticket** by one or more valid sibling recovery records with `Status: pending-prerequisite | prerequisite-complete`, and the ordinary dependency guard says the source itself is currently actionable:
 
 * preserve the source ticket's already-pinned baseline exactly; never rebase or overwrite it;
+* require `Recovery mode: isolated-worktree` and require every associated record's shared branch to equal the ticket's `Ticket branch`;
 * fingerprint the protected caller checkout using the same strong representation above;
-* fetch the shared branch and create a new isolated worktree detached at the exact current remote tip, which must include the certified destination completion commit;
-* build a complete donor-WIP attribution manifest against the **current reconciled source and destination ticket contracts**;
-* transplant only remaining source-owned donor changes into the isolated source worktree;
-* changes now owned/satisfied by the completed destination ticket are not transplanted merely because an older source candidate contained them;
-* use current committed destination behavior as the prerequisite authority when overlapping old WIP must be re-shaped;
-* ambiguous donor ownership or a transplant conflict whose semantic resolution is not fixed by current authority fails closed rather than mutating the protected caller checkout.
+* fetch the shared branch and require every recorded reslice branch anchor to be an ancestor of the exact frozen current remote tip. Any post-anchor delta that changes product/ticket semantics relevant to source/destination ownership must be reconciled through `$to-tickets`; workflow-policy-only or otherwise proven semantically independent advancement may remain in the current remote tip;
+* for every associated record already at `Status: prerequisite-complete`, require that destination to be closed, require its recorded completion commit to be an ancestor of the frozen remote tip, and treat its committed behavior as prerequisite authority when overlapping old WIP must be re-shaped;
+* create a temporary isolated worktree detached at the exact frozen current remote shared-branch tip;
+* build one complete donor-WIP attribution manifest over every dirty tracked hunk and untracked path visible in the protected caller checkout against the **current reconciled source contract and every associated destination contract**:
 
-Continue the source ticket's implementation, verification, certification, commit/push, and closure from that isolated worktree. The old dirty checkout remains protected donor/recovery state and is excluded from candidate hashing.
+```text
+Donor item: <path + hunk/range or untracked path>
+Durable owner: source ticket | destination ticket #<n> | neither
+Authority: <exact ticket/Spec/ADR obligation>
+Disposition: transplant-source | preserve-destination | exclude
+```
 
-After source closure, update the destination ticket's same recovery record to `Status: source-reconciled` with the certified source completion commit. Do not automatically delete/reset/clean the protected caller checkout; its later retirement requires an exact proof that no unique owner-local state remains.
+Requirements:
+
+* every donor item is dispositioned exactly once;
+* only source-owned donor work may be copied into the isolated source worktree and then independently repaired/completed there;
+* destination-owned donor work remains untouched in the protected caller checkout even when the destination executes later than the source;
+* `neither` is excluded from the source candidate;
+* ambiguous/shared ownership is a hard blocker until durable authority determines the minimum correct owner; do not guess from filenames, hunk proximity, implementation convenience, or the old pre-reslice candidate;
+* a destination's pending status never transfers its work back to the source merely because the source executes first;
+* never stash, reset, clean, commit, checkout-overwrite, or otherwise mutate the protected caller checkout to make the source implementable.
+
+From isolated-worktree creation through source candidate certification, commit, push, readback, and closure, execute repository mutation and candidate-state commands in the isolated source worktree. The protected caller checkout is excluded from source candidate hashing.
+
+Before every Human Handoff/ordinary return and before removing the isolated source worktree, recompute the protected caller fingerprint and require exact equality. Unexpected caller mutation is a hard blocker.
+
+After source closure:
+
+* update each associated recovery record already at `Status: prerequisite-complete` to `Status: source-reconciled` with the certified source completion commit;
+* leave each `Status: pending-prerequisite` record unchanged so its destination's isolated-worktree recovery remains activated when that destination later becomes actionable;
+* do not automatically delete/reset/clean or retire the protected caller checkout while any associated recovery record remains nonterminal or while exact proof of no unique owner-local state is absent.
 
 #### Ordinary baseline path
 

@@ -10,6 +10,9 @@ from uuid import UUID, uuid4
 from polaris.domain.actors import ActorAttribution, is_actor_attribution
 from polaris.domain.decisions import OperationId
 from polaris.domain.evidence import (
+    EvidenceBindingCorrection,
+    EvidenceBindingCorrectionHistory,
+    EvidenceBindingId,
     EvidenceCorrection,
     EvidenceCorrectionBasis,
     EvidenceCorrectionEffect,
@@ -20,6 +23,7 @@ from polaris.domain.evidence import (
     EvidenceObservationCorrectionHistory,
     EvidenceObservationId,
 )
+from polaris.domain.evidence.bindings import EvidenceBinding
 
 from .contracts import (
     EvidenceApplicationError,
@@ -33,8 +37,12 @@ from .contracts import (
 
 class EvidenceCorrectionFamily(StrEnum):
     OBSERVATION = "observation"
+    BINDING = "binding"
 
 
+# duplicate-code: family commands and correction facts have distinct typed
+# contracts even though their common metadata fields intentionally align.
+# arid: disable
 @dataclass(frozen=True, slots=True)
 class RecordEvidenceObservationCorrectionCommand:
     operation_id: OperationId
@@ -58,10 +66,32 @@ class RecordEvidenceObservationCorrectionCommand:
         )
 
 
-type RecordEvidenceCorrectionCommand = RecordEvidenceObservationCorrectionCommand
-type EvidenceCorrectionRootId = EvidenceObservationId
-type EvidenceCorrectionTarget = EvidenceObservationId | EvidenceCorrectionId
-type EvidenceCorrectionReplacement = EvidenceObservation | None
+@dataclass(frozen=True, slots=True)
+class RecordEvidenceBindingCorrectionCommand:
+    operation_id: OperationId
+    root_id: EvidenceBindingId
+    target: EvidenceBindingId | EvidenceCorrectionId
+    effect: EvidenceCorrectionEffect
+    attribution: ActorAttribution
+    basis: EvidenceCorrectionBasis
+    effective_at: datetime
+    replacement: EvidenceBinding | None = None
+
+    def __post_init__(self) -> None:
+        _validate_command(self, EvidenceBindingId, EvidenceBinding)
+
+
+# arid: enable
+
+
+type RecordEvidenceCorrectionCommand = (
+    RecordEvidenceObservationCorrectionCommand | RecordEvidenceBindingCorrectionCommand
+)
+type EvidenceCorrectionRootId = EvidenceObservationId | EvidenceBindingId
+type EvidenceCorrectionTarget = (
+    EvidenceObservationId | EvidenceBindingId | EvidenceCorrectionId
+)
+type EvidenceCorrectionReplacement = EvidenceObservation | EvidenceBinding | None
 
 
 def _validate_command(
@@ -123,7 +153,7 @@ class EvidenceCorrectionSemanticRequest:
     @classmethod
     def from_correction(
         cls,
-        correction: EvidenceObservationCorrection,
+        correction: EvidenceCorrection,
     ) -> EvidenceCorrectionSemanticRequest:
         return cls(
             family=correction_family(correction),
@@ -162,7 +192,10 @@ class EvidenceCorrectionCommit:
             raise TypeError("operation_id must be OperationId")
         if type(self.request) is not EvidenceCorrectionSemanticRequest:
             raise TypeError("request must be EvidenceCorrectionSemanticRequest")
-        if type(self.correction) is not EvidenceObservationCorrection:
+        if type(self.correction) not in (
+            EvidenceObservationCorrection,
+            EvidenceBindingCorrection,
+        ):
             raise TypeError("correction must be a family-specific Evidence correction")
         if self.request != EvidenceCorrectionSemanticRequest.from_correction(
             self.correction
@@ -224,6 +257,11 @@ class EvidenceCorrectionStore(Protocol):
         self,
         root_id: EvidenceObservationId,
     ) -> EvidenceObservationCorrectionHistory | None: ...
+
+    async def load_binding_history(
+        self,
+        root_id: EvidenceBindingId,
+    ) -> EvidenceBindingCorrectionHistory | None: ...
 
 
 class EvidenceCorrectionHistoryConflict(EvidenceApplicationError):
@@ -299,6 +337,25 @@ class EvidenceCorrectionService:
         history = await self._load_observation_history(root_id)
         return history.interpret(effective_at=effective_at, known_at=known_at)
 
+    async def inspect_binding(
+        self,
+        root_id: EvidenceBindingId,
+        *,
+        effective_at: datetime,
+        known_at: datetime,
+    ) -> EvidenceInterpretation[EvidenceBinding]:
+        # duplicate-code: each typed history load retains its root-specific
+        # port and result; a generic loader would hide the family boundary.
+        # arid: disable
+        try:
+            history = await self._store.load_binding_history(root_id)
+        except EvidenceCommandReadUnavailable as error:
+            raise EvidencePersistenceUnavailable(str(error)) from error
+        if history is None:
+            raise EvidenceCorrectionRootNotFound(root_id)
+        # arid: enable
+        return history.interpret(effective_at=effective_at, known_at=known_at)
+
     async def _read_receipt(
         self,
         operation_id: OperationId,
@@ -312,12 +369,16 @@ class EvidenceCorrectionService:
         self,
         root_id: EvidenceObservationId,
     ) -> EvidenceObservationCorrectionHistory:
+        # duplicate-code: this loader preserves the observation-specific port
+        # and failure type independently from binding inspection.
+        # arid: disable
         try:
             history = await self._store.load_observation_history(root_id)
         except EvidenceCommandReadUnavailable as error:
             raise EvidencePersistenceUnavailable(str(error)) from error
         if history is None:
             raise EvidenceCorrectionRootNotFound(root_id)
+        # arid: enable
         return history
 
 
@@ -326,6 +387,8 @@ def _command_family(
 ) -> EvidenceCorrectionFamily:
     if type(command) is RecordEvidenceObservationCorrectionCommand:
         return EvidenceCorrectionFamily.OBSERVATION
+    if type(command) is RecordEvidenceBindingCorrectionCommand:
+        return EvidenceCorrectionFamily.BINDING
     raise TypeError("unsupported Evidence correction command")
 
 
@@ -333,7 +396,24 @@ def _new_correction(
     command: RecordEvidenceCorrectionCommand,
     correction_id: EvidenceCorrectionId,
     recorded_at: datetime,
-) -> EvidenceObservationCorrection:
+) -> EvidenceCorrection:
+    # duplicate-code: explicit typed constructors keep the family-specific
+    # root and replacement types visible at this application boundary.
+    # arid: disable
+    if type(command) is RecordEvidenceBindingCorrectionCommand:
+        return EvidenceBindingCorrection(
+            correction_id,
+            command.root_id,
+            command.target,
+            command.effect,
+            command.attribution,
+            command.basis,
+            command.effective_at,
+            recorded_at,
+            command.replacement,
+        )
+    if type(command) is not RecordEvidenceObservationCorrectionCommand:
+        raise TypeError("unsupported Evidence correction command")
     return EvidenceObservationCorrection(
         correction_id,
         command.root_id,
@@ -345,6 +425,7 @@ def _new_correction(
         recorded_at,
         command.replacement,
     )
+    # arid: enable
 
 
 def _replay(
@@ -366,10 +447,12 @@ def _replay(
 
 
 def correction_family(
-    correction: EvidenceObservationCorrection,
+    correction: EvidenceCorrection,
 ) -> EvidenceCorrectionFamily:
     if type(correction) is EvidenceObservationCorrection:
         return EvidenceCorrectionFamily.OBSERVATION
+    if type(correction) is EvidenceBindingCorrection:
+        return EvidenceCorrectionFamily.BINDING
     raise TypeError("unsupported Evidence correction")
 
 
@@ -390,6 +473,7 @@ __all__ = [
     "EvidenceCorrectionStore",
     "EvidenceCorrectionUnavailable",
     "RecordEvidenceCorrectionCommand",
+    "RecordEvidenceBindingCorrectionCommand",
     "RecordEvidenceObservationCorrectionCommand",
     "correction_family",
 ]

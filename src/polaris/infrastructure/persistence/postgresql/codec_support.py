@@ -8,6 +8,18 @@ from uuid import UUID
 type JsonObject = dict[str, object]
 
 
+def json_safe(value: object) -> object:
+    if type(value) is UUID:
+        return str(value)
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {str(key): json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [json_safe(item) for item in value]
+    return value
+
+
 def canonical_json_fingerprint(payload: object) -> str:
     encoded = json.dumps(
         payload,

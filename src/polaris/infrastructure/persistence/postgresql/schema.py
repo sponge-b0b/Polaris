@@ -942,7 +942,7 @@ evidence_correction_identities = Table(
     Column("correction_id", UUID(as_uuid=True), nullable=False, unique=True),
     Column("family", String(32), nullable=False),
     CheckConstraint(
-        "family = 'observation'",
+        "family IN ('observation', 'binding')",
         name="family",
     ),
 )
@@ -951,6 +951,11 @@ evidence_observation_corrections = _evidence_correction_table(
     "evidence_observation_corrections",
     "evidence_observations",
     "observation_id",
+)
+evidence_binding_corrections = _evidence_correction_table(
+    "evidence_binding_corrections",
+    "evidence_bindings",
+    "binding_id",
 )
 
 # duplicate-code: each command family owns an independently constrained receipt
@@ -967,7 +972,7 @@ evidence_correction_command_receipts = Table(
     Column("result_payload", JSONB, nullable=False),
     Column("committed_at", DateTime(timezone=True), nullable=False),
     CheckConstraint(
-        "family = 'observation'",
+        "family IN ('observation', 'binding')",
         name="family",
     ),
     _request_fingerprint_constraint(),
@@ -996,6 +1001,7 @@ EVIDENCE_TABLE_NAMES = frozenset(
         "evidence_sufficiency_command_receipts",
         "evidence_correction_identities",
         "evidence_observation_corrections",
+        "evidence_binding_corrections",
         "evidence_correction_command_receipts",
     }
 )

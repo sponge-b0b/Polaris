@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import cast
-from uuid import UUID
 
 from sqlalchemy.engine import RowMapping
 
@@ -14,6 +13,8 @@ from polaris.application.evidence.corrections import (
 )
 from polaris.domain.decisions import OperationId
 from polaris.domain.evidence import (
+    EvidenceBindingCorrection,
+    EvidenceBindingId,
     EvidenceCorrection,
     EvidenceCorrectionBasis,
     EvidenceCorrectionEffect,
@@ -22,12 +23,14 @@ from polaris.domain.evidence import (
     EvidenceObservationId,
 )
 
+from .binding_codec import binding_snapshot_from_payload, binding_snapshot_payload
 from .codec import actor_columns, actor_from_columns, actor_request_payload
 from .codec_support import (
     JsonObject,
     canonical_json_fingerprint,
     iso_aware_datetime,
     json_object,
+    json_safe,
     nonempty_string,
     uuid_value,
 )
@@ -37,7 +40,7 @@ from .evidence_codec import observation_from_row, observation_values
 def correction_values(correction: EvidenceCorrection) -> dict[str, object]:
     target_root_id = (
         correction.target.value
-        if type(correction.target) is EvidenceObservationId
+        if type(correction.target) in (EvidenceObservationId, EvidenceBindingId)
         else None
     )
     target_correction_id = (
@@ -163,6 +166,12 @@ def observation_correction_from_row(row: RowMapping) -> EvidenceObservationCorre
     )
 
 
+def binding_correction_from_row(row: RowMapping) -> EvidenceBindingCorrection:
+    return EvidenceBindingCorrection(
+        **_correction_kwargs(EvidenceCorrectionFamily.BINDING, row)
+    )
+
+
 def _correction_kwargs(
     family: EvidenceCorrectionFamily,
     row: RowMapping,
@@ -202,10 +211,13 @@ def _replacement_payload(correction: EvidenceCorrection) -> JsonObject:
 
 
 def _root_payload(value: object) -> JsonObject:
+    from polaris.domain.evidence.bindings import EvidenceBinding
     from polaris.domain.evidence.observations import EvidenceObservation
 
     if type(value) is EvidenceObservation:
-        return cast(JsonObject, _json_safe(observation_values(value)))
+        return cast(JsonObject, json_safe(observation_values(value)))
+    if type(value) is EvidenceBinding:
+        return binding_snapshot_payload(value)
     raise TypeError("unsupported Evidence correction replacement")
 
 
@@ -214,6 +226,8 @@ def _root_from_payload(
     payload: JsonObject,
 ) -> object:
     values = dict(payload)
+    if family is EvidenceCorrectionFamily.BINDING:
+        return binding_snapshot_from_payload(payload)
     if family is not EvidenceCorrectionFamily.OBSERVATION:
         raise ValueError("unsupported correction family")
     for field in ("observed_at", "acquired_at"):
@@ -226,22 +240,14 @@ def _root_from_payload(
     return observation_from_row(cast(RowMapping, values))
 
 
-def _root_id(family: EvidenceCorrectionFamily, value: object) -> EvidenceObservationId:
-    if family is not EvidenceCorrectionFamily.OBSERVATION:
-        raise ValueError("unsupported correction family")
-    return EvidenceObservationId(uuid_value(value, "root identity"))
-
-
-def _json_safe(value: object) -> object:
-    if type(value) is UUID:
-        return str(value)
-    if isinstance(value, datetime):
-        return value.isoformat()
-    if isinstance(value, dict):
-        return {str(key): _json_safe(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_json_safe(item) for item in value]
-    return value
+def _root_id(
+    family: EvidenceCorrectionFamily, value: object
+) -> EvidenceObservationId | EvidenceBindingId:
+    if family is EvidenceCorrectionFamily.OBSERVATION:
+        return EvidenceObservationId(uuid_value(value, "root identity"))
+    if family is EvidenceCorrectionFamily.BINDING:
+        return EvidenceBindingId(uuid_value(value, "root identity"))
+    raise ValueError("unsupported correction family")
 
 
 def _row_datetime(value: object, field: str) -> datetime:
@@ -251,6 +257,7 @@ def _row_datetime(value: object, field: str) -> datetime:
 
 
 __all__ = [
+    "binding_correction_from_row",
     "correction_receipt_from_row",
     "correction_request_fingerprint",
     "correction_request_from_payload",

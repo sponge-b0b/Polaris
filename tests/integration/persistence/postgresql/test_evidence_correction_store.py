@@ -19,11 +19,15 @@ from polaris.application.evidence import (
     EvidenceRequirementResolver,
     EvidenceRequirementVersionAppended,
     EvidenceSufficiencyBasis,
+    EvidenceSufficiencyService,
+    RecordEvidenceBindingCorrectionCommand,
     RecordEvidenceObservationCorrectionCommand,
+    RecordEvidenceSufficiencyAssessmentCommand,
 )
 from polaris.domain.actors import UnknownActorAttribution
 from polaris.domain.decisions import OperationId
 from polaris.domain.evidence import (
+    EvidenceBindingId,
     EvidenceCorrectionBasis,
     EvidenceCorrectionEffect,
     EvidenceCorrectionId,
@@ -32,7 +36,17 @@ from polaris.domain.evidence import (
     EvidenceObservationId,
     EvidenceObservationMaterial,
 )
-from polaris.domain.evidence.sufficiency import EvidenceBindingInterpretationState
+from polaris.domain.evidence.bindings import (
+    EvidenceAvailability,
+    EvidenceBinding,
+    EvidenceRole,
+)
+from polaris.domain.evidence.freshness import EvidenceFreshnessResult
+from polaris.domain.evidence.sufficiency import (
+    EvidenceBindingInterpretationState,
+    EvidenceRequirementDisposition,
+    evaluate_evidence_sufficiency,
+)
 from polaris.infrastructure.persistence.postgresql import (
     PostgresEvidenceBindingStore,
     PostgresEvidenceCorrectionStore,
@@ -41,6 +55,7 @@ from polaris.infrastructure.persistence.postgresql import (
     PostgresEvidenceSufficiencyStore,
 )
 from polaris.infrastructure.persistence.postgresql.schema import (
+    evidence_binding_corrections,
     evidence_correction_command_receipts,
     evidence_correction_identities,
     evidence_observation_corrections,
@@ -64,6 +79,8 @@ RETRACTION_ID = UUID("00000000-0000-4000-8000-000000000a04")
 MISSING_CORRECTION_ID = UUID("00000000-0000-4000-8000-000000000a02")
 OBSERVATION_OPERATION_ID = UUID("00000000-0000-4000-8000-000000000a11")
 RETRACTION_OPERATION_ID = UUID("00000000-0000-4000-8000-000000000a14")
+BINDING_CORRECTION_ID = UUID("00000000-0000-4000-8000-000000000a31")
+BINDING_OPERATION_ID = UUID("00000000-0000-4000-8000-000000000a32")
 
 
 def _correction_service(
@@ -98,6 +115,498 @@ async def _seed_binding(target: PostgresTestTarget) -> None:
                 PostgresEvidenceRequirementStore(engine)
             ),
         ).record(binding_command())
+
+
+async def _load_binding_only(target: PostgresTestTarget) -> EvidenceBinding:
+    async with postgres_store(target, PostgresEvidenceBindingStore) as (_, store):
+        binding = await store.load_binding(EvidenceBindingId(BINDING_ID))
+    assert binding is not None
+    return binding
+
+
+def _binding_revision_command(
+    binding: EvidenceBinding,
+    replacement: EvidenceBinding,
+    basis: str,
+) -> RecordEvidenceBindingCorrectionCommand:
+    return RecordEvidenceBindingCorrectionCommand(
+        OperationId(BINDING_OPERATION_ID),
+        binding.binding_id,
+        binding.binding_id,
+        EvidenceCorrectionEffect.REVISE,
+        UnknownActorAttribution(),
+        EvidenceCorrectionBasis(basis),
+        CORRECTION_RECORDED_AT - timedelta(minutes=1),
+        replacement,
+    )
+
+
+async def _load_current_basis(target: PostgresTestTarget) -> EvidenceSufficiencyBasis:
+    async with postgres_store(target, PostgresEvidenceSufficiencyStore) as (_, store):
+        basis = await store.load_sufficiency_basis(
+            requirement_key(),
+            effective_at=CORRECTION_RECORDED_AT,
+            known_at=CORRECTION_RECORDED_AT,
+        )
+    assert isinstance(basis, EvidenceSufficiencyBasis)
+    return basis
+
+
+async def _seed_future_binding(target: PostgresTestTarget) -> EvidenceBinding:
+    await _seed_observation(target)
+    async with postgres_store(target, PostgresEvidenceRequirementStore) as (
+        _,
+        requirement_store,
+    ):
+        outcome = await requirement_store.append_requirement_version(
+            requirement_version()
+        )
+        assert isinstance(outcome, EvidenceRequirementVersionAppended)
+    async with postgres_store(target, PostgresEvidenceBindingStore) as (
+        engine,
+        binding_store,
+    ):
+        await binding_service(
+            binding_store,
+            BINDING_ID,
+            requirements=EvidenceRequirementResolver(
+                PostgresEvidenceRequirementStore(engine)
+            ),
+        ).record(
+            replace(
+                binding_command(),
+                effective_at=CORRECTION_RECORDED_AT + timedelta(minutes=1),
+            )
+        )
+        binding = await binding_store.load_binding(EvidenceBindingId(BINDING_ID))
+    assert binding is not None
+    assert binding.effective_at > CORRECTION_RECORDED_AT
+    return binding
+
+
+def test_binding_revision_round_trip_replay_and_fixed_endpoints(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        await _seed_observation(postgres_target)
+        await _seed_binding(postgres_target)
+        binding = await _load_binding_only(postgres_target)
+        replacement = replace(
+            binding,
+            role=EvidenceRole.QUALIFYING,
+            availability=EvidenceAvailability.UNKNOWN,
+            materially_used=False,
+            freshness=replace(
+                binding.freshness,
+                result=EvidenceFreshnessResult.STALE,
+            ),
+        )
+        command = _binding_revision_command(
+            binding, replacement, "reviewed role and availability"
+        )
+        async with postgres_store(postgres_target, PostgresEvidenceCorrectionStore) as (
+            _,
+            store,
+        ):
+            service = _correction_service(store, BINDING_CORRECTION_ID)
+            result = await service.record(command)
+            replay = await service.record(command)
+            assert replay.replayed
+            assert replay.correction_id == result.correction_id
+        async with postgres_store(postgres_target, PostgresEvidenceCorrectionStore) as (
+            engine,
+            restarted,
+        ):
+            cutoff = CORRECTION_RECORDED_AT + timedelta(minutes=1)
+            current = await _correction_service(restarted).inspect_binding(
+                binding.binding_id, effective_at=cutoff, known_at=cutoff
+            )
+            historical = await _correction_service(restarted).inspect_binding(
+                binding.binding_id,
+                effective_at=cutoff,
+                known_at=CORRECTION_RECORDED_AT - timedelta(seconds=1),
+            )
+            assert current.assertions == frozenset({replacement})
+            assert historical.assertions == frozenset({binding})
+            assert current.fact_support == frozenset(
+                {binding.binding_id, result.correction_id}
+            )
+            counts = await postgres_row_counts(engine, evidence_binding_corrections)
+            assert counts == (1,)
+            with pytest.raises(
+                EvidenceCorrectionHistoryConflict, match="cannot change"
+            ):
+                await _correction_service(
+                    restarted, UUID("00000000-0000-4000-8000-000000000a33")
+                ).record(
+                    replace(
+                        command,
+                        operation_id=OperationId(
+                            UUID("00000000-0000-4000-8000-000000000a34")
+                        ),
+                        replacement=replace(
+                            replacement,
+                            observation_id=EvidenceObservationId(SECOND_OBSERVATION_ID),
+                        ),
+                    )
+                )
+            assert await postgres_row_counts(engine, evidence_binding_corrections) == (
+                1,
+            )
+            restored_id = UUID("00000000-0000-4000-8000-000000000a35")
+            await _correction_service(restarted, restored_id).record(
+                RecordEvidenceBindingCorrectionCommand(
+                    OperationId(UUID("00000000-0000-4000-8000-000000000a36")),
+                    binding.binding_id,
+                    result.correction_id,
+                    EvidenceCorrectionEffect.RETRACT,
+                    UnknownActorAttribution(),
+                    EvidenceCorrectionBasis("withdraw role correction"),
+                    CORRECTION_RECORDED_AT,
+                )
+            )
+        async with postgres_store(postgres_target, PostgresEvidenceCorrectionStore) as (
+            _,
+            restarted_again,
+        ):
+            restored = await _correction_service(restarted_again).inspect_binding(
+                binding.binding_id,
+                effective_at=cutoff,
+                known_at=cutoff,
+            )
+        assert restored.assertions == frozenset({binding})
+        assert restored.fact_support == frozenset(
+            {
+                binding.binding_id,
+                result.correction_id,
+                EvidenceCorrectionId(restored_id),
+            }
+        )
+
+    asyncio.run(scenario())
+
+
+def test_binding_revision_reaches_current_sufficiency_basis(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        await _seed_observation(postgres_target)
+        await _seed_binding(postgres_target)
+        binding = await _load_binding_only(postgres_target)
+        # duplicate-code: the role-change and backdated-time scenarios each own
+        # independent persistence lifetimes to falsify different basis errors.
+        # arid: disable
+        async with postgres_store(postgres_target, PostgresEvidenceCorrectionStore) as (
+            _,
+            store,
+        ):
+            await _correction_service(store, BINDING_CORRECTION_ID).record(
+                _binding_revision_command(
+                    binding,
+                    replace(binding, role=EvidenceRole.QUALIFYING),
+                    "role review",
+                )
+            )
+        # arid: enable
+        basis = await _load_current_basis(postgres_target)
+        assert basis.interpretations[0].binding.role is EvidenceRole.QUALIFYING
+        assert basis.support_version.value == 2
+        assert basis.guards.corrections.correction_ids == frozenset(
+            {EvidenceCorrectionId(BINDING_CORRECTION_ID)}
+        )
+
+    asyncio.run(scenario())
+
+
+def test_backdated_binding_revision_enters_sufficiency_universe(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        binding = await _seed_future_binding(postgres_target)
+        replacement = replace(
+            binding,
+            effective_at=CORRECTION_RECORDED_AT - timedelta(minutes=2),
+        )
+        # duplicate-code: the backdated correction must commit through its own
+        # store lifetime before the exact historical basis is reloaded.
+        # arid: disable
+        async with postgres_store(postgres_target, PostgresEvidenceCorrectionStore) as (
+            _,
+            store,
+        ):
+            await _correction_service(store, BINDING_CORRECTION_ID).record(
+                replace(
+                    _binding_revision_command(binding, replacement, "correct time"),
+                    effective_at=replacement.effective_at,
+                )
+            )
+        # arid: enable
+        basis = await _load_current_basis(postgres_target)
+        assert len(basis.interpretations) == 1
+        assert basis.interpretations[0].binding == replacement
+        assert basis.support_version.value == 1
+        assert basis.guards.corrections.correction_ids == frozenset(
+            {EvidenceCorrectionId(BINDING_CORRECTION_ID)}
+        )
+        async with postgres_store(postgres_target, PostgresEvidenceCorrectionStore) as (
+            _,
+            store,
+        ):
+            await _correction_service(
+                store, UUID("00000000-0000-4000-8000-000000000a37")
+            ).record(
+                RecordEvidenceBindingCorrectionCommand(
+                    OperationId(UUID("00000000-0000-4000-8000-000000000a38")),
+                    binding.binding_id,
+                    EvidenceCorrectionId(BINDING_CORRECTION_ID),
+                    EvidenceCorrectionEffect.RETRACT,
+                    UnknownActorAttribution(),
+                    EvidenceCorrectionBasis("restore future root"),
+                    CORRECTION_RECORDED_AT - timedelta(minutes=1),
+                )
+            )
+        restored_basis = await _load_current_basis(postgres_target)
+        assert restored_basis.interpretations == ()
+        assert restored_basis.support_version.value == 2
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("mode", ["contested", "withdrawn"])
+def test_backdated_binding_branches_enter_sufficiency_universe(
+    postgres_target: PostgresTestTarget,
+    mode: str,
+) -> None:
+    async def scenario() -> None:
+        binding = await _seed_future_binding(postgres_target)
+        backdated_at = CORRECTION_RECORDED_AT - timedelta(minutes=2)
+        first = RecordEvidenceBindingCorrectionCommand(
+            OperationId(BINDING_OPERATION_ID),
+            binding.binding_id,
+            binding.binding_id,
+            (
+                EvidenceCorrectionEffect.RETRACT
+                if mode == "withdrawn"
+                else EvidenceCorrectionEffect.REVISE
+            ),
+            UnknownActorAttribution(),
+            EvidenceCorrectionBasis("backdated binding review"),
+            backdated_at,
+            (
+                None
+                if mode == "withdrawn"
+                else replace(binding, effective_at=backdated_at)
+            ),
+        )
+        async with postgres_store(postgres_target, PostgresEvidenceCorrectionStore) as (
+            _,
+            store,
+        ):
+            await _correction_service(store, BINDING_CORRECTION_ID).record(first)
+            if mode == "contested":
+                await _correction_service(store, RETRACTION_ID).record(
+                    replace(
+                        first,
+                        operation_id=OperationId(RETRACTION_OPERATION_ID),
+                        replacement=replace(
+                            binding,
+                            effective_at=backdated_at,
+                            role=EvidenceRole.CONFLICTING,
+                        ),
+                    )
+                )
+        basis = await _load_current_basis(postgres_target)
+        assert len(basis.interpretations) == 1
+        interpretation = basis.interpretations[0]
+        expected_state = (
+            EvidenceBindingInterpretationState.WITHDRAWN
+            if mode == "withdrawn"
+            else EvidenceBindingInterpretationState.CONTESTED
+        )
+        assert interpretation.state is expected_state
+        assert len(interpretation.surviving_bindings or ()) == (
+            0 if mode == "withdrawn" else 2
+        )
+        assert basis.support_version.value == (1 if mode == "withdrawn" else 2)
+        expected_ids = {EvidenceCorrectionId(BINDING_CORRECTION_ID)}
+        if mode == "contested":
+            expected_ids.add(EvidenceCorrectionId(RETRACTION_ID))
+        assert basis.guards.corrections.correction_ids == expected_ids
+        assert basis.requirement_version is not None
+        assessment = evaluate_evidence_sufficiency(
+            basis.requirement_version,
+            requirement_key(),
+            basis.interpretations,
+            effective_at=CORRECTION_RECORDED_AT,
+            known_at=CORRECTION_RECORDED_AT,
+        )
+        assert assessment.requirement_assessments[0].disposition is (
+            EvidenceRequirementDisposition.MISSING
+            if mode == "withdrawn"
+            else EvidenceRequirementDisposition.CONTESTED
+        )
+
+    asyncio.run(scenario())
+
+
+def test_contested_binding_proof_preserves_each_sibling_across_restart(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        # duplicate-code: this proof keeps its own binding seed and evaluation
+        # independent from the temporal membership tests it guards.
+        # arid: disable
+        await _seed_observation(postgres_target)
+        await _seed_binding(postgres_target)
+        binding = await _load_binding_only(postgres_target)
+        # arid: enable
+        first = replace(
+            binding,
+            effective_at=CORRECTION_RECORDED_AT - timedelta(minutes=1),
+            freshness=replace(
+                binding.freshness,
+                basis=replace(
+                    binding.freshness.basis,
+                    as_of_at=CORRECTION_RECORDED_AT - timedelta(minutes=1),
+                ),
+            ),
+        )
+        second = replace(
+            binding,
+            effective_at=first.effective_at,
+            availability=EvidenceAvailability.UNAVAILABLE,
+            materially_used=False,
+        )
+        async with postgres_store(postgres_target, PostgresEvidenceCorrectionStore) as (
+            _,
+            store,
+        ):
+            await _correction_service(store, BINDING_CORRECTION_ID).record(
+                replace(
+                    _binding_revision_command(binding, first, "available branch"),
+                    effective_at=first.effective_at,
+                )
+            )
+            await _correction_service(store, RETRACTION_ID).record(
+                replace(
+                    _binding_revision_command(binding, second, "unavailable branch"),
+                    operation_id=OperationId(RETRACTION_OPERATION_ID),
+                    effective_at=second.effective_at,
+                )
+            )
+        basis = await _load_current_basis(postgres_target)
+        assert (
+            basis.interpretations[0].state
+            is EvidenceBindingInterpretationState.CONTESTED
+        )
+        assert basis.requirement_version is not None
+        # duplicate-code: direct disposition and branch-proof assertions remain
+        # independent witnesses over the same exact current-basis call.
+        # arid: disable
+        evaluation = evaluate_evidence_sufficiency(
+            basis.requirement_version,
+            requirement_key(),
+            basis.interpretations,
+            effective_at=CORRECTION_RECORDED_AT,
+            known_at=CORRECTION_RECORDED_AT,
+        )
+        # arid: enable
+        proof = evaluation.requirement_assessments[0].binding_proofs[0]
+        assert {
+            (
+                assertion.binding.availability,
+                assertion.binding.materially_used,
+                assertion.freshness.result,
+            )
+            for assertion in proof.assertion_proofs
+        } == {
+            (EvidenceAvailability.AVAILABLE, True, EvidenceFreshnessResult.FRESH),
+            (EvidenceAvailability.UNAVAILABLE, False, EvidenceFreshnessResult.STALE),
+        }
+        assert {
+            EvidenceCorrectionId(BINDING_CORRECTION_ID),
+            EvidenceCorrectionId(RETRACTION_ID),
+        } <= proof.fact_support
+        # duplicate-code: the fresh and restarted stores are distinct durability
+        # boundaries; collapsing their contexts would hide the restart falsifier.
+        # arid: disable
+        async with postgres_store(
+            postgres_target, PostgresEvidenceSufficiencyStore
+        ) as (
+            _,
+            store,
+        ):
+            result = await EvidenceSufficiencyService(
+                store=store,
+                now=lambda: CORRECTION_RECORDED_AT + timedelta(minutes=1),
+                new_uuid=lambda: UUID("00000000-0000-4000-8000-000000000a39"),
+            ).assess(
+                RecordEvidenceSufficiencyAssessmentCommand(
+                    OperationId(UUID("00000000-0000-4000-8000-000000000a3a")),
+                    requirement_key(),
+                    UnknownActorAttribution(),
+                    CORRECTION_RECORDED_AT,
+                    CORRECTION_RECORDED_AT,
+                )
+            )
+        async with postgres_store(
+            postgres_target, PostgresEvidenceSufficiencyStore
+        ) as (
+            _,
+            restarted,
+        ):
+            saved = await restarted.load_sufficiency_assessment(result.assessment_id)
+        # arid: enable
+        assert saved is not None
+        assert saved.requirement_assessments[0].binding_proofs[0] == proof
+
+    asyncio.run(scenario())
+
+
+def test_binding_correction_rollback_and_immutability(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        await _seed_observation(postgres_target)
+        await _seed_binding(postgres_target)
+        root_id = EvidenceBindingId(BINDING_ID)
+        command = RecordEvidenceBindingCorrectionCommand(
+            OperationId(BINDING_OPERATION_ID),
+            root_id,
+            root_id,
+            EvidenceCorrectionEffect.RETRACT,
+            UnknownActorAttribution(),
+            EvidenceCorrectionBasis("withdraw binding"),
+            CORRECTION_RECORDED_AT - timedelta(minutes=1),
+        )
+        async with postgres_store(postgres_target, _FailAfterCorrectionStore) as (
+            engine,
+            failing,
+        ):
+            with pytest.raises(EvidencePersistenceUnavailable):
+                await _correction_service(failing, BINDING_CORRECTION_ID).record(
+                    command
+                )
+            assert await postgres_row_counts(
+                engine,
+                evidence_correction_identities,
+                evidence_binding_corrections,
+                evidence_correction_command_receipts,
+            ) == (0, 0, 0)
+        async with postgres_store(postgres_target, PostgresEvidenceCorrectionStore) as (
+            engine,
+            store,
+        ):
+            await _correction_service(store, BINDING_CORRECTION_ID).record(command)
+            async with engine.begin() as connection:
+                with pytest.raises(SQLAlchemyError):
+                    await connection.execute(
+                        update(evidence_binding_corrections).values(
+                            basis_reference="rewritten"
+                        )
+                    )
+
+    asyncio.run(scenario())
 
 
 async def _load_observation_only(
@@ -571,6 +1080,7 @@ def test_inward_correction_port_exposes_no_database_types() -> None:
         "get_correction_receipt",
         "commit_correction",
         "load_observation_history",
+        "load_binding_history",
     ):
         signature = str(
             inspect.signature(getattr(EvidenceCorrectionStore, method_name))
@@ -597,16 +1107,7 @@ def test_observation_retraction_invalidates_sufficiency_basis_and_epoch(
             await _correction_service(store, OBSERVATION_CORRECTION_ID).record(
                 _observation_correction_command(observation)
             )
-        async with postgres_store(
-            postgres_target,
-            PostgresEvidenceSufficiencyStore,
-        ) as (_, store):
-            basis = await store.load_sufficiency_basis(
-                requirement_key(),
-                effective_at=CORRECTION_RECORDED_AT,
-                known_at=CORRECTION_RECORDED_AT,
-            )
-        assert isinstance(basis, EvidenceSufficiencyBasis)
+        basis = await _load_current_basis(postgres_target)
         assert (
             basis.interpretations[0].state
             is EvidenceBindingInterpretationState.WITHDRAWN

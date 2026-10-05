@@ -212,8 +212,9 @@ def test_proof_preserves_typed_deficiency_and_exact_freshness_definition() -> No
     assert proof.fact_support == frozenset(
         {stale.binding.binding_id, stale.binding.observation_id}
     )
-    assert isinstance(proof.freshness_authority, FreshnessRequirementDefinition)
-    assert proof.freshness_authority.maximum_age == timedelta(minutes=2)
+    assertion = proof.assertion_proofs[0]
+    assert isinstance(assertion.freshness_authority, FreshnessRequirementDefinition)
+    assert assertion.freshness_authority.maximum_age == timedelta(minutes=2)
 
 
 def test_not_applicable_and_zero_definition_require_exact_negative_witnesses() -> None:
@@ -253,8 +254,13 @@ def test_binding_without_freshness_rule_preserves_same_version_witness() -> None
         .binding_proofs[0]
     )
 
-    assert proof.freshness_authority.set_id == without_freshness.set_id
-    assert proof.freshness_authority.version_id == without_freshness.version_id
+    assert (
+        proof.assertion_proofs[0].freshness_authority.set_id == without_freshness.set_id
+    )
+    assert (
+        proof.assertion_proofs[0].freshness_authority.version_id
+        == without_freshness.version_id
+    )
 
 
 def test_aggregate_failure_precedes_indeterminate_and_success() -> None:

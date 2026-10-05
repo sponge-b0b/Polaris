@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 from sqlalchemy.engine import RowMapping
 
 from polaris.application.evidence.binding_contracts import (
@@ -55,6 +57,7 @@ from .codec_support import (
     canonical_json_fingerprint,
     iso_aware_datetime,
     json_object,
+    json_safe,
     nonempty_string,
     optional_nonempty_string,
     uuid_value,
@@ -120,6 +123,18 @@ def binding_values(binding: EvidenceBinding) -> dict[str, object]:
         ),
         **_freshness_values(binding.freshness),
     }
+
+
+def binding_snapshot_payload(binding: EvidenceBinding) -> JsonObject:
+    return cast(JsonObject, json_safe(binding_values(binding)))
+
+
+def binding_snapshot_from_payload(payload: JsonObject) -> EvidenceBinding:
+    values = dict(payload)
+    for field in ("effective_at", "recorded_at", "freshness_basis_at"):
+        if field in values and values[field] is not None:
+            values[field] = iso_aware_datetime(values[field], field)
+    return binding_from_row(cast(RowMapping, values))
 
 
 def binding_from_row(row: RowMapping) -> EvidenceBinding:

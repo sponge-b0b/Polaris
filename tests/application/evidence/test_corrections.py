@@ -18,6 +18,7 @@ from polaris.application.evidence import (
 from polaris.domain.actors import UnknownActorAttribution
 from polaris.domain.decisions import OperationId
 from polaris.domain.evidence import (
+    EvidenceBindingId,
     EvidenceCorrectionBasis,
     EvidenceCorrectionEffect,
     EvidenceCorrectionId,
@@ -71,6 +72,10 @@ class _Store(EvidenceCorrectionStore):
         )
 
     async def load_observation_history(self, root_id: EvidenceObservationId):
+        del root_id
+        return None
+
+    async def load_binding_history(self, root_id: EvidenceBindingId):
         del root_id
         return None
 

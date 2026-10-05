@@ -8,6 +8,9 @@ from .claims import (
     validate_claim_catalog_history,
 )
 from .corrections import (
+    EvidenceBindingCorrection,
+    EvidenceBindingCorrectionHistory,
+    EvidenceBindingCorrectionTarget,
     EvidenceCorrection,
     EvidenceCorrectionBasis,
     EvidenceCorrectionEffect,
@@ -18,6 +21,7 @@ from .corrections import (
     EvidenceObservationCorrectionTarget,
     InvalidEvidenceCorrection,
     InvalidEvidenceCorrectionHistory,
+    interpret_evidence_binding,
     interpret_evidence_observation,
 )
 from .judgments import (
@@ -65,6 +69,9 @@ from .sufficiency_requirements import (
     MinimumEligibleEvidence,
 )
 
+# duplicate-code: the package facade mirrors its module's explicit public
+# exports so callers have one stable import surface.
+# arid: disable
 __all__ = [
     "ClaimCatalog",
     "ClaimCatalogRevision",
@@ -74,6 +81,9 @@ __all__ = [
     "ContestedClaimCatalogHistory",
     "DecisionEvaluationRef",
     "EvidenceBindingId",
+    "EvidenceBindingCorrection",
+    "EvidenceBindingCorrectionHistory",
+    "EvidenceBindingCorrectionTarget",
     "EvidenceCorrection",
     "EvidenceCorrectionBasis",
     "EvidenceCorrectionEffect",
@@ -121,5 +131,7 @@ __all__ = [
     "is_evidence_fact_ref",
     "is_evidence_judgment_ref",
     "interpret_evidence_observation",
+    "interpret_evidence_binding",
     "validate_claim_catalog_history",
 ]
+# arid: enable

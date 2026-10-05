@@ -55,7 +55,7 @@ from polaris.domain.evidence.sufficiency import (
 
 from .binding_codec import binding_from_row
 from .binding_store import EVIDENCE_BINDING_WRITE_LOCK
-from .correction_store import _load_observation_history
+from .correction_store import _load_binding_history, _load_observation_history
 from .requirement_store import (
     EVIDENCE_REQUIREMENT_WRITE_LOCK,
     load_requirement_versions_from_connection,
@@ -329,11 +329,16 @@ async def _interpretation_for_key(
         or binding.freshness.basis.applicability_key != applicability_key
     ):
         return None
-    if binding.effective_at > effective_at:
-        return None
+    binding_history = await _load_binding_history(connection, binding.binding_id)
     history = await _load_observation_history(connection, binding.observation_id)
-    if history is None:
-        raise ValueError("binding correction history requires its observation root")
+    if binding_history is None or history is None:
+        raise ValueError("binding correction history requires both root facts")
+    corrected = binding_history.interpret(effective_at=effective_at, known_at=known_at)
+    if corrected.state in (
+        EvidenceInterpretationState.NOT_KNOWN,
+        EvidenceInterpretationState.NOT_EFFECTIVE,
+    ):
+        return None
     observed = history.interpret(effective_at=effective_at, known_at=known_at)
     if observed.state is EvidenceInterpretationState.NOT_KNOWN:
         raise ValueError(
@@ -360,8 +365,10 @@ async def _interpretation_for_key(
     state = (
         EvidenceBindingInterpretationState.WITHDRAWN
         if observed.state is EvidenceInterpretationState.WITHDRAWN
+        or corrected.state is EvidenceInterpretationState.WITHDRAWN
         else EvidenceBindingInterpretationState.CONTESTED
         if observed.state is EvidenceInterpretationState.CONTESTED
+        or corrected.state is EvidenceInterpretationState.CONTESTED
         else EvidenceBindingInterpretationState.DETERMINATE
     )
     subject = (
@@ -369,12 +376,18 @@ async def _interpretation_for_key(
         if state is EvidenceBindingInterpretationState.DETERMINATE
         else history.root.subject
     )
+    # The representative is only an anchor; contested assertions remain in
+    # surviving_bindings with their complete lineage support.
+    representative = (
+        min(corrected.assertions, key=repr) if corrected.assertions else binding
+    )
     return EvidenceBindingInterpretation(
-        binding,
+        representative,
         subject,
         state,
-        observed.fact_support | {binding.binding_id},
+        observed.fact_support | corrected.fact_support,
         subjects,
+        frozenset(corrected.assertions),
     )
 
 

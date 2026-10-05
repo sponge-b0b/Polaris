@@ -19,7 +19,7 @@ from polaris.domain.configuration import (
     FreshnessRequirementDefinition,
 )
 from polaris.domain.decisions import OperationId
-from polaris.domain.evidence.bindings import EvidenceAvailability, EvidenceRole
+from polaris.domain.evidence.bindings import EvidenceRole
 from polaris.domain.evidence.freshness import (
     EvidenceFreshnessApplicable,
     EvidenceFreshnessAuthorityReference,
@@ -47,6 +47,7 @@ from polaris.domain.evidence.sufficiency import (
     EvidenceCorrectionUniverseGuard,
     EvidenceRequirementAssessment,
     EvidenceRequirementAuthorityGuard,
+    EvidenceRequirementBindingAssertionProof,
     EvidenceRequirementBindingProof,
     EvidenceRequirementBindingProofKind,
     EvidenceRequirementDeficiencyReason,
@@ -57,6 +58,7 @@ from polaris.domain.evidence.sufficiency import (
 )
 from polaris.domain.evidence.sufficiency_requirements import MinimumEligibleEvidence
 
+from .binding_codec import binding_snapshot_from_payload, binding_snapshot_payload
 from .codec import actor_columns, actor_from_columns, actor_request_payload
 from .codec_support import (
     aware_datetime,
@@ -394,24 +396,15 @@ def _binding_proof_payload(proof: EvidenceRequirementBindingProof) -> JsonObject
         "kind": proof.kind.value,
         "interpretation_state": proof.interpretation_state.value,
         "fact_support": [_fact_ref_payload(value) for value in proof.fact_support],
-        "role": proof.role.value,
-        "availability": proof.availability.value,
-        "materially_used": proof.materially_used,
-        "freshness": _freshness_payload(proof),
-        "deficiency_reason": (
-            proof.deficiency_reason.value
-            if proof.deficiency_reason is not None
-            else None
-        ),
+        "assertion_proofs": [
+            _assertion_proof_payload(value) for value in proof.assertion_proofs
+        ],
+        "deficiency_reason": _reason_payload(proof.deficiency_reason),
     }
 
 
 def _binding_proof_from_payload(value: object) -> EvidenceRequirementBindingProof:
     payload = json_object(value, "binding proof")
-    freshness, authority = _freshness_from_payload(
-        json_object(payload.get("freshness"), "freshness")
-    )
-    reason = payload.get("deficiency_reason")
     return EvidenceRequirementBindingProof(
         binding_id=EvidenceBindingId(
             uuid_value(payload.get("binding_id"), "binding_id")
@@ -432,22 +425,60 @@ def _binding_proof_from_payload(value: object) -> EvidenceRequirementBindingProo
             _fact_ref_from_payload(item)
             for item in _object_list(payload.get("fact_support"), "fact_support")
         ),
-        role=EvidenceRole(nonempty_string(payload.get("role"), "role")),
-        availability=EvidenceAvailability(
-            nonempty_string(payload.get("availability"), "availability")
+        assertion_proofs=tuple(
+            _assertion_proof_from_payload(item)
+            for item in _object_list(
+                payload.get("assertion_proofs"), "assertion_proofs"
+            )
         ),
-        materially_used=_boolean(payload.get("materially_used"), "materially_used"),
-        freshness=freshness,
-        freshness_authority=authority,
-        deficiency_reason=(
-            EvidenceRequirementDeficiencyReason(nonempty_string(reason, "reason"))
-            if reason is not None
-            else None
-        ),
+        deficiency_reason=_reason_from_payload(payload.get("deficiency_reason")),
     )
 
 
-def _freshness_payload(proof: EvidenceRequirementBindingProof) -> JsonObject:
+def _assertion_proof_payload(
+    proof: EvidenceRequirementBindingAssertionProof,
+) -> JsonObject:
+    return {
+        "binding": binding_snapshot_payload(proof.binding),
+        "freshness": _freshness_payload(proof),
+        "kind": proof.kind.value,
+        "deficiency_reason": _reason_payload(proof.deficiency_reason),
+    }
+
+
+def _assertion_proof_from_payload(
+    value: object,
+) -> EvidenceRequirementBindingAssertionProof:
+    payload = json_object(value, "assertion proof")
+    freshness, authority = _freshness_from_payload(
+        json_object(payload.get("freshness"), "freshness")
+    )
+    return EvidenceRequirementBindingAssertionProof(
+        binding=binding_snapshot_from_payload(
+            json_object(payload.get("binding"), "binding")
+        ),
+        freshness=freshness,
+        freshness_authority=authority,
+        kind=EvidenceRequirementBindingProofKind(
+            nonempty_string(payload.get("kind"), "kind")
+        ),
+        deficiency_reason=_reason_from_payload(payload.get("deficiency_reason")),
+    )
+
+
+def _reason_payload(reason: EvidenceRequirementDeficiencyReason | None) -> str | None:
+    return reason.value if reason is not None else None
+
+
+def _reason_from_payload(value: object) -> EvidenceRequirementDeficiencyReason | None:
+    return (
+        EvidenceRequirementDeficiencyReason(nonempty_string(value, "reason"))
+        if value is not None
+        else None
+    )
+
+
+def _freshness_payload(proof: EvidenceRequirementBindingAssertionProof) -> JsonObject:
     freshness = proof.freshness
     basis = {
         "reference": freshness.basis.reference,
@@ -658,12 +689,6 @@ def _list(value: object, field: str) -> list[object]:
 def _integer(value: object, field: str) -> int:
     if not isinstance(value, int) or isinstance(value, bool):
         raise ValueError(f"{field} must be an integer")
-    return value
-
-
-def _boolean(value: object, field: str) -> bool:
-    if type(value) is not bool:
-        raise ValueError(f"{field} must be a boolean")
     return value
 
 

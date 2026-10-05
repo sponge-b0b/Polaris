@@ -4,16 +4,20 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from polaris.domain.actors import ActorAttribution, is_actor_attribution
 
 from .observations import (
+    EvidenceBindingId,
     EvidenceCorrectionId,
     EvidenceFactRef,
     EvidenceObservation,
     EvidenceObservationId,
 )
+
+if TYPE_CHECKING:
+    from .bindings import EvidenceBinding
 
 
 class InvalidEvidenceCorrection(ValueError):
@@ -50,8 +54,12 @@ class EvidenceCorrectionBasis:
 
 
 type EvidenceObservationCorrectionTarget = EvidenceObservationId | EvidenceCorrectionId
+type EvidenceBindingCorrectionTarget = EvidenceBindingId | EvidenceCorrectionId
 
 
+# duplicate-code: each family has a distinct typed root, target, and replacement;
+# retaining explicit dataclasses prevents erasing the family contract.
+# arid: disable
 @dataclass(frozen=True, slots=True)
 class EvidenceObservationCorrection:
     correction_id: EvidenceCorrectionId
@@ -76,7 +84,40 @@ class EvidenceObservationCorrection:
             )
 
 
-type EvidenceCorrection = EvidenceObservationCorrection
+@dataclass(frozen=True, slots=True)
+class EvidenceBindingCorrection:
+    correction_id: EvidenceCorrectionId
+    root_id: EvidenceBindingId
+    target: EvidenceBindingCorrectionTarget
+    effect: EvidenceCorrectionEffect
+    attribution: ActorAttribution
+    basis: EvidenceCorrectionBasis
+    effective_at: datetime
+    recorded_at: datetime
+    replacement: EvidenceBinding | None = None
+
+    def __post_init__(self) -> None:
+        from .bindings import EvidenceBinding
+
+        _validate_common_correction(self, EvidenceBindingId)
+        _validate_replacement(self.effect, self.replacement, EvidenceBinding)
+        if self.replacement is not None and self.replacement.binding_id != self.root_id:
+            raise InvalidEvidenceCorrection(
+                "binding replacement must retain its root identity"
+            )
+        if (
+            self.replacement is not None
+            and self.replacement.recorded_at > self.recorded_at
+        ):
+            raise InvalidEvidenceCorrection(
+                "binding replacement cannot be recorded after its correction"
+            )
+
+
+# arid: enable
+
+
+type EvidenceCorrection = EvidenceObservationCorrection | EvidenceBindingCorrection
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,6 +158,29 @@ class EvidenceObservationCorrectionHistory:
         return interpret_evidence_observation(
             self.root,
             root_recorded_at=self.root_recorded_at,
+            corrections=self.corrections,
+            effective_at=effective_at,
+            known_at=known_at,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceBindingCorrectionHistory:
+    root: EvidenceBinding
+    corrections: tuple[EvidenceBindingCorrection, ...]
+
+    def __post_init__(self) -> None:
+        from .bindings import EvidenceBinding
+
+        if type(self.root) is not EvidenceBinding:
+            raise TypeError("root must be EvidenceBinding")
+        _require_correction_tuple(self.corrections, EvidenceBindingCorrection)
+
+    def interpret(
+        self, *, effective_at: datetime, known_at: datetime
+    ) -> EvidenceInterpretation[EvidenceBinding]:
+        return interpret_evidence_binding(
+            self.root,
             corrections=self.corrections,
             effective_at=effective_at,
             known_at=known_at,
@@ -206,6 +270,46 @@ def interpret_evidence_observation(
         effective_at=effective_at,
         known_at=known_at,
     )
+
+
+def interpret_evidence_binding(
+    root: EvidenceBinding,
+    *,
+    corrections: tuple[EvidenceBindingCorrection, ...],
+    effective_at: datetime,
+    known_at: datetime,
+) -> EvidenceInterpretation[EvidenceBinding]:
+    from .bindings import EvidenceBinding
+
+    if type(root) is not EvidenceBinding:
+        raise TypeError("root must be EvidenceBinding")
+    return _interpret(
+        root,
+        root_id=root.binding_id,
+        root_recorded_at=root.recorded_at,
+        root_effective_at=root.effective_at,
+        corrections=corrections,
+        correction_type=EvidenceBindingCorrection,
+        root_type=EvidenceBindingId,
+        assertion_effective_at=lambda value: value.effective_at,
+        validate_replacement=_validate_binding_replacement,
+        effective_at=effective_at,
+        known_at=known_at,
+    )
+
+
+def _validate_binding_replacement(
+    root: EvidenceBinding, replacement: EvidenceBinding
+) -> None:
+    if (
+        replacement.observation_id != root.observation_id
+        or replacement.target != root.target
+        or replacement.scope != root.scope
+        or replacement.evidence_use is not root.evidence_use
+    ):
+        raise InvalidEvidenceCorrectionHistory(
+            "binding correction cannot change observation, target, scope, or use"
+        )
 
 
 def _interpret[RootT, CorrectionT: EvidenceCorrection](
@@ -479,7 +583,13 @@ def _combine[RootT](
     return EvidenceInterpretation(state, assertions, support)
 
 
+# duplicate-code: the module and public package facade each declare an explicit
+# export contract; generating one from the other would hide API ownership.
+# arid: disable
 __all__ = [
+    "EvidenceBindingCorrection",
+    "EvidenceBindingCorrectionHistory",
+    "EvidenceBindingCorrectionTarget",
     "EvidenceCorrection",
     "EvidenceCorrectionBasis",
     "EvidenceCorrectionEffect",
@@ -491,4 +601,6 @@ __all__ = [
     "InvalidEvidenceCorrection",
     "InvalidEvidenceCorrectionHistory",
     "interpret_evidence_observation",
+    "interpret_evidence_binding",
 ]
+# arid: enable

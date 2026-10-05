@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-05] R3 Evidence binding correction | #386 contract realized
+
+Implemented typed append-only binding correction lineage with complete fixed-endpoint replacements, recursive restoration, contested sibling interpretation, exact replay, immutable PostgreSQL history, and correction-aware sufficiency support. Derived sufficiency proof preserves every surviving corrected binding assertion and its assessment-time freshness across persistence restart. Updated Evidence, Application Use Cases, and Durable Persistence knowledge; assessment correction and broader reconstruction remain downstream.
+
 ## [2026-10-05] R3 Evidence observation correction lineage | #378 contract realized
 
 Implemented immutable append-only `REVISE | RETRACT` acts for Evidence observation roots with application-allocated correction identity, exact root or prior-correction targets, complete replacement assertions, Actor Attribution, basis, and temporal coordinates. The shared correction-reference foundation is ready for later family-specific paths. Observation interpretation reconstructs complete acyclic ancestry at `(effective_at, known_at)`, recursively restores the preceding branch, preserves independent siblings, coalesces equivalent assertions, and returns incompatible or positive/withdrawal support as `CONTESTED` without ordering-based selection. Application preserves exact replay and typed historical inspection; PostgreSQL preserves immutable observation history and receipts with atomic rollback, reference constraints, restart reconstruction, observation-correction-aware sufficiency basis, and affected-scope support epochs. Binding and sufficiency-assessment correction paths remain assigned to #386 and #387; broader Decision Context/current-support queries remain downstream.

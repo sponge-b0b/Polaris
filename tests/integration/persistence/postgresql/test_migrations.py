@@ -40,6 +40,7 @@ SUFFICIENCY_TABLE_NAMES = {
 CORRECTION_TABLE_NAMES = {
     "evidence_correction_identities",
     "evidence_observation_corrections",
+    "evidence_binding_corrections",
     "evidence_correction_command_receipts",
 }
 # arid: enable
@@ -380,7 +381,10 @@ def test_evidence_correction_migration_preserves_typed_lineage_constraints(
         "ck_evidence_correction_identities_family",
         "uq_evidence_correction_identities_correction_id",
     } <= identity_constraints
-    for table_name in ("evidence_observation_corrections",):
+    for table_name in (
+        "evidence_observation_corrections",
+        "evidence_binding_corrections",
+    ):
         constraints = asyncio.run(_constraint_names(postgres_target, table_name))
         assert {
             f"ck_{table_name}_effect_shape",

@@ -72,6 +72,7 @@ from .corrections import (
     EvidenceCorrectionService,
     EvidenceCorrectionStore,
     EvidenceCorrectionUnavailable,
+    RecordEvidenceBindingCorrectionCommand,
     RecordEvidenceCorrectionCommand,
     RecordEvidenceObservationCorrectionCommand,
 )
@@ -237,6 +238,7 @@ __all__ = [
     "MissingEvidenceRequirementAuthority",
     "RecordEvidenceObservationCommand",
     "RecordEvidenceCorrectionCommand",
+    "RecordEvidenceBindingCorrectionCommand",
     "RecordEvidenceObservationCorrectionCommand",
     "RecordEvidenceSufficiencyAssessmentCommand",
     "ResolvedEvidenceRequirementVersion",

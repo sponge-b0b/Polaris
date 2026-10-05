@@ -22,7 +22,7 @@ from polaris.domain.configuration import (
     SufficiencyRequirementDefinition,
 )
 
-from .bindings import EvidenceAvailability, EvidenceBinding, EvidenceRole
+from .bindings import EvidenceAvailability, EvidenceBinding
 from .freshness import (
     EvidenceFreshnessApplicable,
     EvidenceFreshnessNoRequirementWitness,
@@ -115,6 +115,7 @@ class EvidenceBindingInterpretation:
     state: EvidenceBindingInterpretationState
     fact_support: frozenset[EvidenceFactRef]
     surviving_subjects: frozenset[EvidenceSubjectReference] | None = None
+    surviving_bindings: frozenset[EvidenceBinding] | None = None
 
     def __post_init__(self) -> None:
         if type(self.binding) is not EvidenceBinding:
@@ -139,6 +140,39 @@ class EvidenceBindingInterpretation:
         )
         _validate_surviving_subjects(self.subject, subjects, self.state)
         object.__setattr__(self, "surviving_subjects", subjects)
+        bindings = (
+            frozenset({self.binding})
+            if self.surviving_bindings is None
+            else self.surviving_bindings
+        )
+        _validate_surviving_bindings(self.binding, bindings, self.state)
+        object.__setattr__(self, "surviving_bindings", bindings)
+
+
+def _validate_surviving_bindings(
+    root: EvidenceBinding,
+    values: object,
+    state: EvidenceBindingInterpretationState,
+) -> None:
+    if type(values) is not frozenset or any(
+        type(value) is not EvidenceBinding for value in values
+    ):
+        raise TypeError("surviving_bindings must be frozenset[EvidenceBinding]")
+    if not values and state is not EvidenceBindingInterpretationState.WITHDRAWN:
+        raise InvalidEvidenceSufficiency(
+            "a non-withdrawn binding interpretation requires a surviving assertion"
+        )
+    for value in values:
+        if (
+            value.binding_id != root.binding_id
+            or value.observation_id != root.observation_id
+            or value.target != root.target
+            or value.scope != root.scope
+            or value.evidence_use is not root.evidence_use
+        ):
+            raise InvalidEvidenceSufficiency(
+                "surviving binding assertions must retain fixed root endpoints"
+            )
 
 
 def _validate_surviving_subjects(
@@ -159,17 +193,44 @@ def _validate_surviving_subjects(
 
 
 @dataclass(frozen=True, slots=True)
+class EvidenceRequirementBindingAssertionProof:
+    binding: EvidenceBinding
+    freshness: EvidenceAssessmentFreshness
+    freshness_authority: EvidenceAssessmentFreshnessAuthority
+    kind: EvidenceRequirementBindingProofKind
+    deficiency_reason: EvidenceRequirementDeficiencyReason | None = None
+
+    def __post_init__(self) -> None:
+        if type(self.binding) is not EvidenceBinding:
+            raise TypeError("binding must be EvidenceBinding")
+        if type(self.freshness) not in (
+            EvidenceFreshnessApplicable,
+            EvidenceFreshnessNotApplicable,
+        ):
+            raise TypeError("freshness must be a successful assessment-time result")
+        if type(self.freshness_authority) not in (
+            FreshnessRequirementDefinition,
+            EvidenceFreshnessNoRequirementWitness,
+        ):
+            raise TypeError("freshness_authority has an unsupported type")
+        if type(self.kind) is not EvidenceRequirementBindingProofKind:
+            raise TypeError("kind must be EvidenceRequirementBindingProofKind")
+        if self.freshness.basis != self.binding.freshness.basis:
+            raise InvalidEvidenceSufficiency(
+                "assertion freshness must use its exact binding basis"
+            )
+        _validate_proof_freshness_authority(self)
+        _validate_binding_proof_reason(self)
+
+
+@dataclass(frozen=True, slots=True)
 class EvidenceRequirementBindingProof:
     binding_id: EvidenceBindingId
     observation_id: EvidenceObservationId
     kind: EvidenceRequirementBindingProofKind
     interpretation_state: EvidenceBindingInterpretationState
     fact_support: frozenset[EvidenceFactRef]
-    role: EvidenceRole
-    availability: EvidenceAvailability
-    materially_used: bool
-    freshness: EvidenceAssessmentFreshness
-    freshness_authority: EvidenceAssessmentFreshnessAuthority
+    assertion_proofs: tuple[EvidenceRequirementBindingAssertionProof, ...]
     deficiency_reason: EvidenceRequirementDeficiencyReason | None = None
 
     def __post_init__(self) -> None:
@@ -200,28 +261,81 @@ def _validate_binding_proof_identity(proof: EvidenceRequirementBindingProof) -> 
 
 
 def _validate_binding_proof_semantics(proof: EvidenceRequirementBindingProof) -> None:
-    if type(proof.role) is not EvidenceRole:
-        raise TypeError("role must be EvidenceRole")
-    if type(proof.availability) is not EvidenceAvailability:
-        raise TypeError("availability must be EvidenceAvailability")
-    if type(proof.materially_used) is not bool:
-        raise TypeError("materially_used must be bool")
-    if type(proof.freshness) not in (
-        EvidenceFreshnessApplicable,
-        EvidenceFreshnessNotApplicable,
+    if not isinstance(proof.assertion_proofs, tuple) or any(
+        type(value) is not EvidenceRequirementBindingAssertionProof
+        for value in proof.assertion_proofs
     ):
-        raise TypeError("freshness must be a successful assessment-time result")
-    if type(proof.freshness_authority) not in (
-        FreshnessRequirementDefinition,
-        EvidenceFreshnessNoRequirementWitness,
+        raise TypeError("assertion_proofs must contain typed assertion proofs")
+    if not proof.assertion_proofs and (
+        proof.interpretation_state is not EvidenceBindingInterpretationState.WITHDRAWN
     ):
-        raise TypeError("freshness_authority has an unsupported type")
-    _validate_proof_freshness_authority(proof)
+        raise InvalidEvidenceSufficiency(
+            "a non-withdrawn binding proof requires surviving assertions"
+        )
+    if (
+        proof.interpretation_state is EvidenceBindingInterpretationState.DETERMINATE
+        and len(proof.assertion_proofs) != 1
+    ):
+        raise InvalidEvidenceSufficiency(
+            "a determinate binding proof requires one surviving assertion"
+        )
+    first_binding = (
+        proof.assertion_proofs[0].binding if proof.assertion_proofs else None
+    )
+    for assertion in proof.assertion_proofs:
+        if (
+            assertion.binding.binding_id != proof.binding_id
+            or assertion.binding.observation_id != proof.observation_id
+            or (
+                first_binding is not None
+                and (
+                    assertion.binding.target != first_binding.target
+                    or assertion.binding.scope != first_binding.scope
+                    or assertion.binding.evidence_use is not first_binding.evidence_use
+                )
+            )
+        ):
+            raise InvalidEvidenceSufficiency(
+                "assertion proof must retain its binding's fixed endpoints"
+            )
+    expected_kind = (
+        EvidenceRequirementBindingProofKind.CONTRIBUTOR
+        if any(
+            value.kind is EvidenceRequirementBindingProofKind.CONTRIBUTOR
+            for value in proof.assertion_proofs
+        )
+        else EvidenceRequirementBindingProofKind.DEFICIENCY
+        if any(
+            value.kind is EvidenceRequirementBindingProofKind.DEFICIENCY
+            for value in proof.assertion_proofs
+        )
+        else EvidenceRequirementBindingProofKind.VISIBLE
+    )
+    if proof.kind is not expected_kind:
+        raise InvalidEvidenceSufficiency(
+            "binding proof kind must summarize its branches"
+        )
+    if (
+        proof.interpretation_state is not EvidenceBindingInterpretationState.DETERMINATE
+        and proof.kind is EvidenceRequirementBindingProofKind.CONTRIBUTOR
+    ):
+        raise InvalidEvidenceSufficiency(
+            "an unresolved binding cannot contribute to sufficiency"
+        )
+    reasons = {
+        value.deficiency_reason
+        for value in proof.assertion_proofs
+        if value.kind is EvidenceRequirementBindingProofKind.DEFICIENCY
+    }
+    if len(reasons) > 1 or proof.deficiency_reason != next(iter(reasons), None):
+        raise InvalidEvidenceSufficiency(
+            "binding proof reason must summarize every deficient branch"
+        )
     _validate_binding_proof_reason(proof)
 
 
 def _validate_proof_freshness_authority(
-    proof: EvidenceRequirementBindingProof,
+    proof: EvidenceRequirementBindingAssertionProof,
 ) -> None:
     freshness = proof.freshness
     authority = proof.freshness_authority
@@ -244,7 +358,9 @@ def _validate_proof_freshness_authority(
         )
 
 
-def _validate_binding_proof_reason(proof: EvidenceRequirementBindingProof) -> None:
+def _validate_binding_proof_reason(
+    proof: EvidenceRequirementBindingProof | EvidenceRequirementBindingAssertionProof,
+) -> None:
     if proof.kind is EvidenceRequirementBindingProofKind.DEFICIENCY:
         if type(proof.deficiency_reason) is not EvidenceRequirementDeficiencyReason:
             raise InvalidEvidenceSufficiency(
@@ -487,25 +603,26 @@ def _validate_requirement_authority_binding(
             "negative requirement witness must match assessment authority"
         )
     for proof in requirement.binding_proofs:
-        freshness = proof.freshness
-        freshness_set_id = (
-            freshness.authority.set_id
-            if isinstance(freshness, EvidenceFreshnessApplicable)
-            else freshness.witness.set_id
-        )
-        freshness_version_id = (
-            freshness.authority.version_id
-            if isinstance(freshness, EvidenceFreshnessApplicable)
-            else freshness.witness.version_id
-        )
-        if (
-            freshness_set_id != assessment.requirement_set_id
-            or freshness_version_id != assessment.requirement_version_id
-            or freshness.basis.applicability_key != assessment.applicability_key
-        ):
-            raise InvalidEvidenceSufficiency(
-                "binding freshness proof must match assessment authority"
+        for assertion in proof.assertion_proofs:
+            freshness = assertion.freshness
+            freshness_set_id = (
+                freshness.authority.set_id
+                if isinstance(freshness, EvidenceFreshnessApplicable)
+                else freshness.witness.set_id
             )
+            freshness_version_id = (
+                freshness.authority.version_id
+                if isinstance(freshness, EvidenceFreshnessApplicable)
+                else freshness.witness.version_id
+            )
+            if (
+                freshness_set_id != assessment.requirement_set_id
+                or freshness_version_id != assessment.requirement_version_id
+                or freshness.basis.applicability_key != assessment.applicability_key
+            ):
+                raise InvalidEvidenceSufficiency(
+                    "binding freshness proof must match assessment authority"
+                )
 
 
 def _validate_assessment_temporality(
@@ -702,41 +819,70 @@ def _binding_proof(
     *,
     effective_at: datetime,
 ) -> EvidenceRequirementBindingProof:
-    binding = interpretation.binding
-    freshness, freshness_authority = _assessment_freshness(
-        version,
-        binding,
-        effective_at,
+    surviving = interpretation.surviving_bindings
+    assert surviving is not None
+    assertions = tuple(
+        _assertion_proof(version, interpretation, binding, predicate, effective_at)
+        for binding in sorted(surviving, key=repr)
     )
-    kind, reason = _classify_binding_proof(
-        interpretation,
-        predicate,
-        freshness,
+    deficiencies = tuple(
+        value
+        for value in assertions
+        if value.kind is EvidenceRequirementBindingProofKind.DEFICIENCY
     )
+    kind = (
+        EvidenceRequirementBindingProofKind.CONTRIBUTOR
+        if any(
+            value.kind is EvidenceRequirementBindingProofKind.CONTRIBUTOR
+            for value in assertions
+        )
+        else EvidenceRequirementBindingProofKind.DEFICIENCY
+        if deficiencies
+        else EvidenceRequirementBindingProofKind.VISIBLE
+    )
+    reason = deficiencies[0].deficiency_reason if deficiencies else None
     return EvidenceRequirementBindingProof(
-        binding.binding_id,
-        binding.observation_id,
+        interpretation.binding.binding_id,
+        interpretation.binding.observation_id,
         kind,
         interpretation.state,
         interpretation.fact_support,
-        binding.role,
-        binding.availability,
-        binding.materially_used,
+        assertions,
+        reason,
+    )
+
+
+def _assertion_proof(
+    version: EvidenceRequirementSetVersion,
+    interpretation: EvidenceBindingInterpretation,
+    binding: EvidenceBinding,
+    predicate: MinimumEligibleEvidence,
+    effective_at: datetime,
+) -> EvidenceRequirementBindingAssertionProof:
+    freshness, freshness_authority = _assessment_freshness(
+        version, binding, effective_at
+    )
+    kind, reason = _classify_binding_proof(
+        interpretation, binding, predicate, freshness
+    )
+    return EvidenceRequirementBindingAssertionProof(
+        binding,
         freshness,
         freshness_authority,
+        kind,
         reason,
     )
 
 
 def _classify_binding_proof(
     interpretation: EvidenceBindingInterpretation,
+    binding: EvidenceBinding,
     predicate: MinimumEligibleEvidence,
     freshness: EvidenceAssessmentFreshness,
 ) -> tuple[
     EvidenceRequirementBindingProofKind,
     EvidenceRequirementDeficiencyReason | None,
 ]:
-    binding = interpretation.binding
     if binding.role not in predicate.qualifying_roles:
         return EvidenceRequirementBindingProofKind.VISIBLE, None
     if interpretation.state is EvidenceBindingInterpretationState.WITHDRAWN:
@@ -917,6 +1063,8 @@ def _validate_interpretation_universe(
         )
     for interpretation in interpretations:
         binding = interpretation.binding
+        surviving_bindings = interpretation.surviving_bindings
+        assert surviving_bindings is not None
         surviving_subjects = interpretation.surviving_subjects
         assert surviving_subjects is not None
         if (
@@ -931,6 +1079,10 @@ def _validate_interpretation_universe(
             or binding.scope != key.scope
             or binding.evidence_use is not key.evidence_use
             or binding.freshness.basis.applicability_key != key
+            or any(
+                value.freshness.basis.applicability_key != key
+                for value in surviving_bindings
+            )
         ):
             raise InvalidEvidenceSufficiency(
                 "binding endpoint or applicability coordinates do not match"
@@ -943,7 +1095,12 @@ def _validate_interpretation_universe(
             raise InvalidEvidenceSufficiency(
                 "binding observation subject does not match applicability"
             )
-        if binding.effective_at > effective_at or binding.recorded_at > known_at:
+        # A withdrawn history may use its immutable root as an anchor even
+        # when that root was future-effective at the requested boundary.
+        if binding.recorded_at > known_at or any(
+            value.effective_at > effective_at or value.recorded_at > known_at
+            for value in surviving_bindings
+        ):
             raise InvalidEvidenceSufficiency(
                 "binding universe contains history outside the requested boundary"
             )
@@ -1039,6 +1196,7 @@ __all__ = [
     "EvidenceCorrectionUniverseGuard",
     "EvidenceRequirementAssessment",
     "EvidenceRequirementAuthorityGuard",
+    "EvidenceRequirementBindingAssertionProof",
     "EvidenceRequirementBindingProof",
     "EvidenceRequirementBindingProofKind",
     "EvidenceRequirementDeficiencyReason",

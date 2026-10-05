@@ -24,6 +24,9 @@ from polaris.application.evidence.corrections import (
 )
 from polaris.domain.decisions import OperationId
 from polaris.domain.evidence import (
+    EvidenceBindingCorrection,
+    EvidenceBindingCorrectionHistory,
+    EvidenceBindingId,
     EvidenceObservationCorrection,
     EvidenceObservationCorrectionHistory,
     EvidenceObservationId,
@@ -35,6 +38,7 @@ from polaris.domain.evidence.bindings import EvidenceBinding
 from .binding_codec import binding_from_row, binding_values
 from .binding_store import EVIDENCE_BINDING_WRITE_LOCK
 from .correction_codec import (
+    binding_correction_from_row,
     correction_receipt_from_row,
     correction_request_fingerprint,
     correction_request_payload,
@@ -45,6 +49,7 @@ from .correction_codec import (
 from .evidence_codec import observation_from_row
 from .runtime_qualification import require_qualified_postgres_runtime
 from .schema import (
+    evidence_binding_corrections,
     evidence_bindings,
     evidence_correction_command_receipts,
     evidence_correction_identities,
@@ -107,12 +112,12 @@ class PostgresEvidenceCorrectionStore:
                 await connection.execute(
                     insert(evidence_correction_identities).values(
                         correction_id=commit.correction.correction_id.value,
-                        family=EvidenceCorrectionFamily.OBSERVATION.value,
+                        family=commit.request.family.value,
                     )
                 )
                 self._write_completed("identity")
                 await connection.execute(
-                    insert(evidence_observation_corrections).values(
+                    insert(_correction_table(commit.request.family)).values(
                         **correction_values(commit.correction)
                     )
                 )
@@ -131,7 +136,7 @@ class PostgresEvidenceCorrectionStore:
                 await connection.execute(
                     insert(evidence_correction_command_receipts).values(
                         operation_id=commit.operation_id.value,
-                        family=EvidenceCorrectionFamily.OBSERVATION.value,
+                        family=commit.request.family.value,
                         request_fingerprint=correction_request_fingerprint(
                             commit.request
                         ),
@@ -160,6 +165,18 @@ class PostgresEvidenceCorrectionStore:
                 "Evidence observation correction history is unavailable"
             ) from error
 
+    async def load_binding_history(
+        self,
+        root_id: EvidenceBindingId,
+    ) -> EvidenceBindingCorrectionHistory | None:
+        try:
+            async with self._engine.connect() as connection:
+                return await _load_binding_history(connection, root_id)
+        except (SQLAlchemyError, ValueError, TypeError) as error:
+            raise EvidenceCommandReadUnavailable(
+                "Evidence binding correction history is unavailable"
+            ) from error
+
     def _write_completed(self, step: str) -> None:
         """Test seam for proving transaction rollback."""
         del step
@@ -170,14 +187,22 @@ async def _validate_commit_history(
     commit: EvidenceCorrectionCommit,
 ) -> EvidenceCorrectionReferenceConflict | None:
     correction = commit.correction
-    history = await _load_observation_history(connection, correction.root_id)
+    if type(correction) is EvidenceBindingCorrection:
+        history = await _load_binding_history(connection, correction.root_id)
+    elif type(correction) is EvidenceObservationCorrection:
+        history = await _load_observation_history(connection, correction.root_id)
+    else:
+        raise TypeError("unsupported Evidence correction")
     if history is None:
         return EvidenceCorrectionReferenceConflict(
             correction.root_id,
             correction.target,
             "Evidence correction root does not exist",
         )
-    if correction.replacement is not None:
+    if (
+        type(correction) is EvidenceObservationCorrection
+        and correction.replacement is not None
+    ):
         predecessor = correction.replacement.supersedes_observation_id
         if predecessor is not None:
             # Root admission requires an existing predecessor; decreasing row
@@ -206,11 +231,19 @@ async def _validate_commit_history(
                     "observation root",
                 )
     try:
-        candidate = EvidenceObservationCorrectionHistory(
-            history.root,
-            history.root_recorded_at,
-            (*history.corrections, correction),
-        )
+        if type(history) is EvidenceBindingCorrectionHistory:
+            assert type(correction) is EvidenceBindingCorrection
+            candidate = EvidenceBindingCorrectionHistory(
+                history.root, (*history.corrections, correction)
+            )
+        else:
+            assert type(history) is EvidenceObservationCorrectionHistory
+            assert type(correction) is EvidenceObservationCorrection
+            candidate = EvidenceObservationCorrectionHistory(
+                history.root,
+                history.root_recorded_at,
+                (*history.corrections, correction),
+            )
         candidate.interpret(
             effective_at=commit.committed_at,
             known_at=commit.committed_at,
@@ -222,6 +255,14 @@ async def _validate_commit_history(
             str(error),
         )
     return None
+
+
+def _correction_table(family: EvidenceCorrectionFamily) -> Table:
+    if family is EvidenceCorrectionFamily.OBSERVATION:
+        return evidence_observation_corrections
+    if family is EvidenceCorrectionFamily.BINDING:
+        return evidence_binding_corrections
+    raise TypeError("unsupported Evidence correction family")
 
 
 async def _load_observation_history(
@@ -264,6 +305,27 @@ async def _load_observation_history(
         root,
         receipt_rows[0]["committed_at"],
         tuple(observation_correction_from_row(value) for value in corrections),
+    )
+
+
+async def _load_binding_history(
+    connection: AsyncConnection,
+    root_id: EvidenceBindingId,
+) -> EvidenceBindingCorrectionHistory | None:
+    row = await _one_row(
+        connection,
+        select(evidence_bindings).where(
+            evidence_bindings.c.binding_id == root_id.value
+        ),
+    )
+    if row is None:
+        return None
+    corrections = await _correction_rows(
+        connection, evidence_binding_corrections, root_id.value
+    )
+    return EvidenceBindingCorrectionHistory(
+        binding_from_row(row),
+        tuple(binding_correction_from_row(value) for value in corrections),
     )
 
 
@@ -358,9 +420,20 @@ async def _record_support_version_events(
 
 async def _affected_support_scopes(
     connection: AsyncConnection,
-    correction: EvidenceObservationCorrection,
+    correction: EvidenceObservationCorrection | EvidenceBindingCorrection,
     committed_at: datetime,
 ) -> frozenset[_SupportScope]:
+    if type(correction) is EvidenceBindingCorrection:
+        row = await _one_row(
+            connection,
+            select(evidence_bindings).where(
+                evidence_bindings.c.binding_id == correction.root_id.value,
+                evidence_bindings.c.recorded_at <= committed_at,
+            ),
+        )
+        if row is None:
+            return frozenset()
+        return frozenset({_binding_scope(binding_from_row(row))})
     rows = (
         (
             await connection.execute(

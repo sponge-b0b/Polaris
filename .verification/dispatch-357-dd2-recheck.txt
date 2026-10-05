@@ -1,0 +1,47 @@
+$verify-ticket-decomposition same-verifier recheck packet
+
+Source artifact: GitHub Spec #357 — Spec: Implement R3 Decision Context and Evidence semantics
+Mode: remediation
+Current source state identity: Spec Body Hash 275d831d1fe185eaabac34e9d4c6224cf98d28285e64ce03ce16f6c07668c61f; Spec Contract Hash db6842515a70ef6133bb21c962dd96842a840287d28e7a0fd4096d05342ed034; spec-357 HEAD 2f7f809d4c9ffdc6bd8619ac9403f9b0c057ac7e; tree ccccfc78e92abfedc05d293be8c384cae66e32a7; #378 baseline a764f201514754f50ff1535b4d441bc03ad8d093; ADR 0014 blob fe79e744ef6155d81afebb549d16d7759e26e656 is present at the canonical path in the bound tree.
+Parent TCM identity: comment 5899020558, persisted pre-publication Spec Body Hash 275d831d1fe185eaabac34e9d4c6224cf98d28285e64ce03ce16f6c07668c61f and stale Spec Contract Hash a03ed466381753221e81b549da3b8e52cc66294512f86507e4ecb2aded1669c3. This stale TCM is part of substantive reconciliation and must remain unchanged until certification + human approval.
+Proposal identity: compute SHA-256 of `.verification/proposal-357-dd2-recheck.txt` and bind the verdict to that exact value.
+Exact proposed ticket bodies/actions: `.verification/proposal-357-dd2-recheck.txt`.
+Parent coverage candidate: exact current TCM comment 5899020558 plus only the explicit byte-preserving delta in the proposal.
+Decomposition defect: exact current comment 5930434832; DD-2 remains unresolved until approved publication/readback.
+
+This is a repair recheck in the SAME verifier context from Actions run 37329695976.
+Required verifier session ID: 357dd2b3-8c7e-4f5a-a1d2-9b0c3e4f5a67.
+Prior terminal verdict: TICKET DECOMPOSITION: FAIL for proposal c4a2da891a1d9c903f07ad004cea5c461d82b47dbb770dd336cee83e35257292.
+Prior findings to recheck, not assume closed:
+1. oversized-slice — observation and binding correction were independently implementable but bundled. Repaired candidate now separates #378 observation/shared foundation, NEW-BINDING-CORRECTION, and NEW-ASSESSMENT-CORRECTION.
+2. missing-source — ADR 0014 was absent from the prior bound tree. Repaired source state includes exact accepted blob fe79e744ef6155d81afebb549d16d7759e26e656 in the bound spec-357 tree.
+3. contradiction / insufficient live-state recovery — prior verifier did not independently establish current tracker/comment/native-relationship state. This recheck MUST independently query live GitHub state before certifying any current/pre-publication fact or proposed delta. Parent packet/proposal claims are retrieval evidence only.
+
+Current tracker anchors that MUST be read independently in this resumed verifier turn:
+- Spec #357 current body/state.
+- Tickets #372, #374, #377, #378, #379, #380, #381 current bodies/states as needed for prerequisites and consumer closure.
+- Ticket Coverage Manifest comment 5899020558 exact current body.
+- Decomposition Defects comment 5930434832 exact current body.
+- #378 closure checkpoint comment 5989254670 when useful as falsifier provenance.
+- Current native parent/blocking relationships for affected tickets, using read-only `gh`/GitHub state rather than proposal text.
+- Current `spec-357` HEAD/tree and accepted ADRs 0011–0014 from the bound repository tree.
+
+Required independent challenges on the repaired candidate:
+- source closure and exact current ADR 0014 recovery;
+- 59-cell Spec mapping and changed ticket/TCM routing fidelity;
+- observation/binding/assessment correction slice boundaries and context fit;
+- assessment derived-proof + same-root requirement-version continuity + trusted-instant re-evaluation/atomic revalidation;
+- changed-invariant semantic consumers, especially #379 historical, #380 current basis, and #381 dependent commit;
+- dependency fidelity, including whether #378→#372, binding→#374/#378, assessment→#377/#378/binding, and #379's full prerequisite set reflect authority without artificial coupling;
+- both live-WIP reslice recovery records and source-WIP non-mutation;
+- exact proposed TCM and DD-2 publication deltas against the independently recovered current comments;
+- design delegation and any additional bounded defect.
+
+Transport/state facts:
+- The current spec-357 tree is semantically the ADR-sync tree; two no-op history commits were introduced and cleaned during transport staging, so current HEAD is 2f7f809d... while tree is ccccfc78.... Bind certification to the exact current HEAD and tree; do not infer semantic change from the no-op commits.
+- Owner-local #378 WIP is not visible to the verifier and must remain protected. The proposal treats both new destinations as live-WIP reslices using isolated-worktree recovery, not as permission to mutate or consume unclassified local WIP.
+- No proposed ticket, TCM, DD-2, relationship, label, or lifecycle mutation has been published.
+
+Execute `.agents/skills/verify-ticket-decomposition/SKILL.md` exactly from the bound source tree. Continue from your prior verifier reasoning because this is the same resumed Copilot session, but independently re-read every current authority whose identity/state changed or whose absence caused the prior FAIL. Do not spawn another reviewer, do not mutate repository/tracker state, and do not redesign the candidate.
+
+Return exactly one complete terminal verdict in the skill-required format beginning with exactly `TICKET DECOMPOSITION: PASS` or `TICKET DECOMPOSITION: FAIL`, and bind it to the SHA-256 of the exact repaired proposal file.

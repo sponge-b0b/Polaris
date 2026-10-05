@@ -1,0 +1,17 @@
+name: ChatGPT surgical implement-ticket probe
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/chatgpt-surgical-implement-ticket.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe hosted runner
+        run: echo probe-ok

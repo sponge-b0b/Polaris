@@ -1,55 +1,35 @@
-name: Resume Spec357 DD2 verifier safely
+name: Publish certified Spec357 DD2 proposal
 
-# Transport-only workflow. Proposal/source identities are bound inside the launcher.
 on:
   push:
     branches:
-      - chatgpt/verify-ticket-decomposition-357-dd2-resume
+      - chatgpt/publish-spec357-dd2-certified
 
 permissions:
   actions: read
   contents: read
-  issues: read
+  issues: write
   pull-requests: read
-  copilot-requests: write
 
 jobs:
-  verify:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Resume exact verifier session
+      - name: Publish exact certified proposal
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ github.token }}
-        run: python .verification/run-resume-verifier.py
+        run: python .verification/publish-certified-dd2.py
 
-      - name: Upload resumed verdict
+      - name: Upload publication readback
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ticket-decomposition-357-dd2-resume2-verdict
-          path: /tmp/verdict-resumed.txt
+          name: spec357-dd2-publication-result
+          path: /tmp/publication-result.json
           if-no-files-found: warn
-          retention-days: 14
-
-      - name: Upload refreshed verifier session
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ticket-decomposition-357-dd2-resume2-session
-          path: /tmp/copilot-home-resumed2.tgz
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: Upload refreshed session manifest
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ticket-decomposition-357-dd2-resume2-session-manifest
-          path: /tmp/session-manifest-resumed2.txt
-          if-no-files-found: error
-          retention-days: 14
+          retention-days: 30

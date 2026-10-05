@@ -1,4 +1,4 @@
-name: ChatGPT surgical implement-ticket probe
+name: ChatGPT surgical implement-ticket edit
 
 on:
   push:
@@ -7,11 +7,33 @@ on:
       - '.github/workflows/chatgpt-surgical-implement-ticket.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  probe:
+  edit:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe hosted runner
-        run: echo probe-ok
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply deterministic edit
+        run: python .verification/chatgpt-patch-implement-ticket.py
+      - name: Audit authorized delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          actual=$(git diff --name-only)
+          test "$actual" = ".agents/skills/implement-ticket/SKILL.md"
+          ! grep -Eq '#(378|386|387)' .verification/chatgpt-patch-implement-ticket.py
+      - name: Commit and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .agents/skills/implement-ticket/SKILL.md
+          git diff --cached --check
+          git commit -m 'fix(workflow): isolate live-WIP reslice sources'
+          git push origin HEAD:main

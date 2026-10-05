@@ -1,0 +1,77 @@
+ACTION 2 — CREATE NEW-BINDING-CORRECTION
+Title: Correct Evidence bindings with fixed-endpoint replacement semantics
+Complete proposed body:
+
+## Parent
+
+Parent Spec: #357
+
+## Spec obligations
+
+US-3, ID-2, ID-20, TD-2, TD-9
+
+## Architecture obligations
+
+ARCHSRC-2, ARCHSRC-7
+
+## Architecture context
+
+Evidence; Application Use Cases; Durable Persistence; ADRs 0011, 0012. All architecture and material design decisions currently required by this ticket are accepted; no known implementation-readiness blocker remains unresolved.
+
+## Context fit
+
+one-window
+
+## What to build
+
+Implement the binding-specific `REVISE | RETRACT` path on the shared correction foundation established by #378. A binding correction remains within one `EvidenceBindingId` lineage only while the root's observation, typed target judgment, scope, and `EvidenceUse` stay fixed. `REVISE` carries the complete binding assertion, including role, material-use, availability, freshness basis/result when applicable, and material qualification; changing a fixed endpoint retracts the old binding and creates a new binding root rather than revising lineage.
+
+## Acceptance criteria
+
+* [ ] Each binding correction is an immutable `EvidenceCorrectionId` targeting exactly one `EvidenceBindingId` root or earlier binding correction from that same root; ancestry is acyclic and uses the shared family-neutral correction-reference primitives from #378.
+* [ ] Binding `REVISE` carries the complete binding replacement assertion, including the fixed observation/typed target/scope/use coordinates plus role, materially-used state, availability, freshness requirement/basis/result when applicable, and material qualification.
+* [ ] Changing the fixed observation, typed target judgment, scope, or `EvidenceUse` is rejected as revision of the existing binding lineage; the old binding is retracted and a distinct binding root is created instead.
+* [ ] `RETRACT` and correction-of-correction recursively restore the immediately preceding branch interpretation; sibling branches remain independent, materially equivalent assertions coalesce with complete support, and incompatible surviving support yields `CONTESTED` without recency/UUID/database ordering.
+* [ ] Material-use and availability/freshness invariants remain valid after every replacement interpretation; invalid or incomplete ancestry fails closed rather than being normalized into a winner.
+* [ ] Persistence proves append-only binding correction history, ancestry/reference validity, rollback, restart reconstruction, exact replay idempotency, and greenfield inward-owned persistence constraints.
+* [ ] Sufficiency-assessment correction, derived assessment proof, reassessment identity continuity, and trusted commit-time re-evaluation/revalidation are excluded from this ticket.
+
+## Blocked by
+
+#374 — Persist typed judgment Evidence bindings end to end
+#378 — Preserve Evidence observation correction lineage end to end
+
+## Ticket branch
+
+spec-357
+
+## Ticket baseline
+
+Pending
+
+Required label/status: ready-for-agent / open after publication and exact readback.
+Native parent: #357.
+Native blocked-by set: #374, #378.
+
+Live-WIP reslice lifecycle metadata:
+- Live-WIP reslice: yes
+- Source active ticket: #378
+- Destination/new prerequisite: NEW-BINDING-CORRECTION
+- Shared branch: spec-357
+- Source ticket baseline: a764f201514754f50ff1535b4d441bc03ad8d093
+- Remote branch anchor: __CANDIDATE_HEAD__
+- Recovery mode: isolated-worktree
+- Source caller WIP must remain untouched: yes
+
+After the new issue number is deterministically assigned, create exactly one managed recovery comment on that new ticket with deterministic alias substitution only:
+
+<!-- ticket-reslice-recovery:v1 -->
+## Ticket Reslice Recovery
+
+**Status:** pending-prerequisite
+**Source ticket:** #378
+**Destination ticket:** #<NEW-BINDING-CORRECTION actual issue number>
+**Shared branch:** spec-357
+**Source ticket baseline:** a764f201514754f50ff1535b4d441bc03ad8d093
+**Reslice branch anchor:** __CANDIDATE_HEAD__
+**Recovery mode:** isolated-worktree

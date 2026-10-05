@@ -158,6 +158,62 @@ Do not reconstruct an older revision.
 
 Existing linked tickets represent previously sliced work.
 
+### Changed-Authority Semantic-Consumer Propagation Guard
+
+For an existing Spec, changed accepted architecture/design authority can alter the invariant of a semantic subject that later tickets **operate on** even when those tickets did not originally produce that subject and do not currently cite the changed source. Before returning any substantive remediation delta, prove that those downstream operation owners were evaluated.
+
+Run this guard whenever current reconciliation includes at least one of:
+
+* a changed or newly accepted architecture/design source unit;
+* a changed `ARCHSRC-*` obligation or destination;
+* an amended Spec predicate that changes the meaning/invariant of a durable domain/application/persistence subject;
+* a confirmed `decomposition-defects:v1` report.
+
+First identify each materially changed semantic subject/invariant from current authority, for example an assessment, binding, requirement version, correction, reconstructed view, persisted proof, public result, authority witness, or transaction boundary. Then inspect the complete active ticket reconciliation universe, not only the tickets already named by the changed architecture row.
+
+A ticket is a **semantic-consumer candidate** when its current contract creates, mutates, revises, corrects, retracts, reassesses, validates, interprets, reconstructs, replays, persists, serializes, migrates, exposes, authorizes, or otherwise makes a semantic claim about the changed subject. Explicit cross-ticket ownership/deferment language such as “correction interpretation remains owned by #N” is mandatory discovery evidence and must be followed to the current open owner.
+
+Native dependency edges, shared files, and source citations are discovery hints only. Absence of a dependency, common file, or explicit ADR citation is not proof that a consumer is unaffected.
+
+For every changed invariant × semantic-consumer candidate materialize one row:
+
+```text
+Changed obligation/source unit: <Spec cell | ARCHSRC-* | ARCSU-* | DD-*>
+Semantic subject/invariant: <exact changed meaning>
+Consumer ticket: #<n>
+Consumer operation: <create | mutate | correct | retract | reassess | validate | interpret | reconstruct | replay | persist | serialize | migrate | expose | authorize | other>
+Discovery evidence: <ticket clause / explicit ownership handoff / dependency / source relation>
+Invariant applicability: applies | does-not-apply | ambiguous
+Required carry: existing-obligation | add-Spec-cell-carry | add-ARCHSRC | new-active-ticket | none
+Reason/authority: <why this operation must or need not preserve the changed invariant>
+```
+
+Rules:
+
+* `applies` means the ticket can make, persist, return, or reinterpret a semantic statement whose correctness depends on the changed invariant; that ticket must carry the applicable current obligation in its durable contract;
+* a downstream correction/revision path is a consumer of the corrected entity's current invariant even when correction mechanics are governed by a separate ADR;
+* a reconstruction/replay/read path is a consumer when it determines current or historical meaning from the changed subject;
+* an opaque reference that neither interprets nor changes the subject may be `does-not-apply`, but only with positive authority/reason;
+* an explicit ownership handoff/deferment must terminate at a current destination and that destination must be evaluated; do not stop at the ticket that wrote the handoff;
+* a closed historical consumer is never rewritten. If current authority requires new executable behavior after closure, map the delta to an existing open owner or create a new active ticket;
+* `ambiguous` is a hard blocker. Do not guess semantic applicability from filenames, implementation shape, or convenience;
+* do not broaden into unrelated tickets merely because they mention the same noun. The consumer operation must materially touch the changed invariant.
+
+Before ticket reconciliation may be considered complete require:
+
+```text
+Changed semantic invariants assessed: <n>
+Semantic-consumer candidates: <n>
+Applicable semantic-consumer rows: <n>
+Applicable consumers with durable obligation carry: <n>/<n>
+Applicable consumers requiring ticket/manifest update: <n>
+Unmapped applicable consumers: 0
+Ambiguous consumer applicability: 0
+Explicit downstream ownership handoffs untraced: 0
+```
+
+Return this compact **Semantic-Consumer Impact Matrix** to `$to-tickets` with the remediation delta. It is decomposition evidence, not a new durable tracker artifact. `$to-tickets` remains the owner of the parent manifest, proposal, approval, and publication.
+
 ### Decomposition Defect Input
 
 When `$to-tickets` invokes this remediation path with validated decomposition defects, consume the parent's independently validated `DD-*` set in addition to ordinary Root Blocker state.
@@ -168,9 +224,10 @@ For every confirmed decomposition defect supplied by `$to-tickets`:
 
 * preserve its stable `DD-*` identity and exact governing source;
 * carry the reconciled `ARCHSRC-*` obligation and required destination;
+* evaluate the changed obligation through the **Changed-Authority Semantic-Consumer Propagation Guard** before declaring its destination complete;
 * reuse/update an applicable open ticket or create a new remediation ticket;
 * never reopen or rewrite a closed historical ticket merely because its historical scope omitted the obligation;
-* include the mapped `ARCHSRC-*` IDs in the remediation ticket's `## Architecture obligations` field;
+* include the mapped `ARCHSRC-*` IDs in every applicable consumer ticket's `## Architecture obligations` field;
 * return a complete `DD-* → ARCHSRC-* → ticket/destination` delta to `$to-tickets`.
 
 Before returning the remediation delta require:
@@ -181,6 +238,8 @@ Decomposition defects dispositioned: <n>
 Unmapped decomposition defects: 0
 Ambiguous decomposition destinations: 0
 Architecture obligations without active ticket/authorized non-ticket destination: 0
+Semantic-consumer impact matrices complete: <n>/<n applicable changed obligations>
+Unmapped applicable semantic consumers: 0
 ```
 
 ## 3. Reconcile Existing Tickets
@@ -343,6 +402,8 @@ Reconcile semantically, not by wording alone.
 
 If an amended requirement changes pending work, update the existing open ticket when it still naturally owns that work.
 
+If an amended requirement or architecture invariant changes the meaning of a subject that another open ticket consumes, apply the **Changed-Authority Semantic-Consumer Propagation Guard** and update every applicable consumer ticket even when its headline responsibility did not change.
+
 If a closed ticket satisfied the old requirement but the amended Spec now requires more, create an ordinary new ticket for the delta.
 
 Treat it as a regression only when previously required behavior actually broke.
@@ -409,6 +470,9 @@ Return only actionable ticket changes:
 Architecture-blocked roots:
 - RB-<n>: <question/conflict> — <governing authority/evidence>
 
+Semantic-consumer propagation:
+- <changed obligation / semantic subject> → <consumer ticket> — <required carry/update>
+
 New tickets:
 - <ticket>
   Root: RB-<n>
@@ -437,7 +501,7 @@ Skipped:
 - ...
 ```
 
-Omit `Architecture-blocked roots` when none exist.
+Omit `Architecture-blocked roots` when none exist. Omit `Semantic-consumer propagation` only when the Changed-Authority Semantic-Consumer Propagation Guard is not applicable or proves zero applicable consumer updates.
 
 For Spec Review remediation, also report:
 
@@ -453,6 +517,7 @@ Never report an `open` or `regressed` Root Blocker as skipped merely because pri
 An empty delta is valid only when:
 
 * no current requirement needs new or changed implementation work;
+* no applicable semantic consumer requires changed obligation carry;
 * no `open` or `regressed` Root Blocker lacks active remediation coverage;
 * no retained open ticket requires metadata normalization;
 * any remaining `unproven` obligations require verification only.
@@ -461,7 +526,7 @@ Before returning a proposed Spec Review remediation ticket, confirm that no sati
 
 If one was omitted from the ticket, the delta is incomplete.
 
-The returned ticket blocks are the authoritative semantic input to `$to-tickets`' approval proposal. `$to-tickets` may improve presentation but must not condense, merge, reclassify, or omit any returned obligation.
+The returned ticket blocks and Semantic-Consumer Impact Matrix are the authoritative semantic input to `$to-tickets`' approval proposal. `$to-tickets` may improve presentation but must not condense, merge, reclassify, or omit any returned obligation or applicable consumer mapping.
 
 Return control to `$to-tickets` at its approval/publishing step.
 

@@ -39,10 +39,10 @@ The parent supplies a compact retrieval packet containing:
 Source artifact: <durable identity>
 Mode: fresh | remediation
 Source state identity: <Spec Body Hash + Spec Contract Hash + root hashes or equivalent durable identities>
-Parent TCM identity: <Spec Body Hash + Spec Contract Hash when a TCM exists>
+Parent TCM identity: <persisted pre-publication Spec Body Hash + Spec Contract Hash when a TCM exists>
 Proposal identity: <sha256 of exact rendered proposal>
 Exact proposed ticket bodies/actions: <complete candidate>
-Parent coverage candidate: <exact rendered manifest/delta>
+Parent coverage candidate: <exact rendered manifest/delta, including proposed Spec Body Hash + Spec Contract Hash when the TCM is part of substantive reconciliation>
 Spec obligation routing: <IDs + dispositions>
 Architecture/design source inventory: <durable source identities + anchors + dispositions>
 Normative source-unit / ARCHSRC routing: <IDs + source anchors + dispositions>
@@ -54,7 +54,7 @@ Design-delegation result: <compact rows/pointers>
 
 The packet locates authority efficiently. It does not establish that the source universe, routing, consumer propagation, or carry is correct.
 
-Missing, stale, contradictory, or candidate-mismatched dispatch state invalidates verification. Do not emit PASS or FAIL for an unbound candidate.
+Missing, contradictory, or candidate-mismatched dispatch state invalidates verification. A stale persisted parent TCM also invalidates verification except in a substantive remediation where `$to-tickets` explicitly carries that stale TCM as pre-publication state, the exact proposed parent coverage candidate is part of the frozen proposal, and that candidate repairs the identity to the bound current Spec contract. In that bounded case, the persisted stale TCM is an input to be repaired rather than evidence of candidate mismatch.
 
 ## Certification Procedure
 
@@ -65,8 +65,10 @@ Read the originating Spec/remediation authority and every architecture/design so
 Independently check that:
 
 * the implementation-ready source contract is the one bound to the proposal;
-* for **every mode** with a parent Ticket Coverage Manifest, the bound current Spec contract and TCM have equal Spec Body Hash and Spec Contract Hash values;
-* a different hash is contradictory dispatch state and invalidates verification before PASS/FAIL; matching body text, cell counts, cell-ID sets, or routing counts may not be used to infer contract equivalence;
+* when a parent Ticket Coverage Manifest exists and the proposal does **not** include substantive reconciliation of that TCM, the persisted TCM and bound current Spec contract have equal Spec Body Hash and Spec Contract Hash values;
+* when a substantive remediation explicitly includes the parent TCM as part of the frozen proposal because `$to-tickets` cannot legally normalize it before semantic verification, the persisted TCM may differ only as the declared pre-publication state being repaired; the exact proposed parent coverage candidate must carry the bound current Spec Body Hash and Spec Contract Hash, and the verifier must independently certify its identity, routing, semantic delta, and publication action as part of the candidate;
+* a stale persisted TCM without that exact bound proposed repair is contradictory dispatch state and invalidates verification before PASS/FAIL; matching body text, cell counts, cell-ID sets, or routing counts may not be used to infer contract equivalence;
+* the proposed TCM candidate may not silently erase or bypass the stale-state discrepancy: the exact frozen actions must update the persisted TCM to the certified candidate only after verifier PASS and parent-owned human approval/publication;
 * for a fresh Spec proposal, the exact Spec-cell ID set rendered in the parent Ticket Coverage Manifest is **identical** to the exact Spec-cell ID set emitted by the bound `$spec-contract` manifest;
 * for that equality check, independently compute both directional differences and require missing source-derived cells = 0 and extra/non-source-derived cells = 0; a proposal containing every source cell plus one synthetic cell must FAIL;
 * every disposition in a fresh-Spec Ticket Coverage Manifest refers to an existing source Spec cell; workflow/lifecycle/publication mechanics may not appear as synthetic Spec cells unless `$spec-contract` itself emits them;

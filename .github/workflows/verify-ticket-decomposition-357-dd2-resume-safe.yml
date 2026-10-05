@@ -1,0 +1,54 @@
+name: Resume Spec357 DD2 verifier safely
+
+on:
+  push:
+    branches:
+      - chatgpt/verify-ticket-decomposition-357-dd2-resume
+
+permissions:
+  actions: read
+  contents: read
+  issues: read
+  pull-requests: read
+  copilot-requests: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Resume exact verifier session
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
+        run: python .verification/run-resume-verifier.py
+
+      - name: Upload resumed verdict
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ticket-decomposition-357-dd2-resume2-verdict
+          path: /tmp/verdict-resumed.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload refreshed verifier session
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ticket-decomposition-357-dd2-resume2-session
+          path: /tmp/copilot-home-resumed2.tgz
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload refreshed session manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ticket-decomposition-357-dd2-resume2-session-manifest
+          path: /tmp/session-manifest-resumed2.txt
+          if-no-files-found: error
+          retention-days: 14

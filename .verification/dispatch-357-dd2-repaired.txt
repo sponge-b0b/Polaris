@@ -1,0 +1,41 @@
+$verify-ticket-decomposition dispatch packet
+
+Source artifact: GitHub Spec #357 — Spec: Implement R3 Decision Context and Evidence semantics
+Mode: remediation
+Source state identity: Spec Body Hash 275d831d1fe185eaabac34e9d4c6224cf98d28285e64ce03ce16f6c07668c61f; Spec Contract Hash db6842515a70ef6133bb21c962dd96842a840287d28e7a0fd4096d05342ed034; spec-357 HEAD 5ad1886205a33a73a058d98104f0f299b368b086; #378 baseline a764f201514754f50ff1535b4d441bc03ad8d093; ADR 0014 blob fe79e744ef6155d81afebb549d16d7759e26e656.
+Parent TCM identity: comment 5899020558, persisted pre-publication Spec Body Hash 275d831d1fe185eaabac34e9d4c6224cf98d28285e64ce03ce16f6c07668c61f and stale Spec Contract Hash a03ed466381753221e81b549da3b8e52cc66294512f86507e4ecb2aded1669c3. This stale TCM is explicitly part of substantive reconciliation; the exact proposed delta is in proposal-357-dd2-repaired.txt and repairs it to db6842515a70ef6133bb21c962dd96842a840287d28e7a0fd4096d05342ed034 only after certification + human approval.
+Proposal identity: compute SHA-256 of .verification/proposal-357-dd2-repaired.txt and bind verdict to that exact value.
+Exact proposed ticket bodies/actions: .verification/proposal-357-dd2-repaired.txt
+Parent coverage candidate: exact current TCM comment 5899020558 plus the byte-preserving explicit delta in the proposal file.
+Spec obligation routing: exact current TCM plus changed rows in proposal file; source Spec contract has 59 cells.
+Architecture/design source inventory: reuse/challenge current TCM bounded inventory, including accepted ADR 0012 blob 4f1c90c99dcf8e93707246c41584bba16600bd60, ADR 0013 blob 8d5bc258722962e26252df8bc33edae42c50f944, ADR 0014 blob fe79e744ef6155d81afebb549d16d7759e26e656, ADR 0011, platform architecture, product requirements/domain model, relevant wiki entities, decisions #349/#350/#355/#364, and Wayfinder #348. Follow current authoritative references only where needed to test closure.
+Normative source-unit / ARCHSRC routing: current TCM ARCHSRC-1..7 plus exact changed routing in proposal file. DD-2 is governed especially by ADR 0012 Correction and interpretation / assessment identity, ADR 0013 Current-support basis and concurrency, ADR 0014 Persisted proof and commit boundary, ARCHSRC-2, ARCHSRC-4, ARCHSRC-7, and Spec #357 Implementation Decisions 2/12/15-20.
+Parent semantic-carry evidence: exact ticket bodies and changed mapping rows in proposal file. Treat as retrieval evidence only.
+Parent semantic-consumer impact evidence: exact changed-invariant/consumer matrix in proposal file. Treat as retrieval evidence only and independently search the active ticket universe for omitted consumers.
+Parent Context-Fit Manifest: exact per-ticket context-fit section in proposal file. Independently derive scenario/proof families and challenge the new split and two-window exception.
+Design-delegation result: parent claims 0; independently challenge.
+
+Current tracker anchors to read independently:
+- Spec #357
+- Ticket #377 (closed assessment evaluator; explicitly says assessment correction interpretation remains owned by #378)
+- Ticket #378 current pre-publication body
+- Tickets #379, #380, #381 current pre-publication bodies
+- Ticket Coverage Manifest comment 5899020558
+- Decomposition Defects comment 5930434832
+- #378 closure checkpoint comment 5989254670 if needed as falsifier provenance
+- native parent/blocking relationships for #378-#381
+
+Fresh-review authorization / recovery disclosure:
+- Original fresh verifier run 37282721816 became unusable because the then-canonical verifier contract contradicted substantive pre-publication TCM reconciliation; that workflow defect was corrected.
+- Replacement fresh verifier run 37285042016 returned substantive FAIL with three findings: missing trusted-instant re-evaluation, omitted #380/#381 semantic consumers, and unsupported #378 one-window bundling. The parent proposal has now been materially repaired; do not inherit the parent's claim that those findings are closed—verify independently.
+- The replacement verifier context could not be recovered (`copilot --continue` diagnostic returned RESUME_MATCH: no).
+- The owner explicitly authorized proceeding in the current invocation, satisfying `$to-tickets` authority for this additional independent reviewer beyond the required verifier/replacement.
+- This run must be a full genuinely fresh, independent, non-mutating semantic certification. It is not a same-context continuation and must not treat either prior verdict as authority.
+
+Required verifier behavior:
+- Execute .agents/skills/verify-ticket-decomposition/SKILL.md exactly.
+- Read AGENTS.md first.
+- Independently recover the authoritative source and active ticket universe with read-only git/gh commands.
+- Challenge source closure, exact ticket semantic carry, changed-invariant consumers including historical/current/commit paths, dependency fidelity, live-WIP reslice semantics, context fit, design delegation, and exact proposed TCM/DD publication actions.
+- Do not mutate repository or tracker state, do not redesign the candidate, and do not spawn another reviewer.
+- Return exactly one terminal verdict in the skill format, bound to the exact proposal SHA-256.

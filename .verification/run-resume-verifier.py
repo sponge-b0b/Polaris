@@ -9,8 +9,9 @@ import sys
 import tarfile
 
 SESSION_ID = "357dd2b3-8c7e-4f5a-a1d2-9b0c3e4f5a67"
-PRIOR_RUN_ID = "37329695976"
-PRIOR_ARTIFACT = "ticket-decomposition-357-dd2-repaired-session"
+PRIOR_RUN_ID = "37333932665"
+PRIOR_ARTIFACT = "ticket-decomposition-357-dd2-resume2-session"
+PRIOR_ARCHIVE_NAME = "copilot-home-resumed2.tgz"
 CANDIDATE_HEAD = "2f7f809d4c9ffdc6bd8619ac9403f9b0c057ac7e"
 VERIFIER_SKILL_BLOB = "5e8e389ef9509a7da628f37870ea6adab725737a"
 ADR0014_BLOB = "fe79e744ef6155d81afebb549d16d7759e26e656"
@@ -35,6 +36,7 @@ if adr_blob != ADR0014_BLOB:
 env = os.environ.copy()
 env["CANDIDATE_HEAD"] = CANDIDATE_HEAD
 run([sys.executable, ".verification/build-proposal-357-dd2-resume.py"], env=env)
+run([sys.executable, ".verification/repair-current-consumers.py"], env=env)
 proposal = Path("/tmp/proposal-357-dd2-resume.txt")
 proposal_sha = hashlib.sha256(proposal.read_bytes()).hexdigest()
 print(f"proposal_sha={proposal_sha}", flush=True)
@@ -43,9 +45,9 @@ prior_dir = Path("/tmp/prior-session")
 shutil.rmtree(prior_dir, ignore_errors=True)
 prior_dir.mkdir(parents=True)
 run(["gh", "run", "download", PRIOR_RUN_ID, "-n", PRIOR_ARTIFACT, "-D", str(prior_dir)])
-archive = prior_dir / "copilot-home.tgz"
+archive = prior_dir / PRIOR_ARCHIVE_NAME
 if not archive.exists():
-    raise SystemExit("prior verifier session archive missing")
+    raise SystemExit(f"prior verifier session archive missing: {archive}")
 
 copilot_home = Path(os.environ.get("RUNNER_TEMP", "/tmp")) / "copilot-home-dd2"
 shutil.rmtree(copilot_home, ignore_errors=True)
@@ -57,19 +59,17 @@ if not (copilot_home / "session-state" / SESSION_ID).is_dir():
 
 run(["npm", "install", "-g", "@github/copilot"])
 
-prompt = f"""Continue the SAME Polaris $to-tickets decomposition-verifier session after your prior terminal FAIL.
+prompt = f"""Continue the SAME Polaris $to-tickets decomposition-verifier session after your latest terminal FAIL.
 Execute .agents/skills/verify-ticket-decomposition/SKILL.md exactly for the newly repaired candidate.
 
-The exact current Spec branch candidate is {CANDIDATE_HEAD}.
+The exact current Spec branch candidate remains {CANDIDATE_HEAD}.
 The exact repaired proposal is /tmp/proposal-357-dd2-resume.txt.
 The exact repaired proposal identity is {proposal_sha}.
 The verifier skill blob remains {VERIFIER_SKILL_BLOB}.
 
-Your prior FAIL findings were: observation/binding bundling was oversized; ADR 0014 was missing from the bound tree; and live tracker/native-relationship state had not been independently recovered. Treat those findings as falsifiers to re-evaluate, not as assumed repaired conclusions.
+Your latest FAIL had exactly one finding: the family-A semantic-consumer matrix and proposed #380/#381 contracts omitted current-basis and dependent-commit effects from result-affecting observation and binding corrections. The parent has repaired only that finding: #380 now carries observation/binding/assessment correction interpretation and invalidation, #381 now freshly reconstructs/revalidates all those correction interpretations, and the family-A consumer matrix now includes both tickets. Treat this as a claimed repair to falsify, not as an assumed conclusion.
 
-Before returning a verdict, independently recover current live GitHub state yourself with read-only gh commands. At minimum re-read Spec #357, tickets #372/#374/#375/#377/#378/#379/#380/#381/#385, issue comments 5899020558 and 5930434832, open/closed states and bodies, direct parentage, and native blocked-by/blocking relationships. Use gh issue view, gh api, or read-only GraphQL as needed. Do not treat the proposal packet, parent readiness claims, prior verdict, or conversation as authority for persisted tracker state. If you cannot independently establish a required live relationship or comment fact, FAIL rather than assume it.
-
-Re-read ADRs 0012, 0013, and the now-present exact accepted ADR 0014 from {CANDIDATE_HEAD}. Independently challenge the new three-way correction-family split, Spec/ARCHSRC routing, semantic-consumer propagation, live-WIP reslice safety for both new destinations, exact TCM/DD deltas, dependency fidelity, context fit, and design delegation.
+Independently recover current live GitHub state yourself with read-only gh commands before verdict. Re-read the relevant Spec/tickets, comments 5899020558 and 5930434832, states, parentage, and native dependency relationships rather than trusting proposal prose for persisted state. Re-read ADRs 0012, 0013, and 0014 from {CANDIDATE_HEAD}. Recheck the entire exact proposal, not only the latest repair, for source closure, ticket semantic carry, semantic-consumer propagation, dependency fidelity, live-WIP reslice safety, TCM/DD exactness, context fit, and design delegation.
 
 Do not mutate repository or tracker state, do not redesign the proposal, and do not spawn another verifier.
 Return exactly one complete terminal verdict in the skill-required format beginning with exactly either:

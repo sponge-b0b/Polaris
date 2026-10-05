@@ -1,5 +1,6 @@
 name: Resume Spec357 DD2 verifier safely
 
+# Transport-only workflow. Proposal/source identities are bound inside the launcher.
 on:
   push:
     branches:

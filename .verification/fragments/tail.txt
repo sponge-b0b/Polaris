@@ -1,0 +1,60 @@
+PARENT SEMANTIC-CONSUMER IMPACT EVIDENCE
+Changed source family A: ADR 0012 correction and interpretation; ARCHSRC-2/7
+Semantic subject/invariant A: observation, binding, and sufficiency-assessment corrections share immutable same-family correction identity/ancestry and derived branch interpretation, but each family has an independently implementable complete replacement assertion and root-continuity rule. The three family paths are therefore separate tracer bullets rather than one bundled implementation slice.
+
+Consumer #378: applies to family A — owns the reusable family-neutral correction primitives and observation-specific replacement/retraction path only.
+Consumer NEW-BINDING-CORRECTION: applies to family A — owns binding-specific complete replacement semantics and fixed-endpoint/new-root enforcement.
+Consumer NEW-ASSESSMENT-CORRECTION: applies to family A — owns assessment-specific correction over the same correction algebra.
+Consumer #379: applies — historical reconstruction interprets all three correction families; durable carry is explicit and both new family destinations are blockers.
+Missing family-A consumer mappings: 0
+Ambiguous family-A consumer applicability: 0
+
+Changed source family B: ADR 0014 persisted proof/commit boundary plus ADR 0012 assessment identity continuity; ARCHSRC-4
+Semantic subject/invariant B: sufficiency-assessment correction may retain one assessment root only for a misrecorded same-boundary/same-requirement-version assertion; authoritative replacement proof is Evidence-derived; trusted append freshly re-evaluates and atomically revalidates exact requirement/support/correction/negative basis; reassessment from time/new Evidence/changed requirements is a new root.
+
+Consumer NEW-ASSESSMENT-CORRECTION: applies — directly creates/revises/retracts assessment corrections; complete durable carry is in its build/acceptance contract.
+Consumer #378: assessment-specific invariant does-not-apply after split — observation correction only; assessment semantics explicitly excluded.
+Consumer NEW-BINDING-CORRECTION: assessment-specific invariant does-not-apply — binding correction only; assessment semantics explicitly excluded.
+Consumer #379: applies — historical reconstruction preserves original assessment proof/version across correction and later reassessment.
+Consumer #380: applies — current support basis invalidates on result-affecting assessment/reassessment/correction changes.
+Consumer #381: applies — dependent commit reconstruction/revalidation observes later assessment correction and rejects stale basis.
+Consumer #377: applicable closed prerequisite — existing accepted contract owns Evidence-derived assessment proof, trusted commit-time re-evaluation/revalidation, new-root-on-requirement-version semantics, and delegates assessment correction interpretation forward; NEW-ASSESSMENT-CORRECTION consumes that completed authority.
+Missing family-B consumer mappings: 0
+Ambiguous family-B consumer applicability: 0
+Explicit downstream ownership handoffs untraced: 0
+
+CONTEXT-FIT MANIFEST
+Ticket #378 revised: one semantic scenario family — observation correction plus the family-neutral identity/ancestry primitives needed to express that same path; one append-only persistence proof modality. Context fit: one-window.
+Ticket NEW-BINDING-CORRECTION: one semantic scenario family — binding correction with fixed-endpoint/new-root enforcement and append-only persistence. Context fit: one-window.
+Ticket NEW-ASSESSMENT-CORRECTION: two coupled scenario/proof families — assessment correction interpretation and authoritative derived replacement append with trusted-instant re-evaluation/revalidation. Context fit: indivisible-two-window-exception. Indivisibility authority: ADR 0014 requires the derived proof and trusted commit boundary to govern the same authoritative assessment append; separating them permits an unentailed/stale authoritative correction.
+Ticket #379 revised: one historical reconstruction family; Context fit: one-window.
+Ticket #380 revised: one current-basis read/invalidation family; Context fit: one-window.
+Ticket #381 revised: one dependent-write fresh revalidation/concurrency family; Context fit: one-window.
+Oversized tickets: 0
+Ambiguous context-fit dispositions: 0
+Durable Context fit fields matching parent disposition: 6/6
+
+LIVE-WIP RESLICE SAFETY
+Source active ticket: #378
+Protected source baseline: a764f201514754f50ff1535b4d441bc03ad8d093
+Remote Spec-branch anchor: __CANDIDATE_HEAD__
+Destinations: NEW-BINDING-CORRECTION; NEW-ASSESSMENT-CORRECTION
+Recovery mode: isolated-worktree for each destination
+Recovery records required after deterministic issue-number realization: 2
+Source caller WIP mutation required by publication: 0
+Path/hunk transplantation is deferred to each destination `$implement-ticket` under the published ownership split; ambiguous/shared ownership remains a blocker rather than permission to mutate the source checkout.
+
+DESIGN-DELEGATION RESULT
+Material product/domain/public/persistence choices delegated to implementation: 0. Observation continuity, binding fixed endpoints, correction interpretation, assessment identity/continuity, derived assessment proof, trusted commit boundary, current-basis invalidation, historical semantics, and fail-closed behavior are frozen by Spec #357 and accepted ADRs 0012–0014.
+
+PARENT READINESS CLAIM TO CHALLENGE
+TICKET PROPOSAL READINESS: PASS
+Source closure: bounded inventory remains current and ADR 0014 is now present in the bound `spec-357` tree at exact accepted blob fe79e744ef6155d81afebb549d16d7759e26e656.
+Spec-cell coverage: source 59; proposed manifest 59; missing 0; extra 0; changed mappings use existing source cells only.
+Architecture obligations: 7; unmapped 0; ambiguous 0; #378 and NEW-BINDING-CORRECTION carry ARCHSRC-2/7; NEW-ASSESSMENT-CORRECTION carries ARCHSRC-2/4/7; #380/#381 consumer semantics are completely represented by existing Spec cells and do not create a new ARCHSRC obligation.
+Semantic consumers: correction-family split consumers accounted; assessment-specific applicable active consumers NEW-ASSESSMENT-CORRECTION/#379/#380/#381 accounted 4/4; #378 and NEW-BINDING-CORRECTION non-applicability explicit; #377 closed-prerequisite carry explicit; missing 0; ambiguous 0; untraced handoffs 0.
+Ticket semantic carry: complete; incomplete 0; ambiguous 0.
+Context fit among changed tickets: one-window 5; indivisible-two-window-exception 1; oversized 0; ambiguous 0. Resulting full manifest: one-window 11; validated indivisible-two-window exceptions 2; oversized 0.
+Live-WIP reslice: source #378 protected; two destination isolated-worktree recovery contracts complete; source checkout mutation required 0.
+Design delegation: 0.
+Publication has not occurred. Human approval has not been requested for this repaired exact candidate.

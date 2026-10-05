@@ -1,0 +1,33 @@
+name: Refresh Spec357 contract source units
+on:
+  push:
+    branches: [chatgpt/spec357-contract-refresh]
+permissions:
+  contents: read
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: 2f7f809d4c9ffdc6bd8619ac9403f9b0c057ac7e
+      - name: Extract exact Spec source units
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, urllib.request
+          req=urllib.request.Request('https://api.github.com/repos/sponge-b0b/Polaris/issues/357', headers={'Accept':'application/vnd.github+json','User-Agent':'polaris-contract-refresh'})
+          data=json.load(urllib.request.urlopen(req))
+          json.dump({'body':data['body']}, open('/tmp/spec.json','w',encoding='utf-8'), ensure_ascii=False)
+          PY
+          uv run --locked python .agents/skills/spec-contract/scripts/extract_source_units.py --issue-json /tmp/spec.json --output /tmp/source-units.json
+          python - <<'PY'
+          import json
+          p=json.load(open('/tmp/source-units.json', encoding='utf-8'))
+          print('SPEC_BODY_HASH='+p['spec_body_hash'])
+          print('SOURCE_UNIT_COUNT='+str(len(p['source_units'])))
+          for u in p['source_units']:
+              text=u['text'].replace('\\','\\\\').replace('\n','\\n').replace('|','\\|')
+              print(f"{u['source_unit']}|{u['section']}|{u['kind']}|{u['ordinal']}|{u['text_hash']}|{text}")
+          PY

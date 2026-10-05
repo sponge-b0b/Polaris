@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   edit:
-    if: github.event.head_commit.message == 'chore(process): arm verifier-session continuity edit'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

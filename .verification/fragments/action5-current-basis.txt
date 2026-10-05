@@ -1,0 +1,51 @@
+ACTION 5 — UPDATE TICKET #380
+Title remains: Return exact current Evidence support bases with scope-local invalidation
+Complete proposed body:
+
+## Parent
+
+Parent Spec: #357
+
+## Spec obligations
+
+US-16, US-18, US-19, ID-15, ID-16, ID-17, TD-7
+
+## Architecture obligations
+
+None
+
+## Architecture context
+
+Application Use Cases; Evidence; Configuration and target-domain version dependencies; ADRs 0012, 0013, 0014. All architecture and material design decisions currently required by this ticket are accepted; no known implementation-readiness blocker remains unresolved.
+
+## Context fit
+
+one-window
+
+## What to build
+
+Add current-support reads at exact `BasisScopeKey` granularity and return a `CurrentEvidenceBasis` capturing every positive version dependency and typed relied-upon absence needed by a later command, including the complete current interpreted observation-correction, binding-correction, and sufficiency-assessment/reassessment/correction state whenever it can affect the result or its support/provenance.
+
+## Acceptance criteria
+
+* [ ] `BasisScopeKey` is exactly `(InvestmentDecisionId, EvidenceJudgmentRef, scope, EvidenceUse)` and read time is explicit `T=K`.
+* [ ] Basis contains the complete accepted Decision/target/claim/requirement/context/support-version dependency set plus the exact current interpreted observation and binding roots/correction branches used by the result and the exact current sufficiency assessment/reassessment/correction interpretation required by the result.
+* [ ] Scope-local `EvidenceSupportVersion` starts at zero and advances exactly when current result or complete support/provenance changes, including a result-affecting observation correction/retraction/restoration/contestation, binding revision/retraction/restoration/contestation, or sufficiency assessment/reassessment/correction; time/query and irrelevant future-only or out-of-key state do not advance it.
+* [ ] Negative predicates represent the exact accepted absence families, including absence/invalidity conditions whose meaning depends on the current interpreted observation, binding, or assessment state, and remain typed/scoped rather than generic strings.
+* [ ] A result-affecting correction or succession of a referenced observation, a result-affecting revision/retraction/restoration/contestation of a relevant binding, or a result-affecting assessment/reassessment/correction invalidates the prior current basis even when unrelated endpoint/version fields still match; corrections outside the exact key do not invalidate unless they enter a protected dependency.
+* [ ] Tests cover complete dependency capture, observation-correction invalidation, binding-correction invalidation, assessment correction/reassessment invalidation, restoration/contestation changes, support-only changes, irrelevant changes, broken absences, late-recorded history, claim/requirement/context invalidation, and key isolation.
+
+## Blocked by
+
+#379 — Reconstruct historical Decision Context and Evidence without hindsight
+
+## Ticket branch
+
+spec-357
+
+## Ticket baseline
+
+Pending
+
+Required label/status: preserve current ready-for-agent/open state.
+Native relationships unchanged.

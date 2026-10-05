@@ -56,6 +56,25 @@ from .contracts import (
     EvidenceSuccessionConflict,
     RecordEvidenceObservationCommand,
 )
+from .corrections import (
+    EvidenceCorrectionCommit,
+    EvidenceCorrectionCommitOutcome,
+    EvidenceCorrectionCommitted,
+    EvidenceCorrectionFamily,
+    EvidenceCorrectionHistoryConflict,
+    EvidenceCorrectionIdempotencyConflict,
+    EvidenceCorrectionReceipt,
+    EvidenceCorrectionReferenceConflict,
+    EvidenceCorrectionReplayed,
+    EvidenceCorrectionResult,
+    EvidenceCorrectionRootNotFound,
+    EvidenceCorrectionSemanticRequest,
+    EvidenceCorrectionService,
+    EvidenceCorrectionStore,
+    EvidenceCorrectionUnavailable,
+    RecordEvidenceCorrectionCommand,
+    RecordEvidenceObservationCorrectionCommand,
+)
 from .freshness import evaluate_binding_freshness
 from .observations import EvidenceObservationService
 from .requirements import (
@@ -140,6 +159,25 @@ __all__ = [
     "UnavailableClaimCatalog",
     "RecordEvidenceBindingCommand",
     "EvidenceApplicationError",
+    # duplicate-code: the package facade deliberately mirrors the correction
+    # module's explicit API; deriving exports dynamically would hide ownership.
+    # arid: disable
+    "EvidenceCorrectionCommit",
+    "EvidenceCorrectionCommitOutcome",
+    "EvidenceCorrectionCommitted",
+    "EvidenceCorrectionFamily",
+    "EvidenceCorrectionHistoryConflict",
+    "EvidenceCorrectionIdempotencyConflict",
+    "EvidenceCorrectionReceipt",
+    "EvidenceCorrectionReferenceConflict",
+    "EvidenceCorrectionReplayed",
+    "EvidenceCorrectionResult",
+    "EvidenceCorrectionRootNotFound",
+    "EvidenceCorrectionSemanticRequest",
+    "EvidenceCorrectionService",
+    "EvidenceCorrectionStore",
+    "EvidenceCorrectionUnavailable",
+    # arid: enable
     "EvidenceCommandReadUnavailable",
     "EvidenceIdempotencyConflict",
     "EvidenceObservationCommit",
@@ -198,6 +236,8 @@ __all__ = [
     "InvalidEvidenceRequirementAuthority",
     "MissingEvidenceRequirementAuthority",
     "RecordEvidenceObservationCommand",
+    "RecordEvidenceCorrectionCommand",
+    "RecordEvidenceObservationCorrectionCommand",
     "RecordEvidenceSufficiencyAssessmentCommand",
     "ResolvedEvidenceRequirementVersion",
     "UnavailableEvidenceRequirementAuthority",

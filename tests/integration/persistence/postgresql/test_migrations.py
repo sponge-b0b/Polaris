@@ -37,6 +37,11 @@ SUFFICIENCY_TABLE_NAMES = {
     "evidence_sufficiency_contributors",
     "evidence_sufficiency_command_receipts",
 }
+CORRECTION_TABLE_NAMES = {
+    "evidence_correction_identities",
+    "evidence_observation_corrections",
+    "evidence_correction_command_receipts",
+}
 # arid: enable
 
 
@@ -172,6 +177,9 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
     sufficiency_assessment_migration = Path(
         "migrations/versions/0006_evidence_sufficiency_assessments.py"
     ).read_text(encoding="utf-8")
+    correction_migration = Path(
+        "migrations/versions/0007_evidence_corrections.py"
+    ).read_text(encoding="utf-8")
     assert "down_revision: str | None = None" in decision_migration
     assert (
         'down_revision: str | None = "0001_decision_persistence"' in evidence_migration
@@ -191,12 +199,17 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
         'down_revision: str | None = "0005_sufficiency_requirements"'
         in sufficiency_assessment_migration
     )
+    assert (
+        'down_revision: str | None = "0006_sufficiency_assessments"'
+        in correction_migration
+    )
     assert "legacy" not in decision_migration.lower()
     assert "legacy" not in evidence_migration.lower()
     assert "legacy" not in requirement_migration.lower()
     assert "legacy" not in binding_migration.lower()
     assert "legacy" not in sufficiency_requirement_migration.lower()
     assert "legacy" not in sufficiency_assessment_migration.lower()
+    assert "legacy" not in correction_migration.lower()
 
     tables = asyncio.run(_table_names(postgres_target))
     assert tables == POLARIS_TABLE_NAMES | {"alembic_version"}
@@ -323,9 +336,11 @@ def test_sufficiency_assessment_migration_preserves_constraints(
     assert {
         "ck_evidence_support_versions_evidence_use",
         "ck_evidence_support_versions_scope_kind",
+        "ck_evidence_support_versions_support_event_source",
         "ck_evidence_support_versions_support_version_positive",
         "ck_evidence_support_versions_target_family",
         "fk_evidence_support_version_binding",
+        "fk_evidence_support_version_correction",
         "uq_evidence_support_versions_binding_id",
     } <= support_version_constraints
     assessment_constraints = asyncio.run(
@@ -353,6 +368,27 @@ def test_sufficiency_assessment_migration_preserves_constraints(
         "fk_evidence_sufficiency_contributor_binding",
         "uq_evidence_sufficiency_contributor",
     } <= contributor_constraints
+
+
+def test_evidence_correction_migration_preserves_typed_lineage_constraints(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    identity_constraints = asyncio.run(
+        _constraint_names(postgres_target, "evidence_correction_identities")
+    )
+    assert {
+        "ck_evidence_correction_identities_family",
+        "uq_evidence_correction_identities_correction_id",
+    } <= identity_constraints
+    for table_name in ("evidence_observation_corrections",):
+        constraints = asyncio.run(_constraint_names(postgres_target, table_name))
+        assert {
+            f"ck_{table_name}_effect_shape",
+            f"ck_{table_name}_target_shape",
+            f"fk_{table_name}_correction_identity",
+            f"fk_{table_name}_target_correction_lineage",
+            f"uq_{table_name}_correction_id",
+        } <= constraints
 
 
 def test_root_downgrades_to_empty_and_reupgrades(
@@ -389,6 +425,7 @@ def test_requirement_revision_downgrades_to_evidence_foundation_and_reupgrades(
                 "evidence_bindings",
                 "evidence_binding_command_receipts",
                 *SUFFICIENCY_TABLE_NAMES,
+                *CORRECTION_TABLE_NAMES,
             }
         )
         | {"alembic_version"},
@@ -407,6 +444,7 @@ def test_binding_revision_downgrades_to_requirement_foundation_and_reupgrades(
                 "evidence_bindings",
                 "evidence_binding_command_receipts",
                 *SUFFICIENCY_TABLE_NAMES,
+                *CORRECTION_TABLE_NAMES,
             }
         )
         | {"alembic_version"},
@@ -419,5 +457,6 @@ def test_sufficiency_revision_downgrades_to_executable_requirements_and_reupgrad
     _assert_revision_round_trip(
         postgres_target,
         "0005_sufficiency_requirements",
-        (POLARIS_TABLE_NAMES - SUFFICIENCY_TABLE_NAMES) | {"alembic_version"},
+        (POLARIS_TABLE_NAMES - SUFFICIENCY_TABLE_NAMES - CORRECTION_TABLE_NAMES)
+        | {"alembic_version"},
     )

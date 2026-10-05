@@ -122,6 +122,81 @@ def _evidence_applicability_columns() -> tuple[Column[Any], ...]:
     )
 
 
+def _evidence_correction_table(
+    table_name: str,
+    root_table_name: str,
+    root_column_name: str,
+) -> Table:
+    return Table(
+        table_name,
+        metadata,
+        _row_id(),
+        Column(
+            "correction_id",
+            UUID(as_uuid=True),
+            ForeignKey(
+                "evidence_correction_identities.correction_id",
+                name=f"fk_{table_name}_correction_identity",
+                ondelete="RESTRICT",
+            ),
+            nullable=False,
+            unique=True,
+        ),
+        Column(
+            "root_id",
+            UUID(as_uuid=True),
+            ForeignKey(
+                f"{root_table_name}.{root_column_name}",
+                name=f"fk_{table_name}_root",
+                ondelete="RESTRICT",
+            ),
+            nullable=False,
+        ),
+        Column(
+            "target_root_id",
+            UUID(as_uuid=True),
+            ForeignKey(
+                f"{root_table_name}.{root_column_name}",
+                name=f"fk_{table_name}_target_root",
+                ondelete="RESTRICT",
+            ),
+        ),
+        Column("target_correction_id", UUID(as_uuid=True)),
+        Column("effect", String(16), nullable=False),
+        Column("replacement", JSONB(none_as_null=True)),
+        Column("actor_attribution_kind", String(16), nullable=False),
+        Column("actor_id", UUID(as_uuid=True)),
+        Column("actor_candidate_ids", _uuid_array()),
+        Column("basis_reference", Text, nullable=False),
+        Column("effective_at", DateTime(timezone=True), nullable=False),
+        Column("recorded_at", DateTime(timezone=True), nullable=False),
+        UniqueConstraint(
+            "correction_id",
+            "root_id",
+            name=f"uq_{table_name}_correction_root",
+        ),
+        ForeignKeyConstraint(
+            ["target_correction_id", "root_id"],
+            [f"{table_name}.correction_id", f"{table_name}.root_id"],
+            name=f"fk_{table_name}_target_correction_lineage",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint(
+            "(target_root_id IS NOT NULL AND target_correction_id IS NULL "
+            "AND target_root_id = root_id) OR "
+            "(target_root_id IS NULL AND target_correction_id IS NOT NULL)",
+            name="target_shape",
+        ),
+        CheckConstraint(
+            "(effect = 'revise' AND replacement IS NOT NULL) OR "
+            "(effect = 'retract' AND replacement IS NULL)",
+            name="effect_shape",
+        ),
+        CheckConstraint("btrim(basis_reference) <> ''", name="basis_nonempty"),
+        *_actor_attribution_constraints(),
+    )
+
+
 decision_needs = Table(
     "decision_needs",
     metadata,
@@ -705,27 +780,54 @@ evidence_support_versions = Table(
             name="fk_evidence_support_version_binding",
             ondelete="RESTRICT",
         ),
-        nullable=False,
+        nullable=True,
         unique=True,
+    ),
+    Column(
+        "correction_id",
+        UUID(as_uuid=True),
+        ForeignKey(
+            "evidence_correction_identities.correction_id",
+            name="fk_evidence_support_version_correction",
+            ondelete="RESTRICT",
+        ),
     ),
     # arid: enable
     Column("support_version", BigInteger, nullable=False),
     Column("effective_at", DateTime(timezone=True), nullable=False),
     Column("recorded_at", DateTime(timezone=True), nullable=False),
     CheckConstraint("support_version > 0", name="support_version_positive"),
+    CheckConstraint(
+        "(binding_id IS NOT NULL AND correction_id IS NULL) OR "
+        "(binding_id IS NULL AND correction_id IS NOT NULL)",
+        name="support_event_source",
+    ),
     *_evidence_applicability_constraints(),
 )
 
-Index(
-    "uq_evidence_support_versions_scope_version",
+_support_scope_index_columns = (
     evidence_support_versions.c.target_family,
     evidence_support_versions.c.target_id,
     evidence_support_versions.c.scope_kind,
     evidence_support_versions.c.claim_id,
     evidence_support_versions.c.evidence_use,
+)
+
+Index(
+    "uq_evidence_support_versions_scope_version",
+    *_support_scope_index_columns,
     evidence_support_versions.c.support_version,
     unique=True,
     postgresql_nulls_not_distinct=True,
+)
+
+Index(
+    "uq_evidence_support_versions_scope_correction",
+    *_support_scope_index_columns,
+    evidence_support_versions.c.correction_id,
+    unique=True,
+    postgresql_nulls_not_distinct=True,
+    postgresql_where=evidence_support_versions.c.correction_id.is_not(None),
 )
 
 evidence_sufficiency_assessments = Table(
@@ -833,6 +935,45 @@ evidence_sufficiency_command_receipts = Table(
     # arid: enable
 )
 
+evidence_correction_identities = Table(
+    "evidence_correction_identities",
+    metadata,
+    _row_id(),
+    Column("correction_id", UUID(as_uuid=True), nullable=False, unique=True),
+    Column("family", String(32), nullable=False),
+    CheckConstraint(
+        "family = 'observation'",
+        name="family",
+    ),
+)
+
+evidence_observation_corrections = _evidence_correction_table(
+    "evidence_observation_corrections",
+    "evidence_observations",
+    "observation_id",
+)
+
+# duplicate-code: each command family owns an independently constrained receipt
+# table; a shared polymorphic receipt table would couple application operations.
+# arid: disable
+evidence_correction_command_receipts = Table(
+    "evidence_correction_command_receipts",
+    metadata,
+    _row_id(),
+    Column("operation_id", UUID(as_uuid=True), nullable=False, unique=True),
+    Column("family", String(32), nullable=False),
+    Column("request_fingerprint", String(64), nullable=False),
+    Column("request_payload", JSONB, nullable=False),
+    Column("result_payload", JSONB, nullable=False),
+    Column("committed_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint(
+        "family = 'observation'",
+        name="family",
+    ),
+    _request_fingerprint_constraint(),
+)
+# arid: enable
+
 
 DECISION_TABLE_NAMES = frozenset(
     {
@@ -853,6 +994,9 @@ EVIDENCE_TABLE_NAMES = frozenset(
         "evidence_sufficiency_assessments",
         "evidence_sufficiency_contributors",
         "evidence_sufficiency_command_receipts",
+        "evidence_correction_identities",
+        "evidence_observation_corrections",
+        "evidence_correction_command_receipts",
     }
 )
 CONFIGURATION_TABLE_NAMES = frozenset(

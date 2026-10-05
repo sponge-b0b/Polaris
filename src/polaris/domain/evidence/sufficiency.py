@@ -114,6 +114,7 @@ class EvidenceBindingInterpretation:
     subject: EvidenceSubjectReference
     state: EvidenceBindingInterpretationState
     fact_support: frozenset[EvidenceFactRef]
+    surviving_subjects: frozenset[EvidenceSubjectReference] | None = None
 
     def __post_init__(self) -> None:
         if type(self.binding) is not EvidenceBinding:
@@ -131,6 +132,30 @@ class EvidenceBindingInterpretation:
             raise InvalidEvidenceSufficiency(
                 "binding interpretation support must contain its observation root"
             )
+        subjects = (
+            frozenset({self.subject})
+            if self.surviving_subjects is None
+            else self.surviving_subjects
+        )
+        _validate_surviving_subjects(self.subject, subjects, self.state)
+        object.__setattr__(self, "surviving_subjects", subjects)
+
+
+def _validate_surviving_subjects(
+    root: EvidenceSubjectReference,
+    values: object,
+    state: EvidenceBindingInterpretationState,
+) -> None:
+    if type(values) is not frozenset or any(
+        type(value) is not EvidenceSubjectReference for value in values
+    ):
+        raise TypeError(
+            "surviving_subjects must be frozenset[EvidenceSubjectReference]"
+        )
+    if not values and state is not EvidenceBindingInterpretationState.WITHDRAWN:
+        raise InvalidEvidenceSufficiency(
+            "a non-withdrawn binding interpretation requires a surviving subject"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -892,6 +917,15 @@ def _validate_interpretation_universe(
         )
     for interpretation in interpretations:
         binding = interpretation.binding
+        surviving_subjects = interpretation.surviving_subjects
+        assert surviving_subjects is not None
+        if (
+            interpretation.state is EvidenceBindingInterpretationState.DETERMINATE
+            and interpretation.subject not in surviving_subjects
+        ):
+            raise InvalidEvidenceSufficiency(
+                "binding observation subject does not match surviving assertion"
+            )
         if (
             binding.target != key.target
             or binding.scope != key.scope
@@ -901,7 +935,11 @@ def _validate_interpretation_universe(
             raise InvalidEvidenceSufficiency(
                 "binding endpoint or applicability coordinates do not match"
             )
-        if key.subject is not None and interpretation.subject != key.subject:
+        if (
+            key.subject is not None
+            and interpretation.state is not EvidenceBindingInterpretationState.WITHDRAWN
+            and key.subject not in surviving_subjects
+        ):
             raise InvalidEvidenceSufficiency(
                 "binding observation subject does not match applicability"
             )

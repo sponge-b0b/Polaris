@@ -57,7 +57,7 @@ from polaris.domain.evidence.sufficiency import (
 )
 from polaris.domain.evidence.sufficiency_requirements import MinimumEligibleEvidence
 
-from .codec import actor_columns, actor_from_columns
+from .codec import actor_columns, actor_from_columns, actor_request_payload
 from .codec_support import (
     aware_datetime,
     canonical_json_fingerprint,
@@ -214,26 +214,9 @@ def sufficiency_assessment_from_row(row: RowMapping) -> EvidenceSufficiencyAsses
 def sufficiency_request_payload(
     request: EvidenceSufficiencySemanticRequest,
 ) -> JsonObject:
-    actor = actor_columns(request.attribution)
     return {
         "applicability": applicability_key_payload(request.applicability_key),
-        "attribution": {
-            "kind": actor["actor_attribution_kind"],
-            "actor_id": (
-                str(actor["actor_id"]) if actor["actor_id"] is not None else None
-            ),
-            "candidate_ids": (
-                [
-                    str(value)
-                    for value in cast(
-                        list[object],
-                        actor["actor_candidate_ids"],
-                    )
-                ]
-                if actor["actor_candidate_ids"] is not None
-                else None
-            ),
-        },
+        "attribution": actor_request_payload(request.attribution),
         "effective_at": request.effective_at.isoformat(),
         "known_at": request.known_at.isoformat(),
         "reassesses_assessment_id": (

@@ -110,6 +110,25 @@ def actor_columns(actor: ActorAttribution) -> dict[str, object]:
     }
 
 
+def actor_request_payload(actor: ActorAttribution) -> JsonObject:
+    """Serialize Actor Attribution for application command receipts."""
+    columns = actor_columns(actor)
+    candidate_ids = columns["actor_candidate_ids"]
+    if candidate_ids is not None and not isinstance(candidate_ids, list):
+        raise TypeError("actor candidate identities must serialize as a list")
+    return {
+        "kind": columns["actor_attribution_kind"],
+        "actor_id": (
+            str(columns["actor_id"]) if columns["actor_id"] is not None else None
+        ),
+        "candidate_ids": (
+            [str(value) for value in candidate_ids]
+            if candidate_ids is not None
+            else None
+        ),
+    }
+
+
 def actor_from_columns(row: RowLike) -> ActorAttribution:
     kind = _string(row["actor_attribution_kind"], "actor_attribution_kind")
     if kind == "known":

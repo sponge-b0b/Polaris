@@ -31,13 +31,14 @@ from polaris.application.evidence.sufficiency import (
 )
 from polaris.domain.configuration import EvidenceRequirementApplicabilityKey
 from polaris.domain.decisions import OperationId
+from polaris.domain.evidence.corrections import EvidenceInterpretationState
 from polaris.domain.evidence.judgments import (
     ClaimSpecificEvidenceScope,
     evidence_judgment_family,
     evidence_scope_kind,
 )
 from polaris.domain.evidence.observations import (
-    EvidenceSubjectReference,
+    EvidenceCorrectionId,
     EvidenceSufficiencyAssessmentId,
     EvidenceSupportVersion,
 )
@@ -54,7 +55,7 @@ from polaris.domain.evidence.sufficiency import (
 
 from .binding_codec import binding_from_row
 from .binding_store import EVIDENCE_BINDING_WRITE_LOCK
-from .codec_support import aware_datetime
+from .correction_store import _load_observation_history
 from .requirement_store import (
     EVIDENCE_REQUIREMENT_WRITE_LOCK,
     load_requirement_versions_from_connection,
@@ -62,7 +63,6 @@ from .requirement_store import (
 from .runtime_qualification import require_qualified_postgres_runtime
 from .schema import (
     evidence_bindings,
-    evidence_observations,
     evidence_sufficiency_assessments,
     evidence_sufficiency_command_receipts,
     evidence_sufficiency_contributors,
@@ -259,33 +259,8 @@ async def _load_basis(
     rows = (
         (
             await connection.execute(
-                select(
-                    evidence_bindings,
-                    evidence_observations.c.subject_identity.label(
-                        "observation_subject_identity"
-                    ),
-                    evidence_observations.c.subject_reference.label(
-                        "observation_subject_reference"
-                    ),
-                    evidence_observations.c.observed_at.label(
-                        "observation_observed_at"
-                    ),
-                    evidence_observations.c.acquired_at.label(
-                        "observation_acquired_at"
-                    ),
-                    evidence_observations.c.effective_at.label(
-                        "observation_effective_at"
-                    ),
-                )
-                .join(
-                    evidence_observations,
-                    evidence_observations.c.observation_id
-                    == evidence_bindings.c.observation_id,
-                )
-                .where(
-                    evidence_bindings.c.effective_at <= effective_at,
-                    evidence_bindings.c.recorded_at <= known_at,
-                )
+                select(evidence_bindings)
+                .where(evidence_bindings.c.recorded_at <= known_at)
                 .order_by(evidence_bindings.c.row_id)
             )
         )
@@ -293,19 +268,18 @@ async def _load_basis(
         .all()
     )
     try:
-        interpretations = tuple(
-            value
-            for row in rows
-            if (
-                value := _interpretation_for_key(
-                    row,
-                    applicability_key,
-                    effective_at=effective_at,
-                    known_at=known_at,
-                )
+        interpreted: list[EvidenceBindingInterpretation] = []
+        for row in rows:
+            value = await _interpretation_for_key(
+                connection,
+                row,
+                applicability_key,
+                effective_at=effective_at,
+                known_at=known_at,
             )
-            is not None
-        )
+            if value is not None:
+                interpreted.append(value)
+        interpretations = tuple(interpreted)
     except (ValueError, TypeError) as error:
         return EvidenceSufficiencyInvalidHistory(str(error))
     binding_ids = frozenset(value.binding.binding_id for value in interpretations)
@@ -321,7 +295,14 @@ async def _load_basis(
     # arid: enable
     guards = EvidenceSufficiencyBasisGuards(
         EvidenceBindingUniverseGuard(binding_ids),
-        EvidenceCorrectionUniverseGuard(frozenset()),
+        EvidenceCorrectionUniverseGuard(
+            frozenset(
+                fact
+                for value in interpretations
+                for fact in value.fact_support
+                if type(fact) is EvidenceCorrectionId
+            )
+        ),
         EvidenceRequirementAuthorityGuard(frozenset({resolution.version.version_id})),
     )
     return EvidenceSufficiencyBasis(
@@ -332,7 +313,8 @@ async def _load_basis(
     )
 
 
-def _interpretation_for_key(
+async def _interpretation_for_key(
+    connection: AsyncConnection,
     row: RowMapping,
     applicability_key: EvidenceRequirementApplicabilityKey,
     *,
@@ -347,41 +329,52 @@ def _interpretation_for_key(
         or binding.freshness.basis.applicability_key != applicability_key
     ):
         return None
-    subject = EvidenceSubjectReference(
-        row["observation_subject_identity"],
-        row["observation_subject_reference"],
-    )
-    if applicability_key.subject is not None and subject != applicability_key.subject:
-        raise ValueError("binding applicability subject contradicts its observation")
-    observed_at = aware_datetime(
-        row["observation_observed_at"],
-        "observation_observed_at",
-    )
-    acquired_at = aware_datetime(
-        row["observation_acquired_at"],
-        "observation_acquired_at",
-    )
-    observation_effective_at = (
-        aware_datetime(
-            row["observation_effective_at"],
-            "observation_effective_at",
-        )
-        if row["observation_effective_at"] is not None
-        else observed_at
-    )
-    if acquired_at > known_at or observed_at > known_at:
+    if binding.effective_at > effective_at:
+        return None
+    history = await _load_observation_history(connection, binding.observation_id)
+    if history is None:
+        raise ValueError("binding correction history requires its observation root")
+    observed = history.interpret(effective_at=effective_at, known_at=known_at)
+    if observed.state is EvidenceInterpretationState.NOT_KNOWN:
         raise ValueError(
             "binding references an observation not known at the assessment cutoff"
         )
-    if observation_effective_at > effective_at:
+    if observed.state is EvidenceInterpretationState.NOT_EFFECTIVE:
         raise ValueError(
             "binding references an observation not effective at the assessment cutoff"
         )
+    if any(
+        value.observed_at > known_at or value.acquired_at > known_at
+        for value in observed.assertions
+    ):
+        raise ValueError(
+            "binding references an observation not known at the assessment cutoff"
+        )
+    subjects = frozenset(value.subject for value in observed.assertions)
+    if (
+        applicability_key.subject is not None
+        and subjects
+        and applicability_key.subject not in subjects
+    ):
+        raise ValueError("binding applicability subject contradicts its observation")
+    state = (
+        EvidenceBindingInterpretationState.WITHDRAWN
+        if observed.state is EvidenceInterpretationState.WITHDRAWN
+        else EvidenceBindingInterpretationState.CONTESTED
+        if observed.state is EvidenceInterpretationState.CONTESTED
+        else EvidenceBindingInterpretationState.DETERMINATE
+    )
+    subject = (
+        next(iter(subjects))
+        if state is EvidenceBindingInterpretationState.DETERMINATE
+        else history.root.subject
+    )
     return EvidenceBindingInterpretation(
         binding,
         subject,
-        EvidenceBindingInterpretationState.DETERMINATE,
-        frozenset({binding.binding_id, binding.observation_id}),
+        state,
+        observed.fact_support | {binding.binding_id},
+        subjects,
     )
 
 

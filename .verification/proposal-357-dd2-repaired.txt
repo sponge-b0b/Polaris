@@ -1,0 +1,451 @@
+SOURCE ARTIFACT: Spec #357 — Spec: Implement R3 Decision Context and Evidence semantics
+MODE: remediation
+SOURCE STATE:
+- Spec branch: spec-357
+- Spec branch HEAD: 5ad1886205a33a73a058d98104f0f299b368b086
+- Spec Body Hash: 275d831d1fe185eaabac34e9d4c6224cf98d28285e64ce03ce16f6c07668c61f
+- Current Spec Contract Hash: db6842515a70ef6133bb21c962dd96842a840287d28e7a0fd4096d05342ed034
+- Persisted pre-publication TCM comment: 5899020558
+- Persisted pre-publication TCM Spec Contract Hash: a03ed466381753221e81b549da3b8e52cc66294512f86507e4ecb2aded1669c3
+- Decomposition-defect comment: 5930434832; DD-2 unresolved
+- Accepted ADR 0014 blob: fe79e744ef6155d81afebb549d16d7759e26e656
+- Existing #378 Ticket baseline: a764f201514754f50ff1535b4d441bc03ad8d093
+
+PROPOSAL ALIAS:
+NEW-ASSESSMENT-CORRECTION = one new implementation ticket whose tracker number is assigned only during publication.
+
+ACTION 1 — UPDATE TICKET #378
+New title: Preserve Evidence observation and binding correction lineage end to end
+Complete proposed body:
+
+## Parent
+
+Parent Spec: #357
+
+## Spec obligations
+
+US-3, ID-2, TD-2, TD-9, ID-20
+
+## Architecture obligations
+
+ARCHSRC-2, ARCHSRC-7
+
+## Architecture context
+
+Evidence; Application Use Cases; Durable Persistence; ADRs 0011, 0012. All architecture and material design decisions currently required by this ticket are accepted; no known implementation-readiness blocker remains unresolved.
+
+## Context fit
+
+one-window
+
+## What to build
+
+Implement the append-only Evidence correction algebra for observation and binding roots, including typed correction identity/targets, complete `REVISE` replacement assertions, `RETRACT`, deterministic recursive restoration, sibling support, contestation, and historical inspection without recency-based winner selection. Sufficiency-assessment correction is deliberately excluded from this slice and is owned by the assessment-correction destination created by the DD-2 reconciliation.
+
+## Acceptance criteria
+
+* [ ] Every observation or binding correction is an immutable `EvidenceCorrectionId` act targeting exactly one same-family root or earlier correction; ancestry is acyclic.
+* [ ] Observation `REVISE` remains correction of the same acquisition act only; later acquisition, a newly published source version, or materially different observed content creates a new `EvidenceObservationId` root rather than reusing correction identity.
+* [ ] Binding `REVISE` preserves the root's fixed observation, typed target judgment, scope, and use; changing any fixed endpoint creates a new binding rather than revising the existing binding lineage.
+* [ ] `REVISE` carries a complete family-specific replacement assertion; `RETRACT` withdraws its target without inventing `RESTORE`, `CONTEST`, `SUPERSEDE`, `QUALIFY`, or `DISCONFIRM` Evidence correction effects.
+* [ ] Retraction recursively restores the immediately preceding branch interpretation; siblings remain independent; equivalent surviving assertions coalesce; incompatible positive branches or positive-versus-withdrawal support produce `CONTESTED`.
+* [ ] Recency, UUID ordering, database ordering, and latest-write-wins never choose truth; missing or unknown ancestry is invalid or incomplete history rather than contestation.
+* [ ] Persistence proves append-only observation/binding correction history, ancestry/reference validity, rollback, and restart reconstruction while preserving the inward-owned greenfield persistence boundary.
+* [ ] Sufficiency-assessment `REVISE`/`RETRACT`, derived replacement proof, reassessment identity continuity, and trusted commit-time re-evaluation/revalidation are not implemented under this ticket.
+
+## Blocked by
+
+#374 — Persist typed judgment Evidence bindings end to end
+
+## Ticket branch
+
+spec-357
+
+## Ticket baseline
+
+a764f201514754f50ff1535b4d441bc03ad8d093
+
+Required label/status: preserve current ready-for-agent/open state.
+Native relationship delta: remove #377 as a direct blocker of #378; retain #374.
+
+ACTION 2 — CREATE NEW-ASSESSMENT-CORRECTION
+Title: Correct sufficiency assessments with derived proof and trusted revalidation
+Complete proposed body:
+
+## Parent
+
+Parent Spec: #357
+
+## Spec obligations
+
+US-3, US-12, ID-2, ID-12, ID-20, TD-2, TD-5, TD-9
+
+## Architecture obligations
+
+ARCHSRC-2, ARCHSRC-4, ARCHSRC-7
+
+## Architecture context
+
+Evidence; Configuration; Application Use Cases; Durable Persistence; ADRs 0011, 0012, 0013, and 0014. All architecture and material design decisions currently required by this ticket are accepted; no known implementation-readiness blocker remains unresolved.
+
+## Context fit
+
+indivisible-two-window-exception — ADR 0014 requires an assessment-correction replacement to be Evidence-derived from the complete authoritative universe and freshly re-evaluated/revalidated at the trusted commit instant before the same append becomes authoritative; separating those two halves would leave an append path able to persist caller-authored or stale sufficiency proof.
+
+## What to build
+
+Add sufficiency-assessment `REVISE | RETRACT` as the assessment-specific extension of the shared Evidence correction algebra. A `REVISE` of a misrecorded assessment must derive its complete replacement disposition/proof through the Evidence-owned deterministic evaluator over the authoritative requirement set/version and complete interpreted binding universe; callers cannot author the authoritative disposition or select the authoritative support subset. Preserve same-root correction only for the same attributable assessment boundary and requirement-set/version contract. Reassessment caused by time, new Evidence, or changed requirements creates a new `EvidenceSufficiencyAssessmentId` root, with changed requirement version always creating a new reassessment root. At the trusted commit instant, freshly re-evaluate the replacement assessment and atomically revalidate the exact requirement assignment/version, complete binding and correction universe, support version, temporal freshness, and relied-upon negative predicates before append.
+
+## Acceptance criteria
+
+* [ ] Each assessment correction is an immutable `EvidenceCorrectionId` targeting exactly one `EvidenceSufficiencyAssessmentId` root or earlier assessment correction from that same root; ancestry is acyclic and uses the shared `REVISE | RETRACT` algebra.
+* [ ] Assessment `REVISE` carries a complete replacement assertion whose disposition, contributors, deficiency witnesses, counted observations, freshness/no-freshness basis, negative witnesses, `EvidenceSupportVersion`, and absence guards are derived by Evidence from the complete exact-key interpreted binding universe; caller-authored authoritative results or caller-selected authoritative support subsets are rejected.
+* [ ] A correction may retain the assessment root only for a misrecorded assertion at the same attributable assessment boundary and authoritative requirement set/version. Reassessment caused by time, new Evidence, or changed requirements creates a new assessment root; a changed requirement-set version may never be represented as correction of the existing assessment root.
+* [ ] `RETRACT` withdraws its target and recursive interpretation restores the immediately preceding branch state; sibling branches remain independent, materially equivalent surviving assertions coalesce with complete support, and incompatible surviving support yields `CONTESTED` without recency/UUID/database ordering.
+* [ ] At a fresh trusted commit instant, Evidence re-runs the deterministic assessment derivation at commit `T=K` and atomically revalidates the exact requirement version/assignment, complete binding and correction universe, support version, temporal freshness, and typed negative predicates before appending the correction. Matching stored versions alone are insufficient.
+* [ ] Missing, unavailable, contested, incomplete, or invalid requirement authority; unavailable cross-owner revalidation; stale basis including time-only freshness change; invalid history; or persistence failure appends no assessment correction and remains typed/fail-closed.
+* [ ] Historical assessment proof and prior corrections remain immutable and inspectable; exact replay is idempotent and changed semantic `OperationId` reuse is rejected.
+* [ ] Domain/application tests and real PostgreSQL migration, round-trip, rollback, restart, and concurrency tests cover assessment revision/retraction/restoration/contestation, derived replacement proof, changed-requirement/new-root behavior, caller-authored proof rejection, commit-time re-evaluation, time-only invalidation, and greenfield inward-owned persistence constraints.
+
+## Blocked by
+
+#377 — Assess Evidence sufficiency against authoritative requirement versions
+#378 — Preserve Evidence observation and binding correction lineage end to end
+
+## Ticket branch
+
+spec-357
+
+## Ticket baseline
+
+Pending
+
+Required label/status: ready-for-agent / open after publication and exact readback.
+Native parent: #357.
+Native blocked-by set: #377, #378.
+
+Live-WIP reslice lifecycle metadata:
+- Live-WIP reslice: yes
+- Source active ticket: #378
+- Destination/new prerequisite: NEW-ASSESSMENT-CORRECTION
+- Shared branch: spec-357
+- Source ticket baseline: a764f201514754f50ff1535b4d441bc03ad8d093
+- Remote branch anchor: 5ad1886205a33a73a058d98104f0f299b368b086
+- Recovery mode: isolated-worktree
+- Source caller WIP must remain untouched: yes
+
+After the new issue number is deterministically assigned, create exactly one managed recovery comment on that new ticket with deterministic alias substitution only:
+
+<!-- ticket-reslice-recovery:v1 -->
+## Ticket Reslice Recovery
+
+**Status:** pending-prerequisite
+**Source ticket:** #378
+**Destination ticket:** #<NEW-ASSESSMENT-CORRECTION actual issue number>
+**Shared branch:** spec-357
+**Source ticket baseline:** a764f201514754f50ff1535b4d441bc03ad8d093
+**Reslice branch anchor:** 5ad1886205a33a73a058d98104f0f299b368b086
+**Recovery mode:** isolated-worktree
+
+ACTION 3 — UPDATE TICKET #379
+Title remains: Reconstruct historical Decision Context and Evidence without hindsight
+Complete proposed body:
+
+## Parent
+
+Parent Spec: #357
+
+## Spec obligations
+
+US-13, US-14, US-15, US-21, ID-13, ID-14, TD-6
+
+## Architecture obligations
+
+None
+
+## Architecture context
+
+Application Use Cases; Evidence; Investment Decisions as referenced context; ADRs 0006, 0011, 0012, 0013, 0014. All architecture and material design decisions currently required by this ticket are accepted; no known implementation-readiness blocker remains unresolved.
+
+## Context fit
+
+one-window
+
+## What to build
+
+Provide the deep Application historical Decision Context/Evidence query that composes canonical context separately from Evidence at explicit effective/knowledge boundaries and exposes the complete typed result universe without hindsight substitution.
+
+## Acceptance criteria
+
+* [ ] Historical reconstruction requires `InvestmentDecisionId`, typed target, timezone-aware `effective_at`, and timezone-aware `known_at`.
+* [ ] Canonical context stays separate from observations/bindings/sufficiency while provenance, availability, role/use, freshness, support and contestation survive.
+* [ ] Historical reconstruction interprets observation, binding, and sufficiency-assessment correction ancestry at the requested `(effective_at=T, known_at=K)`; assessment correction/retraction and later reassessment preserve the original derived proof and authoritative requirement version of each historical root rather than backfilling later state.
+* [ ] Decision Evaluation separates judgment-time Evidence from `RETROSPECTIVE_LATER_EVIDENCE`.
+* [ ] Every accepted reconstruction result family remains typed and distinct, including safe partial views where specified.
+* [ ] Evidence fitness/sufficiency domain states do not become transport errors; determinate consumers fail closed as accepted.
+* [ ] Tests cover temporal inputs, all result families, historical observation/binding/assessment correction meaning, claim/requirement meaning, and anti-hindsight behavior.
+
+## Blocked by
+
+#378 — Preserve Evidence observation and binding correction lineage end to end
+NEW-ASSESSMENT-CORRECTION — Correct sufficiency assessments with derived proof and trusted revalidation
+#375 — Establish target-owned claim catalogs and claim-scoped Evidence
+#377 — Assess Evidence sufficiency against authoritative requirement versions
+
+## Ticket branch
+
+spec-357
+
+## Ticket baseline
+
+Pending
+
+Required label/status: preserve current ready-for-agent/open state.
+Native relationship delta: add NEW-ASSESSMENT-CORRECTION as a blocker; preserve current blockers #375, #377, #378.
+
+ACTION 4 — UPDATE TICKET #380
+Title remains: Return exact current Evidence support bases with scope-local invalidation
+Complete proposed body:
+
+## Parent
+
+Parent Spec: #357
+
+## Spec obligations
+
+US-16, US-18, US-19, ID-15, ID-16, ID-17, TD-7
+
+## Architecture obligations
+
+None
+
+## Architecture context
+
+Application Use Cases; Evidence; Configuration and target-domain version dependencies; ADRs 0012, 0013, 0014. All architecture and material design decisions currently required by this ticket are accepted; no known implementation-readiness blocker remains unresolved.
+
+## Context fit
+
+one-window
+
+## What to build
+
+Add current-support reads at exact `BasisScopeKey` granularity and return a `CurrentEvidenceBasis` capturing every positive version dependency and typed relied-upon absence needed by a later command, including the current interpreted sufficiency assessment/reassessment/correction state whenever it can affect the result.
+
+## Acceptance criteria
+
+* [ ] `BasisScopeKey` is exactly `(InvestmentDecisionId, EvidenceJudgmentRef, scope, EvidenceUse)` and read time is explicit `T=K`.
+* [ ] Basis contains the complete accepted Decision/target/claim/requirement/context/support-version dependency set and the exact current sufficiency assessment/reassessment/correction interpretation required by the result.
+* [ ] Scope-local `EvidenceSupportVersion` starts at zero and advances exactly when current result or complete support/provenance changes, including a result-affecting sufficiency assessment, reassessment, or assessment correction; time/query and irrelevant future-only state do not advance it.
+* [ ] Negative predicates represent the exact accepted absence families, including whether a current assessment/reassessment is required by the result, and remain typed/scoped rather than generic strings.
+* [ ] A result-affecting assessment correction invalidates the prior current basis even when unrelated endpoint versions are unchanged; an assessment correction outside the exact key does not invalidate unless it enters a protected dependency.
+* [ ] Tests cover complete dependency capture, assessment correction/reassessment invalidation, support-only changes, irrelevant changes, broken absences, late-recorded history, claim/requirement/context invalidation and key isolation.
+
+## Blocked by
+
+#379 — Reconstruct historical Decision Context and Evidence without hindsight
+
+## Ticket branch
+
+spec-357
+
+## Ticket baseline
+
+Pending
+
+Required label/status: preserve current ready-for-agent/open state.
+Native relationships unchanged.
+
+ACTION 5 — UPDATE TICKET #381
+Title remains: Reject dependent commits against stale Evidence bases atomically
+Complete proposed body:
+
+## Parent
+
+Parent Spec: #357
+
+## Spec obligations
+
+US-17, ID-18, ID-19, ID-20, TD-8, TD-9, TD-10, NORM-8
+
+## Architecture obligations
+
+ARCHSRC-5, ARCHSRC-7
+
+## Architecture context
+
+Application Use Cases; Evidence; Durable Persistence; ADRs 0005, 0011, 0012, 0013, 0014. All architecture and material design decisions currently required by this ticket are accepted; no known implementation-readiness blocker remains unresolved.
+
+## Context fit
+
+one-window
+
+## What to build
+
+Complete the command seam by reconstructing/re-evaluating and atomically revalidating the complete protected current-support basis at a fresh commit instant with the dependent write, including any result-affecting sufficiency assessment, reassessment, or assessment correction, while preserving semantic transaction boundaries and the existing qualified PostgreSQL runtime boundary.
+
+## Acceptance criteria
+
+* [ ] Commit obtains a fresh trusted instant, reconstructs/re-evaluates at commit `T=K`, and atomically checks all versions/negative predicates with the write; matching versions alone are insufficient.
+* [ ] Every accepted result-affecting dependency change invalidates the basis while irrelevant/out-of-key changes do not; this explicitly includes a sufficiency assessment, reassessment, or assessment correction that changes or invalidates the protected current support meaning.
+* [ ] Commit-time reconstruction observes the complete interpreted assessment-correction state and rejects a basis that was read before a later result-affecting assessment correction, even when other stored versions still match.
+* [ ] Time-only freshness threshold crossing invalidates correctly; unavailable authoritative cross-owner revalidation means no commit.
+* [ ] `StaleEvidenceBasis` preserves exactly the seven accepted categories; invalid history and persistence/source unavailability remain distinct and retry requires a fresh read.
+* [ ] Semantically inseparable material judgment + required Evidence facts commit atomically; long-running source/model calls stay outside durable-store transactions and preconditions are rechecked.
+* [ ] PostgreSQL remains an inward-owned reference adapter: ports expose no PostgreSQL/ORM/SQL/vendor-native objects, use no legacy persistence lineage, do not let runtime/database identity become domain identity, and do not rely on GIL serialization.
+* [ ] Integration/concurrency/architecture tests prove rollback, restart, assessment-correction concurrent invalidation, time-only staleness, no legacy/generic-target/event-store/runtime-identity leakage, no SPY-hard-coded canonical identity, and continued ADR 0005 fail-fast runtime qualification.
+
+## Blocked by
+
+#380 — Return exact current Evidence support bases with scope-local invalidation
+
+## Ticket branch
+
+spec-357
+
+## Ticket baseline
+
+Pending
+
+Required label/status: preserve current ready-for-agent/open state.
+Native relationships unchanged.
+
+ACTION 6 — UPDATE PARENT TICKET COVERAGE MANIFEST COMMENT 5899020558 IN PLACE
+The exact proposed manifest delta is deterministic over the current persisted body. Preserve every source-inventory row, unchanged mapping, requirement sentence, source identity, exclusion row, and other manifest text byte-for-byte except for these exact semantic/publication changes:
+
+1. Replace:
+Spec Contract Hash: a03ed466381753221e81b549da3b8e52cc66294512f86507e4ecb2aded1669c3
+with:
+Spec Contract Hash: db6842515a70ef6133bb21c962dd96842a840287d28e7a0fd4096d05342ed034
+
+2. Replace these Spec Obligation Coverage rows exactly:
+US-3 → #378
+US-12 → #377
+ID-2 → #378
+ID-12 → #377
+ID-20 → #372, #373, #374, #377, #378, #381
+TD-2 → #378
+TD-5 → #376, #377
+TD-9 → #372, #373, #374, #377, #378, #381
+with:
+US-3 → #378, NEW-ASSESSMENT-CORRECTION
+US-12 → #377, NEW-ASSESSMENT-CORRECTION
+ID-2 → #378, NEW-ASSESSMENT-CORRECTION
+ID-12 → #377, NEW-ASSESSMENT-CORRECTION
+ID-20 → #372, #373, #374, #377, #378, NEW-ASSESSMENT-CORRECTION, #381
+TD-2 → #378, NEW-ASSESSMENT-CORRECTION
+TD-5 → #376, #377, NEW-ASSESSMENT-CORRECTION
+TD-9 → #372, #373, #374, #377, #378, NEW-ASSESSMENT-CORRECTION, #381
+
+3. Replace ARCHSRC-2 destination line:
+Tickets/destination: #372, #374, #377, #378
+with:
+Tickets/destination: #372, #374, #377, #378, NEW-ASSESSMENT-CORRECTION
+
+4. Replace ARCHSRC-4 destination line:
+Tickets/destination: #373, #376, #385, #377
+with:
+Tickets/destination: #373, #376, #385, #377, NEW-ASSESSMENT-CORRECTION
+
+5. Replace ARCHSRC-7 destination line:
+Tickets/destination: #372, #373, #374, #385, #377, #378, #381
+with:
+Tickets/destination: #372, #373, #374, #385, #377, #378, NEW-ASSESSMENT-CORRECTION, #381
+
+6. Replace the complete Decomposition Defect Reconciliation subsection body:
+DD-1 remains reconciled. The current remediation introduces no new confirmed decomposition defect; it updates amended Spec and ADR 0014 routing through #385 and #377.
+with:
+DD-1 remains reconciled. DD-2 is reconciled by splitting simple observation/binding correction from assessment-specific correction, routing ADR 0014/ARCHSRC-4 to NEW-ASSESSMENT-CORRECTION, and carrying assessment-correction invalidation explicitly into #379, #380, and #381. DD-2 becomes reconciled only after the approved ticket bodies, native relationships, this manifest, and decomposition-defect record are published and read back exactly.
+
+7. Replace the complete Publication State subsection with:
+### Publication State
+
+Published/retained tickets after realization: #372 through #381 plus #385 plus NEW-ASSESSMENT-CORRECTION
+Direct native parent: #357 for all 12 tickets
+Context fit: one-window 10; validated indivisible two-window exceptions 2; oversized 0
+Ticket baseline: existing values preserved; NEW-ASSESSMENT-CORRECTION Pending
+Required label/status: ready-for-agent for NEW-ASSESSMENT-CORRECTION and retained open tickets
+
+Native blocked-by graph after realization:
+- #372: None
+- #373: None
+- #374: #372
+- #375: #374
+- #376: #373, #374
+- #385: #373
+- #377: #376, #385
+- #378: #374
+- NEW-ASSESSMENT-CORRECTION: #377, #378
+- #379: #375, #377, #378, NEW-ASSESSMENT-CORRECTION
+- #380: #379
+- #381: #380
+
+Tickets created: 1
+Tickets updated: 4
+Tickets closed/reopened: 0
+Native parent changes: NEW-ASSESSMENT-CORRECTION parented to #357; existing parents unchanged
+Dependency changes: #378 no longer blocked by #377; NEW-ASSESSMENT-CORRECTION blocked by #377 and #378; #379 additionally blocked by NEW-ASSESSMENT-CORRECTION
+Live-WIP reslice recovery records required: 1
+Recovery records persisted/read-back: 1/1 after deterministic alias substitution
+Source WIP mutation required by publication: 0
+
+During actual publication only, replace every exact `NEW-ASSESSMENT-CORRECTION` alias in the approved manifest with the actual newly created issue number. No other semantic or formatting substitution is authorized.
+
+ACTION 7 — UPDATE DECOMPOSITION DEFECT COMMENT 5930434832 IN PLACE
+Preserve the entire DD-1 block byte-for-byte.
+Preserve DD-2 fields through `Disposition owner: $to-tickets` byte-for-byte.
+Replace only:
+Reconciliation: None
+with the following DD-2 reconciliation text after and only after all ticket/native-relationship/TCM mutations above have exact readback:
+Reconciliation: Reconciled through the approved DD-2 ticket split and consumer carry: #378 owns observation/binding correction only; NEW-ASSESSMENT-CORRECTION owns sufficiency-assessment correction with Evidence-derived proof and trusted-instant re-evaluation/atomic revalidation under ARCHSRC-2/4/7; #379 reconstructs historical assessment-correction/reassessment proof without hindsight; #380 treats assessment/reassessment/correction as explicit current-basis invalidators; #381 explicitly revalidates assessment-correction state at dependent commit. The parent TCM comment 5899020558 carries current Spec Contract Hash db6842515a70ef6133bb21c962dd96842a840287d28e7a0fd4096d05342ed034 and the exact realized routing. No closed ticket is reopened or rewritten.
+Then change DD-2 `Status: unresolved` to `Status: reconciled` and `Current manifest state: misrouted` to `Current manifest state: reconciled` only in the DD-2 block.
+During actual publication only, replace `NEW-ASSESSMENT-CORRECTION` with the actual newly created issue number.
+
+ACTION 8 — NATIVE RELATIONSHIP / PUBLICATION REALIZATION
+- Create NEW-ASSESSMENT-CORRECTION as direct native child of #357.
+- New ticket native blockers: #377 and #378.
+- Remove native blocker #377 from #378; retain #374.
+- Add NEW-ASSESSMENT-CORRECTION as a native blocker of #379; preserve #375, #377, #378.
+- #380 and #381 native blockers remain unchanged.
+- No ticket is closed or reopened.
+- Do not mutate any closed ticket body.
+- Do not mutate the source owner-local #378 checkout/WIP.
+- After ticket publication, persist/read back the one ticket-reslice-recovery comment on the new issue before any implementation handoff.
+
+PARENT SEMANTIC-CONSUMER IMPACT EVIDENCE
+Changed obligation/source unit: ADR 0012 correction/assessment identity + ADR 0014 persisted proof/commit boundary; ARCHSRC-4
+Semantic subject/invariant: sufficiency-assessment correction may only preserve the same assessment root for a misrecorded same-boundary/same-version assertion; authoritative replacement proof is Evidence-derived; trusted append freshly re-evaluates and atomically revalidates exact authority/support/correction/negative basis; reassessment from time/new Evidence/changed requirements is a new root.
+
+Consumer NEW-ASSESSMENT-CORRECTION: applies — directly creates/revises/retracts assessment corrections; complete durable carry is in its build/acceptance contract.
+Consumer #378: assessment-specific invariant does-not-apply after split — #378 implements only observation/binding correction; it supplies the shared correction algebra and explicitly excludes assessment `REVISE`/`RETRACT` semantics. NEW-ASSESSMENT-CORRECTION is blocked by #378.
+Consumer #379: applies — historical reconstruction interprets assessment correction and reassessment; durable carry is added explicitly to its acceptance contract and dependency on NEW-ASSESSMENT-CORRECTION executes first.
+Consumer #380: applies — current support basis can change when assessment/reassessment/correction changes; durable invalidation/support-version/negative-predicate carry is added explicitly.
+Consumer #381: applies — dependent commit revalidation must observe later assessment correction; durable commit-time reconstruction/invalidation carry is added explicitly.
+Consumer #377: applicable closed prerequisite — its existing accepted contract already owns Evidence-derived assessment proof, trusted commit-time re-evaluation/revalidation, new-root-on-requirement-version semantics, and explicitly delegates assessment correction interpretation to #378; the new assessment-correction ticket is blocked by #377 and consumes that completed authority.
+Missing applicable consumer mappings: 0
+Ambiguous consumer applicability: 0
+Explicit downstream ownership handoffs untraced: 0
+
+CONTEXT-FIT MANIFEST
+Ticket #378 revised: one semantic family (observation/binding append-only correction interpretation over the shared simple-fact algebra); persistence proof is the same family; no distinct derived-evaluator/commit-authority modality remains. Context fit: one-window.
+Ticket NEW-ASSESSMENT-CORRECTION: two coupled scenario/proof families — assessment correction interpretation and authoritative derived replacement append with trusted-instant re-evaluation/revalidation. Context fit: indivisible-two-window-exception. Indivisibility authority: ADR 0014 requires the derived proof and trusted commit boundary to govern the same authoritative assessment append; separating them permits an unentailed/stale authoritative correction.
+Ticket #379 revised: one historical reconstruction family; Context fit: one-window.
+Ticket #380 revised: one current-basis read/invalidation family; Context fit: one-window.
+Ticket #381 revised: one dependent-write fresh revalidation/concurrency family; Context fit: one-window.
+Oversized tickets: 0
+Ambiguous context-fit dispositions: 0
+Durable Context fit fields matching parent disposition: 5/5
+
+DESIGN-DELEGATION RESULT
+Material product/domain/public/persistence choices delegated to implementation: 0. The correction identity/continuity rules, derived assessment proof, trusted commit boundary, current-basis invalidation, historical semantics, and fail-closed behavior are all frozen by Spec #357 and accepted ADRs 0012–0014.
+
+PARENT READINESS CLAIM TO CHALLENGE
+TICKET PROPOSAL READINESS: PASS
+Source closure: unchanged bounded inventory remains current; no missing material source identified by the DD-2 repair.
+Spec-cell coverage: source 59; proposed manifest 59; missing 0; extra 0; all changed mappings above use existing source cells.
+Architecture obligations: 7; unmapped 0; ambiguous 0; NEW-ASSESSMENT-CORRECTION carries ARCHSRC-2/4/7; #380/#381 consumer semantics are completely represented by their existing Spec cells and do not create a new ARCHSRC obligation.
+Semantic consumers: applicable active consumers NEW-ASSESSMENT-CORRECTION/#379/#380/#381 accounted 4/4; split #378 non-applicability explicit; #377 closed prerequisite carry explicit; missing 0; ambiguous 0; untraced handoffs 0.
+Ticket semantic carry: complete; incomplete 0; ambiguous 0.
+Context fit: one-window 4; indivisible-two-window-exception 1; oversized 0; ambiguous 0.
+Live-WIP reslice: source #378 protected; destination isolated-worktree recovery contract complete; source checkout mutation required 0.
+Design delegation: 0.
+Publication has not occurred. Human approval has not been requested for this repaired exact candidate.

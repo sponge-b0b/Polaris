@@ -1,0 +1,52 @@
+ACTION 1 — UPDATE TICKET #378
+New title: Preserve Evidence observation correction lineage end to end
+Complete proposed body:
+
+## Parent
+
+Parent Spec: #357
+
+## Spec obligations
+
+US-3, ID-2, TD-2, TD-9, ID-20
+
+## Architecture obligations
+
+ARCHSRC-2, ARCHSRC-7
+
+## Architecture context
+
+Evidence; Application Use Cases; Durable Persistence; ADRs 0011, 0012. All architecture and material design decisions currently required by this ticket are accepted; no known implementation-readiness blocker remains unresolved.
+
+## Context fit
+
+one-window
+
+## What to build
+
+Establish the family-neutral append-only Evidence correction primitives and the observation-specific correction path: immutable `EvidenceCorrectionId` acts, exact same-family ancestry, complete observation `REVISE` replacement assertions, `RETRACT`, deterministic recursive restoration, sibling support, contestation, and historical inspection without recency-based winner selection. Binding and sufficiency-assessment correction paths are deliberately excluded and move to their own DD-2 reslice destinations.
+
+## Acceptance criteria
+
+* [ ] Every observation correction is an immutable `EvidenceCorrectionId` act targeting exactly one `EvidenceObservationId` root or earlier observation correction from that same root; ancestry is acyclic and the family-neutral correction-reference primitives are reusable by the later binding and assessment slices without weakening same-family typing.
+* [ ] Observation `REVISE` carries the complete replacement assertion for correction of the record of the same acquisition/observation act only; later acquisition, a newly published source version, or materially different observed content creates a new `EvidenceObservationId` root.
+* [ ] `RETRACT` withdraws its target without inventing `RESTORE`, `CONTEST`, `SUPERSEDE`, `QUALIFY`, or `DISCONFIRM` Evidence correction effects; retraction recursively restores the branch interpretation immediately preceding the retracted correction.
+* [ ] Sibling branches remain independent; materially equivalent surviving assertions coalesce and union complete support; incompatible positive branches or positive-versus-withdrawal support produce `CONTESTED`.
+* [ ] Recency, UUID ordering, database ordering, and latest-write-wins never choose truth; missing or unknown ancestry is invalid or incomplete history rather than contestation.
+* [ ] Persistence proves append-only observation correction history, exact ancestry/reference validity, rollback, restart reconstruction, idempotent exact replay, and rejection of changed semantic `OperationId` reuse behind the inward-owned greenfield persistence boundary.
+* [ ] Binding `REVISE`/`RETRACT` and sufficiency-assessment `REVISE`/`RETRACT`, including their family-specific replacement assertions and assessment trusted-commit semantics, are not implemented under this ticket.
+
+## Blocked by
+
+#372 — Persist attributable Evidence observations end to end
+
+## Ticket branch
+
+spec-357
+
+## Ticket baseline
+
+a764f201514754f50ff1535b4d441bc03ad8d093
+
+Required label/status: preserve current ready-for-agent/open state.
+Native relationship delta: replace current blockers #374 and #377 with closed prerequisite #372.

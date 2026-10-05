@@ -47,11 +47,12 @@ Spec obligation routing: <IDs + dispositions>
 Architecture/design source inventory: <durable source identities + anchors + dispositions>
 Normative source-unit / ARCHSRC routing: <IDs + source anchors + dispositions>
 Parent semantic-carry evidence: <compact rows/pointers>
+Parent semantic-consumer impact evidence: <None | compact changed-invariant/consumer rows when remediation or changed authority makes it applicable>
 Parent Context-Fit Manifest: <per-ticket scenario/domain/modality/proof-family summary + disposition>
 Design-delegation result: <compact rows/pointers>
 ```
 
-The packet locates authority efficiently. It does not establish that the source universe, routing, or carry is correct.
+The packet locates authority efficiently. It does not establish that the source universe, routing, consumer propagation, or carry is correct.
 
 Missing, stale, contradictory, or candidate-mismatched dispatch state invalidates verification. Do not emit PASS or FAIL for an unbound candidate.
 
@@ -74,6 +75,62 @@ Independently check that:
 * no current owning architecture/design source required by the affected boundary was omitted.
 
 Do not broaden the source universe merely to seek extra confidence. Concrete authority relationships and falsifiers control expansion.
+
+### 1A. Independently trace semantic consumers of changed invariants
+
+For every materially normative source unit, Spec predicate, or `ARCHSRC-*` obligation that is new, changed, rerouted, or implicated by remediation, identify the semantic subject/invariant it governs. Then independently inspect the exact proposed/retained active ticket universe for operations over that subject.
+
+A ticket is a **semantic-consumer candidate** when its contract creates, mutates, revises, corrects, retracts, reassesses, validates, interprets, reconstructs, replays, persists, serializes, migrates, exposes, authorizes, or otherwise makes a semantic claim about the changed subject.
+
+Discovery must not stop at producer ownership. In particular:
+
+* correction/revision paths consume the current invariant of the entity they correct;
+* reconstruction/replay/read paths consume the invariant when they derive current or historical meaning from it;
+* persistence/migration paths consume it when schema/codec/store behavior can admit or preserve an invalid semantic state;
+* explicit ticket language that defers or hands ownership to another ticket, such as “correction interpretation remains owned by #N”, must be followed to that current destination and challenged there;
+* native dependencies, common files, and existing ADR citations are discovery hints, not the completeness denominator;
+* absence of an explicit citation to the changed architecture source does not establish non-applicability.
+
+For each changed invariant × candidate ticket derive an independent row:
+
+```text
+Changed obligation/source unit: <Spec cell | ARCHSRC-* | source anchor>
+Semantic subject/invariant: <exact changed meaning>
+Consumer ticket: <ticket identity>
+Consumer operation: <create | mutate | correct | retract | reassess | validate | interpret | reconstruct | replay | persist | serialize | migrate | expose | authorize | other>
+Discovery evidence: <exact ticket/source relation>
+Invariant applicability: applies | does-not-apply | ambiguous
+Durable carry present: yes | no | n/a
+Reason/authority: <why>
+```
+
+PASS requires:
+
+* every `applies` row to have durable obligation carry in that consumer ticket or an explicit authority-backed active destination that executes before the consumer becomes actionable;
+* every explicit downstream ownership handoff to terminate at a current destination whose applicable governing invariants were evaluated;
+* every `does-not-apply` row to have positive semantic reason/authority, not merely “different ticket”, “no shared file”, or “not named by the source”;
+* zero ambiguous applicability rows;
+* zero active semantic consumers omitted from the parent manifest/ticket routing.
+
+For remediation proposals, compare this independently derived set with the parent's Semantic-Consumer Impact Matrix when supplied. The parent matrix is retrieval evidence only; independently finding one additional applicable consumer is a decomposition FAIL.
+
+Use a bounded falsifier question for every changed invariant:
+
+> **Can any active ticket legally create, correct, reinterpret, reconstruct, persist, migrate, or expose this semantic subject in a way that would be wrong if it followed only its current contract and ignored the changed invariant?**
+
+If yes, that ticket is an applicable consumer and must carry the obligation before the proposal can PASS.
+
+Require:
+
+```text
+Changed semantic invariants challenged: <n>
+Semantic-consumer candidates: <n>
+Applicable semantic consumers: <n>
+Applicable consumers with durable carry: <n>/<n>
+Missing applicable consumer mappings: 0
+Ambiguous consumer applicability: 0
+Explicit downstream ownership handoffs untraced: 0
+```
 
 ### 2. Independently certify semantic carry
 
@@ -102,6 +159,7 @@ When one obligation spans tickets, certify the union and also verify that any pr
 Check that:
 
 * every implementation obligation has one complete destination;
+* every explicit cross-ticket semantic ownership/deferment handoff has a current destination and the destination has been evaluated for every governing invariant of the handed-off semantic subject;
 * verification-only, no-work, exclusion, deferred, and remediation/preservation dispositions have explicit authority and destination where required;
 * ticket boundaries are coherent tracer-bullet slices rather than semantic fragments whose correctness depends on an unstated later choice;
 * dependency edges preserve required implementation ordering without silently delaying a safety invariant past a ticket that would already expose the affected behavior;
@@ -161,6 +219,7 @@ Proposal identity: <sha256>
 Verifier: fresh-independent
 Source closure: complete; missing material sources/units 0
 Spec-cell identity: exact; source <n>; manifest <n>; missing 0; extra 0
+Semantic consumers: candidates <n>; applicable <n>; accounted <n>/<n>; missing 0; ambiguous 0; untraced ownership handoffs 0
 Semantic carry: complete; incomplete 0; ambiguous 0
 Context fit: one-window <n>; validated indivisible two-window exceptions <n>; oversized 0; ambiguous 0; durable fields matched <n>/<n>
 Design delegation: 0
@@ -177,7 +236,7 @@ Mode: fresh | remediation
 Source state identity: <identity/hash>
 Proposal identity: <sha256>
 Findings:
-1. Classification: missing-source | invented-source-cell | missing-predicate | incomplete-carry | misrouted | dependency-safety | oversized-slice | design-delegation | contradiction
+1. Classification: missing-source | invented-source-cell | missing-predicate | incomplete-carry | misrouted | consumer-omission | dependency-safety | oversized-slice | design-delegation | contradiction
    Governing source: <durable source + anchor>
    Authoritative requirement: <compact requirement>
    Affected proposal element: <ticket/manifest/dependency>
@@ -188,4 +247,4 @@ Findings:
 
 A FAIL is a bounded falsifier report, not a replacement proposal. The parent owns repair, reruns its deterministic/readiness checks on the revised candidate, and returns that exact candidate to the same verifier context for recheck.
 
-Do not emit tentative findings after PASS. Do not continue searching for additional confidence once the authoritative bounded universe and every material carry predicate are closed.
+Do not emit tentative findings after PASS. Do not continue searching for additional confidence once the authoritative bounded universe, semantic-consumer closure, and every material carry predicate are closed.

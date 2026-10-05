@@ -1,0 +1,31 @@
+### Publication State
+
+Published/retained tickets after realization: #372 through #381 plus #385 plus NEW-BINDING-CORRECTION plus NEW-ASSESSMENT-CORRECTION
+Direct native parent: #357 for all 13 tickets
+Context fit: one-window 11; validated indivisible two-window exceptions 2; oversized 0
+Ticket baseline: existing values preserved; NEW-BINDING-CORRECTION Pending; NEW-ASSESSMENT-CORRECTION Pending
+Required label/status: ready-for-agent for both new tickets and retained open tickets
+
+Native blocked-by graph after realization:
+- #372: None
+- #373: None
+- #374: #372
+- #375: #374
+- #376: #373, #374
+- #385: #373
+- #377: #376, #385
+- #378: #372
+- NEW-BINDING-CORRECTION: #374, #378
+- NEW-ASSESSMENT-CORRECTION: #377, #378, NEW-BINDING-CORRECTION
+- #379: #375, #377, #378, NEW-BINDING-CORRECTION, NEW-ASSESSMENT-CORRECTION
+- #380: #379
+- #381: #380
+
+Tickets created: 2
+Tickets updated: 4
+Tickets closed/reopened: 0
+Native parent changes: both new tickets parented to #357; existing parents unchanged
+Dependency changes: #378 replaces blockers #374/#377 with #372; NEW-BINDING-CORRECTION is blocked by #374/#378; NEW-ASSESSMENT-CORRECTION is blocked by #377/#378/NEW-BINDING-CORRECTION; #379 additionally blocked by both new tickets
+Live-WIP reslice recovery records required: 2
+Recovery records persisted/read-back: 2/2 after deterministic alias substitution
+Source WIP mutation required by publication: 0

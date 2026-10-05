@@ -20,8 +20,8 @@ text = text.replace(old_discovery, new_discovery, 1)
 text = text.replace(old_source, new_source, 1)
 
 inserted = new_discovery + new_source
-for ticket_specific in ('#378', '#386', '#387'):
-    if ticket_specific in inserted:
-        raise SystemExit(f'ticket-specific fix leaked into invariant: {ticket_specific}')
+for ticket_number in (378, 386, 387):
+    if f'#{ticket_number}' in inserted:
+        raise SystemExit(f'ticket-specific fix leaked into invariant: {ticket_number}')
 
 path.write_text(text, encoding='utf-8')

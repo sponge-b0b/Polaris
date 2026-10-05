@@ -37,3 +37,5 @@ jobs:
           git diff --cached --check
           git commit -m 'fix(workflow): isolate live-WIP reslice sources'
           git push origin HEAD:main
+
+# retry after correcting the transport-only audit false positive

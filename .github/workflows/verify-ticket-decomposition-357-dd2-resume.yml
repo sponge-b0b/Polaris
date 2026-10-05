@@ -1,0 +1,154 @@
+name: Resume Spec357 DD2 decomposition verifier
+
+on:
+  push:
+    branches:
+      - chatgpt/verify-ticket-decomposition-357-dd2-resume
+
+permissions:
+  actions: read
+  contents: read
+  issues: read
+  pull-requests: read
+  copilot-requests: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      VERIFIER_SESSION_ID: 357dd2b3-8c7e-4f5a-a1d2-9b0c3e4f5a67
+      PRIOR_RUN_ID: '37329695976'
+      PRIOR_SESSION_ARTIFACT: ticket-decomposition-357-dd2-repaired-session
+      CANDIDATE_HEAD: 2f7f809d4c9ffdc6bd8619ac9403f9b0c057ac7e
+      VERIFIER_SKILL_BLOB: 5e8e389ef9509a7da628f37870ea6adab725737a
+      ADR0014_BLOB: fe79e744ef6155d81afebb549d16d7759e26e656
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Verify source binding and build repaired proposal
+        id: proposal
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin spec-357 chatgpt/verify-ticket-decomposition-357-dd2-repaired
+          test "$(git rev-parse refs/remotes/origin/spec-357)" = "$CANDIDATE_HEAD"
+          test "$(git show "${CANDIDATE_HEAD}:.agents/skills/verify-ticket-decomposition/SKILL.md" | git hash-object --stdin)" = "$VERIFIER_SKILL_BLOB"
+          test "$(git show "${CANDIDATE_HEAD}:docs/adr/0014-evidence-derive-r3-sufficiency-from-executable-requirements.md" | git hash-object --stdin)" = "$ADR0014_BLOB"
+          CANDIDATE_HEAD="$CANDIDATE_HEAD" python .verification/build-proposal-357-dd2-resume.py
+          PROPOSAL_SHA="$(sha256sum /tmp/proposal-357-dd2-resume.txt | awk '{print $1}')"
+          echo "proposal_sha=$PROPOSAL_SHA" >> "$GITHUB_OUTPUT"
+          echo "proposal_sha=$PROPOSAL_SHA"
+
+      - name: Restore exact verifier session
+        uses: actions/download-artifact@v5
+        with:
+          name: ${{ env.PRIOR_SESSION_ARTIFACT }}
+          path: /tmp/prior-session
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.PRIOR_RUN_ID }}
+
+      - name: Install Copilot CLI
+        run: npm install -g @github/copilot
+
+      - name: Resume same independent verifier
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
+          COPILOT_HOME: ${{ runner.temp }}/copilot-home
+          PROPOSAL_SHA: ${{ steps.proposal.outputs.proposal_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$COPILOT_HOME"
+          tar -C "$COPILOT_HOME" -xzf /tmp/prior-session/copilot-home.tgz
+          test -d "$COPILOT_HOME/session-state/$VERIFIER_SESSION_ID"
+          PROMPT=$(cat <<EOF
+          Continue the SAME Polaris $to-tickets decomposition-verifier session after your prior terminal FAIL.
+          Execute .agents/skills/verify-ticket-decomposition/SKILL.md exactly for the newly repaired candidate.
+
+          The exact current Spec branch candidate is ${CANDIDATE_HEAD}.
+          The exact repaired proposal is /tmp/proposal-357-dd2-resume.txt.
+          The exact repaired proposal identity is ${PROPOSAL_SHA}.
+          The verifier skill blob remains ${VERIFIER_SKILL_BLOB}.
+
+          Your prior FAIL findings were: observation/binding bundling was oversized; ADR 0014 was missing from the bound tree; and live tracker/native-relationship state had not been independently recovered. Treat those findings as falsifiers to re-evaluate, not as assumed repaired conclusions.
+
+          Before returning a verdict, independently recover current live GitHub state yourself with read-only gh commands. At minimum re-read Spec #357, tickets #372/#374/#375/#377/#378/#379/#380/#381/#385, issue comments 5899020558 and 5930434832, open/closed states and bodies, direct parentage, and native blocked-by/blocking relationships. Use `gh issue view`/`gh api`/read-only GraphQL as needed. Do not treat the proposal packet, dispatch prose, parent readiness claims, prior verdict, or conversation as authority for persisted tracker state. If you cannot independently establish a required live relationship or comment fact, FAIL rather than assume it.
+
+          Re-read ADRs 0012, 0013, and the now-present exact accepted ADR 0014 from ${CANDIDATE_HEAD}. Independently challenge the new three-way correction-family split, Spec/ARCHSRC routing, semantic-consumer propagation, live-WIP reslice safety for both new destinations, exact TCM/DD deltas, dependency fidelity, context fit, and design delegation.
+
+          Do not mutate repository or tracker state, do not redesign the proposal, and do not spawn another verifier.
+          Return exactly one complete terminal verdict in the skill-required format beginning with exactly either:
+          TICKET DECOMPOSITION: PASS
+          or
+          TICKET DECOMPOSITION: FAIL
+          Bind the verdict to proposal identity ${PROPOSAL_SHA}.
+          EOF
+          )
+          copilot --resume="$VERIFIER_SESSION_ID" -s -p "$PROMPT" --no-ask-user \
+            --allow-tool=read \
+            --allow-tool='shell(git:*)' \
+            --allow-tool='shell(gh:*)' \
+            --allow-tool='shell(cat:*)' \
+            --allow-tool='shell(sed:*)' \
+            --allow-tool='shell(grep:*)' \
+            --allow-tool='shell(pwd:*)' \
+            --allow-tool='shell(find:*)' \
+            --allow-tool='shell(jq:*)' \
+            | tee /tmp/verdict.txt
+          test "$(grep -Ec '^TICKET DECOMPOSITION: (PASS|FAIL)$' /tmp/verdict.txt)" -eq 1
+          grep -Fq "$PROPOSAL_SHA" /tmp/verdict.txt
+
+      - name: Persist refreshed verifier session
+        id: session
+        if: always()
+        shell: bash
+        env:
+          COPILOT_HOME: ${{ runner.temp }}/copilot-home
+          PROPOSAL_SHA: ${{ steps.proposal.outputs.proposal_sha }}
+        run: |
+          set -euo pipefail
+          test -d "$COPILOT_HOME/session-state/$VERIFIER_SESSION_ID"
+          tar -C "$COPILOT_HOME" -czf /tmp/copilot-home-resumed.tgz .
+          SESSION_ARCHIVE_SHA="$(sha256sum /tmp/copilot-home-resumed.tgz | awk '{print $1}')"
+          echo "session_archive_sha=$SESSION_ARCHIVE_SHA" >> "$GITHUB_OUTPUT"
+          cat > /tmp/session-manifest-resumed.txt <<EOF
+          verifier_session_id=$VERIFIER_SESSION_ID
+          proposal_sha256=$PROPOSAL_SHA
+          candidate_head=$CANDIDATE_HEAD
+          verifier_skill_blob=$VERIFIER_SKILL_BLOB
+          prior_actions_run_id=$PRIOR_RUN_ID
+          actions_run_id=$GITHUB_RUN_ID
+          copilot_home_archive_sha256=$SESSION_ARCHIVE_SHA
+          EOF
+          cat /tmp/session-manifest-resumed.txt
+
+      - name: Upload resumed verifier verdict
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ticket-decomposition-357-dd2-resume-verdict
+          path: /tmp/verdict.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload refreshed resumable verifier session
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ticket-decomposition-357-dd2-resume-session
+          path: /tmp/copilot-home-resumed.tgz
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload resumed verifier session manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ticket-decomposition-357-dd2-resume-session-manifest
+          path: /tmp/session-manifest-resumed.txt
+          if-no-files-found: error
+          retention-days: 14

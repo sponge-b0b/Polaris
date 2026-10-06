@@ -669,6 +669,26 @@ While any valid reslice recovery record names the current ticket as its source a
 
 This invariant applies equally to one-to-one and one-to-many reslices and does not depend on ticket numbers, file layout, or which side of the reslice happens to execute first.
 
+#### Order-independent recovery terminalization
+
+Recovery completion is monotonic and **closure-order independent**. A valid recovery record has exactly one terminal status: `source-reconciled`. Terminal state means both the Source and Destination tickets are durably closed under their ordinary independently certified lifecycles, both exact pushed completion commits are recorded in the recovery record, and those commits are valid ancestors of the shared branch state used for terminal readback.
+
+`pending-prerequisite` and `prerequisite-complete` are nonterminal:
+
+* `pending-prerequisite` means the destination has not yet completed; the source may still be open or may already be closed;
+* `prerequisite-complete` means the destination completed first and the source has not yet been durably reconciled into the record;
+* `source-reconciled` means both participants completed and the reslice record is terminal.
+
+Whichever participant closes **second** owns terminalization of that recovery record in the same closure invocation. No source-first or destination-first ordering may require a later invocation of a ticket that is already closed merely to advance recovery metadata.
+
+When the source closes first, keep a still-pending destination at `Status: pending-prerequisite` but add `Source completion commit: <certified pushed SHA>`. When the destination closes first, write `Status: prerequisite-complete` plus its destination baseline/completion commit. When either participant later observes that the counterpart is already durably complete, require exact counterpart completion evidence and transition directly to `Status: source-reconciled` with **both** completion commits recorded.
+
+Counterpart completion evidence must be fail-closed: require the counterpart issue to be closed, its independently certified closure state to remain valid, its exact pushed completion commit to be recoverable without guesswork, and that commit to be an ancestor of the current frozen shared-branch tip. A missing, contradictory, stale, or non-ancestor completion identity is a Hard Blocker; do not infer a commit from recency, branch position, issue number, or local WIP.
+
+A pre-existing nonterminal recovery record created before this invariant may omit the already-closed source's completion field. On the first later participant closure that can prove the exact certified source completion commit from durable closure evidence, backfill that field and terminalize normally. Do not rewrite any other recovery identity or lineage field.
+
+`source-reconciled` is idempotent terminal state. Re-entry must validate the same source/destination completion commits and lineage; it must never silently replace either completion identity. Reaching terminal state authorizes **retirement evaluation only**. Never automatically delete/reset/clean the protected caller checkout. Retirement still requires every recovery record that depends on that donor checkout to be terminal plus exact proof that no unique owner-local state remains.
+
 #### Destination live-WIP recovery
 
 When the current ticket is the recovery record's **Destination ticket** and `Status: pending-prerequisite`:
@@ -702,15 +722,14 @@ Requirements:
 
 Before every Human Handoff/ordinary return and before removing the isolated destination worktree, recompute the protected caller fingerprint and require exact equality. Unexpected caller mutation is a hard blocker.
 
-After the destination ticket is independently certified, committed, pushed to the shared branch, read back at the exact pushed commit, and closed under the ordinary lifecycle, update the same recovery record to:
+After the destination ticket is independently certified, committed, pushed to the shared branch, read back at the exact pushed commit, and closed under the ordinary lifecycle, reconcile the same recovery record under **Order-independent recovery terminalization**:
 
-```text
-Status: prerequisite-complete
-Destination baseline: <ticket baseline SHA>
-Destination completion commit: <certified pushed SHA>
-```
+* always record `Destination baseline: <ticket baseline SHA>` and `Destination completion commit: <certified pushed SHA>`;
+* if the source ticket is still open, write `Status: prerequisite-complete` and preserve any already-recorded source completion field exactly;
+* if the source ticket is already closed, require or recover its exact certified pushed completion commit under the fail-closed counterpart-evidence rule above, require that commit to be an ancestor of the frozen shared-branch tip, record `Source completion commit: <certified pushed SHA>`, and write `Status: source-reconciled` in this same destination-closure invocation;
+* if the record is already `source-reconciled`, require exact equality of source/destination completion identities and treat the transition as idempotent.
 
-Preserve all original source/destination/branch/reslice fields.
+Preserve all original source/destination/branch/reslice fields and read the updated recovery record back exactly. A closed source plus a completed destination must never be left at `prerequisite-complete`.
 
 #### Source live-WIP recovery
 
@@ -745,11 +764,15 @@ From isolated-worktree creation through source candidate certification, commit, 
 
 Before every Human Handoff/ordinary return and before removing the isolated source worktree, recompute the protected caller fingerprint and require exact equality. Unexpected caller mutation is a hard blocker.
 
-After source closure:
+After source closure, reconcile every associated recovery record under **Order-independent recovery terminalization**:
 
-* update each associated recovery record already at `Status: prerequisite-complete` to `Status: source-reconciled` with the certified source completion commit;
-* leave each `Status: pending-prerequisite` record unchanged so its destination's isolated-worktree recovery remains activated when that destination later becomes actionable;
+* record `Source completion commit: <certified pushed SHA>` on every associated nonterminal record, including a `pending-prerequisite` record whose destination executes later;
+* for each record already at `Status: prerequisite-complete`, require the recorded destination completion commit to remain valid and an ancestor of the frozen shared-branch tip, then transition it to `Status: source-reconciled` in this same source-closure invocation;
+* for each record still at `Status: pending-prerequisite`, keep that status so destination isolated-worktree recovery remains activated, but preserve the newly recorded source completion commit so the later destination can terminalize without another source invocation;
+* if any associated record is already `source-reconciled`, require exact equality of the recorded source completion commit and existing destination completion identity and treat it as idempotent;
 * do not automatically delete/reset/clean or retire the protected caller checkout while any associated recovery record remains nonterminal or while exact proof of no unique owner-local state is absent.
+
+The second-closing participant always owns the `source-reconciled` transition; closure ordering must never strand a completed pair in `prerequisite-complete`.
 
 #### Ordinary baseline path
 

@@ -3,6 +3,7 @@
 from .binding_store import PostgresEvidenceBindingStore
 from .correction_store import PostgresEvidenceCorrectionStore
 from .decisions import create_postgres_engine
+from .evidence_reconstruction_store import PostgresHistoricalEvidenceStore
 from .evidence_store import PostgresEvidenceStore
 from .relationship_store import PostgresDecisionStore
 from .requirement_store import PostgresEvidenceRequirementStore
@@ -25,6 +26,7 @@ __all__ = [
     "PostgresEvidenceCorrectionStore",
     "PostgresEvidenceRequirementStore",
     "PostgresEvidenceStore",
+    "PostgresHistoricalEvidenceStore",
     "PostgresEvidenceSufficiencyStore",
     "create_postgres_engine",
     "metadata",

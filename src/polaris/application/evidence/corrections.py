@@ -30,6 +30,7 @@ from polaris.domain.evidence import (
 from polaris.domain.evidence.bindings import EvidenceBinding
 from polaris.domain.evidence.sufficiency import (
     EvidenceSufficiencyAssessment,
+    matches_assessment_requirement_version,
 )
 
 from .contracts import (
@@ -751,11 +752,7 @@ def _derived_assessment(
     known_at: datetime,
 ) -> EvidenceSufficiencyAssessment:
     version = basis.requirement_version
-    if (
-        version.set_id != root.requirement_set_id
-        or version.version_id != root.requirement_version_id
-        or not version.applicability.matches(root.applicability_key)
-    ):
+    if not matches_assessment_requirement_version(root, version):
         raise EvidenceCorrectionBasisConflict(
             "changed requirement assignment/version requires a new assessment root"
         )

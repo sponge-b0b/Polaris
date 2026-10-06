@@ -686,6 +686,18 @@ def _matches_assessment_authority(
     )
 
 
+def matches_assessment_requirement_version(
+    assessment: EvidenceSufficiencyAssessment,
+    version: EvidenceRequirementSetVersion,
+) -> bool:
+    return _matches_assessment_authority(
+        assessment,
+        set_id=version.set_id,
+        version_id=version.version_id,
+        applicability_key=assessment.applicability_key,
+    ) and version.applicability.matches(assessment.applicability_key)
+
+
 def evaluate_evidence_sufficiency(
     version: EvidenceRequirementSetVersion,
     applicability_key: EvidenceRequirementApplicabilityKey,
@@ -1208,4 +1220,5 @@ __all__ = [
     "InvalidEvidenceSufficiency",
     "evaluate_evidence_sufficiency",
     "evidence_sufficiency_result",
+    "matches_assessment_requirement_version",
 ]

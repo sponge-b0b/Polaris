@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-06] R3 historical Decision Context and Evidence | #379 query realized
+
+Added a deep Application historical query with explicit Decision/typed target and `(effective_at, known_at)` inputs. It composes canonical Decision and target-owner context separately from observation, binding, and assessment correction histories, retains original derived assessment proof and requirement authority across correction/reassessment, separates retrospective later Evidence, and returns typed complete, partial, contested, invalid, unavailable, and temporal outcomes. PostgreSQL reads complete target Evidence histories within one repeatable-read snapshot. Updated Evidence, Application Use Cases, and Durable Persistence knowledge; current support bases and dependent command revalidation remain downstream.
+
 ## [2026-10-05] R3 Evidence sufficiency-assessment correction | #387 contract realized
 
 Realized typed assessment `REVISE | RETRACT` lineage with immutable same-root history, derived complete replacement proof, independent sibling interpretation, and PostgreSQL restart reconstruction. Application excludes caller-authored assessment proof; persistence re-derives and checks authority, support, freshness, and absence at a fresh trusted commit instant before atomic append. Updated Evidence, Application Use Cases, and Durable Persistence knowledge; cross-root current/historical/current-basis queries remain downstream.

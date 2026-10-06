@@ -13,6 +13,7 @@ from polaris.application.evidence.corrections import (
 )
 from polaris.domain.decisions import OperationId
 from polaris.domain.evidence import (
+    EvidenceAssessmentCorrection,
     EvidenceBindingCorrection,
     EvidenceBindingId,
     EvidenceCorrection,
@@ -21,6 +22,7 @@ from polaris.domain.evidence import (
     EvidenceCorrectionId,
     EvidenceObservationCorrection,
     EvidenceObservationId,
+    EvidenceSufficiencyAssessmentId,
 )
 
 from .binding_codec import binding_snapshot_from_payload, binding_snapshot_payload
@@ -35,12 +37,17 @@ from .codec_support import (
     uuid_value,
 )
 from .evidence_codec import observation_from_row, observation_values
+from .sufficiency_codec import (
+    sufficiency_assessment_snapshot_from_payload,
+    sufficiency_assessment_snapshot_payload,
+)
 
 
 def correction_values(correction: EvidenceCorrection) -> dict[str, object]:
     target_root_id = (
         correction.target.value
-        if type(correction.target) in (EvidenceObservationId, EvidenceBindingId)
+        if type(correction.target)
+        in (EvidenceObservationId, EvidenceBindingId, EvidenceSufficiencyAssessmentId)
         else None
     )
     target_correction_id = (
@@ -172,6 +179,12 @@ def binding_correction_from_row(row: RowMapping) -> EvidenceBindingCorrection:
     )
 
 
+def assessment_correction_from_row(row: RowMapping) -> EvidenceAssessmentCorrection:
+    return EvidenceAssessmentCorrection(
+        **_correction_kwargs(EvidenceCorrectionFamily.ASSESSMENT, row)
+    )
+
+
 def _correction_kwargs(
     family: EvidenceCorrectionFamily,
     row: RowMapping,
@@ -213,11 +226,14 @@ def _replacement_payload(correction: EvidenceCorrection) -> JsonObject:
 def _root_payload(value: object) -> JsonObject:
     from polaris.domain.evidence.bindings import EvidenceBinding
     from polaris.domain.evidence.observations import EvidenceObservation
+    from polaris.domain.evidence.sufficiency import EvidenceSufficiencyAssessment
 
     if type(value) is EvidenceObservation:
         return cast(JsonObject, json_safe(observation_values(value)))
     if type(value) is EvidenceBinding:
         return binding_snapshot_payload(value)
+    if type(value) is EvidenceSufficiencyAssessment:
+        return sufficiency_assessment_snapshot_payload(value)
     raise TypeError("unsupported Evidence correction replacement")
 
 
@@ -228,6 +244,8 @@ def _root_from_payload(
     values = dict(payload)
     if family is EvidenceCorrectionFamily.BINDING:
         return binding_snapshot_from_payload(payload)
+    if family is EvidenceCorrectionFamily.ASSESSMENT:
+        return sufficiency_assessment_snapshot_from_payload(payload)
     if family is not EvidenceCorrectionFamily.OBSERVATION:
         raise ValueError("unsupported correction family")
     for field in ("observed_at", "acquired_at"):
@@ -242,11 +260,13 @@ def _root_from_payload(
 
 def _root_id(
     family: EvidenceCorrectionFamily, value: object
-) -> EvidenceObservationId | EvidenceBindingId:
+) -> EvidenceObservationId | EvidenceBindingId | EvidenceSufficiencyAssessmentId:
     if family is EvidenceCorrectionFamily.OBSERVATION:
         return EvidenceObservationId(uuid_value(value, "root identity"))
     if family is EvidenceCorrectionFamily.BINDING:
         return EvidenceBindingId(uuid_value(value, "root identity"))
+    if family is EvidenceCorrectionFamily.ASSESSMENT:
+        return EvidenceSufficiencyAssessmentId(uuid_value(value, "root identity"))
     raise ValueError("unsupported correction family")
 
 
@@ -257,6 +277,7 @@ def _row_datetime(value: object, field: str) -> datetime:
 
 
 __all__ = [
+    "assessment_correction_from_row",
     "binding_correction_from_row",
     "correction_receipt_from_row",
     "correction_request_fingerprint",

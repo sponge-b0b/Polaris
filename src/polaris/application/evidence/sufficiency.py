@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Protocol
 from uuid import UUID, uuid4
@@ -422,6 +422,31 @@ def _new_assessment(
         result=evaluation.result,
         no_requirements_witness=evaluation.no_requirements_witness,
         reassesses_assessment_id=command.reassesses_assessment_id,
+    )
+
+
+def rederive_evidence_assessment(
+    assessment: EvidenceSufficiencyAssessment,
+    basis: EvidenceSufficiencyBasis,
+    *,
+    effective_at: datetime,
+    known_at: datetime,
+) -> EvidenceSufficiencyAssessment:
+    """Derive the complete assertion from one authoritative basis and boundary."""
+    evaluation = evaluate_evidence_sufficiency(
+        basis.requirement_version,
+        assessment.applicability_key,
+        basis.interpretations,
+        effective_at=effective_at,
+        known_at=known_at,
+    )
+    return replace(
+        assessment,
+        support_version=basis.support_version,
+        basis_guards=basis.guards,
+        requirement_assessments=evaluation.requirement_assessments,
+        result=evaluation.result,
+        no_requirements_witness=evaluation.no_requirements_witness,
     )
 
 

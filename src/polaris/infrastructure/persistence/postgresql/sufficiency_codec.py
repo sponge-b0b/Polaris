@@ -65,6 +65,7 @@ from .codec_support import (
     canonical_json_fingerprint,
     iso_aware_datetime,
     json_object,
+    json_safe,
     nonempty_string,
     uuid_value,
 )
@@ -125,6 +126,21 @@ def sufficiency_assessment_values(
             else None
         ),
     }
+
+
+def sufficiency_assessment_snapshot_payload(
+    assessment: EvidenceSufficiencyAssessment,
+) -> JsonObject:
+    return cast(JsonObject, json_safe(sufficiency_assessment_values(assessment)))
+
+
+def sufficiency_assessment_snapshot_from_payload(
+    payload: JsonObject,
+) -> EvidenceSufficiencyAssessment:
+    values = dict(payload)
+    for field in ("effective_at", "known_at", "recorded_at"):
+        values[field] = iso_aware_datetime(values.get(field), field)
+    return sufficiency_assessment_from_row(cast(RowMapping, values))
 
 
 def sufficiency_assessment_from_row(row: RowMapping) -> EvidenceSufficiencyAssessment:
@@ -694,6 +710,8 @@ def _integer(value: object, field: str) -> int:
 
 __all__ = [
     "sufficiency_assessment_from_row",
+    "sufficiency_assessment_snapshot_from_payload",
+    "sufficiency_assessment_snapshot_payload",
     "sufficiency_assessment_values",
     "sufficiency_receipt_from_row",
     "sufficiency_request_fingerprint",

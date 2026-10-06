@@ -14,10 +14,12 @@ from .observations import (
     EvidenceFactRef,
     EvidenceObservation,
     EvidenceObservationId,
+    EvidenceSufficiencyAssessmentId,
 )
 
 if TYPE_CHECKING:
     from .bindings import EvidenceBinding
+    from .sufficiency import EvidenceSufficiencyAssessment
 
 
 class InvalidEvidenceCorrection(ValueError):
@@ -55,6 +57,9 @@ class EvidenceCorrectionBasis:
 
 type EvidenceObservationCorrectionTarget = EvidenceObservationId | EvidenceCorrectionId
 type EvidenceBindingCorrectionTarget = EvidenceBindingId | EvidenceCorrectionId
+type EvidenceAssessmentCorrectionTarget = (
+    EvidenceSufficiencyAssessmentId | EvidenceCorrectionId
+)
 
 
 # duplicate-code: each family has a distinct typed root, target, and replacement;
@@ -114,10 +119,44 @@ class EvidenceBindingCorrection:
             )
 
 
+@dataclass(frozen=True, slots=True)
+class EvidenceAssessmentCorrection:
+    correction_id: EvidenceCorrectionId
+    root_id: EvidenceSufficiencyAssessmentId
+    target: EvidenceAssessmentCorrectionTarget
+    effect: EvidenceCorrectionEffect
+    attribution: ActorAttribution
+    basis: EvidenceCorrectionBasis
+    effective_at: datetime
+    recorded_at: datetime
+    replacement: EvidenceSufficiencyAssessment | None = None
+
+    def __post_init__(self) -> None:
+        from .sufficiency import EvidenceSufficiencyAssessment
+
+        _validate_common_correction(self, EvidenceSufficiencyAssessmentId)
+        _validate_replacement(
+            self.effect, self.replacement, EvidenceSufficiencyAssessment
+        )
+        if self.replacement is not None:
+            if self.replacement.assessment_id != self.root_id:
+                raise InvalidEvidenceCorrection(
+                    "assessment replacement must retain its root identity"
+                )
+            if self.replacement.recorded_at > self.recorded_at:
+                raise InvalidEvidenceCorrection(
+                    "assessment replacement cannot be recorded after its correction"
+                )
+
+
 # arid: enable
 
 
-type EvidenceCorrection = EvidenceObservationCorrection | EvidenceBindingCorrection
+type EvidenceCorrection = (
+    EvidenceObservationCorrection
+    | EvidenceBindingCorrection
+    | EvidenceAssessmentCorrection
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -179,12 +218,44 @@ class EvidenceBindingCorrectionHistory:
     def interpret(
         self, *, effective_at: datetime, known_at: datetime
     ) -> EvidenceInterpretation[EvidenceBinding]:
+        # duplicate-code: typed binding and assessment histories independently
+        # dispatch to their own interpretation algebra.
+        # arid: disable
         return interpret_evidence_binding(
             self.root,
             corrections=self.corrections,
             effective_at=effective_at,
             known_at=known_at,
         )
+        # arid: enable
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceAssessmentCorrectionHistory:
+    root: EvidenceSufficiencyAssessment
+    corrections: tuple[EvidenceAssessmentCorrection, ...]
+
+    # duplicate-code: each typed history enforces its own root and correction
+    # family; sharing the class body would obscure that domain contract.
+    # arid: disable
+    def __post_init__(self) -> None:
+        from .sufficiency import EvidenceSufficiencyAssessment
+
+        if type(self.root) is not EvidenceSufficiencyAssessment:
+            raise TypeError("root must be EvidenceSufficiencyAssessment")
+        _require_correction_tuple(self.corrections, EvidenceAssessmentCorrection)
+
+    def interpret(
+        self, *, effective_at: datetime, known_at: datetime
+    ) -> EvidenceInterpretation[EvidenceSufficiencyAssessment]:
+        return interpret_evidence_assessment(
+            self.root,
+            corrections=self.corrections,
+            effective_at=effective_at,
+            known_at=known_at,
+        )
+
+    # arid: enable
 
 
 def _require_correction_tuple(
@@ -296,6 +367,55 @@ def interpret_evidence_binding(
         effective_at=effective_at,
         known_at=known_at,
     )
+
+
+def interpret_evidence_assessment(
+    root: EvidenceSufficiencyAssessment,
+    *,
+    corrections: tuple[EvidenceAssessmentCorrection, ...],
+    effective_at: datetime,
+    known_at: datetime,
+) -> EvidenceInterpretation[EvidenceSufficiencyAssessment]:
+    from .sufficiency import EvidenceSufficiencyAssessment
+
+    if type(root) is not EvidenceSufficiencyAssessment:
+        raise TypeError("root must be EvidenceSufficiencyAssessment")
+    return _interpret(
+        root,
+        root_id=root.assessment_id,
+        root_recorded_at=root.recorded_at,
+        root_effective_at=root.effective_at,
+        corrections=corrections,
+        correction_type=EvidenceAssessmentCorrection,
+        root_type=EvidenceSufficiencyAssessmentId,
+        assertion_effective_at=lambda value: value.effective_at,
+        validate_replacement=_validate_assessment_replacement,
+        effective_at=effective_at,
+        known_at=known_at,
+    )
+
+
+def _validate_assessment_replacement(
+    root: EvidenceSufficiencyAssessment,
+    replacement: EvidenceSufficiencyAssessment,
+) -> None:
+    if (
+        replacement.assessment_id != root.assessment_id
+        or replacement.target != root.target
+        or replacement.scope != root.scope
+        or replacement.evidence_use is not root.evidence_use
+        or replacement.applicability_key != root.applicability_key
+        or replacement.requirement_set_id != root.requirement_set_id
+        or replacement.requirement_version_id != root.requirement_version_id
+        or replacement.effective_at != root.effective_at
+        or replacement.known_at != root.known_at
+        or replacement.recorded_at != root.recorded_at
+        or replacement.reassesses_assessment_id != root.reassesses_assessment_id
+    ):
+        raise InvalidEvidenceCorrectionHistory(
+            "assessment correction must retain its attributable boundary "
+            "and exact requirement set/version"
+        )
 
 
 def _validate_binding_replacement(
@@ -587,6 +707,9 @@ def _combine[RootT](
 # export contract; generating one from the other would hide API ownership.
 # arid: disable
 __all__ = [
+    "EvidenceAssessmentCorrection",
+    "EvidenceAssessmentCorrectionHistory",
+    "EvidenceAssessmentCorrectionTarget",
     "EvidenceBindingCorrection",
     "EvidenceBindingCorrectionHistory",
     "EvidenceBindingCorrectionTarget",
@@ -602,5 +725,6 @@ __all__ = [
     "InvalidEvidenceCorrectionHistory",
     "interpret_evidence_observation",
     "interpret_evidence_binding",
+    "interpret_evidence_assessment",
 ]
 # arid: enable

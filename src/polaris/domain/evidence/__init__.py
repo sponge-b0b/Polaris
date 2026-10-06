@@ -8,6 +8,9 @@ from .claims import (
     validate_claim_catalog_history,
 )
 from .corrections import (
+    EvidenceAssessmentCorrection,
+    EvidenceAssessmentCorrectionHistory,
+    EvidenceAssessmentCorrectionTarget,
     EvidenceBindingCorrection,
     EvidenceBindingCorrectionHistory,
     EvidenceBindingCorrectionTarget,
@@ -21,6 +24,7 @@ from .corrections import (
     EvidenceObservationCorrectionTarget,
     InvalidEvidenceCorrection,
     InvalidEvidenceCorrectionHistory,
+    interpret_evidence_assessment,
     interpret_evidence_binding,
     interpret_evidence_observation,
 )
@@ -73,6 +77,9 @@ from .sufficiency_requirements import (
 # exports so callers have one stable import surface.
 # arid: disable
 __all__ = [
+    "EvidenceAssessmentCorrection",
+    "EvidenceAssessmentCorrectionHistory",
+    "EvidenceAssessmentCorrectionTarget",
     "ClaimCatalog",
     "ClaimCatalogRevision",
     "ClaimCatalogVersion",
@@ -132,6 +139,7 @@ __all__ = [
     "is_evidence_judgment_ref",
     "interpret_evidence_observation",
     "interpret_evidence_binding",
+    "interpret_evidence_assessment",
     "validate_claim_catalog_history",
 ]
 # arid: enable

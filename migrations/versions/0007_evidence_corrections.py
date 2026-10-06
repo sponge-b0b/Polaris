@@ -123,7 +123,7 @@ def upgrade() -> None:
         sa.Column("correction_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("family", sa.String(length=32), nullable=False),
         sa.CheckConstraint(
-            "family IN ('observation', 'binding')",
+            "family IN ('observation', 'binding', 'assessment')",
             name=op.f("ck_evidence_correction_identities_family"),
         ),
         sa.PrimaryKeyConstraint(
@@ -184,6 +184,11 @@ def upgrade() -> None:
         "evidence_bindings",
         "binding_id",
     )
+    _create_correction_table(
+        "evidence_assessment_corrections",
+        "evidence_sufficiency_assessments",
+        "assessment_id",
+    )
     op.create_table(
         "evidence_correction_command_receipts",
         sa.Column("row_id", sa.BigInteger(), sa.Identity(), nullable=False),
@@ -206,7 +211,7 @@ def upgrade() -> None:
             name=op.f("ck_evidence_correction_command_receipts_fingerprint_sha256"),
         ),
         sa.CheckConstraint(
-            "family IN ('observation', 'binding')",
+            "family IN ('observation', 'binding', 'assessment')",
             name=op.f("ck_evidence_correction_command_receipts_family"),
         ),
         sa.PrimaryKeyConstraint(
@@ -233,6 +238,7 @@ def upgrade() -> None:
     for table_name in (
         "evidence_observation_corrections",
         "evidence_binding_corrections",
+        "evidence_assessment_corrections",
         "evidence_correction_command_receipts",
         "evidence_correction_identities",
     ):
@@ -251,6 +257,7 @@ def downgrade() -> None:
     for table_name in (
         "evidence_correction_command_receipts",
         "evidence_binding_corrections",
+        "evidence_assessment_corrections",
         "evidence_observation_corrections",
         "evidence_correction_identities",
     ):
@@ -280,5 +287,6 @@ def downgrade() -> None:
     op.execute("DROP FUNCTION polaris_reject_immutable_evidence_correction_mutation()")
     op.drop_table("evidence_correction_command_receipts")
     op.drop_table("evidence_binding_corrections")
+    op.drop_table("evidence_assessment_corrections")
     op.drop_table("evidence_observation_corrections")
     op.drop_table("evidence_correction_identities")

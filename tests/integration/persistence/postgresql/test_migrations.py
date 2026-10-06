@@ -41,6 +41,7 @@ CORRECTION_TABLE_NAMES = {
     "evidence_correction_identities",
     "evidence_observation_corrections",
     "evidence_binding_corrections",
+    "evidence_assessment_corrections",
     "evidence_correction_command_receipts",
 }
 # arid: enable
@@ -384,6 +385,7 @@ def test_evidence_correction_migration_preserves_typed_lineage_constraints(
     for table_name in (
         "evidence_observation_corrections",
         "evidence_binding_corrections",
+        "evidence_assessment_corrections",
     ):
         constraints = asyncio.run(_constraint_names(postgres_target, table_name))
         assert {
@@ -463,4 +465,14 @@ def test_sufficiency_revision_downgrades_to_executable_requirements_and_reupgrad
         "0005_sufficiency_requirements",
         (POLARIS_TABLE_NAMES - SUFFICIENCY_TABLE_NAMES - CORRECTION_TABLE_NAMES)
         | {"alembic_version"},
+    )
+
+
+def test_correction_revision_downgrades_to_assessments_and_reupgrades(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    _assert_revision_round_trip(
+        postgres_target,
+        "0006_sufficiency_assessments",
+        (POLARIS_TABLE_NAMES - CORRECTION_TABLE_NAMES) | {"alembic_version"},
     )

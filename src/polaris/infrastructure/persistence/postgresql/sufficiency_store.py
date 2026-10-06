@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import replace
 from datetime import datetime
 
 from sqlalchemy import func, insert, select, text
@@ -28,6 +27,7 @@ from polaris.application.evidence.sufficiency import (
     EvidenceSufficiencyReplayed,
     EvidenceSufficiencyStaleBasis,
     EvidenceSufficiencyStoreUnavailable,
+    rederive_evidence_assessment,
 )
 from polaris.domain.configuration import EvidenceRequirementApplicabilityKey
 from polaris.domain.decisions import OperationId
@@ -50,7 +50,6 @@ from polaris.domain.evidence.sufficiency import (
     EvidenceRequirementAuthorityGuard,
     EvidenceSufficiencyAssessment,
     EvidenceSufficiencyBasisGuards,
-    evaluate_evidence_sufficiency,
 )
 
 from .binding_codec import binding_from_row
@@ -428,21 +427,11 @@ def _revalidated_assessment(
     commit: EvidenceSufficiencyCommit,
     basis: EvidenceSufficiencyBasis,
 ) -> EvidenceSufficiencyAssessment:
-    assessment = commit.assessment
-    evaluation = evaluate_evidence_sufficiency(
-        basis.requirement_version,
-        commit.request.applicability_key,
-        basis.interpretations,
+    return rederive_evidence_assessment(
+        commit.assessment,
+        basis,
         effective_at=commit.request.effective_at,
         known_at=commit.request.known_at,
-    )
-    return replace(
-        assessment,
-        support_version=basis.support_version,
-        basis_guards=basis.guards,
-        requirement_assessments=evaluation.requirement_assessments,
-        result=evaluation.result,
-        no_requirements_witness=evaluation.no_requirements_witness,
     )
 
 

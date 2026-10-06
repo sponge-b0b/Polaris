@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-05] R3 Evidence sufficiency-assessment correction | #387 contract realized
+
+Realized typed assessment `REVISE | RETRACT` lineage with immutable same-root history, derived complete replacement proof, independent sibling interpretation, and PostgreSQL restart reconstruction. Application excludes caller-authored assessment proof; persistence re-derives and checks authority, support, freshness, and absence at a fresh trusted commit instant before atomic append. Updated Evidence, Application Use Cases, and Durable Persistence knowledge; cross-root current/historical/current-basis queries remain downstream.
+
 ## [2026-10-05] R3 Evidence binding correction | #386 contract realized
 
 Implemented typed append-only binding correction lineage with complete fixed-endpoint replacements, recursive restoration, contested sibling interpretation, exact replay, immutable PostgreSQL history, and correction-aware sufficiency support. Derived sufficiency proof preserves every surviving corrected binding assertion and its assessment-time freshness across persistence restart. Updated Evidence, Application Use Cases, and Durable Persistence knowledge; assessment correction and broader reconstruction remain downstream.

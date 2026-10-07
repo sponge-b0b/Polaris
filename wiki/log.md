@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-07] R3 Evidence current-basis completion | owner versions and seven-category stale mapping
+
+Accepted ADR 0015 to complete target-owner judgment revisions and typed canonical-context version dependencies for exact current Evidence support bases. Target correction retains its root while new judgments receive new roots; materially used context versions and selection/absence guards are revalidated at commit. `StaleEvidenceBasis` keeps ADR 0013's seven categories: positive context drift belongs to `EVIDENCE_SUPPORT_CHANGED` with the exact typed changed reference. Updated Evidence, Application Use Cases, Durable Persistence, Investment Intelligence, Portfolio & Risk, Governance & Authority, and Learning knowledge; implementation and downstream Spec/ticket reconciliation remain pending.
+
 ## [2026-10-06] R3 historical Decision Context and Evidence | #379 query realized
 
 Added a deep Application historical query with explicit Decision/typed target and `(effective_at, known_at)` inputs. It composes canonical Decision and target-owner context separately from observation, binding, and assessment correction histories, retains original derived assessment proof and requirement authority across correction/reassessment, separates retrospective later Evidence, and returns typed complete, partial, contested, invalid, unavailable, and temporal outcomes. PostgreSQL reads complete target Evidence histories within one repeatable-read snapshot. Updated Evidence, Application Use Cases, and Durable Persistence knowledge; current support bases and dependent command revalidation remain downstream.
@@ -23,6 +27,10 @@ Replaced caller-authored dispositions and support subsets with the Evidence-owne
 ## [2026-10-03] R3 executable Evidence-sufficiency requirements | #385 contract realized
 
 Extended immutable Configuration requirement-set versions with the Evidence-owned executable `MinimumEligibleEvidence` predicate, closed eligible-role validation, explicit `REQUIRED | NOT_APPLICABLE` state, and exact negative witnesses derived only from resolved authority. PostgreSQL now round-trips the typed definition and defends its JSON shape in the committed migration lineage. This ticket establishes the requirement contract and witness foundation; Evidence selection, sufficiency evaluation, assessment persistence, and reconstruction remain assigned to downstream tickets.
+
+## [2026-10-02] R3 Evidence sufficiency entailment | executable predicate and proof contract frozen
+
+Accepted ADR 0014 to close the in-domain Configuration-to-Evidence omission exposed during Spec #357 implementation. Configuration now supplies immutable typed `MinimumEligibleEvidence` values and explicit applicability authority while Evidence derives dispositions from the complete interpreted binding universe, counts distinct observations, preserves contributor and deficiency proof, and requires exact per-requirement or zero-definition negative witnesses. Commit-time assessment revalidation remains atomic across requirement authority, binding/correction history, support versions, temporal freshness, and relied-upon absence. Updated the affected Evidence, Configuration, Application Use Cases, and Durable Persistence knowledge; implementation remains pending.
 
 ## [2026-10-01] R3 Evidence binding freshness | #376 contract realized
 

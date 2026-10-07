@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-07] R3 Evidence current-basis completion | owner versions and seven-category stale mapping
+
+Accepted ADR 0015 to complete target-owner judgment revisions and typed canonical-context version dependencies for exact current Evidence support bases. Target correction retains its root while new judgments receive new roots; materially used context versions and selection/absence guards are revalidated at commit. `StaleEvidenceBasis` keeps ADR 0013's seven categories: positive context drift belongs to `EVIDENCE_SUPPORT_CHANGED` with the exact typed changed reference. Updated Evidence, Application Use Cases, Durable Persistence, Investment Intelligence, Portfolio & Risk, Governance & Authority, and Learning knowledge; implementation and downstream Spec/ticket reconciliation remain pending.
+
 ## [2026-10-02] R3 Evidence sufficiency entailment | executable predicate and proof contract frozen
 
 Accepted ADR 0014 to close the in-domain Configuration-to-Evidence omission exposed during Spec #357 implementation. Configuration now supplies immutable typed `MinimumEligibleEvidence` values and explicit applicability authority while Evidence derives dispositions from the complete interpreted binding universe, counts distinct observations, preserves contributor and deficiency proof, and requires exact per-requirement or zero-definition negative witnesses. Commit-time assessment revalidation remains atomic across requirement authority, binding/correction history, support versions, temporal freshness, and relied-upon absence. Updated the affected Evidence, Configuration, Application Use Cases, and Durable Persistence knowledge; implementation remains pending.

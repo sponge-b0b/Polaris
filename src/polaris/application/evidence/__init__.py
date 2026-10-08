@@ -84,6 +84,18 @@ from .corrections import (
     RecordEvidenceObservationCorrectionCommand,
 )
 from .freshness import evaluate_binding_freshness
+from .judgment_versions import (
+    ResolvedTargetJudgment,
+    TargetJudgmentContested,
+    TargetJudgmentInvalidHistory,
+    TargetJudgmentMissing,
+    TargetJudgmentOwnerReader,
+    TargetJudgmentOwnerReadUnavailable,
+    TargetJudgmentResolution,
+    TargetJudgmentResolver,
+    TargetJudgmentUnavailable,
+    TargetJudgmentWithdrawn,
+)
 from .observations import EvidenceObservationService
 from .reconstruction import (
     CompleteReconstruction,
@@ -167,6 +179,16 @@ from .sufficiency import (
 __all__ = [
     "CompleteReconstruction",
     "ContestedReconstruction",
+    "ResolvedTargetJudgment",
+    "TargetJudgmentContested",
+    "TargetJudgmentInvalidHistory",
+    "TargetJudgmentMissing",
+    "TargetJudgmentOwnerReader",
+    "TargetJudgmentOwnerReadUnavailable",
+    "TargetJudgmentResolution",
+    "TargetJudgmentResolver",
+    "TargetJudgmentUnavailable",
+    "TargetJudgmentWithdrawn",
     "EvidenceHistories",
     "EvidenceReconstructionResult",
     "HistoricalDecisionContext",

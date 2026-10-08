@@ -1,0 +1,222 @@
+name: ChatGPT to-tickets owner admission fix
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/chatgpt-to-tickets-owner-admission.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    if: github.event.head_commit.message == 'chore(workflow): bootstrap to-tickets owner admission'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Patch canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('.agents/skills/to-tickets/SKILL.md')
+          text = path.read_text()
+          marker = '## Execution Budget and Independence Boundary\n'
+          heading = '## Delegated Owner Result Admission Gate\n'
+          if heading in text:
+              raise SystemExit('delegated-owner gate already present')
+          if text.count(marker) != 1:
+              raise SystemExit(f'expected exactly one insertion marker, found {text.count(marker)}')
+
+          section = r'''## Delegated Owner Result Admission Gate
+
+Named child skills prescribed by this workflow are lifecycle owners, not reference material. When `$to-tickets` says to invoke a child skill, successful internal composition requires the child to execute and its returned result to be admitted by the parent. Reading the child `SKILL.md`, querying the same durable inputs, reproducing the child's algorithm, or independently deriving an equivalent-looking answer does **not** satisfy invocation and may not substitute for the child result.
+
+This gate is transition-bound. It does not add a Human Handoff: prescribed child skills still run as internal composition and return normally to `$to-tickets`.
+
+### Project-delivery result admission
+
+For every Wayfinder-managed Spec subject to the **Project Delivery Actionability Guard**:
+
+1. invoke `$project-delivery-management reconcile` and receive its terminal result;
+2. invoke `$project-delivery-management guard <Wayfinder>` for every governing Wayfinder and receive each terminal guard result;
+3. require at least one exact returned `PROJECT DELIVERY GUARD: ALLOWED` result before substantive ticket composition may continue.
+
+Record this working witness before drafting, remediation reconciliation, branch setup, or tracker/repository mutation:
+
+```text
+Project-delivery reconcile result received: yes
+Project-delivery guard result(s) received: <n>/<n governing Wayfinders>
+At least one exact PROJECT DELIVERY GUARD: ALLOWED: yes
+Manual project-delivery reconstruction used as substitute: no
+```
+
+A manually reconstructed focus/frontier/singleton answer is diagnostic context only. It cannot populate this witness. Missing, pending, malformed, or non-ALLOWED required child results fail closed under the existing Project Delivery Actionability Guard.
+
+### Existing-ticket remediation result admission
+
+When mode routing determines that an ordinary Spec already has linked implementation tickets, does not qualify for `manifest-reconciliation`, and therefore requires substantive existing-ticket reconciliation:
+
+1. invoke `$to-remediation-tickets` as internal composition with the exact current Spec and all validated decomposition-defect inputs that apply;
+2. receive the child's complete returned delta, including its Semantic-Consumer Impact Matrix when that guard applies and any architecture-blocked/live-WIP classifications it returns;
+3. bind that result to the same current source Spec state used for proposal construction.
+
+Before `$to-tickets` may construct or freeze a substantive proposal, require:
+
+```text
+Remediation owner invoked: $to-remediation-tickets
+Remediation result payload received: yes
+Remediation result source/current-Spec state match: yes
+Required semantic-consumer impact result present: yes | not-applicable
+Manual remediation-delta reconstruction used as substitute: no
+```
+
+The returned delta is the authoritative semantic input. `$to-tickets` may perform only the parent-owned presentation, coverage, readiness, verification, approval, and publication work allowed by the child contract; it may not replace the returned delta with a parent-derived ticket set, dependency graph, supersession decision, or semantic-consumer analysis even when the independently derived result appears equivalent.
+
+If the child result is missing, pending, malformed, bound to stale source state, or reports a blocking condition, stop at that owning boundary. Do not dispatch `$verify-ticket-decomposition`, claim `TICKET PROPOSAL READINESS: PASS`, request human approval, or publish tickets from a parent-simulated remediation result.
+
+### Proposal-readiness reachability
+
+For every substantive proposal to which either delegated owner above applies, parent readiness additionally requires:
+
+```text
+Applicable delegated-owner result admissions complete: yes
+Manual delegated-owner simulation used as substitute: no
+```
+
+If either line cannot be proven from actual returned child payloads in the current invocation, proposal readiness is unreachable. Human approval cannot waive this gate.
+
+'''
+          path.write_text(text.replace(marker, section + marker, 1))
+          PY
+
+          rm .github/workflows/chatgpt-to-tickets-owner-admission.yml
+
+          test "$(git status --short | wc -l)" -eq 2
+          git status --short | grep -F ' M .agents/skills/to-tickets/SKILL.md'
+          git status --short | grep -F ' D .github/workflows/chatgpt-to-tickets-owner-admission.yml'
+
+          git add .agents/skills/to-tickets/SKILL.md .github/workflows/chatgpt-to-tickets-owner-admission.yml
+          git commit -m "fix(workflow): enforce delegated owner admission"
+          git push origin HEAD:main
+
+      - name: Propagate exact skill fix to spec-357
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAIN_SKILL_BLOB=$(git rev-parse HEAD:.agents/skills/to-tickets/SKILL.md)
+
+          git fetch origin spec-357
+          git checkout -B spec-357 origin/spec-357
+
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('.agents/skills/to-tickets/SKILL.md')
+          text = path.read_text()
+          marker = '## Execution Budget and Independence Boundary\n'
+          heading = '## Delegated Owner Result Admission Gate\n'
+          if heading in text:
+              raise SystemExit('delegated-owner gate already present on spec-357')
+          if text.count(marker) != 1:
+              raise SystemExit(f'expected exactly one insertion marker, found {text.count(marker)}')
+
+          section = r'''## Delegated Owner Result Admission Gate
+
+Named child skills prescribed by this workflow are lifecycle owners, not reference material. When `$to-tickets` says to invoke a child skill, successful internal composition requires the child to execute and its returned result to be admitted by the parent. Reading the child `SKILL.md`, querying the same durable inputs, reproducing the child's algorithm, or independently deriving an equivalent-looking answer does **not** satisfy invocation and may not substitute for the child result.
+
+This gate is transition-bound. It does not add a Human Handoff: prescribed child skills still run as internal composition and return normally to `$to-tickets`.
+
+### Project-delivery result admission
+
+For every Wayfinder-managed Spec subject to the **Project Delivery Actionability Guard**:
+
+1. invoke `$project-delivery-management reconcile` and receive its terminal result;
+2. invoke `$project-delivery-management guard <Wayfinder>` for every governing Wayfinder and receive each terminal guard result;
+3. require at least one exact returned `PROJECT DELIVERY GUARD: ALLOWED` result before substantive ticket composition may continue.
+
+Record this working witness before drafting, remediation reconciliation, branch setup, or tracker/repository mutation:
+
+```text
+Project-delivery reconcile result received: yes
+Project-delivery guard result(s) received: <n>/<n governing Wayfinders>
+At least one exact PROJECT DELIVERY GUARD: ALLOWED: yes
+Manual project-delivery reconstruction used as substitute: no
+```
+
+A manually reconstructed focus/frontier/singleton answer is diagnostic context only. It cannot populate this witness. Missing, pending, malformed, or non-ALLOWED required child results fail closed under the existing Project Delivery Actionability Guard.
+
+### Existing-ticket remediation result admission
+
+When mode routing determines that an ordinary Spec already has linked implementation tickets, does not qualify for `manifest-reconciliation`, and therefore requires substantive existing-ticket reconciliation:
+
+1. invoke `$to-remediation-tickets` as internal composition with the exact current Spec and all validated decomposition-defect inputs that apply;
+2. receive the child's complete returned delta, including its Semantic-Consumer Impact Matrix when that guard applies and any architecture-blocked/live-WIP classifications it returns;
+3. bind that result to the same current source Spec state used for proposal construction.
+
+Before `$to-tickets` may construct or freeze a substantive proposal, require:
+
+```text
+Remediation owner invoked: $to-remediation-tickets
+Remediation result payload received: yes
+Remediation result source/current-Spec state match: yes
+Required semantic-consumer impact result present: yes | not-applicable
+Manual remediation-delta reconstruction used as substitute: no
+```
+
+The returned delta is the authoritative semantic input. `$to-tickets` may perform only the parent-owned presentation, coverage, readiness, verification, approval, and publication work allowed by the child contract; it may not replace the returned delta with a parent-derived ticket set, dependency graph, supersession decision, or semantic-consumer analysis even when the independently derived result appears equivalent.
+
+If the child result is missing, pending, malformed, bound to stale source state, or reports a blocking condition, stop at that owning boundary. Do not dispatch `$verify-ticket-decomposition`, claim `TICKET PROPOSAL READINESS: PASS`, request human approval, or publish tickets from a parent-simulated remediation result.
+
+### Proposal-readiness reachability
+
+For every substantive proposal to which either delegated owner above applies, parent readiness additionally requires:
+
+```text
+Applicable delegated-owner result admissions complete: yes
+Manual delegated-owner simulation used as substitute: no
+```
+
+If either line cannot be proven from actual returned child payloads in the current invocation, proposal readiness is unreachable. Human approval cannot waive this gate.
+
+'''
+          path.write_text(text.replace(marker, section + marker, 1))
+          PY
+
+          test "$(git status --short | wc -l)" -eq 1
+          git status --short | grep -F ' M .agents/skills/to-tickets/SKILL.md'
+
+          SPEC_SKILL_BLOB=$(git hash-object .agents/skills/to-tickets/SKILL.md)
+          test "$SPEC_SKILL_BLOB" = "$MAIN_SKILL_BLOB"
+
+          git add .agents/skills/to-tickets/SKILL.md
+          git commit -m "fix(workflow): enforce delegated owner admission"
+          git push origin HEAD:spec-357
+
+      - name: Verify exact propagation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main spec-357
+          MAIN_BLOB=$(git rev-parse origin/main:.agents/skills/to-tickets/SKILL.md)
+          SPEC_BLOB=$(git rev-parse origin/spec-357:.agents/skills/to-tickets/SKILL.md)
+          test "$MAIN_BLOB" = "$SPEC_BLOB"
+          if git ls-tree -r --name-only origin/main | grep -Fx '.github/workflows/chatgpt-to-tickets-owner-admission.yml'; then
+            echo 'temporary workflow still present on main' >&2
+            exit 1
+          fi
+          echo "main_skill_blob=$MAIN_BLOB"
+          echo "spec_skill_blob=$SPEC_BLOB"

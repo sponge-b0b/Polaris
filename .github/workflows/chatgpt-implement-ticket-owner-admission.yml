@@ -1,0 +1,45 @@
+name: ChatGPT apply implement-ticket owner admission fix
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/chatgpt-implement-ticket-owner-admission.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+      - name: Apply bounded skill fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python - <<'PY'
+          import base64
+          from pathlib import Path
+          path = Path('.agents/skills/implement-ticket/SKILL.md')
+          text = path.read_text()
+          marker = '### Ticket Baseline Guard\n'
+          heading = '### Project-delivery result admission\n'
+          if heading in text:
+              raise SystemExit('delegated-owner gate already present')
+          if text.count(marker) != 1:
+              raise SystemExit(f'expected exactly one insertion marker, found {text.count(marker)}')
+          section = base64.b64decode('IyMjIFByb2plY3QtZGVsaXZlcnkgcmVzdWx0IGFkbWlzc2lvbgoKVGhlIGBQcm9qZWN0IERlbGl2ZXJ5IEFjdGlvbmFiaWxpdHkgR3VhcmRgIGlzIGEgZGVsZWdhdGVkLW93bmVyIGJvdW5kYXJ5LCBub3QgYSBjaGVja2xpc3QgdGhhdCBgJGltcGxlbWVudC10aWNrZXRgIG1heSByZXByb2R1Y2UgaXRzZWxmLiBGb3IgZXZlcnkgV2F5ZmluZGVyLW1hbmFnZWQgcGFyZW50IFNwZWMsIHN1Y2Nlc3NmdWwgZ3VhcmQgZXhlY3V0aW9uIHJlcXVpcmVzIHRoZSBwcmVzY3JpYmVkIGNoaWxkIHdvcmtmbG93IHRvIGV4ZWN1dGUgYW5kIGl0cyByZXR1cm5lZCB0ZXJtaW5hbCByZXN1bHRzIHRvIGJlIGFkbWl0dGVkIGJ5IHRoaXMgaW52b2NhdGlvbi4KCkJlZm9yZSBUaWNrZXQtYmFzZWxpbmUgcGVyc2lzdGVuY2UsIGltcGxlbWVudGF0aW9uLCB2ZXJpZmljYXRpb24sIG9yIGFueSBzdWJzdGFudGl2ZSB0cmFja2VyL3JlcG9zaXRvcnkgbXV0YXRpb24sIHJlcXVpcmU6CgpgYGB0ZXh0ClByb2plY3QtZGVsaXZlcnkgcmVjb25jaWxlIHJlc3VsdCByZWNlaXZlZDogeWVzClByb2plY3QtZGVsaXZlcnkgZ3VhcmQgcmVzdWx0KHMpIHJlY2VpdmVkOiA8bj4vPG4gZ292ZXJuaW5nIFdheWZpbmRlcnM+CkF0IGxlYXN0IG9uZSBleGFjdCBQUk9KRUNUIERFTElWRVJZIEdVQVJEOiBBTExPV0VEOiB5ZXMKTWFudWFsIHByb2plY3QtZGVsaXZlcnkgcmVjb25zdHJ1Y3Rpb24gdXNlZCBhcyBzdWJzdGl0dXRlOiBubwpgYGAKClJ1bGVzOgoKKiBhY3R1YWxseSBpbnZva2UgYCRwcm9qZWN0LWRlbGl2ZXJ5LW1hbmFnZW1lbnQgcmVjb25jaWxlYCBhbmQgcmVjZWl2ZSBpdHMgdGVybWluYWwgcmVzdWx0OwoqIGFjdHVhbGx5IGludm9rZSBgJHByb2plY3QtZGVsaXZlcnktbWFuYWdlbWVudCBndWFyZCA8V2F5ZmluZGVyPmAgZm9yIGV2ZXJ5IGdvdmVybmluZyBXYXlmaW5kZXIgYW5kIHJlY2VpdmUgZWFjaCB0ZXJtaW5hbCBndWFyZCByZXN1bHQ7CiogY2FwdHVyZSBgTW9kZTogcHJlLWJvb3RzdHJhcGAgb25seSBmcm9tIHRoZSBhZG1pdHRlZCByZXR1cm5lZCBndWFyZCByZXN1bHQgd2hlbiB0aGF0IG1vZGUgYXBwbGllczsKKiByZWFkaW5nIHRoZSBjaGlsZCBgU0tJTEwubWRgLCBpbnNwZWN0aW5nIHRoZSBtYW5hZ2VtZW50IHNpbmdsZXRvbiwgcXVlcnlpbmcgZm9jdXMvZnJvbnRpZXIvYmxvY2tlciBzdGF0ZSwgb3IgaW5kZXBlbmRlbnRseSByZXByb2R1Y2luZyB0aGUgY2hpbGQncyBhbGdvcml0aG0gaXMgZGlhZ25vc3RpYyBjb250ZXh0IG9ubHkgYW5kICoqY2Fubm90KiogcG9wdWxhdGUgdGhpcyB3aXRuZXNzIG9yIHN1YnN0aXR1dGUgZm9yIGludm9jYXRpb247CiogbWlzc2luZywgcGVuZGluZywgbWFsZm9ybWVkLCBzdGFsZS1zb3VyY2UsIG9yIG5vbi1BTExPV0VEIHJlcXVpcmVkIGNoaWxkIHJlc3VsdHMgZmFpbCBjbG9zZWQgdW5kZXIgdGhlIGV4aXN0aW5nIGd1YXJkOwoqIHRoZSBzYW1lIGFkbWlzc2lvbiByZXF1aXJlbWVudCBhcHBsaWVzIG9uIGV2ZXJ5IHJlc3VtZWQgaHVtYW4gaW52b2NhdGlvbiBhbmQgdG8gdGhlIFNlY3Rpb24gNCBwcm9qZWN0LWRlbGl2ZXJ5IHJlLXJ1biBiZWZvcmUgcGVyc2lzdGVuY2UvY2xvc3VyZS4KClVudGlsIHRoaXMgd2l0bmVzcyBpcyBjb21wbGV0ZSBmcm9tIGFjdHVhbCByZXR1cm5lZCBjaGlsZCBwYXlsb2FkcywgdGhlIFRpY2tldCBCYXNlbGluZSBHdWFyZCBhbmQgYWxsIGxhdGVyIGltcGxlbWVudGF0aW9uIGxpZmVjeWNsZSB0cmFuc2l0aW9ucyBhcmUgdW5yZWFjaGFibGUuIEEgaHVtYW4gaW5zdHJ1Y3Rpb24gdG8gY29udGludWUgZG9lcyBub3Qgd2FpdmUgZGVsZWdhdGVkLW93bmVyIGFkbWlzc2lvbi4KCg==').decode()
+          path.write_text(text.replace(marker, section + marker, 1))
+          PY
+          git diff --check
+          test "$(git diff --name-only)" = ".agents/skills/implement-ticket/SKILL.md"
+          git add .agents/skills/implement-ticket/SKILL.md
+          git commit -m "fix(workflow): enforce implement-ticket owner admission"
+          git push origin HEAD:main

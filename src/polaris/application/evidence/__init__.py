@@ -37,6 +37,18 @@ from .claims import (
     UnavailableClaimCatalog,
     resolve_claim_membership,
 )
+from .context_versions import (
+    CompleteContextSelection,
+    ContextContribution,
+    ContextNoBasis,
+    ContextNoBasisReason,
+    ContextOwnerReader,
+    ContextOwnerReadUnavailable,
+    ContextOwnerResult,
+    ContextSelectionResolver,
+    ResolvedContextSelection,
+    SelectedContextFact,
+)
 from .contracts import (
     EvidenceApplicationError,
     EvidenceCommandReadUnavailable,
@@ -177,6 +189,16 @@ from .sufficiency import (
 )
 
 __all__ = [
+    "CompleteContextSelection",
+    "ContextContribution",
+    "ContextNoBasis",
+    "ContextNoBasisReason",
+    "ContextOwnerReader",
+    "ContextOwnerReadUnavailable",
+    "ContextOwnerResult",
+    "ContextSelectionResolver",
+    "ResolvedContextSelection",
+    "SelectedContextFact",
     "CompleteReconstruction",
     "ContestedReconstruction",
     "ResolvedTargetJudgment",

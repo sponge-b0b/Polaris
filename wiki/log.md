@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-08] R3 canonical context version and selection contract | #389 owner boundary realized
+
+Added closed owner-specific context reference values, exact BasisScopeKey selection guards with owner-specific typed relationship and selection-universe witnesses, and an inward context owner-read boundary with complete role attestations and typed no-basis outcomes. Kept context fact ownership and current-basis assembly downstream. Updated Evidence and Application Use Cases knowledge.
+
 ## [2026-10-07] R3 target-owner judgment version contract | #388 owner boundary realized
 
 Added the closed ten-family target judgment version values and an inward owner-read contract with explicit historical cutoffs and distinct fail-closed results. Evidence and Application consume owner-issued meaning without persisting downstream judgment facts or creating revisions. Updated Evidence and Application Use Cases knowledge; current-basis assembly remains downstream.

@@ -642,6 +642,30 @@ That exception:
 * expires when this ticket closes;
 * may not authorize any downstream human lifecycle or handoff after activation.
 
+### Project-delivery result admission
+
+The `Project Delivery Actionability Guard` is a delegated-owner boundary, not a checklist that `$implement-ticket` may reproduce itself. For every Wayfinder-managed parent Spec, successful guard execution requires the prescribed child workflow to execute and its returned terminal results to be admitted by this invocation.
+
+Before Ticket-baseline persistence, implementation, verification, or any substantive tracker/repository mutation, require:
+
+```text
+Project-delivery reconcile result received: yes
+Project-delivery guard result(s) received: <n>/<n governing Wayfinders>
+At least one exact PROJECT DELIVERY GUARD: ALLOWED: yes
+Manual project-delivery reconstruction used as substitute: no
+```
+
+Rules:
+
+* actually invoke `$project-delivery-management reconcile` and receive its terminal result;
+* actually invoke `$project-delivery-management guard <Wayfinder>` for every governing Wayfinder and receive each terminal guard result;
+* capture `Mode: pre-bootstrap` only from the admitted returned guard result when that mode applies;
+* reading the child `SKILL.md`, inspecting the management singleton, querying focus/frontier/blocker state, or independently reproducing the child's algorithm is diagnostic context only and **cannot** populate this witness or substitute for invocation;
+* missing, pending, malformed, stale-source, or non-ALLOWED required child results fail closed under the existing guard;
+* the same admission requirement applies on every resumed human invocation and to the Section 4 project-delivery re-run before persistence/closure.
+
+Until this witness is complete from actual returned child payloads, the Ticket Baseline Guard and all later implementation lifecycle transitions are unreachable. A human instruction to continue does not waive delegated-owner admission.
+
 ### Ticket Baseline Guard
 
 **Ticket baseline** is the durable per-ticket verification anchor, distinct from the Spec baseline.

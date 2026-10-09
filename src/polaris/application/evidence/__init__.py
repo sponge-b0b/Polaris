@@ -95,6 +95,22 @@ from .corrections import (
     RecordEvidenceCorrectionCommand,
     RecordEvidenceObservationCorrectionCommand,
 )
+from .current_basis import (
+    ClaimMembershipGuard,
+    CurrentEvidenceBasis,
+    CurrentEvidenceBasisQuery,
+    CurrentEvidenceBasisResult,
+    CurrentEvidenceGuards,
+    CurrentEvidenceHistoryReader,
+    CurrentEvidenceNoBasis,
+    CurrentEvidenceSelection,
+    CurrentNoBasisReason,
+    CurrentSufficiencyReader,
+    EvidenceHistoryIncomplete,
+    EvidenceHistoryInvalid,
+    RequirementKeyOwnerReader,
+    ResolvedRequirementKey,
+)
 from .freshness import evaluate_binding_freshness
 from .judgment_versions import (
     ResolvedTargetJudgment,
@@ -190,6 +206,20 @@ from .sufficiency import (
 from .support_epochs import EvidenceSupportEpochReader
 
 __all__ = [
+    "ClaimMembershipGuard",
+    "CurrentEvidenceBasis",
+    "CurrentEvidenceBasisQuery",
+    "CurrentEvidenceBasisResult",
+    "CurrentEvidenceGuards",
+    "CurrentEvidenceHistoryReader",
+    "CurrentEvidenceNoBasis",
+    "CurrentEvidenceSelection",
+    "CurrentNoBasisReason",
+    "CurrentSufficiencyReader",
+    "EvidenceHistoryIncomplete",
+    "EvidenceHistoryInvalid",
+    "RequirementKeyOwnerReader",
+    "ResolvedRequirementKey",
     "EvidenceSupportEpochReader",
     "CompleteContextSelection",
     "ContextContribution",

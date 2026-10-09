@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-08] R3 current Evidence support basis | #380 scoped read realized
+
+Added an Application current-basis query that returns owner-attested Decision, judgment, context, claim, requirement, sufficiency, and Evidence support at exact `T=K`, with typed guards and fail-closed no-basis outcomes. PostgreSQL supplies complete exact target/scope/use Evidence histories in a repeatable-read snapshot. Updated Evidence, Application Use Cases, and Durable Persistence knowledge; dependent-command revalidation remains downstream.
+
 ## [2026-10-08] R3 scope-local Evidence support epochs | #390 persistence and read boundary realized
 
 Extended the durable target/scope/use epoch beyond bindings and corrections to assessment/reassessment and bound observation succession commits. One typed inward read capability exposes the stored epoch without Decision identity; future-only or unrelated keys remain isolated. Updated Durable Persistence knowledge.

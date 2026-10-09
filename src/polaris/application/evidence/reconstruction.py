@@ -38,7 +38,7 @@ from polaris.domain.evidence.corrections import InvalidEvidenceCorrectionHistory
 from polaris.domain.evidence.observations import EvidenceObservation
 from polaris.domain.evidence.sufficiency import (
     EvidenceSufficiencyAssessment,
-    matches_assessment_requirement_version,
+    matches_historical_assessment_requirement_version,
 )
 
 from .claims import (
@@ -700,11 +700,7 @@ class HistoricalEvidenceQuery[TargetFactT]:
                 ("assessment requirement authority is missing",)
             )
         version = authority.version
-        if (
-            not matches_assessment_requirement_version(root, version)
-            or version.effective_at > root.effective_at
-            or version.recorded_at > root.known_at
-        ):
+        if not matches_historical_assessment_requirement_version(root, version):
             return ReconstructionInvalidHistory(
                 "assessment does not retain its historical requirement version"
             )

@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import replace
 from datetime import UTC, datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from polaris.application.evidence import (
     EvidenceRequirementResolver,
@@ -12,8 +12,12 @@ from polaris.application.evidence import (
     RecordEvidenceSufficiencyAssessmentCommand,
 )
 from polaris.domain.actors import ActorId, KnownActorAttribution
-from polaris.domain.decisions import OperationId
-from polaris.domain.evidence import EvidenceInterpretationState
+from polaris.domain.decisions import InvestmentDecisionId, OperationId
+from polaris.domain.evidence import (
+    BasisScopeKey,
+    EvidenceInterpretationState,
+    EvidenceUse,
+)
 from polaris.infrastructure.persistence.postgresql import (
     PostgresEvidenceBindingStore,
     PostgresEvidenceRequirementStore,
@@ -88,9 +92,21 @@ def test_historical_store_loads_complete_target_roots_from_one_snapshot(
             store,
         ):
             histories = await store.load_target_histories(key.target)
+            scope = BasisScopeKey(
+                InvestmentDecisionId(uuid4()),
+                key.target,
+                key.scope,
+                key.evidence_use,
+            )
+            current = await store.load_scope_histories(scope, at=COMMITTED)
+            other_use = await store.load_scope_histories(
+                replace(scope, use=EvidenceUse.CHALLENGE_BASIS), at=COMMITTED
+            )
         assert len(histories.observations) == 1
         assert len(histories.bindings) == 1
         assert len(histories.assessments) == 1
+        assert current == histories
+        assert other_use == type(histories)((), (), ())
         assert histories.bindings[0].root.observation_id == (
             histories.observations[0].root.observation_id
         )

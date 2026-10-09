@@ -698,6 +698,18 @@ def matches_assessment_requirement_version(
     ) and version.applicability.matches(assessment.applicability_key)
 
 
+def matches_historical_assessment_requirement_version(
+    assessment: EvidenceSufficiencyAssessment,
+    version: EvidenceRequirementSetVersion,
+) -> bool:
+    """Check an assessment's immutable authority at its original T=K boundary."""
+    return (
+        matches_assessment_requirement_version(assessment, version)
+        and version.effective_at <= assessment.effective_at
+        and version.recorded_at <= assessment.known_at
+    )
+
+
 def evaluate_evidence_sufficiency(
     version: EvidenceRequirementSetVersion,
     applicability_key: EvidenceRequirementApplicabilityKey,

@@ -170,8 +170,14 @@ class DecisionMemoryService:
         self._now = now or (lambda: datetime.now(UTC))
 
     async def current(self, decision_id: InvestmentDecisionId) -> DecisionMemoryView:
+        return await self.current_at(decision_id, at=self._now())
+
+    async def current_at(
+        self, decision_id: InvestmentDecisionId, *, at: datetime
+    ) -> DecisionMemoryView:
+        """Read a versioned Decision at an explicit current observation instant."""
         _decision_id(decision_id)
-        boundary = _boundary(self._now(), "now")
+        boundary = _boundary(at, "at")
         current = await _read(
             self._reader.load_current_decision_state(
                 decision_id,

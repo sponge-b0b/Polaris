@@ -345,7 +345,6 @@ async def _interpretation_for_key(
         binding.target != applicability_key.target
         or binding.scope != applicability_key.scope
         or binding.evidence_use is not applicability_key.evidence_use
-        or binding.freshness.basis.applicability_key != applicability_key
     ):
         return None
     binding_history = await _load_binding_history(connection, binding.binding_id)
@@ -356,6 +355,15 @@ async def _interpretation_for_key(
     if corrected.state in (
         EvidenceInterpretationState.NOT_KNOWN,
         EvidenceInterpretationState.NOT_EFFECTIVE,
+    ):
+        return None
+    if (
+        not any(
+            value.freshness.basis.applicability_key == applicability_key
+            for value in corrected.assertions
+        )
+        if corrected.assertions
+        else binding.freshness.basis.applicability_key != applicability_key
     ):
         return None
     observed = history.interpret(effective_at=effective_at, known_at=known_at)

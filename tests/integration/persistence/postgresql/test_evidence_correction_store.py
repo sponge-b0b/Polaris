@@ -26,8 +26,14 @@ from polaris.application.evidence import (
     RecordEvidenceSufficiencyAssessmentCommand,
 )
 from polaris.domain.actors import UnknownActorAttribution
-from polaris.domain.decisions import OperationId
+from polaris.domain.configuration import (
+    EvidenceRequirementSetId,
+    EvidenceRequirementSetVersionId,
+    InvestmentHorizon,
+)
+from polaris.domain.decisions import InvestmentDecisionId, OperationId
 from polaris.domain.evidence import (
+    BasisScopeKey,
     EvidenceBindingId,
     EvidenceCorrectionBasis,
     EvidenceCorrectionEffect,
@@ -54,6 +60,7 @@ from polaris.infrastructure.persistence.postgresql import (
     PostgresEvidenceRequirementStore,
     PostgresEvidenceStore,
     PostgresEvidenceSufficiencyStore,
+    PostgresHistoricalEvidenceStore,
 )
 from polaris.infrastructure.persistence.postgresql.schema import (
     evidence_binding_corrections,
@@ -63,7 +70,12 @@ from polaris.infrastructure.persistence.postgresql.schema import (
     evidence_support_versions,
 )
 from tests.binding_support import BINDING_ID, binding_command, binding_service
-from tests.configuration_support import requirement_key, requirement_version
+from tests.configuration_support import (
+    SECOND_VERSION_ID,
+    requirement_assignment_for_key,
+    requirement_key,
+    requirement_version,
+)
 from tests.evidence_support import (
     OBSERVATION_ID,
     SECOND_OBSERVATION_ID,
@@ -343,6 +355,23 @@ def test_backdated_binding_revision_enters_sufficiency_universe(
             )
         # arid: enable
         basis = await _load_current_basis(postgres_target)
+        key = requirement_key()
+        scope = BasisScopeKey(
+            InvestmentDecisionId(UUID("00000000-0000-4000-8000-000000000a41")),
+            key.target,
+            key.scope,
+            key.evidence_use,
+        )
+        async with postgres_store(postgres_target, PostgresHistoricalEvidenceStore) as (
+            _,
+            history_store,
+        ):
+            histories = await history_store.load_scope_histories(
+                scope, at=CORRECTION_RECORDED_AT
+            )
+        assert len(histories.bindings) == 1
+        assert histories.bindings[0].root.binding_id == binding.binding_id
+        assert histories.observations[0].root.observation_id == binding.observation_id
         assert len(basis.interpretations) == 1
         assert basis.interpretations[0].binding == replacement
         assert basis.support_version.value == 1
@@ -545,6 +574,77 @@ def test_backdated_binding_branches_enter_sufficiency_universe(
             if mode == "withdrawn"
             else EvidenceRequirementDisposition.CONTESTED
         )
+
+    asyncio.run(scenario())
+
+
+def test_corrected_applicability_enters_new_sufficiency_universe(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        # duplicate-code: this persistence proof seeds its own correction
+        # lineage so the application fake cannot determine the expected result.
+        # arid: disable
+        await _seed_observation(postgres_target)
+        await _seed_binding(postgres_target)
+        binding = await _load_binding_only(postgres_target)
+        # arid: enable
+        new_key = replace(
+            requirement_key(),
+            investment_horizon=InvestmentHorizon("ten trading days"),
+        )
+        new_set_id = UUID("00000000-0000-4000-8000-000000000a42")
+        async with postgres_store(
+            postgres_target, PostgresEvidenceRequirementStore
+        ) as (_, store):
+            outcome = await store.append_requirement_version(
+                requirement_version(
+                    SECOND_VERSION_ID,
+                    set_id=new_set_id,
+                    assignment=requirement_assignment_for_key(new_key),
+                )
+            )
+            assert isinstance(outcome, EvidenceRequirementVersionAppended)
+        revised = replace(
+            binding,
+            freshness=replace(
+                binding.freshness,
+                authority=replace(
+                    binding.freshness.authority,
+                    set_id=EvidenceRequirementSetId(new_set_id),
+                    version_id=EvidenceRequirementSetVersionId(SECOND_VERSION_ID),
+                ),
+                basis=replace(binding.freshness.basis, applicability_key=new_key),
+            ),
+        )
+        # duplicate-code: this commit is independent of contested-branch proof;
+        # sharing that transaction scaffold would couple different histories.
+        # arid: disable
+        async with postgres_store(postgres_target, PostgresEvidenceCorrectionStore) as (
+            _,
+            store,
+        ):
+            await _correction_service(store, BINDING_CORRECTION_ID).record(
+                _binding_revision_command(
+                    binding, revised, "correct freshness applicability"
+                )
+            )
+        # arid: enable
+        async with postgres_store(
+            postgres_target, PostgresEvidenceSufficiencyStore
+        ) as (
+            _,
+            store,
+        ):
+            basis = await store.load_sufficiency_basis(
+                new_key,
+                effective_at=CORRECTION_RECORDED_AT,
+                known_at=CORRECTION_RECORDED_AT,
+            )
+        assert isinstance(basis, EvidenceSufficiencyBasis)
+        assert len(basis.interpretations) == 1
+        assert basis.interpretations[0].binding == revised
+        assert basis.guards.bindings.binding_ids == frozenset({binding.binding_id})
 
     asyncio.run(scenario())
 

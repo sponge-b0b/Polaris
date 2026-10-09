@@ -41,6 +41,10 @@ from polaris.domain.evidence import (
     EvidenceInterpretationState,
     EvidenceSufficiencyAssessmentId,
 )
+from polaris.domain.evidence.judgments import (
+    evidence_judgment_family,
+    evidence_scope_kind,
+)
 from polaris.domain.evidence.sufficiency import EvidenceSufficiencyResult
 from polaris.infrastructure.persistence.postgresql import (
     PostgresEvidenceBindingStore,
@@ -94,6 +98,30 @@ async def _seed_root(
     *,
     maximum_age: timedelta = timedelta(minutes=10),
 ) -> EvidenceSufficiencyAssessmentId:
+    await _seed_inputs(target, maximum_age=maximum_age)
+    key = requirement_key()
+    async with postgres_store(target, PostgresEvidenceSufficiencyStore) as (_, store):
+        result = await EvidenceSufficiencyService(
+            store=store,
+            now=lambda: ROOT_COMMITTED_AT,
+            new_uuid=lambda: ROOT_UUID,
+        ).assess(
+            RecordEvidenceSufficiencyAssessmentCommand(
+                operation_id=OperationId(ROOT_OPERATION),
+                applicability_key=key,
+                attribution=UnknownActorAttribution(),
+                effective_at=ROOT_EFFECTIVE_AT,
+                known_at=ROOT_KNOWN_AT,
+            )
+        )
+    return result.assessment_id
+
+
+async def _seed_inputs(
+    target: PostgresTestTarget,
+    *,
+    maximum_age: timedelta = timedelta(minutes=10),
+) -> None:
     key = requirement_key()
     assert key.subject is not None
     async with postgres_store(target, PostgresEvidenceStore) as (_, store):
@@ -117,21 +145,6 @@ async def _seed_root(
             ),
         ).record(binding_command())
     # arid: enable
-    async with postgres_store(target, PostgresEvidenceSufficiencyStore) as (_, store):
-        result = await EvidenceSufficiencyService(
-            store=store,
-            now=lambda: ROOT_COMMITTED_AT,
-            new_uuid=lambda: ROOT_UUID,
-        ).assess(
-            RecordEvidenceSufficiencyAssessmentCommand(
-                operation_id=OperationId(ROOT_OPERATION),
-                applicability_key=key,
-                attribution=UnknownActorAttribution(),
-                effective_at=ROOT_EFFECTIVE_AT,
-                known_at=ROOT_KNOWN_AT,
-            )
-        )
-    return result.assessment_id
 
 
 def _command(
@@ -223,7 +236,7 @@ def test_persisted_misrecorded_proof_is_replaced_by_trusted_derivation(
     postgres_target: PostgresTestTarget,
 ) -> None:
     async def scenario() -> None:
-        await _seed_root(postgres_target)
+        await _seed_inputs(postgres_target)
         misrecorded = derived_assessment(
             interpretations=(), version=requirement_version()
         )
@@ -238,6 +251,20 @@ def test_persisted_misrecorded_proof_is_replaced_by_trusted_derivation(
                 await connection.execute(
                     insert(evidence_sufficiency_assessments).values(
                         **sufficiency_assessment_values(misrecorded)
+                    )
+                )
+                key = requirement_key()
+                await connection.execute(
+                    insert(evidence_support_versions).values(
+                        target_family=evidence_judgment_family(key.target).value,
+                        target_id=key.target.value,
+                        scope_kind=evidence_scope_kind(key.scope).value,
+                        claim_id=None,
+                        evidence_use=key.evidence_use.value,
+                        assessment_id=misrecorded.assessment_id.value,
+                        support_version=2,
+                        effective_at=misrecorded.effective_at,
+                        recorded_at=misrecorded.recorded_at,
                     )
                 )
         async with _correction_store(postgres_target) as (_, store):
@@ -515,6 +542,6 @@ def test_concurrent_same_root_writers_cannot_commit_stale_support(
             == 1
         )
         assert sum(not isinstance(value, Exception) for value in results) == 1
-        assert counts == (1, 2)
+        assert counts == (1, 3)
 
     asyncio.run(scenario())

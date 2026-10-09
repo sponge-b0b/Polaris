@@ -792,14 +792,32 @@ evidence_support_versions = Table(
             ondelete="RESTRICT",
         ),
     ),
+    Column(
+        "observation_id",
+        UUID(as_uuid=True),
+        ForeignKey(
+            "evidence_observations.observation_id",
+            name="fk_evidence_support_version_observation",
+            ondelete="RESTRICT",
+        ),
+    ),
+    Column(
+        "assessment_id",
+        UUID(as_uuid=True),
+        ForeignKey(
+            "evidence_sufficiency_assessments.assessment_id",
+            name="fk_evidence_support_version_assessment",
+            ondelete="RESTRICT",
+        ),
+        unique=True,
+    ),
     # arid: enable
     Column("support_version", BigInteger, nullable=False),
     Column("effective_at", DateTime(timezone=True), nullable=False),
     Column("recorded_at", DateTime(timezone=True), nullable=False),
     CheckConstraint("support_version > 0", name="support_version_positive"),
     CheckConstraint(
-        "(binding_id IS NOT NULL AND correction_id IS NULL) OR "
-        "(binding_id IS NULL AND correction_id IS NOT NULL)",
+        "num_nonnulls(binding_id, correction_id, observation_id, assessment_id) = 1",
         name="support_event_source",
     ),
     *_evidence_applicability_constraints(),
@@ -828,6 +846,15 @@ Index(
     unique=True,
     postgresql_nulls_not_distinct=True,
     postgresql_where=evidence_support_versions.c.correction_id.is_not(None),
+)
+
+Index(
+    "uq_evidence_support_versions_scope_observation",
+    *_support_scope_index_columns,
+    evidence_support_versions.c.observation_id,
+    unique=True,
+    postgresql_nulls_not_distinct=True,
+    postgresql_where=evidence_support_versions.c.observation_id.is_not(None),
 )
 
 evidence_sufficiency_assessments = Table(

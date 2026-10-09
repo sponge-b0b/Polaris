@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-08] R3 scope-local Evidence support epochs | #390 persistence and read boundary realized
+
+Extended the durable target/scope/use epoch beyond bindings and corrections to assessment/reassessment and bound observation succession commits. One typed inward read capability exposes the stored epoch without Decision identity; future-only or unrelated keys remain isolated. Updated Durable Persistence knowledge.
+
 ## [2026-10-08] R3 canonical context version and selection contract | #389 owner boundary realized
 
 Added closed owner-specific context reference values, exact BasisScopeKey selection guards with owner-specific typed relationship and selection-universe witnesses, and an inward context owner-read boundary with complete role attestations and typed no-basis outcomes. Kept context fact ownership and current-basis assembly downstream. Updated Evidence and Application Use Cases knowledge.

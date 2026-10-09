@@ -343,7 +343,10 @@ def test_sufficiency_assessment_migration_preserves_constraints(
         "ck_evidence_support_versions_target_family",
         "fk_evidence_support_version_binding",
         "fk_evidence_support_version_correction",
+        "fk_evidence_support_version_observation",
+        "fk_evidence_support_version_assessment",
         "uq_evidence_support_versions_binding_id",
+        "uq_evidence_support_versions_assessment_id",
     } <= support_version_constraints
     assessment_constraints = asyncio.run(
         _constraint_names(postgres_target, "evidence_sufficiency_assessments")
@@ -476,3 +479,16 @@ def test_correction_revision_downgrades_to_assessments_and_reupgrades(
         "0006_sufficiency_assessments",
         (POLARIS_TABLE_NAMES - CORRECTION_TABLE_NAMES) | {"alembic_version"},
     )
+
+
+def test_support_epoch_revision_downgrades_and_reupgrades(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    alembic = Config("alembic.ini")
+    command.downgrade(alembic, "0007_evidence_corrections")
+    columns = asyncio.run(_column_names(postgres_target, "evidence_support_versions"))
+    assert "observation_id" not in columns
+    assert "assessment_id" not in columns
+    command.upgrade(alembic, "head")
+    columns = asyncio.run(_column_names(postgres_target, "evidence_support_versions"))
+    assert {"observation_id", "assessment_id"} <= columns

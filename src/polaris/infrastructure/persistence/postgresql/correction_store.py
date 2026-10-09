@@ -5,12 +5,11 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import Table, func, insert, select, text
+from sqlalchemy import Table, insert, select, text
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from sqlalchemy.sql import Executable
-from sqlalchemy.sql.elements import ColumnElement
 
 from polaris.application.evidence import EvidenceCommandReadUnavailable
 from polaris.application.evidence.corrections import (
@@ -48,6 +47,8 @@ from polaris.domain.evidence import (
     EvidenceBindingCorrectionHistory,
     EvidenceBindingId,
     EvidenceCorrectionEffect,
+    EvidenceCorrectionId,
+    EvidenceInterpretationState,
     EvidenceObservationCorrection,
     EvidenceObservationCorrectionHistory,
     EvidenceObservationId,
@@ -55,16 +56,11 @@ from polaris.domain.evidence import (
     InvalidEvidenceCorrection,
     InvalidEvidenceCorrectionHistory,
 )
-from polaris.domain.evidence.bindings import EvidenceBinding
-from polaris.domain.evidence.judgments import (
-    ClaimSpecificEvidenceScope,
-    evidence_judgment_family,
-    evidence_scope_kind,
-)
 from polaris.domain.evidence.sufficiency import EvidenceSufficiencyAssessment
 
-from .binding_codec import binding_from_row, binding_values
+from .binding_codec import binding_from_row
 from .binding_store import EVIDENCE_BINDING_WRITE_LOCK
+from .codec_support import uuid_value
 from .correction_codec import (
     assessment_correction_from_row,
     binding_correction_from_row,
@@ -88,6 +84,12 @@ from .schema import (
     evidence_observation_corrections,
     evidence_observations,
     evidence_support_versions,
+)
+from .support_epochs import (
+    SupportScope,
+    advance_support_epochs,
+    support_scope,
+    support_scope_predicates,
 )
 
 EVIDENCE_CORRECTION_WRITE_LOCK = 4_566_144_311_625_725_313
@@ -315,7 +317,7 @@ async def _trusted_assessment_commit(
         or not _same_assessment_basis(
             trusted_original,
             trusted_current,
-            allow_support_drift=bool(history.corrections),
+            allow_support_drift=True,
         )
         or not await _only_own_assessment_support_events(
             connection, root, original, current, trusted_at
@@ -428,7 +430,7 @@ async def _only_own_assessment_support_events(
         return False
     if end == start:
         return True
-    scope = _assessment_scope(root)
+    scope = support_scope(root.target, root.scope, root.evidence_use)
     rows = (
         (
             await connection.execute(
@@ -436,8 +438,10 @@ async def _only_own_assessment_support_events(
                     evidence_support_versions.c.support_version,
                     evidence_support_versions.c.binding_id,
                     evidence_support_versions.c.correction_id,
+                    evidence_support_versions.c.assessment_id,
+                    evidence_support_versions.c.observation_id,
                 ).where(
-                    *_support_scope_predicates(scope),
+                    *support_scope_predicates(scope),
                     evidence_support_versions.c.support_version > start,
                     evidence_support_versions.c.support_version <= end,
                     evidence_support_versions.c.effective_at <= trusted_at,
@@ -451,6 +455,8 @@ async def _only_own_assessment_support_events(
     if {row["support_version"] for row in rows} != set(range(start + 1, end + 1)):
         return False
     for row in rows:
+        if row["assessment_id"] == root.assessment_id.value:
+            continue
         if row["binding_id"] is not None or row["correction_id"] is None:
             return False
         owner = await _one_row(
@@ -691,24 +697,6 @@ async def _get_receipt(
     return receipt
 
 
-type _SupportScope = tuple[str, UUID, str, UUID | None, str]
-
-
-def _support_scope_predicates(scope: _SupportScope) -> tuple[ColumnElement[bool], ...]:
-    target_family, target_id, scope_kind, claim_id, evidence_use = scope
-    return (
-        evidence_support_versions.c.target_family == target_family,
-        evidence_support_versions.c.target_id == target_id,
-        evidence_support_versions.c.scope_kind == scope_kind,
-        (
-            evidence_support_versions.c.claim_id.is_(None)
-            if claim_id is None
-            else evidence_support_versions.c.claim_id == claim_id
-        ),
-        evidence_support_versions.c.evidence_use == evidence_use,
-    )
-
-
 async def _record_support_version_events(
     connection: AsyncConnection,
     commit: EvidenceCorrectionCommit,
@@ -717,28 +705,14 @@ async def _record_support_version_events(
     if correction.effective_at > commit.committed_at:
         return
     scopes = await _affected_support_scopes(connection, correction, commit.committed_at)
-    for scope in sorted(scopes, key=lambda value: tuple(map(str, value))):
-        target_family, target_id, scope_kind, claim_id, evidence_use = scope
-        predicates = _support_scope_predicates(scope)
-        current = await connection.scalar(
-            select(func.max(evidence_support_versions.c.support_version)).where(
-                *predicates
-            )
-        )
-        await connection.execute(
-            insert(evidence_support_versions).values(
-                target_family=target_family,
-                target_id=target_id,
-                scope_kind=scope_kind,
-                claim_id=claim_id,
-                evidence_use=evidence_use,
-                binding_id=None,
-                correction_id=correction.correction_id.value,
-                support_version=(current or 0) + 1,
-                effective_at=correction.effective_at,
-                recorded_at=commit.committed_at,
-            )
-        )
+    await advance_support_epochs(
+        connection,
+        scopes,
+        source_column="correction_id",
+        source_id=correction.correction_id.value,
+        effective_at=correction.effective_at,
+        recorded_at=commit.committed_at,
+    )
 
 
 async def _affected_support_scopes(
@@ -749,12 +723,20 @@ async def _affected_support_scopes(
         | EvidenceAssessmentCorrection
     ),
     committed_at: datetime,
-) -> frozenset[_SupportScope]:
+) -> frozenset[SupportScope]:
     if type(correction) is EvidenceAssessmentCorrection:
         history = await _load_assessment_history(connection, correction.root_id)
         if history is None:
             raise ValueError("assessment correction root disappeared")
-        return frozenset({_assessment_scope(history.root)})
+        if history.root.effective_at > committed_at:
+            return frozenset()
+        return frozenset(
+            {
+                support_scope(
+                    history.root.target, history.root.scope, history.root.evidence_use
+                )
+            }
+        )
     if type(correction) is EvidenceBindingCorrection:
         row = await _one_row(
             connection,
@@ -765,13 +747,79 @@ async def _affected_support_scopes(
         )
         if row is None:
             return frozenset()
-        return frozenset({_binding_scope(binding_from_row(row))})
+        binding = binding_from_row(row)
+        history = await _load_binding_history(connection, binding.binding_id)
+        if history is None:
+            raise ValueError("binding correction root disappeared during support read")
+        prior = EvidenceBindingCorrectionHistory(
+            history.root,
+            tuple(
+                item
+                for item in history.corrections
+                if item.correction_id != correction.correction_id
+            ),
+        )
+        if all(
+            interpreted.state
+            in (
+                EvidenceInterpretationState.NOT_KNOWN,
+                EvidenceInterpretationState.NOT_EFFECTIVE,
+            )
+            for interpreted in (
+                prior.interpret(effective_at=committed_at, known_at=committed_at),
+                history.interpret(effective_at=committed_at, known_at=committed_at),
+            )
+        ):
+            return frozenset()
+        return frozenset(
+            {support_scope(binding.target, binding.scope, binding.evidence_use)}
+        )
+    return await observation_support_scopes(
+        connection,
+        correction.root_id,
+        committed_at,
+        exclude_correction_id=correction.correction_id,
+    )
+
+
+async def observation_support_scopes(
+    connection: AsyncConnection,
+    root_id: EvidenceObservationId,
+    committed_at: datetime,
+    *,
+    exclude_correction_id: EvidenceCorrectionId | None = None,
+) -> frozenset[SupportScope]:
+    """Find current bound keys in both sides of a succession change."""
+    ids = await _candidate_observation_ids(connection, root_id.value)
+    after: dict[UUID, set[UUID]] = {}
+    before: dict[UUID, set[UUID]] = {}
+    for observation_id in ids:
+        history = await _load_observation_history(
+            connection, EvidenceObservationId(observation_id)
+        )
+        if history is None:
+            raise ValueError("observation root disappeared during support read")
+        _add_succession_edges(after, observation_id, history, committed_at)
+        if exclude_correction_id is not None and observation_id == root_id.value:
+            prior = EvidenceObservationCorrectionHistory(
+                history.root,
+                history.root_recorded_at,
+                tuple(
+                    correction
+                    for correction in history.corrections
+                    if correction.correction_id != exclude_correction_id
+                ),
+            )
+            _add_succession_edges(before, observation_id, prior, committed_at)
+        else:
+            _add_succession_edges(before, observation_id, history, committed_at)
+    affected_ids = _connected_observation_ids(before, root_id.value)
+    affected_ids.update(_connected_observation_ids(after, root_id.value))
     rows = (
         (
             await connection.execute(
                 select(evidence_bindings).where(
-                    evidence_bindings.c.observation_id == correction.root_id.value,
-                    evidence_bindings.c.effective_at <= committed_at,
+                    evidence_bindings.c.observation_id.in_(affected_ids),
                     evidence_bindings.c.recorded_at <= committed_at,
                 )
             )
@@ -779,32 +827,125 @@ async def _affected_support_scopes(
         .mappings()
         .all()
     )
-    return frozenset(_binding_scope(binding_from_row(row)) for row in rows)
+    scopes: set[SupportScope] = set()
+    for row in rows:
+        binding = binding_from_row(row)
+        history = await _load_binding_history(connection, binding.binding_id)
+        if history is None:
+            raise ValueError("bound Evidence root disappeared during support read")
+        interpreted = history.interpret(
+            effective_at=committed_at, known_at=committed_at
+        )
+        if interpreted.state not in (
+            EvidenceInterpretationState.NOT_KNOWN,
+            EvidenceInterpretationState.NOT_EFFECTIVE,
+        ):
+            scopes.add(
+                support_scope(binding.target, binding.scope, binding.evidence_use)
+            )
+    return frozenset(scopes)
 
 
-def _binding_scope(binding: EvidenceBinding) -> _SupportScope:
-    values = binding_values(binding)
-    return (
-        str(values["target_family"]),
-        binding.target.value,
-        str(values["scope_kind"]),
-        values["claim_id"] if isinstance(values["claim_id"], UUID) else None,
-        str(values["evidence_use"]),
-    )
+async def _candidate_observation_ids(
+    connection: AsyncConnection, root_id: UUID
+) -> frozenset[UUID]:
+    """Discover possible succession links without loading unrelated history."""
+    seen: set[UUID] = set()
+    pending = [root_id]
+    while pending:
+        current = pending.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        predecessor = await connection.scalar(
+            select(evidence_observations.c.supersedes_observation_id).where(
+                evidence_observations.c.observation_id == current
+            )
+        )
+        if predecessor is not None:
+            pending.append(uuid_value(predecessor, "supersedes_observation_id"))
+        corrected_predecessors = (
+            (
+                await connection.execute(
+                    select(
+                        evidence_observation_corrections.c.replacement[
+                            "supersedes_observation_id"
+                        ].astext
+                    ).where(evidence_observation_corrections.c.root_id == current)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        pending.extend(
+            uuid_value(value, "corrected supersedes_observation_id")
+            for value in corrected_predecessors
+            if value is not None
+        )
+        descendants = (
+            (
+                await connection.execute(
+                    select(evidence_observations.c.observation_id).where(
+                        evidence_observations.c.supersedes_observation_id == current
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        pending.extend(
+            uuid_value(value, "successor observation_id") for value in descendants
+        )
+        corrected_descendants = (
+            (
+                await connection.execute(
+                    select(evidence_observation_corrections.c.root_id).where(
+                        evidence_observation_corrections.c.replacement[
+                            "supersedes_observation_id"
+                        ].astext
+                        == str(current)
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        pending.extend(
+            uuid_value(value, "corrected successor observation_id")
+            for value in corrected_descendants
+        )
+    return frozenset(seen)
 
 
-def _assessment_scope(assessment: EvidenceSufficiencyAssessment) -> _SupportScope:
-    return (
-        evidence_judgment_family(assessment.target).value,
-        assessment.target.value,
-        evidence_scope_kind(assessment.scope).value,
-        (
-            assessment.scope.claim_id.value
-            if type(assessment.scope) is ClaimSpecificEvidenceScope
-            else None
-        ),
-        assessment.evidence_use.value,
-    )
+def _add_succession_edges(
+    graph: dict[UUID, set[UUID]],
+    observation_id: UUID,
+    history: EvidenceObservationCorrectionHistory,
+    committed_at: datetime,
+) -> None:
+    graph.setdefault(observation_id, set())
+    interpreted = history.interpret(effective_at=committed_at, known_at=committed_at)
+    for assertion in interpreted.assertions:
+        if assertion.observed_at > committed_at or assertion.acquired_at > committed_at:
+            continue
+        predecessor = assertion.supersedes_observation_id
+        if predecessor is not None:
+            graph[observation_id].add(predecessor.value)
+            graph.setdefault(predecessor.value, set()).add(observation_id)
+
+
+def _connected_observation_ids(
+    graph: dict[UUID, set[UUID]], root_id: UUID
+) -> set[UUID]:
+    connected: set[UUID] = set()
+    pending = [root_id]
+    while pending:
+        current = pending.pop()
+        if current in connected:
+            continue
+        connected.add(current)
+        pending.extend(graph.get(current, set()) - connected)
+    return connected
 
 
 __all__ = ["EVIDENCE_CORRECTION_WRITE_LOCK", "PostgresEvidenceCorrectionStore"]

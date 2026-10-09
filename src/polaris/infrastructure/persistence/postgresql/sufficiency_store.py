@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import func, insert, select, text
+from sqlalchemy import insert, select, text
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
@@ -32,11 +32,6 @@ from polaris.application.evidence.sufficiency import (
 from polaris.domain.configuration import EvidenceRequirementApplicabilityKey
 from polaris.domain.decisions import OperationId
 from polaris.domain.evidence.corrections import EvidenceInterpretationState
-from polaris.domain.evidence.judgments import (
-    ClaimSpecificEvidenceScope,
-    evidence_judgment_family,
-    evidence_scope_kind,
-)
 from polaris.domain.evidence.observations import (
     EvidenceCorrectionId,
     EvidenceSufficiencyAssessmentId,
@@ -65,7 +60,6 @@ from .schema import (
     evidence_sufficiency_assessments,
     evidence_sufficiency_command_receipts,
     evidence_sufficiency_contributors,
-    evidence_support_versions,
 )
 from .sufficiency_codec import (
     sufficiency_assessment_from_row,
@@ -74,6 +68,11 @@ from .sufficiency_codec import (
     sufficiency_request_fingerprint,
     sufficiency_request_payload,
     sufficiency_result_payload,
+)
+from .support_epochs import (
+    advance_support_epochs,
+    load_support_version,
+    support_scope,
 )
 
 
@@ -193,6 +192,27 @@ class PostgresEvidenceSufficiencyStore:
                         contributor_rows,
                     )
                 self._write_completed("contributors")
+                # duplicate-code: binding and assessment commits supply distinct
+                # fact identities and times to the shared epoch writer.
+                # arid: disable
+                await advance_support_epochs(
+                    connection,
+                    frozenset(
+                        {
+                            support_scope(
+                                commit.assessment.target,
+                                commit.assessment.scope,
+                                commit.assessment.evidence_use,
+                            )
+                        }
+                    ),
+                    source_column="assessment_id",
+                    source_id=commit.assessment.assessment_id.value,
+                    effective_at=commit.assessment.effective_at,
+                    recorded_at=commit.assessment.recorded_at,
+                )
+                # arid: enable
+                self._write_completed("support_version")
                 result = EvidenceSufficiencyAssessmentResult(
                     commit.assessment.assessment_id,
                     commit.assessment.result,
@@ -397,30 +417,17 @@ async def _load_support_version(
     effective_at: datetime,
     known_at: datetime,
 ) -> int:
-    claim_id = (
-        applicability_key.scope.claim_id.value
-        if type(applicability_key.scope) is ClaimSpecificEvidenceScope
-        else None
+    version = await load_support_version(
+        connection,
+        support_scope(
+            applicability_key.target,
+            applicability_key.scope,
+            applicability_key.evidence_use,
+        ),
+        effective_at=effective_at,
+        known_at=known_at,
     )
-    value = await connection.scalar(
-        select(func.max(evidence_support_versions.c.support_version)).where(
-            evidence_support_versions.c.target_family
-            == evidence_judgment_family(applicability_key.target).value,
-            evidence_support_versions.c.target_id == applicability_key.target.value,
-            evidence_support_versions.c.scope_kind
-            == evidence_scope_kind(applicability_key.scope).value,
-            (
-                evidence_support_versions.c.claim_id.is_(None)
-                if claim_id is None
-                else evidence_support_versions.c.claim_id == claim_id
-            ),
-            evidence_support_versions.c.evidence_use
-            == applicability_key.evidence_use.value,
-            evidence_support_versions.c.effective_at <= effective_at,
-            evidence_support_versions.c.recorded_at <= known_at,
-        )
-    )
-    return 0 if value is None else int(value)
+    return version.value
 
 
 def _revalidated_assessment(

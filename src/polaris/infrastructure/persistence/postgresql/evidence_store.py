@@ -19,6 +19,8 @@ from polaris.application.evidence import (
 from polaris.domain.decisions import OperationId
 from polaris.domain.evidence import EvidenceObservation, EvidenceObservationId
 
+from .binding_store import EVIDENCE_BINDING_WRITE_LOCK
+from .correction_store import observation_support_scopes
 from .evidence_codec import (
     observation_from_row,
     observation_receipt_from_row,
@@ -29,6 +31,7 @@ from .evidence_codec import (
 )
 from .runtime_qualification import require_qualified_postgres_runtime
 from .schema import evidence_observation_command_receipts, evidence_observations
+from .support_epochs import advance_support_epochs
 
 _EVIDENCE_OBSERVATION_WRITE_LOCK = 4_566_144_311_625_725_309
 
@@ -87,6 +90,10 @@ class PostgresEvidenceStore:
             async with self._engine.begin() as connection:
                 await connection.execute(
                     text("SELECT pg_advisory_xact_lock(:lock_key)"),
+                    {"lock_key": EVIDENCE_BINDING_WRITE_LOCK},
+                )
+                await connection.execute(
+                    text("SELECT pg_advisory_xact_lock(:lock_key)"),
                     {"lock_key": _EVIDENCE_OBSERVATION_WRITE_LOCK},
                 )
                 prior = await _get_receipt(
@@ -107,7 +114,6 @@ class PostgresEvidenceStore:
                     )
                 )
                 self._write_completed("observation")
-
                 result = EvidenceObservationResult(commit.observation.observation_id)
                 receipt = EvidenceObservationReceipt(
                     operation_id=commit.operation_id,
@@ -126,6 +132,27 @@ class PostgresEvidenceStore:
                     )
                 )
                 self._write_completed("receipt")
+                if (
+                    predecessor is not None
+                    and commit.observation.observed_at <= commit.committed_at
+                    and commit.observation.acquired_at <= commit.committed_at
+                ):
+                    await advance_support_epochs(
+                        connection,
+                        await observation_support_scopes(
+                            connection,
+                            commit.observation.observation_id,
+                            commit.committed_at,
+                        ),
+                        source_column="observation_id",
+                        source_id=commit.observation.observation_id.value,
+                        effective_at=(
+                            commit.observation.effective_at
+                            or commit.observation.observed_at
+                        ),
+                        recorded_at=commit.committed_at,
+                    )
+                    self._write_completed("support_version")
                 return EvidenceObservationCommitted(receipt)
         except SQLAlchemyError as error:
             return EvidenceObservationUnavailable(

@@ -500,7 +500,7 @@ def test_support_only_duplicate_observation_binding_advances_epoch_once(
             assert await postgres_row_counts(
                 engine,
                 evidence_support_versions,
-            ) == (2,)
+            ) == (3,)
 
     asyncio.run(scenario())
 

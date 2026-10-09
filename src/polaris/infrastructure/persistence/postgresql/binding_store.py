@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import func, insert, select, text
+from sqlalchemy import insert, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
@@ -33,8 +33,8 @@ from .schema import (
     evidence_binding_command_receipts,
     evidence_bindings,
     evidence_observations,
-    evidence_support_versions,
 )
+from .support_epochs import advance_support_epochs, support_scope
 
 EVIDENCE_BINDING_WRITE_LOCK = 4_566_144_311_625_725_311
 
@@ -126,7 +126,22 @@ class PostgresEvidenceBindingStore:
                 values = binding_values(commit.binding)
                 await connection.execute(insert(evidence_bindings).values(**values))
                 self._write_completed("binding")
-                await _record_support_version_event(connection, commit.binding, values)
+                await advance_support_epochs(
+                    connection,
+                    frozenset(
+                        {
+                            support_scope(
+                                commit.binding.target,
+                                commit.binding.scope,
+                                commit.binding.evidence_use,
+                            )
+                        }
+                    ),
+                    source_column="binding_id",
+                    source_id=commit.binding.binding_id.value,
+                    effective_at=commit.binding.effective_at,
+                    recorded_at=commit.binding.recorded_at,
+                )
                 self._write_completed("support_version")
                 # duplicate-code: binding receipts are a distinct inward-owned
                 # contract; a generic receipt factory would erase result typing.
@@ -180,42 +195,3 @@ async def _get_receipt(
         .first()
     )
     return None if row is None else binding_receipt_from_row(row)
-
-
-async def _record_support_version_event(
-    connection: AsyncConnection,
-    binding: EvidenceBinding,
-    values: dict[str, object],
-) -> None:
-    if binding.effective_at > binding.recorded_at:
-        return
-    claim_id = values["claim_id"]
-    scope_predicates = (
-        evidence_support_versions.c.target_family == values["target_family"],
-        evidence_support_versions.c.target_id == values["target_id"],
-        evidence_support_versions.c.scope_kind == values["scope_kind"],
-        (
-            evidence_support_versions.c.claim_id.is_(None)
-            if claim_id is None
-            else evidence_support_versions.c.claim_id == claim_id
-        ),
-        evidence_support_versions.c.evidence_use == values["evidence_use"],
-    )
-    current = await connection.scalar(
-        select(func.max(evidence_support_versions.c.support_version)).where(
-            *scope_predicates
-        )
-    )
-    await connection.execute(
-        insert(evidence_support_versions).values(
-            target_family=values["target_family"],
-            target_id=values["target_id"],
-            scope_kind=values["scope_kind"],
-            claim_id=claim_id,
-            evidence_use=values["evidence_use"],
-            binding_id=binding.binding_id.value,
-            support_version=(current or 0) + 1,
-            effective_at=binding.effective_at,
-            recorded_at=binding.recorded_at,
-        )
-    )

@@ -187,8 +187,10 @@ from .sufficiency import (
     EvidenceSufficiencyUnavailableAuthority,
     RecordEvidenceSufficiencyAssessmentCommand,
 )
+from .support_epochs import EvidenceSupportEpochReader
 
 __all__ = [
+    "EvidenceSupportEpochReader",
     "CompleteContextSelection",
     "ContextContribution",
     "ContextNoBasis",

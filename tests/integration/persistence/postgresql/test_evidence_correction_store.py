@@ -15,6 +15,7 @@ from polaris.application.evidence import (
     EvidenceCorrectionService,
     EvidenceCorrectionStore,
     EvidenceIdempotencyConflict,
+    EvidenceObservationService,
     EvidencePersistenceUnavailable,
     EvidenceRequirementResolver,
     EvidenceRequirementVersionAppended,
@@ -368,6 +369,105 @@ def test_backdated_binding_revision_enters_sufficiency_universe(
         restored_basis = await _load_current_basis(postgres_target)
         assert restored_basis.interpretations == ()
         assert restored_basis.support_version.value == 2
+
+    asyncio.run(scenario())
+
+
+def test_future_only_binding_revision_does_not_advance_current_support(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    async def scenario() -> None:
+        binding = await _seed_future_binding(postgres_target)
+        # duplicate-code: this correction must remain future-effective, while
+        # adjacent correction proofs intentionally change current support.
+        # arid: disable
+        async with postgres_store(postgres_target, PostgresEvidenceCorrectionStore) as (
+            _,
+            store,
+        ):
+            await _correction_service(store, BINDING_CORRECTION_ID).record(
+                _binding_revision_command(
+                    binding,
+                    replace(binding, role=EvidenceRole.QUALIFYING),
+                    "future role review",
+                )
+            )
+        # arid: enable
+        basis = await _load_current_basis(postgres_target)
+        assert basis.interpretations == ()
+        assert basis.support_version.value == 0
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("change", ["correction", "succession"])
+def test_observation_change_advances_support_after_backdated_binding_revision(
+    postgres_target: PostgresTestTarget,
+    change: str,
+) -> None:
+    async def scenario() -> None:
+        # duplicate-code: this setup proves observation effects after a
+        # backdated binding; the standalone restoration test owns its branch.
+        # arid: disable
+        binding = await _seed_future_binding(postgres_target)
+        replacement = replace(
+            binding,
+            effective_at=CORRECTION_RECORDED_AT - timedelta(minutes=2),
+        )
+        async with postgres_store(postgres_target, PostgresEvidenceCorrectionStore) as (
+            _,
+            store,
+        ):
+            await _correction_service(store, BINDING_CORRECTION_ID).record(
+                replace(
+                    _binding_revision_command(binding, replacement, "correct time"),
+                    effective_at=replacement.effective_at,
+                )
+            )
+        # arid: enable
+        assert (await _load_current_basis(postgres_target)).support_version.value == 1
+
+        cutoff = CORRECTION_RECORDED_AT
+        if change == "correction":
+            observation = await _load_observation_only(postgres_target)
+            async with postgres_store(
+                postgres_target, PostgresEvidenceCorrectionStore
+            ) as (_, store):
+                await _correction_service(store, OBSERVATION_CORRECTION_ID).record(
+                    _observation_correction_command(
+                        observation,
+                        basis="publisher withdrew observation",
+                    )
+                )
+        else:
+            cutoff += timedelta(minutes=1)
+            key = requirement_key()
+            assert key.subject is not None
+            async with postgres_store(postgres_target, PostgresEvidenceStore) as (
+                _,
+                store,
+            ):
+                await EvidenceObservationService(
+                    store=store,
+                    now=lambda: cutoff,
+                    new_uuid=lambda: SECOND_OBSERVATION_ID,
+                ).record(
+                    replace(
+                        evidence_command(
+                            SECOND_OPERATION_ID,
+                            supersedes=EvidenceObservationId(OBSERVATION_ID),
+                        ),
+                        subject=key.subject,
+                    )
+                )
+        async with postgres_store(
+            postgres_target, PostgresEvidenceSufficiencyStore
+        ) as (_, store):
+            basis = await store.load_sufficiency_basis(
+                requirement_key(), effective_at=cutoff, known_at=cutoff
+            )
+        assert isinstance(basis, EvidenceSufficiencyBasis)
+        assert basis.support_version.value == 2
 
     asyncio.run(scenario())
 

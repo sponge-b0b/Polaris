@@ -15,6 +15,7 @@ from .schema import (
     metadata,
 )
 from .sufficiency_store import PostgresEvidenceSufficiencyStore
+from .support_epochs import PostgresEvidenceSupportEpochStore
 
 __all__ = [
     "CONFIGURATION_TABLE_NAMES",
@@ -28,6 +29,7 @@ __all__ = [
     "PostgresEvidenceStore",
     "PostgresHistoricalEvidenceStore",
     "PostgresEvidenceSufficiencyStore",
+    "PostgresEvidenceSupportEpochStore",
     "create_postgres_engine",
     "metadata",
 ]

@@ -524,17 +524,10 @@ class EvidenceCorrectionService:
         if not _same_external_basis(original, current) or not _same_assessment_basis(
             replacement,
             current_assessment,
-            allow_support_drift=bool(history.corrections),
+            allow_support_drift=True,
         ):
             raise EvidenceCorrectionBasisConflict(
                 "assessment basis changed; record a new reassessment root"
-            )
-        if (
-            not history.corrections
-            and original.support_version != current.support_version
-        ):
-            raise EvidenceCorrectionBasisConflict(
-                "assessment support version changed; record a new reassessment root"
             )
         return (
             replacement if command.effect is EvidenceCorrectionEffect.REVISE else None,

@@ -1,0 +1,67 @@
+name: ChatGPT apply wayfinder owner admission fix
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/chatgpt-wayfinder-owner-admission.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+      - name: Apply bounded skill fix and propagate exact blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          SPEC_BEFORE="$(git rev-parse origin/spec-357)"
+
+          python - <<'PY'
+          import base64
+          from pathlib import Path
+          path = Path('.agents/skills/wayfinder/SKILL.md')
+          text = path.read_text()
+          marker = '### Reconcile After Durable Wayfinder Transitions\n'
+          heading = '### Project-delivery result admission\n'
+          if heading in text:
+              raise SystemExit('delegated-owner gate already present')
+          if text.count(marker) != 1:
+              raise SystemExit(f'expected exactly one insertion marker, found {text.count(marker)}')
+          section = base64.b64decode('IyMjIFByb2plY3QtZGVsaXZlcnkgcmVzdWx0IGFkbWlzc2lvbgoKVGhlICoqUHJvamVjdCBEZWxpdmVyeSBGb2N1cyBHdWFyZCoqIGlzIGEgZGVsZWdhdGVkLW93bmVyIGJvdW5kYXJ5LCBub3QgYSBjaGVja2xpc3QgdGhhdCBgJHdheWZpbmRlcmAgbWF5IHJlcHJvZHVjZSBpdHNlbGYuIEZvciAqKldvcmsgVGhyb3VnaCB0aGUgTWFwKiosIHN1Y2Nlc3NmdWwgYXV0aG9yaXphdGlvbiByZXF1aXJlcyB0aGUgcHJlc2NyaWJlZCBgJHByb2plY3QtZGVsaXZlcnktbWFuYWdlbWVudGAgY2hpbGQgd29ya2Zsb3cgdG8gZXhlY3V0ZSBhbmQgaXRzIHJldHVybmVkIHRlcm1pbmFsIHJlc3VsdHMgdG8gYmUgYWRtaXR0ZWQgYnkgdGhpcyBpbnZvY2F0aW9uLgoKQmVmb3JlIGNsYWltaW5nIGEgZGVjaXNpb24sIHBvc3RpbmcgYCMjIERlY2lzaW9uIEFuYWx5c2lzYCBvciBgIyMgUmVjb21tZW5kYXRpb24gUmV2aXNpb25gLCBwcmVzZW50aW5nIHRoZSBISVRMIHllcy9ubyBhY2NlcHRhbmNlIGdhdGUsIHBlcnNpc3RpbmcgYXJjaGl0ZWN0dXJlLCBvciBtYWtpbmcgYW55IG90aGVyIHN1YnN0YW50aXZlIHRyYWNrZXIvcmVwb3NpdG9yeSBtdXRhdGlvbiwgcmVxdWlyZSB0aGlzIHdpdG5lc3M6CgpgYGB0ZXh0ClByb2plY3QtZGVsaXZlcnkgcmVjb25jaWxlIHJlc3VsdCByZWNlaXZlZDogeWVzClByb2plY3QtZGVsaXZlcnkgZ3VhcmQgcmVzdWx0IHJlY2VpdmVkOiB5ZXMKR3VhcmQgV2F5ZmluZGVyIGlkZW50aXR5IG1hdGNoZXMgY3VycmVudCBnb3Zlcm5pbmcgbWFwOiB5ZXMKRXhhY3QgUFJPSkVDVCBERUxJVkVSWSBHVUFSRDogQUxMT1dFRCByZWNlaXZlZDogeWVzCk1hbnVhbCBwcm9qZWN0LWRlbGl2ZXJ5IHJlY29uc3RydWN0aW9uIHVzZWQgYXMgc3Vic3RpdHV0ZTogbm8KYGBgCgpSdWxlczoKCiogYWN0dWFsbHkgaW52b2tlIGAkcHJvamVjdC1kZWxpdmVyeS1tYW5hZ2VtZW50YCBgcmVjb25jaWxlYCBhbmQgcmVjZWl2ZSBpdHMgcmV0dXJuZWQgdGVybWluYWwgcmVzdWx0OwoqIGFjdHVhbGx5IGludm9rZSBgJHByb2plY3QtZGVsaXZlcnktbWFuYWdlbWVudGAgYGd1YXJkIDxXYXlmaW5kZXI+YCBmb3IgdGhlIGV4YWN0IGdvdmVybmluZyBtYXAgYW5kIHJlY2VpdmUgaXRzIHJldHVybmVkIHRlcm1pbmFsIGd1YXJkIHJlc3VsdDsKKiBhZnRlciBhbiBleHBsaWNpdGx5IGF1dGhvcml6ZWQgZW1wdHktZm9jdXMgYGZvY3VzIDxXYXlmaW5kZXI+YCB0cmFuc2l0aW9uLCByZS1ydW4gdGhlIGFjdHVhbCBjaGlsZCBndWFyZCBhbmQgYWRtaXQgdGhlIG5ldyByZXR1cm5lZCBgUFJPSkVDVCBERUxJVkVSWSBHVUFSRDogQUxMT1dFRGAgcmVzdWx0IGJlZm9yZSBjb250aW51aW5nOwoqIHJlYWRpbmcgdGhlIGNoaWxkIGBTS0lMTC5tZGAsIGluc3BlY3RpbmcgdGhlIG1hbmFnZW1lbnQgc2luZ2xldG9uLCBxdWVyeWluZyBmb2N1cy9mcm9udGllci9ibG9ja2VyIHN0YXRlLCBvciBpbmRlcGVuZGVudGx5IHJlcHJvZHVjaW5nIHRoZSBjaGlsZCBhbGdvcml0aG0gaXMgZGlhZ25vc3RpYyBjb250ZXh0IG9ubHkgYW5kICoqY2Fubm90KiogcG9wdWxhdGUgdGhpcyB3aXRuZXNzIG9yIHN1YnN0aXR1dGUgZm9yIGNoaWxkIGV4ZWN1dGlvbjsKKiBtaXNzaW5nLCBwZW5kaW5nLCBtYWxmb3JtZWQsIHN0YWxlLXNvdXJjZSwgbWlzbWF0Y2hlZC1XYXlmaW5kZXIsIG9yIG5vbi1gQUxMT1dFRGAgcmVxdWlyZWQgY2hpbGQgcmVzdWx0cyBmYWlsIGNsb3NlZCB1bmRlciB0aGUgZXhpc3RpbmcgZ3VhcmQgb3V0Y29tZXM7CiogdGhlIHNhbWUgYWRtaXNzaW9uIHJlcXVpcmVtZW50IGFwcGxpZXMgb24gZXZlcnkgcmVzdW1lZCBodW1hbiBpbnZvY2F0aW9uIGJlZm9yZSBzdWJzdGFudGl2ZSBXYXlmaW5kZXIgYWR2YW5jZW1lbnQuCgpVbnRpbCB0aGlzIHdpdG5lc3MgaXMgY29tcGxldGUgZnJvbSBhY3R1YWwgcmV0dXJuZWQgY2hpbGQgcGF5bG9hZHMsIGRlY2lzaW9uIGNsYWltaW5nLCBhdXRob3JlZCBkZWNpc2lvbi1zdGF0ZSBwZXJzaXN0ZW5jZSwgaHVtYW4gYWNjZXB0YW5jZSBnYXRpbmcsIHJlc29sdXRpb24sIGFuZCBhbGwgbGF0ZXIgc3Vic3RhbnRpdmUgV2F5ZmluZGVyIGxpZmVjeWNsZSB0cmFuc2l0aW9ucyBhcmUgdW5yZWFjaGFibGUuIEEgaHVtYW4gaW5zdHJ1Y3Rpb24gdG8gY29udGludWUgZG9lcyBub3Qgd2FpdmUgZGVsZWdhdGVkLW93bmVyIGFkbWlzc2lvbi4KClRoZSBwb3N0LXRyYW5zaXRpb24gYHJlY29uY2lsZWAgcmVxdWlyZWQgYnkgKipSZWNvbmNpbGUgQWZ0ZXIgRHVyYWJsZSBXYXlmaW5kZXIgVHJhbnNpdGlvbnMqKiBtdXN0IGxpa2V3aXNlIGJlIGFuIGFjdHVhbCByZXR1cm5lZCBgJHByb2plY3QtZGVsaXZlcnktbWFuYWdlbWVudGAgcmVzdWx0OyBtYW51YWwgcmVjb25zdHJ1Y3Rpb24gY2Fubm90IHNhdGlzZnkgdGhhdCByZXF1aXJlbWVudC4KCg==').decode()
+          path.write_text(text.replace(marker, section + marker, 1))
+          PY
+
+          git diff --check
+          test "$(git diff --name-only)" = ".agents/skills/wayfinder/SKILL.md"
+          git add .agents/skills/wayfinder/SKILL.md
+          git commit -m "fix(workflow): enforce wayfinder owner admission"
+          MAIN_FIX="$(git rev-parse HEAD)"
+          MAIN_BLOB="$(git rev-parse HEAD:.agents/skills/wayfinder/SKILL.md)"
+          git push origin HEAD:main
+
+          git fetch origin spec-357
+          test "$(git rev-parse origin/spec-357)" = "$SPEC_BEFORE"
+          git worktree add --detach /tmp/polaris-spec-357 "$SPEC_BEFORE"
+          git show "$MAIN_FIX:.agents/skills/wayfinder/SKILL.md" > /tmp/polaris-spec-357/.agents/skills/wayfinder/SKILL.md
+          test "$(git -C /tmp/polaris-spec-357 hash-object .agents/skills/wayfinder/SKILL.md)" = "$MAIN_BLOB"
+          test "$(git -C /tmp/polaris-spec-357 diff --name-only)" = ".agents/skills/wayfinder/SKILL.md"
+          git -C /tmp/polaris-spec-357 config user.name "github-actions[bot]"
+          git -C /tmp/polaris-spec-357 config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C /tmp/polaris-spec-357 add .agents/skills/wayfinder/SKILL.md
+          git -C /tmp/polaris-spec-357 commit -m "fix(workflow): propagate wayfinder owner admission"
+
+          git fetch origin spec-357
+          test "$(git rev-parse origin/spec-357)" = "$SPEC_BEFORE"
+          git -C /tmp/polaris-spec-357 push origin HEAD:spec-357
+          test "$(git -C /tmp/polaris-spec-357 rev-parse HEAD:.agents/skills/wayfinder/SKILL.md)" = "$MAIN_BLOB"

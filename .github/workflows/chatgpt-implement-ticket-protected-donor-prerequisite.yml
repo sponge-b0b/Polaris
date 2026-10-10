@@ -1,0 +1,94 @@
+name: ChatGPT fix implement-ticket protected donor prerequisite
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/chatgpt-implement-ticket-protected-donor-prerequisite.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+      - name: Apply and propagate bounded fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          test "$(git rev-parse HEAD^)" = "e130b77e7ed0314ddb5c5634fb82784465e6596a"
+          test "$(git rev-parse HEAD^:.agents/skills/implement-ticket/SKILL.md)" = "16b54cced91b30ef5ac613645b69266cc4cc9eed"
+          git fetch origin spec-357
+          test "$(git rev-parse origin/spec-357)" = "3961dbdd5f36fbcb4042f716cc44506c643a7f46"
+
+          python - <<'PY'
+          from pathlib import Path
+          path = Path(".agents/skills/implement-ticket/SKILL.md")
+          text = path.read_text()
+          old = "#### Ordinary baseline path\n\nWhen neither destination nor source live-WIP recovery mode applies:\n"
+          if "#### Protected-donor prerequisite isolation\n" in text:
+              raise SystemExit("fix already present")
+          if text.count(old) != 1:
+              raise SystemExit("unexpected ordinary-baseline marker")
+          section = '''#### Protected-donor prerequisite isolation
+
+When neither destination nor source live-WIP recovery applies, a dirty caller checkout may still be intentional protected donor state for a sibling live-WIP reslice. Before the ordinary clean-worktree requirement, evaluate this mode when the current ticket is on the same parent Spec and Ticket branch as a nonterminal `<!-- ticket-reslice-recovery:v1 -->` record and the current ticket is a native transitive prerequisite of that record's **Destination ticket**.
+
+Resolve it fail-closed:
+
+1. inspect the current ticket's native parent and that parent's direct ticket children only as needed to collect nonterminal recovery records on the current `Ticket branch`;
+2. for each candidate record, require `Recovery mode: isolated-worktree`, exact parent-Spec lineage, a full-SHA source baseline, and complete/untruncated native dependency data;
+3. prove the current ticket is neither the record's Source nor Destination and that following native `blocked by` edges from the Destination transitively reaches the current ticket; do not infer prerequisite ancestry from ticket numbers, prose ordering, or the proposed sequence;
+4. require every matching record's reslice branch anchor to be an ancestor of the exact frozen current remote shared-branch tip. Any post-anchor delta that changes product/ticket semantics relevant to the current ticket or reslice ownership must return through `$to-tickets`; workflow-policy-only or otherwise proven semantically independent advancement may remain;
+5. fingerprint the protected caller checkout using the same strong branch/HEAD, staged, unstaged tracked, and untracked path+content representation used by destination/source recovery;
+6. create a temporary isolated worktree detached at the exact frozen current remote shared-branch tip;
+7. when the current ticket still has `Ticket baseline: Pending`, persist that isolated-worktree HEAD as its immutable Ticket baseline and read it back exactly;
+8. from baseline persistence through implementation, verification, candidate certification, commit, push, readback, and closure, execute repository mutation and candidate-state commands in the isolated worktree. The protected caller checkout is not this ticket's candidate.
+
+This prerequisite-isolation mode is **non-donor**. The current ticket has no authority to classify, copy, transplant, repair, commit, or otherwise consume dirty caller WIP merely because it protects the checkout. Leave every donor hunk/path untouched; donor attribution remains owned by the recovery Source/Destination lifecycles.
+
+The current prerequisite ticket also does not advance or terminalize the sibling recovery record because it is neither participant. Preserve that record unchanged.
+
+Before every Human Handoff/ordinary return and before removing the isolated prerequisite worktree, recompute the protected caller fingerprint and require exact equality. Unexpected caller mutation is a hard blocker.
+
+'''
+          new = "#### Ordinary baseline path\n\nWhen none of destination, source, or protected-donor prerequisite isolation applies:\n"
+          path.write_text(text.replace(old, section + new, 1))
+          PY
+
+          git diff --check
+          test "$(git diff --name-only)" = ".agents/skills/implement-ticket/SKILL.md"
+          git add .agents/skills/implement-ticket/SKILL.md
+          git commit -m "fix(workflow): isolate protected-donor prerequisites"
+          FIX_COMMIT=$(git rev-parse HEAD)
+          SKILL_BLOB=$(git rev-parse HEAD:.agents/skills/implement-ticket/SKILL.md)
+          git push origin HEAD:main
+
+          TMP=$(mktemp -d)
+          git worktree add --detach "$TMP" 3961dbdd5f36fbcb4042f716cc44506c643a7f46
+          git -C "$TMP" config user.name "github-actions[bot]"
+          git -C "$TMP" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git show "$FIX_COMMIT:.agents/skills/implement-ticket/SKILL.md" > "$TMP/.agents/skills/implement-ticket/SKILL.md"
+          test "$(git -C "$TMP" diff --name-only)" = ".agents/skills/implement-ticket/SKILL.md"
+          test "$(git -C "$TMP" hash-object .agents/skills/implement-ticket/SKILL.md)" = "$SKILL_BLOB"
+          git -C "$TMP" add .agents/skills/implement-ticket/SKILL.md
+          git -C "$TMP" commit -m "fix(workflow): propagate protected-donor prerequisite isolation"
+          git -C "$TMP" push origin HEAD:spec-357
+          git fetch origin spec-357
+          test "$(git rev-parse origin/spec-357:.agents/skills/implement-ticket/SKILL.md)" = "$SKILL_BLOB"
+          git worktree remove "$TMP"
+
+          git rm .github/workflows/chatgpt-implement-ticket-protected-donor-prerequisite.yml
+          git commit -m "chore: remove implement-ticket fix transport"
+          git push origin HEAD:main
+
+          echo "FIX_COMMIT=$FIX_COMMIT"
+          echo "SKILL_BLOB=$SKILL_BLOB"

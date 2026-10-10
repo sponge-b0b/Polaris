@@ -798,9 +798,30 @@ After source closure, reconcile every associated recovery record under **Order-i
 
 The second-closing participant always owns the `source-reconciled` transition; closure ordering must never strand a completed pair in `prerequisite-complete`.
 
+#### Protected-donor prerequisite isolation
+
+When neither destination nor source live-WIP recovery applies, a dirty caller checkout may still be intentional protected donor state for a sibling live-WIP reslice. Before the ordinary clean-worktree requirement, evaluate this mode when the current ticket is on the same parent Spec and Ticket branch as a nonterminal `<!-- ticket-reslice-recovery:v1 -->` record and the current ticket is a native transitive prerequisite of that record's **Destination ticket**.
+
+Resolve it fail-closed:
+
+1. inspect the current ticket's native parent and that parent's direct ticket children only as needed to collect nonterminal recovery records on the current `Ticket branch`;
+2. for each candidate record, require `Recovery mode: isolated-worktree`, exact parent-Spec lineage, a full-SHA source baseline, and complete/untruncated native dependency data;
+3. prove the current ticket is neither the record's Source nor Destination and that following native `blocked by` edges from the Destination transitively reaches the current ticket; do not infer prerequisite ancestry from ticket numbers, prose ordering, or the proposed sequence;
+4. require every matching record's reslice branch anchor to be an ancestor of the exact frozen current remote shared-branch tip. Any post-anchor delta that changes product/ticket semantics relevant to the current ticket or reslice ownership must return through `$to-tickets`; workflow-policy-only or otherwise proven semantically independent advancement may remain;
+5. fingerprint the protected caller checkout using the same strong branch/HEAD, staged, unstaged tracked, and untracked path+content representation used by destination/source recovery;
+6. create a temporary isolated worktree detached at the exact frozen current remote shared-branch tip;
+7. when the current ticket still has `Ticket baseline: Pending`, persist that isolated-worktree HEAD as its immutable Ticket baseline and read it back exactly;
+8. from baseline persistence through implementation, verification, candidate certification, commit, push, readback, and closure, execute repository mutation and candidate-state commands in the isolated worktree. The protected caller checkout is not this ticket's candidate.
+
+This prerequisite-isolation mode is **non-donor**. The current ticket has no authority to classify, copy, transplant, repair, commit, or otherwise consume dirty caller WIP merely because it protects the checkout. Leave every donor hunk/path untouched; donor attribution remains owned by the recovery Source/Destination lifecycles.
+
+The current prerequisite ticket also does not advance or terminalize the sibling recovery record because it is neither participant. Preserve that record unchanged.
+
+Before every Human Handoff/ordinary return and before removing the isolated prerequisite worktree, recompute the protected caller fingerprint and require exact equality. Unexpected caller mutation is a hard blocker.
+
 #### Ordinary baseline path
 
-When neither destination nor source live-WIP recovery mode applies:
+When none of destination, source, or protected-donor prerequisite isolation applies:
 
 If `Pending`:
 

@@ -57,6 +57,33 @@ The empty-focus confirmation is the only focus establishment `$wayfinder` may fa
 
 Read-only investigation required to resolve the governing map and project-delivery state is allowed before the guard. Do not claim a decision, post a Decision Analysis, mutate tracker/repository state, or resolve architecture before authorization succeeds.
 
+### Project-delivery result admission
+
+The **Project Delivery Focus Guard** is a delegated-owner boundary, not a checklist that `$wayfinder` may reproduce itself. For **Work Through the Map**, successful authorization requires the prescribed `$project-delivery-management` child workflow to execute and its returned terminal results to be admitted by this invocation.
+
+Before claiming a decision, posting `## Decision Analysis` or `## Recommendation Revision`, presenting the HITL yes/no acceptance gate, persisting architecture, or making any other substantive tracker/repository mutation, require this witness:
+
+```text
+Project-delivery reconcile result received: yes
+Project-delivery guard result received: yes
+Guard Wayfinder identity matches current governing map: yes
+Exact PROJECT DELIVERY GUARD: ALLOWED received: yes
+Manual project-delivery reconstruction used as substitute: no
+```
+
+Rules:
+
+* actually invoke `$project-delivery-management` `reconcile` and receive its returned terminal result;
+* actually invoke `$project-delivery-management` `guard <Wayfinder>` for the exact governing map and receive its returned terminal guard result;
+* after an explicitly authorized empty-focus `focus <Wayfinder>` transition, re-run the actual child guard and admit the new returned `PROJECT DELIVERY GUARD: ALLOWED` result before continuing;
+* reading the child `SKILL.md`, inspecting the management singleton, querying focus/frontier/blocker state, or independently reproducing the child algorithm is diagnostic context only and **cannot** populate this witness or substitute for child execution;
+* missing, pending, malformed, stale-source, mismatched-Wayfinder, or non-`ALLOWED` required child results fail closed under the existing guard outcomes;
+* the same admission requirement applies on every resumed human invocation before substantive Wayfinder advancement.
+
+Until this witness is complete from actual returned child payloads, decision claiming, authored decision-state persistence, human acceptance gating, resolution, and all later substantive Wayfinder lifecycle transitions are unreachable. A human instruction to continue does not waive delegated-owner admission.
+
+The post-transition `reconcile` required by **Reconcile After Durable Wayfinder Transitions** must likewise be an actual returned `$project-delivery-management` result; manual reconstruction cannot satisfy that requirement.
+
 ### Reconcile After Durable Wayfinder Transitions
 
 After a Wayfinder-owned transition that can affect project eligibility, focus validity, or lower-level actionability is durably persisted, invoke `$project-delivery-management` `reconcile` **after** that authoritative mutation succeeds.

@@ -2,7 +2,8 @@ name: ChatGPT fix implement-ticket protected donor prerequisite
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - .github/workflows/chatgpt-implement-ticket-protected-donor-prerequisite.yml
 
@@ -21,74 +22,76 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          BASE=e130b77e7ed0314ddb5c5634fb82784465e6596a
+          SPEC_HEAD=3961dbdd5f36fbcb4042f716cc44506c643a7f46
+          OLD_BLOB=16b54cced91b30ef5ac613645b69266cc4cc9eed
+          SKILL=.agents/skills/implement-ticket/SKILL.md
+          WORKFLOW=.github/workflows/chatgpt-implement-ticket-protected-donor-prerequisite.yml
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          test "$(git rev-parse HEAD^)" = "e130b77e7ed0314ddb5c5634fb82784465e6596a"
-          test "$(git rev-parse HEAD^:.agents/skills/implement-ticket/SKILL.md)" = "16b54cced91b30ef5ac613645b69266cc4cc9eed"
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          test "$(git rev-parse "$BASE:$SKILL")" = "$OLD_BLOB"
+          test "$(git diff --name-only "$BASE"..HEAD)" = "$WORKFLOW"
           git fetch origin spec-357
-          test "$(git rev-parse origin/spec-357)" = "3961dbdd5f36fbcb4042f716cc44506c643a7f46"
+          test "$(git rev-parse origin/spec-357)" = "$SPEC_HEAD"
+          test "$(git rev-parse "origin/spec-357:$SKILL")" = "$OLD_BLOB"
 
           python - <<'PY'
+          import base64
           from pathlib import Path
+
           path = Path(".agents/skills/implement-ticket/SKILL.md")
           text = path.read_text()
-          old = "#### Ordinary baseline path\n\nWhen neither destination nor source live-WIP recovery mode applies:\n"
+          old = (
+              "#### Ordinary baseline path\n\n"
+              "When neither destination nor source live-WIP recovery mode applies:\n"
+          )
+          new = (
+              "#### Ordinary baseline path\n\n"
+              "When none of destination, source, or protected-donor prerequisite "
+              "isolation applies:\n"
+          )
           if "#### Protected-donor prerequisite isolation\n" in text:
               raise SystemExit("fix already present")
           if text.count(old) != 1:
-              raise SystemExit("unexpected ordinary-baseline marker")
-          section = '''#### Protected-donor prerequisite isolation
-
-When neither destination nor source live-WIP recovery applies, a dirty caller checkout may still be intentional protected donor state for a sibling live-WIP reslice. Before the ordinary clean-worktree requirement, evaluate this mode when the current ticket is on the same parent Spec and Ticket branch as a nonterminal `<!-- ticket-reslice-recovery:v1 -->` record and the current ticket is a native transitive prerequisite of that record's **Destination ticket**.
-
-Resolve it fail-closed:
-
-1. inspect the current ticket's native parent and that parent's direct ticket children only as needed to collect nonterminal recovery records on the current `Ticket branch`;
-2. for each candidate record, require `Recovery mode: isolated-worktree`, exact parent-Spec lineage, a full-SHA source baseline, and complete/untruncated native dependency data;
-3. prove the current ticket is neither the record's Source nor Destination and that following native `blocked by` edges from the Destination transitively reaches the current ticket; do not infer prerequisite ancestry from ticket numbers, prose ordering, or the proposed sequence;
-4. require every matching record's reslice branch anchor to be an ancestor of the exact frozen current remote shared-branch tip. Any post-anchor delta that changes product/ticket semantics relevant to the current ticket or reslice ownership must return through `$to-tickets`; workflow-policy-only or otherwise proven semantically independent advancement may remain;
-5. fingerprint the protected caller checkout using the same strong branch/HEAD, staged, unstaged tracked, and untracked path+content representation used by destination/source recovery;
-6. create a temporary isolated worktree detached at the exact frozen current remote shared-branch tip;
-7. when the current ticket still has `Ticket baseline: Pending`, persist that isolated-worktree HEAD as its immutable Ticket baseline and read it back exactly;
-8. from baseline persistence through implementation, verification, candidate certification, commit, push, readback, and closure, execute repository mutation and candidate-state commands in the isolated worktree. The protected caller checkout is not this ticket's candidate.
-
-This prerequisite-isolation mode is **non-donor**. The current ticket has no authority to classify, copy, transplant, repair, commit, or otherwise consume dirty caller WIP merely because it protects the checkout. Leave every donor hunk/path untouched; donor attribution remains owned by the recovery Source/Destination lifecycles.
-
-The current prerequisite ticket also does not advance or terminalize the sibling recovery record because it is neither participant. Preserve that record unchanged.
-
-Before every Human Handoff/ordinary return and before removing the isolated prerequisite worktree, recompute the protected caller fingerprint and require exact equality. Unexpected caller mutation is a hard blocker.
-
-'''
-          new = "#### Ordinary baseline path\n\nWhen none of destination, source, or protected-donor prerequisite isolation applies:\n"
+              raise SystemExit(f"unexpected ordinary-baseline marker count: {text.count(old)}")
+          section = base64.b64decode("IyMjIyBQcm90ZWN0ZWQtZG9ub3IgcHJlcmVxdWlzaXRlIGlzb2xhdGlvbgoKV2hlbiBuZWl0aGVyIGRlc3RpbmF0aW9uIG5vciBzb3VyY2UgbGl2ZS1XSVAgcmVjb3ZlcnkgYXBwbGllcywgYSBkaXJ0eSBjYWxsZXIgY2hlY2tvdXQgbWF5IHN0aWxsIGJlIGludGVudGlvbmFsIHByb3RlY3RlZCBkb25vciBzdGF0ZSBmb3IgYSBzaWJsaW5nIGxpdmUtV0lQIHJlc2xpY2UuIEJlZm9yZSB0aGUgb3JkaW5hcnkgY2xlYW4td29ya3RyZWUgcmVxdWlyZW1lbnQsIGV2YWx1YXRlIHRoaXMgbW9kZSB3aGVuIHRoZSBjdXJyZW50IHRpY2tldCBpcyBvbiB0aGUgc2FtZSBwYXJlbnQgU3BlYyBhbmQgVGlja2V0IGJyYW5jaCBhcyBhIG5vbnRlcm1pbmFsIGA8IS0tIHRpY2tldC1yZXNsaWNlLXJlY292ZXJ5OnYxIC0tPmAgcmVjb3JkIGFuZCB0aGUgY3VycmVudCB0aWNrZXQgaXMgYSBuYXRpdmUgdHJhbnNpdGl2ZSBwcmVyZXF1aXNpdGUgb2YgdGhhdCByZWNvcmQncyAqKkRlc3RpbmF0aW9uIHRpY2tldCoqLgoKUmVzb2x2ZSBpdCBmYWlsLWNsb3NlZDoKCjEuIGluc3BlY3QgdGhlIGN1cnJlbnQgdGlja2V0J3MgbmF0aXZlIHBhcmVudCBhbmQgdGhhdCBwYXJlbnQncyBkaXJlY3QgdGlja2V0IGNoaWxkcmVuIG9ubHkgYXMgbmVlZGVkIHRvIGNvbGxlY3Qgbm9udGVybWluYWwgcmVjb3ZlcnkgcmVjb3JkcyBvbiB0aGUgY3VycmVudCBgVGlja2V0IGJyYW5jaGA7CjIuIGZvciBlYWNoIGNhbmRpZGF0ZSByZWNvcmQsIHJlcXVpcmUgYFJlY292ZXJ5IG1vZGU6IGlzb2xhdGVkLXdvcmt0cmVlYCwgZXhhY3QgcGFyZW50LVNwZWMgbGluZWFnZSwgYSBmdWxsLVNIQSBzb3VyY2UgYmFzZWxpbmUsIGFuZCBjb21wbGV0ZS91bnRydW5jYXRlZCBuYXRpdmUgZGVwZW5kZW5jeSBkYXRhOwozLiBwcm92ZSB0aGUgY3VycmVudCB0aWNrZXQgaXMgbmVpdGhlciB0aGUgcmVjb3JkJ3MgU291cmNlIG5vciBEZXN0aW5hdGlvbiBhbmQgdGhhdCBmb2xsb3dpbmcgbmF0aXZlIGBibG9ja2VkIGJ5YCBlZGdlcyBmcm9tIHRoZSBEZXN0aW5hdGlvbiB0cmFuc2l0aXZlbHkgcmVhY2hlcyB0aGUgY3VycmVudCB0aWNrZXQ7IGRvIG5vdCBpbmZlciBwcmVyZXF1aXNpdGUgYW5jZXN0cnkgZnJvbSB0aWNrZXQgbnVtYmVycywgcHJvc2Ugb3JkZXJpbmcsIG9yIHRoZSBwcm9wb3NlZCBzZXF1ZW5jZTsKNC4gcmVxdWlyZSBldmVyeSBtYXRjaGluZyByZWNvcmQncyByZXNsaWNlIGJyYW5jaCBhbmNob3IgdG8gYmUgYW4gYW5jZXN0b3Igb2YgdGhlIGV4YWN0IGZyb3plbiBjdXJyZW50IHJlbW90ZSBzaGFyZWQtYnJhbmNoIHRpcC4gQW55IHBvc3QtYW5jaG9yIGRlbHRhIHRoYXQgY2hhbmdlcyBwcm9kdWN0L3RpY2tldCBzZW1hbnRpY3MgcmVsZXZhbnQgdG8gdGhlIGN1cnJlbnQgdGlja2V0IG9yIHJlc2xpY2Ugb3duZXJzaGlwIG11c3QgcmV0dXJuIHRocm91Z2ggYCR0by10aWNrZXRzYDsgd29ya2Zsb3ctcG9saWN5LW9ubHkgb3Igb3RoZXJ3aXNlIHByb3ZlbiBzZW1hbnRpY2FsbHkgaW5kZXBlbmRlbnQgYWR2YW5jZW1lbnQgbWF5IHJlbWFpbjsKNS4gZmluZ2VycHJpbnQgdGhlIHByb3RlY3RlZCBjYWxsZXIgY2hlY2tvdXQgdXNpbmcgdGhlIHNhbWUgc3Ryb25nIGJyYW5jaC9IRUFELCBzdGFnZWQsIHVuc3RhZ2VkIHRyYWNrZWQsIGFuZCB1bnRyYWNrZWQgcGF0aCtjb250ZW50IHJlcHJlc2VudGF0aW9uIHVzZWQgYnkgZGVzdGluYXRpb24vc291cmNlIHJlY292ZXJ5Owo2LiBjcmVhdGUgYSB0ZW1wb3JhcnkgaXNvbGF0ZWQgd29ya3RyZWUgZGV0YWNoZWQgYXQgdGhlIGV4YWN0IGZyb3plbiBjdXJyZW50IHJlbW90ZSBzaGFyZWQtYnJhbmNoIHRpcDsKNy4gd2hlbiB0aGUgY3VycmVudCB0aWNrZXQgc3RpbGwgaGFzIGBUaWNrZXQgYmFzZWxpbmU6IFBlbmRpbmdgLCBwZXJzaXN0IHRoYXQgaXNvbGF0ZWQtd29ya3RyZWUgSEVBRCBhcyBpdHMgaW1tdXRhYmxlIFRpY2tldCBiYXNlbGluZSBhbmQgcmVhZCBpdCBiYWNrIGV4YWN0bHk7CjguIGZyb20gYmFzZWxpbmUgcGVyc2lzdGVuY2UgdGhyb3VnaCBpbXBsZW1lbnRhdGlvbiwgdmVyaWZpY2F0aW9uLCBjYW5kaWRhdGUgY2VydGlmaWNhdGlvbiwgY29tbWl0LCBwdXNoLCByZWFkYmFjaywgYW5kIGNsb3N1cmUsIGV4ZWN1dGUgcmVwb3NpdG9yeSBtdXRhdGlvbiBhbmQgY2FuZGlkYXRlLXN0YXRlIGNvbW1hbmRzIGluIHRoZSBpc29sYXRlZCB3b3JrdHJlZS4gVGhlIHByb3RlY3RlZCBjYWxsZXIgY2hlY2tvdXQgaXMgbm90IHRoaXMgdGlja2V0J3MgY2FuZGlkYXRlLgoKVGhpcyBwcmVyZXF1aXNpdGUtaXNvbGF0aW9uIG1vZGUgaXMgKipub24tZG9ub3IqKi4gVGhlIGN1cnJlbnQgdGlja2V0IGhhcyBubyBhdXRob3JpdHkgdG8gY2xhc3NpZnksIGNvcHksIHRyYW5zcGxhbnQsIHJlcGFpciwgY29tbWl0LCBvciBvdGhlcndpc2UgY29uc3VtZSBkaXJ0eSBjYWxsZXIgV0lQIG1lcmVseSBiZWNhdXNlIGl0IHByb3RlY3RzIHRoZSBjaGVja291dC4gTGVhdmUgZXZlcnkgZG9ub3IgaHVuay9wYXRoIHVudG91Y2hlZDsgZG9ub3IgYXR0cmlidXRpb24gcmVtYWlucyBvd25lZCBieSB0aGUgcmVjb3ZlcnkgU291cmNlL0Rlc3RpbmF0aW9uIGxpZmVjeWNsZXMuCgpUaGUgY3VycmVudCBwcmVyZXF1aXNpdGUgdGlja2V0IGFsc28gZG9lcyBub3QgYWR2YW5jZSBvciB0ZXJtaW5hbGl6ZSB0aGUgc2libGluZyByZWNvdmVyeSByZWNvcmQgYmVjYXVzZSBpdCBpcyBuZWl0aGVyIHBhcnRpY2lwYW50LiBQcmVzZXJ2ZSB0aGF0IHJlY29yZCB1bmNoYW5nZWQuCgpCZWZvcmUgZXZlcnkgSHVtYW4gSGFuZG9mZi9vcmRpbmFyeSByZXR1cm4gYW5kIGJlZm9yZSByZW1vdmluZyB0aGUgaXNvbGF0ZWQgcHJlcmVxdWlzaXRlIHdvcmt0cmVlLCByZWNvbXB1dGUgdGhlIHByb3RlY3RlZCBjYWxsZXIgZmluZ2VycHJpbnQgYW5kIHJlcXVpcmUgZXhhY3QgZXF1YWxpdHkuIFVuZXhwZWN0ZWQgY2FsbGVyIG11dGF0aW9uIGlzIGEgaGFyZCBibG9ja2VyLgoK").decode()
           path.write_text(text.replace(old, section + new, 1))
           PY
 
           git diff --check
-          test "$(git diff --name-only)" = ".agents/skills/implement-ticket/SKILL.md"
-          git add .agents/skills/implement-ticket/SKILL.md
+          test "$(git diff --name-only)" = "$SKILL"
+          git add "$SKILL"
           git commit -m "fix(workflow): isolate protected-donor prerequisites"
           FIX_COMMIT=$(git rev-parse HEAD)
-          SKILL_BLOB=$(git rev-parse HEAD:.agents/skills/implement-ticket/SKILL.md)
+          SKILL_BLOB=$(git rev-parse "HEAD:$SKILL")
           git push origin HEAD:main
 
           TMP=$(mktemp -d)
-          git worktree add --detach "$TMP" 3961dbdd5f36fbcb4042f716cc44506c643a7f46
+          git worktree add --detach "$TMP" "$SPEC_HEAD"
           git -C "$TMP" config user.name "github-actions[bot]"
           git -C "$TMP" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git show "$FIX_COMMIT:.agents/skills/implement-ticket/SKILL.md" > "$TMP/.agents/skills/implement-ticket/SKILL.md"
-          test "$(git -C "$TMP" diff --name-only)" = ".agents/skills/implement-ticket/SKILL.md"
-          test "$(git -C "$TMP" hash-object .agents/skills/implement-ticket/SKILL.md)" = "$SKILL_BLOB"
-          git -C "$TMP" add .agents/skills/implement-ticket/SKILL.md
+          git show "$FIX_COMMIT:$SKILL" > "$TMP/$SKILL"
+          git -C "$TMP" diff --check
+          test "$(git -C "$TMP" diff --name-only)" = "$SKILL"
+          test "$(git -C "$TMP" hash-object "$SKILL")" = "$SKILL_BLOB"
+          git -C "$TMP" add "$SKILL"
           git -C "$TMP" commit -m "fix(workflow): propagate protected-donor prerequisite isolation"
+          SPEC_COMMIT=$(git -C "$TMP" rev-parse HEAD)
           git -C "$TMP" push origin HEAD:spec-357
           git fetch origin spec-357
-          test "$(git rev-parse origin/spec-357:.agents/skills/implement-ticket/SKILL.md)" = "$SKILL_BLOB"
+          test "$(git rev-parse "origin/spec-357:$SKILL")" = "$SKILL_BLOB"
           git worktree remove "$TMP"
 
-          git rm .github/workflows/chatgpt-implement-ticket-protected-donor-prerequisite.yml
+          git rm "$WORKFLOW"
           git commit -m "chore: remove implement-ticket fix transport"
+          FINAL_MAIN=$(git rev-parse HEAD)
+          test "$(git rev-parse "HEAD:$SKILL")" = "$SKILL_BLOB"
           git push origin HEAD:main
 
           echo "FIX_COMMIT=$FIX_COMMIT"
+          echo "FINAL_MAIN=$FINAL_MAIN"
+          echo "SPEC_COMMIT=$SPEC_COMMIT"
           echo "SKILL_BLOB=$SKILL_BLOB"

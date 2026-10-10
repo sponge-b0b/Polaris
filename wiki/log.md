@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-10] R3 Evidence temporal current-basis meaning | owner proof and stale roles
+
+Accepted ADR 0016 to complete the in-domain same-version temporal-drift contract under ADRs 0013 and 0015. Authoritative owners must attest complete as-of meaning and lawful temporal cause at exact reads and atomic fresh revalidation; matching owner versions alone do not prove a basis is unchanged. Valid governing Decision drift maps to `DECISION_CHANGED`, independent Evidence time fitness remains `SUPPORT_CHANGED_BY_TIME`, and invalid or unavailable proof retains its distinct no-basis outcome. Updated Evidence, Application Use Cases, and Investment Decisions implementation-pending knowledge.
+
 ## [2026-10-07] R3 Evidence current-basis completion | owner versions and seven-category stale mapping
 
 Accepted ADR 0015 to complete target-owner judgment revisions and typed canonical-context version dependencies for exact current Evidence support bases. Target correction retains its root while new judgments receive new roots; materially used context versions and selection/absence guards are revalidated at commit. `StaleEvidenceBasis` keeps ADR 0013's seven categories: positive context drift belongs to `EVIDENCE_SUPPORT_CHANGED` with the exact typed changed reference. Updated Evidence, Application Use Cases, Durable Persistence, Investment Intelligence, Portfolio & Risk, Governance & Authority, and Learning knowledge; implementation and downstream Spec/ticket reconciliation remain pending.

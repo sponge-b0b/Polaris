@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-10] R3 Evidence temporal current-basis meaning | owner proof and stale roles
+
+Accepted ADR 0016 to complete the in-domain same-version temporal-drift contract under ADRs 0013 and 0015. Authoritative owners must attest complete as-of meaning and lawful temporal cause at exact reads and atomic fresh revalidation; matching owner versions alone do not prove a basis is unchanged. Valid governing Decision drift maps to `DECISION_CHANGED`, independent Evidence time fitness remains `SUPPORT_CHANGED_BY_TIME`, and invalid or unavailable proof retains its distinct no-basis outcome. Updated Evidence, Application Use Cases, and Investment Decisions implementation-pending knowledge.
+
 ## [2026-10-08] R3 current Evidence support basis | #380 scoped read realized
 
 Added an Application current-basis query that returns owner-attested Decision, judgment, context, claim, requirement, sufficiency, and Evidence support at exact `T=K`, with typed guards and fail-closed no-basis outcomes. PostgreSQL supplies complete exact target/scope/use Evidence histories in a repeatable-read snapshot. Updated Evidence, Application Use Cases, and Durable Persistence knowledge; dependent-command revalidation remains downstream.

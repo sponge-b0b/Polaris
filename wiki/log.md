@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-10] R3 typed owner meaning witness contract | partial ADR 0016 realization
+
+Recorded the inward owner-meaning proof contract for exact Decision, target, claim, and canonical-context subjects in Application Use Cases. Owner history verification and distinct no-basis outcomes are now explicit; concrete Decision attestation and current-basis assembly remain pending.
+
 ## [2026-10-10] R3 Evidence temporal current-basis meaning | owner proof and stale roles
 
 Accepted ADR 0016 to complete the in-domain same-version temporal-drift contract under ADRs 0013 and 0015. Authoritative owners must attest complete as-of meaning and lawful temporal cause at exact reads and atomic fresh revalidation; matching owner versions alone do not prove a basis is unchanged. Valid governing Decision drift maps to `DECISION_CHANGED`, independent Evidence time fitness remains `SUPPORT_CHANGED_BY_TIME`, and invalid or unavailable proof retains its distinct no-basis outcome. Updated Evidence, Application Use Cases, and Investment Decisions implementation-pending knowledge.

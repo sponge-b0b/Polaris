@@ -125,6 +125,23 @@ from .judgment_versions import (
     TargetJudgmentWithdrawn,
 )
 from .observations import EvidenceObservationService
+from .owner_meaning import (
+    CanonicalContextAbsence,
+    CanonicalContextMeaning,
+    ClaimMembershipMeaning,
+    GoverningDecisionMeaning,
+    OwnerCauseVerdict,
+    OwnerHistoryRecord,
+    OwnerMeaningCause,
+    OwnerMeaningNoBasis,
+    OwnerMeaningNoBasisReason,
+    OwnerMeaningReader,
+    OwnerMeaningReadUnavailable,
+    OwnerMeaningResolver,
+    OwnerMeaningSubject,
+    OwnerMeaningWitness,
+    TargetJudgmentMeaning,
+)
 from .reconstruction import (
     CompleteReconstruction,
     ContestedReconstruction,
@@ -398,4 +415,19 @@ __all__ = [
     "resolve_requirement_version",
     "evaluate_binding_freshness",
     "resolve_claim_membership",
+    "CanonicalContextAbsence",
+    "CanonicalContextMeaning",
+    "ClaimMembershipMeaning",
+    "GoverningDecisionMeaning",
+    "OwnerCauseVerdict",
+    "OwnerHistoryRecord",
+    "OwnerMeaningCause",
+    "OwnerMeaningNoBasis",
+    "OwnerMeaningNoBasisReason",
+    "OwnerMeaningReadUnavailable",
+    "OwnerMeaningReader",
+    "OwnerMeaningResolver",
+    "OwnerMeaningSubject",
+    "OwnerMeaningWitness",
+    "TargetJudgmentMeaning",
 ]

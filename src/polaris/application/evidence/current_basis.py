@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from polaris.application.decisions.contracts import (
     LifecycleConflict,
@@ -20,10 +20,15 @@ from polaris.application.decisions.ordinary_work import DecisionNotFound
 from polaris.domain.configuration import EvidenceRequirementApplicabilityKey
 from polaris.domain.decisions import (
     ContestedDecisionLifecycleInterpretation,
+    DecisionRelationshipState,
+    DeterminateDecisionLifecycleInterpretation,
     NotYetEffectiveDecisionLifecycleInterpretation,
 )
 from polaris.domain.evidence.claims import ClaimCatalogVersion
-from polaris.domain.evidence.context_versions import BasisScopeKey
+from polaris.domain.evidence.context_versions import (
+    BasisScopeKey,
+    DecisionContextVersionRef,
+)
 from polaris.domain.evidence.corrections import (
     EvidenceInterpretationState,
     EvidenceObservationCorrectionHistory,
@@ -65,6 +70,19 @@ from .judgment_versions import (
     TargetJudgmentUnavailable,
     TargetJudgmentWithdrawn,
 )
+from .owner_meaning import (
+    CanonicalContextAbsence,
+    CanonicalContextMeaning,
+    ClaimMembershipMeaning,
+    GoverningDecisionMeaning,
+    OwnerMeaningNoBasis,
+    OwnerMeaningNoBasisReason,
+    OwnerMeaningReader,
+    OwnerMeaningResolver,
+    OwnerMeaningSubject,
+    OwnerMeaningWitness,
+    TargetJudgmentMeaning,
+)
 from .reconstruction import (
     EvidenceHistories,
     HistoricalEvidenceItem,
@@ -84,11 +102,20 @@ from .sufficiency import (
 )
 from .support_epochs import EvidenceSupportEpochReader
 
+if TYPE_CHECKING:
+    from polaris.application.decisions.owner_meaning import DecisionOwnerMeaning
+
 
 class CurrentNoBasisReason(StrEnum):
+    # duplicate-code: this query result and the owner-read result have separate
+    # public contracts even where their failure words coincide.
+    # arid: disable
     MISSING = "missing"
     INCOMPLETE = "incomplete"
     CONTESTED = "contested"
+    NOT_YET_EFFECTIVE = "not_yet_effective"
+    # arid: enable
+    CONTRADICTORY = "contradictory"
     INVALID_HISTORY = "invalid_history"
     UNAVAILABLE = "unavailable"
 
@@ -194,6 +221,26 @@ class CurrentEvidenceGuards:
 
 
 @dataclass(frozen=True, slots=True)
+class CurrentOwnerMeaning:
+    """Verified causes for every positive and selected-or-absent owner dependency."""
+
+    decision: OwnerMeaningWitness
+    target: OwnerMeaningWitness
+    claim: OwnerMeaningWitness | None
+    context: tuple[OwnerMeaningWitness, ...]
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.decision) is not OwnerMeaningWitness
+            or type(self.target) is not OwnerMeaningWitness
+            or (self.claim is not None and type(self.claim) is not OwnerMeaningWitness)
+            or type(self.context) is not tuple
+            or any(type(item) is not OwnerMeaningWitness for item in self.context)
+        ):
+            raise TypeError("owner meaning requires complete typed witnesses")
+
+
+@dataclass(frozen=True, slots=True)
 class CurrentEvidenceBasis:
     """One command-usable, owner-sourced current basis at explicit T=K."""
 
@@ -208,6 +255,7 @@ class CurrentEvidenceBasis:
     evidence: CurrentEvidenceSelection
     support_version: EvidenceSupportVersion
     guards: CurrentEvidenceGuards
+    owner_meaning: CurrentOwnerMeaning
 
     def __post_init__(self) -> None:
         _aware(self.at)
@@ -223,6 +271,16 @@ class CurrentEvidenceBasis:
             raise ValueError("Evidence epoch must match the sufficiency owner read")
         if self.guards.fact_support != self.evidence.fact_support:
             raise ValueError("Evidence ancestry guard must cover all selected support")
+        if not _owner_meaning_matches(
+            self.key,
+            self.at,
+            self.decision,
+            self.target,
+            self.context,
+            self.guards.claim,
+            self.owner_meaning,
+        ):
+            raise ValueError("owner meaning must match current dependencies")
 
     @property
     def claim_catalog_version(self) -> ClaimCatalogVersion | None:
@@ -231,6 +289,123 @@ class CurrentEvidenceBasis:
             if self.guards.claim is None
             else self.guards.claim.membership.catalog_version
         )
+
+
+def _witness_at(witness: OwnerMeaningWitness, key: BasisScopeKey, at: datetime) -> bool:
+    return (
+        type(witness) is OwnerMeaningWitness
+        and witness.key == key
+        and witness.effective_at == at
+        and witness.known_at == at
+        and witness.read_at == at
+        and witness.cause.complete
+    )
+
+
+def _decision_meaning(view: DecisionMemoryView) -> DecisionOwnerMeaning | None:
+    from polaris.application.decisions.owner_meaning import (
+        DecisionOwnerMeaning,
+        DecisionRelationshipMeaning,
+    )
+
+    interpretation = view.lifecycle_interpretation
+    if type(interpretation) is not DeterminateDecisionLifecycleInterpretation:
+        return None
+    lineage = tuple(
+        DecisionRelationshipMeaning(
+            item.source_decision_id,
+            item.target_decision_id,
+            item.relationship_type,
+            item.direction,
+            item.state,
+            item.support_fact_ids,
+            item.basis_contributions,
+            item.surviving_positive_claims,
+        )
+        for item in view.lineage
+        if item.state is DecisionRelationshipState.SUPPORTED
+    )
+    return DecisionOwnerMeaning(
+        view.need,
+        view.subject,
+        view.scope,
+        interpretation.disposition,
+        interpretation.support_fact_ids,
+        view.work_posture,
+        view.applicability,
+        lineage,
+    )
+
+
+def _owner_meaning_matches(
+    key: BasisScopeKey,
+    at: datetime,
+    decision: DecisionMemoryView,
+    target: ResolvedTargetJudgment,
+    context: CompleteContextSelection,
+    claim: ClaimMembershipGuard | None,
+    meaning: CurrentOwnerMeaning,
+) -> bool:
+    from polaris.application.decisions.owner_meaning import (
+        DecisionMeaningProvenance,
+        DecisionRelationshipGuard,
+    )
+
+    expected_decision = _decision_meaning(decision)
+    decision_proof = meaning.decision
+    if (
+        expected_decision is None
+        or not _witness_at(decision_proof, key, at)
+        or decision_proof.subject
+        != GoverningDecisionMeaning(
+            DecisionContextVersionRef(key.decision_id, decision.version)
+        )
+        or decision_proof.meaning != expected_decision
+        or decision_proof.provenance is not DecisionMeaningProvenance.R2_DECISION_MEMORY
+        or DecisionRelationshipGuard(key, expected_decision.lineage)
+        not in decision_proof.cause.relationship_guards
+    ):
+        return False
+    target_proof = meaning.target
+    if (
+        target.target != key.target
+        or target.effective_at != at
+        or target.known_at != at
+        or not _witness_at(target_proof, key, at)
+        or target_proof.subject != TargetJudgmentMeaning(target.version)
+    ):
+        return False
+    if claim is None:
+        if meaning.claim is not None:
+            return False
+    else:
+        claim_proof = meaning.claim
+        if (
+            claim_proof is None
+            or not _witness_at(claim_proof, key, at)
+            or claim_proof.subject
+            != ClaimMembershipMeaning(
+                key.target,
+                claim.membership.claim_id,
+                claim.membership.catalog_version,
+            )
+        ):
+            return False
+    expected_context: list[OwnerMeaningSubject] = []
+    for selection in context.selections:
+        if selection.facts:
+            expected_context.extend(
+                CanonicalContextMeaning(selection.role, fact.reference, selection.guard)
+                for fact in selection.facts
+            )
+        else:
+            expected_context.append(
+                CanonicalContextAbsence(selection.role, selection.guard)
+            )
+    return len(meaning.context) == len(expected_context) and all(
+        _witness_at(proof, key, at) and proof.subject == subject
+        for proof, subject in zip(meaning.context, expected_context, strict=True)
+    )
 
 
 type CurrentEvidenceBasisResult = CurrentEvidenceBasis | CurrentEvidenceNoBasis
@@ -251,6 +426,10 @@ class CurrentEvidenceBasisQuery:
         support_epochs: EvidenceSupportEpochReader,
         claims: ClaimCatalogMembershipResolver,
         requirements: EvidenceRequirementVersionResolver,
+        decision_meaning: OwnerMeaningReader,
+        target_meaning: OwnerMeaningReader,
+        claim_meaning: OwnerMeaningReader,
+        context_meaning: OwnerMeaningReader,
     ) -> None:
         self._decisions = decisions
         self._targets = targets
@@ -261,6 +440,10 @@ class CurrentEvidenceBasisQuery:
         self._support_epochs = support_epochs
         self._claims = claims
         self._requirements = requirements
+        self._decision_meaning = OwnerMeaningResolver(decision_meaning)
+        self._target_meaning = OwnerMeaningResolver(target_meaning)
+        self._claim_meaning = OwnerMeaningResolver(claim_meaning)
+        self._context_meaning = OwnerMeaningResolver(context_meaning)
 
     async def read(
         self, key: BasisScopeKey, *, at: datetime
@@ -268,9 +451,64 @@ class CurrentEvidenceBasisQuery:
         if type(key) is not BasisScopeKey:
             raise TypeError("key must be BasisScopeKey")
         _aware(at)
+        decision_read = await self._read_governing_decision(key, at)
+        if isinstance(decision_read, CurrentEvidenceNoBasis):
+            return decision_read
+        decision, decision_proof = decision_read
+        target_read = await self._read_target_meaning(key, at)
+        if isinstance(target_read, CurrentEvidenceNoBasis):
+            return target_read
+        target, target_proof = target_read
+        context_read = await self._read_context_meaning(key, at)
+        if isinstance(context_read, CurrentEvidenceNoBasis):
+            return context_read
+        context, context_proofs = context_read
+
+        requirement_key = await self._read_requirement_key(key, target, context, at)
+        if isinstance(requirement_key, CurrentEvidenceNoBasis):
+            return requirement_key
+        claim_read = await self._read_claim_meaning(key, at)
+        if isinstance(claim_read, CurrentEvidenceNoBasis):
+            return claim_read
+        claim, claim_proof = claim_read
+        owner_meaning = CurrentOwnerMeaning(
+            decision_proof, target_proof, claim_proof, context_proofs
+        )
+        if not _owner_meaning_matches(
+            key, at, decision, target, context, claim, owner_meaning
+        ):
+            return _invalid(key, at, "owner meaning contradicts current dependencies")
+        # duplicate-code: passing owner inputs to assembly and constructing the
+        # complete result are different boundaries with the same initial fields.
+        # arid: disable
+        return await self._assemble(
+            key,
+            at,
+            decision,
+            target,
+            # arid: enable
+            context,
+            requirement_key,
+            claim,
+            owner_meaning,
+        )
+
+    async def _read_governing_decision(
+        self, key: BasisScopeKey, at: datetime
+    ) -> tuple[DecisionMemoryView, OwnerMeaningWitness] | CurrentEvidenceNoBasis:
         decision = await self._read_decision(key, at)
         if isinstance(decision, CurrentEvidenceNoBasis):
             return decision
+        proof = await self._read_meaning(
+            self._decision_meaning,
+            key,
+            GoverningDecisionMeaning(
+                DecisionContextVersionRef(key.decision_id, decision.version)
+            ),
+            at,
+        )
+        if isinstance(proof, CurrentEvidenceNoBasis):
+            return proof
         if isinstance(
             decision.lifecycle_interpretation,
             ContestedDecisionLifecycleInterpretation,
@@ -280,23 +518,97 @@ class CurrentEvidenceBasisQuery:
             decision.lifecycle_interpretation,
             NotYetEffectiveDecisionLifecycleInterpretation,
         ):
-            return _missing(key, at, "Decision is not yet effective")
+            return _no_basis(
+                key,
+                at,
+                CurrentNoBasisReason.NOT_YET_EFFECTIVE,
+                "Decision is not yet effective",
+            )
+        return decision, proof
+
+    async def _read_target_meaning(
+        self, key: BasisScopeKey, at: datetime
+    ) -> tuple[ResolvedTargetJudgment, OwnerMeaningWitness] | CurrentEvidenceNoBasis:
         target = await self._targets.read_current(key.target, at=at)
         if not isinstance(target, ResolvedTargetJudgment):
             return _target_failure(key, at, target)
+        proof = await self._read_meaning(
+            self._target_meaning, key, TargetJudgmentMeaning(target.version), at
+        )
+        return proof if isinstance(proof, CurrentEvidenceNoBasis) else (target, proof)
+
+    async def _read_context_meaning(
+        self, key: BasisScopeKey, at: datetime
+    ) -> (
+        tuple[CompleteContextSelection, tuple[OwnerMeaningWitness, ...]]
+        | CurrentEvidenceNoBasis
+    ):
         context = await self._contexts.read_complete_current(key, at=at)
         if isinstance(context, ContextNoBasis):
             return _context_failure(key, at, context)
+        proofs = await self._context_meanings(key, context, at)
+        return (
+            proofs if isinstance(proofs, CurrentEvidenceNoBasis) else (context, proofs)
+        )
 
-        requirement_key = await self._read_requirement_key(key, target, context, at)
-        if isinstance(requirement_key, CurrentEvidenceNoBasis):
-            return requirement_key
+    async def _read_claim_meaning(
+        self, key: BasisScopeKey, at: datetime
+    ) -> (
+        tuple[ClaimMembershipGuard | None, OwnerMeaningWitness | None]
+        | CurrentEvidenceNoBasis
+    ):
         claim = await self._claim_guard(key, at)
         if isinstance(claim, CurrentEvidenceNoBasis):
             return claim
-        return await self._assemble(
-            key, at, decision, target, context, requirement_key, claim
+        if claim is None:
+            return None, None
+        proof = await self._read_meaning(
+            self._claim_meaning,
+            key,
+            ClaimMembershipMeaning(
+                key.target,
+                claim.membership.claim_id,
+                claim.membership.catalog_version,
+            ),
+            at,
         )
+        return proof if isinstance(proof, CurrentEvidenceNoBasis) else (claim, proof)
+
+    async def _read_meaning(
+        self,
+        resolver: OwnerMeaningResolver,
+        key: BasisScopeKey,
+        subject: OwnerMeaningSubject,
+        at: datetime,
+    ) -> OwnerMeaningWitness | CurrentEvidenceNoBasis:
+        result = await resolver.read_current(key, subject, at=at)
+        if isinstance(result, OwnerMeaningNoBasis):
+            return _owner_meaning_failure(key, at, result)
+        return result
+
+    async def _context_meanings(
+        self, key: BasisScopeKey, context: CompleteContextSelection, at: datetime
+    ) -> tuple[OwnerMeaningWitness, ...] | CurrentEvidenceNoBasis:
+        proofs: list[OwnerMeaningWitness] = []
+        for selection in context.selections:
+            subjects: tuple[OwnerMeaningSubject, ...] = (
+                tuple(
+                    CanonicalContextMeaning(
+                        selection.role, fact.reference, selection.guard
+                    )
+                    for fact in selection.facts
+                )
+                if selection.facts
+                else (CanonicalContextAbsence(selection.role, selection.guard),)
+            )
+            for subject in subjects:
+                proof = await self._read_meaning(
+                    self._context_meaning, key, subject, at
+                )
+                if isinstance(proof, CurrentEvidenceNoBasis):
+                    return proof
+                proofs.append(proof)
+        return tuple(proofs)
 
     async def _read_decision(
         self, key: BasisScopeKey, at: datetime
@@ -346,6 +658,7 @@ class CurrentEvidenceBasisQuery:
         context: CompleteContextSelection,
         requirement_key: EvidenceRequirementApplicabilityKey,
         claim: ClaimMembershipGuard | None,
+        owner_meaning: CurrentOwnerMeaning,
     ) -> CurrentEvidenceBasisResult:
         owner_inputs = await self._read_basis_inputs(key, at, requirement_key)
         if isinstance(owner_inputs, CurrentEvidenceNoBasis):
@@ -387,6 +700,7 @@ class CurrentEvidenceBasisQuery:
             selected,
             support_version,
             guards,
+            owner_meaning,
         )
 
     async def _read_basis_inputs(
@@ -695,6 +1009,23 @@ def _context_failure(
         ContextNoBasisReason.CONTESTED: CurrentNoBasisReason.CONTESTED,
         ContextNoBasisReason.INVALID_HISTORY: CurrentNoBasisReason.INVALID_HISTORY,
         ContextNoBasisReason.UNAVAILABLE_AUTHORITY: CurrentNoBasisReason.UNAVAILABLE,
+    }
+    return _no_basis(key, at, reasons[result.reason], result.detail)
+
+
+def _owner_meaning_failure(
+    key: BasisScopeKey, at: datetime, result: OwnerMeaningNoBasis
+) -> CurrentEvidenceNoBasis:
+    reasons = {
+        OwnerMeaningNoBasisReason.MISSING: CurrentNoBasisReason.MISSING,
+        OwnerMeaningNoBasisReason.INCOMPLETE: CurrentNoBasisReason.INCOMPLETE,
+        OwnerMeaningNoBasisReason.CONTESTED: CurrentNoBasisReason.CONTESTED,
+        OwnerMeaningNoBasisReason.NOT_YET_EFFECTIVE: (
+            CurrentNoBasisReason.NOT_YET_EFFECTIVE
+        ),
+        OwnerMeaningNoBasisReason.UNAVAILABLE: CurrentNoBasisReason.UNAVAILABLE,
+        OwnerMeaningNoBasisReason.CONTRADICTORY: CurrentNoBasisReason.CONTRADICTORY,
+        OwnerMeaningNoBasisReason.INVALID_HISTORY: CurrentNoBasisReason.INVALID_HISTORY,
     }
     return _no_basis(key, at, reasons[result.reason], result.detail)
 

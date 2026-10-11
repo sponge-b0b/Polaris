@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-11] R3 current Evidence owner meaning | #394 realized
+
+Current Evidence basis reads now retain verified governing Decision, target, claim, and selected-or-absent canonical-context meaning witnesses at the exact `T=K` boundary. The Decisions witness comes from concrete R2 history; downstream-owned target and context facts remain owner-port contracts. Invalid or mismatched proof yields typed no-basis results. Cross-read classification and dependent writes remain downstream.
+
 ## [2026-10-10] R3 governing Decision temporal owner | #393 realized
 
 Added the Decisions owner reader that proves exact governing Decision meaning from complete R2 lifecycle and relationship history, including future-effective same-version transitions and future-only history validation. Updated Investment Decisions and Application Use Cases knowledge; carrying this witness in current Evidence bases remains downstream.

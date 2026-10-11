@@ -11,6 +11,7 @@ from polaris.application.decisions.memory import (
     DecisionMemoryCurrentState,
     DecisionMemoryService,
 )
+from polaris.application.decisions.owner_meaning import DecisionOwnerMeaningReader
 from polaris.application.evidence.claims import ResolvedClaimMembership
 from polaris.application.evidence.context_versions import (
     CompleteContextSelection,
@@ -34,6 +35,19 @@ from polaris.application.evidence.judgment_versions import (
     TargetJudgmentResolver,
     TargetJudgmentUnavailable,
 )
+from polaris.application.evidence.owner_meaning import (
+    CanonicalContextAbsence,
+    CanonicalContextMeaning,
+    ClaimMembershipMeaning,
+    OwnerCauseVerdict,
+    OwnerHistoryRecord,
+    OwnerMeaningCause,
+    OwnerMeaningNoBasis,
+    OwnerMeaningNoBasisReason,
+    OwnerMeaningSubject,
+    OwnerMeaningWitness,
+    TargetJudgmentMeaning,
+)
 from polaris.application.evidence.reconstruction import EvidenceHistories
 from polaris.application.evidence.requirements import (
     MissingEvidenceRequirementAuthority,
@@ -46,7 +60,15 @@ from polaris.domain.configuration import (
     EvidenceRequirementSetVersion,
     InvestmentHorizon,
 )
-from polaris.domain.decisions import InvestmentDecision
+from polaris.domain.decisions import (
+    DecisionApplicability,
+    DecisionMutationContext,
+    DecisionWorkControlBasis,
+    DecisionWorkPosture,
+    InvestmentDecision,
+    withdraw_decision_work,
+)
+from polaris.domain.decisions.facts import DecisionLifecycleFactId, OperationId
 from polaris.domain.evidence import (
     ClaimCatalogVersion,
     ClaimId,
@@ -118,6 +140,7 @@ class _DecisionStore:
     def __init__(self, decision: InvestmentDecision) -> None:
         self.decision = decision
         self.at: datetime | None = None
+        self.history_override: tuple | None = None
 
     async def load_current_decision_state(
         self, decision_id: object, *, known_at: datetime
@@ -126,7 +149,7 @@ class _DecisionStore:
         if decision_id != self.decision.decision_id:
             return None
         return DecisionMemoryCurrentState(
-            self.decision.history, self.decision.version, ()
+            self.history_override or self.decision.history, self.decision.version, ()
         )
 
     async def load_relationship_history(self) -> tuple:
@@ -309,6 +332,106 @@ class _Claims:
         return self.result
 
 
+class _MeaningOwner:
+    """Downstream owner double with a verifiable exact current-read projection."""
+
+    def __init__(self, target: _Targets, contexts: _Contexts, claims: _Claims) -> None:
+        self.target = target
+        self.contexts = contexts
+        self.claims = claims
+        self.failure: OwnerMeaningNoBasisReason | None = None
+        self.failure_for: type | None = None
+        self.override: OwnerMeaningWitness | None = None
+        self.override_for: type | None = None
+        self.future_fact_at: datetime | None = None
+        self.meaning_at: dict[OwnerMeaningSubject, tuple[datetime, object]] = {}
+        self.calls: list[OwnerMeaningSubject] = []
+
+    def _expected(
+        self, key: BasisScopeKey, subject: OwnerMeaningSubject, at: datetime
+    ) -> OwnerMeaningWitness:
+        if isinstance(subject, TargetJudgmentMeaning):
+            assert isinstance(self.target.result, ResolvedTargetJudgment)
+            meaning: object = (
+                self.target.result.assertion,
+                self.target.result.correction_support,
+            )
+        elif isinstance(subject, ClaimMembershipMeaning):
+            meaning = self.claims.result
+        elif isinstance(subject, CanonicalContextMeaning):
+            meaning = next(
+                fact
+                for fact in self.contexts.selected[subject.role]
+                if fact.reference == subject.reference
+            )
+        else:
+            assert isinstance(subject, CanonicalContextAbsence)
+            meaning = ()
+        transition = self.meaning_at.get(subject)
+        if transition is not None and at >= transition[0]:
+            meaning = transition[1]
+        guards = (
+            (subject.selection,)
+            if isinstance(subject, (CanonicalContextMeaning, CanonicalContextAbsence))
+            else (subject,)
+        )
+        ancestry: tuple[OwnerHistoryRecord, ...] = (
+            OwnerHistoryRecord(subject, AT, AT),
+        )
+        if self.future_fact_at is not None:
+            ancestry += (
+                OwnerHistoryRecord(("known future", subject), self.future_fact_at, AT),
+            )
+        return OwnerMeaningWitness(
+            key,
+            subject,
+            at,
+            at,
+            at,
+            meaning,
+            "downstream owner",
+            OwnerMeaningCause(ancestry, (), guards, True),
+        )
+
+    async def read_at(
+        self,
+        key: BasisScopeKey,
+        subject: OwnerMeaningSubject,
+        *,
+        effective_at: datetime,
+        known_at: datetime,
+        read_at: datetime,
+    ) -> OwnerMeaningWitness | OwnerMeaningNoBasis:
+        assert effective_at == known_at == read_at
+        self.calls.append(subject)
+        if self.failure is not None and (
+            self.failure_for is None or type(subject) is self.failure_for
+        ):
+            # duplicate-code: the downstream owner double constructs its own
+            # typed failure independently of the concrete Decisions owner.
+            # arid: disable
+            return OwnerMeaningNoBasis(
+                key,
+                subject,
+                effective_at,
+                known_at,
+                read_at,
+                # arid: enable
+                self.failure,
+                "owner proof failure",
+            )
+        if self.override is not None and type(subject) is self.override_for:
+            return self.override
+        return self._expected(key, subject, read_at)
+
+    async def verify_cause(
+        self, witness: OwnerMeaningWitness, *, validation_at: datetime
+    ) -> OwnerCauseVerdict | OwnerMeaningNoBasisReason:
+        if witness != self._expected(witness.key, witness.subject, witness.read_at):
+            return OwnerMeaningNoBasisReason.INVALID_HISTORY
+        return OwnerCauseVerdict.VALID
+
+
 # This current-basis fake independently fixes historical Configuration authority;
 # sharing the historical-query fake would couple separate proofs.
 
@@ -389,22 +512,103 @@ def _query(
         )
     )
     contexts = _Contexts()
+    claims = _Claims(claim_result)
+    meaning_owner = _MeaningOwner(target, contexts, claims)
     version = version or EvidenceSupportVersion(1)
     epochs = _Epochs(version)
     query = CurrentEvidenceBasisQuery(
         decisions=DecisionMemoryService(reader=owner),
+        decision_meaning=DecisionOwnerMeaningReader(owner),
         targets=TargetJudgmentResolver(target),
+        target_meaning=meaning_owner,
         contexts=ContextSelectionResolver(contexts),
+        context_meaning=meaning_owner,
         requirement_keys=_RequirementKeys(applicability_key),
         sufficiency=_Sufficiency(version, applicability_key, empty=empty),
         evidence=_Evidence(
             histories if histories is not None else _histories(), key.target
         ),
         support_epochs=epochs,
-        claims=_Claims(claim_result),
+        claims=claims,
+        claim_meaning=meaning_owner,
         requirements=_Requirements(),
     )
     return query, key, target, contexts, epochs, owner
+
+
+def _complete_current(
+    query: CurrentEvidenceBasisQuery, key: BasisScopeKey, *, at: datetime = AT
+) -> CurrentEvidenceBasis:
+    result = asyncio.run(query.read(key, at=at))
+    assert isinstance(result, CurrentEvidenceBasis)
+    return result
+
+
+def _read_later(
+    query: CurrentEvidenceBasisQuery,
+    key: BasisScopeKey,
+    target: _Targets,
+    later: datetime,
+) -> CurrentEvidenceBasis:
+    assert isinstance(target.result, ResolvedTargetJudgment)
+    target.result = replace(target.result, effective_at=later, known_at=later)
+    return _complete_current(query, key, at=later)
+
+
+def _claim_scope(
+    version: int,
+) -> tuple[EvidenceRequirementApplicabilityKey, ResolvedClaimMembership]:
+    claim_id = ClaimId(uuid4())
+    application_key = replace(
+        requirement_key(), scope=ClaimSpecificEvidenceScope(claim_id)
+    )
+    return application_key, ResolvedClaimMembership(
+        application_key.target, claim_id, ClaimCatalogVersion(version)
+    )
+
+
+def _selected_alternative() -> SelectedContextFact:
+    return SelectedContextFact(
+        DecisionAlternativeVersionRef(
+            DecisionAlternativeId(uuid4()), DecisionAlternativeRevision(1)
+        ),
+        "fact",
+        "lineage",
+        "applicable",
+        "source",
+        frozenset({ContextContribution.RESULT}),
+    )
+
+
+def _empty_query(
+    application_key: EvidenceRequirementApplicabilityKey,
+    *,
+    claim_result: ResolvedClaimMembership | None = None,
+    target_version: TargetJudgmentVersionRef | None = None,
+) -> tuple[
+    CurrentEvidenceBasisQuery,
+    BasisScopeKey,
+    _Targets,
+    _Contexts,
+    _Epochs,
+    _DecisionStore,
+]:
+    return _query(
+        applicability_key=application_key,
+        histories=EvidenceHistories((), (), ()),
+        empty=True,
+        claim_result=claim_result,
+        target_version=target_version,
+    )
+
+
+def _expected_target_proof(
+    query: CurrentEvidenceBasisQuery, key: BasisScopeKey, target: _Targets
+) -> tuple[_MeaningOwner, OwnerMeaningWitness]:
+    owner = query._target_meaning._owner
+    assert isinstance(target.result, ResolvedTargetJudgment)
+    subject = TargetJudgmentMeaning(target.result.version)
+    return owner, owner._expected(key, subject, AT)
 
 
 def test_current_basis_captures_exact_owner_and_evidence_dependencies() -> None:
@@ -427,6 +631,19 @@ def test_current_basis_captures_exact_owner_and_evidence_dependencies() -> None:
     assert result.guards.assessment_ids == frozenset()
     assert result.context.guards == tuple(
         selection.guard for selection in result.context.selections
+    )
+    assert result.owner_meaning.decision.key == key
+    assert result.owner_meaning.decision.read_at == AT
+    assert result.owner_meaning.decision.cause.complete
+    assert result.owner_meaning.decision.cause.fact_ancestry
+    assert result.owner_meaning.decision.cause.relationship_guards
+    assert result.owner_meaning.target.subject == TargetJudgmentMeaning(
+        result.target.version
+    )
+    assert result.owner_meaning.claim is None
+    assert tuple(proof.subject for proof in result.owner_meaning.context) == tuple(
+        CanonicalContextAbsence(selection.role, selection.guard)
+        for selection in result.context.selections
     )
     assert decisions.at == AT
     assert target.received == (key.target, AT, AT)
@@ -487,15 +704,11 @@ def test_every_target_owner_family_can_issue_current_basis(
     target = evidence_judgment_ref(family, uuid4())
     application_key = replace(requirement_key(), target=target)
     version = version_type(target, JudgmentRevision(1))
-    query, key, *_ = _query(
-        applicability_key=application_key,
-        histories=EvidenceHistories((), (), ()),
-        empty=True,
-        target_version=version,
-    )
+    query, key, *_ = _empty_query(application_key, target_version=version)
     result = asyncio.run(query.read(key, at=AT))
     assert isinstance(result, CurrentEvidenceBasis)
     assert result.target.version == version
+    assert result.owner_meaning.target.subject == TargetJudgmentMeaning(version)
 
 
 def test_context_revision_and_selection_capture_without_epoch_change() -> None:
@@ -569,6 +782,13 @@ def test_every_typed_context_family_enters_current_basis(
     assert result.context.guards[tuple(ContextSelectionRole).index(role)].selected == (
         frozenset({context_root(reference)})
     )
+    assert any(
+        proof.subject == CanonicalContextMeaning(role, reference, selection.guard)
+        and proof.meaning == selection.facts[0]
+        for selection in result.context.selections
+        for proof in result.owner_meaning.context
+        if selection.role is role
+    )
 
 
 def test_unavailable_target_returns_typed_no_basis() -> None:
@@ -610,28 +830,17 @@ def test_incomplete_or_failed_context_cannot_produce_basis(
 
 
 def test_claim_specific_basis_carries_separate_catalog_membership_guard() -> None:
-    claim_id = ClaimId(uuid4())
-    application_key = replace(
-        requirement_key(), scope=ClaimSpecificEvidenceScope(claim_id)
-    )
-    membership = ResolvedClaimMembership(
-        application_key.target, claim_id, ClaimCatalogVersion(3)
-    )
-    # The claim-specific proof independently builds an empty selected family so claim
-    # catalog capture is visible.
-    # arid: disable
-    query, key, *_ = _query(
-        applicability_key=application_key,
-        histories=EvidenceHistories((), (), ()),
-        empty=True,
-        claim_result=membership,
-    )
+    application_key, membership = _claim_scope(3)
+    query, key, *_ = _empty_query(application_key, claim_result=membership)
     result = asyncio.run(query.read(key, at=AT))
-    # arid: enable
     assert isinstance(result, CurrentEvidenceBasis)
     assert result.claim_catalog_version == ClaimCatalogVersion(3)
     assert result.guards.claim is not None
     assert result.guards.claim.membership == membership
+    assert result.owner_meaning.claim is not None
+    assert result.owner_meaning.claim.subject == ClaimMembershipMeaning(
+        key.target, membership.claim_id, membership.catalog_version
+    )
 
 
 def test_claim_catalog_change_is_separate_from_target_revision_and_epoch() -> None:
@@ -1138,3 +1347,252 @@ def test_unaware_current_instant_is_rejected() -> None:
     query, key, *_ = _query()
     with pytest.raises(ValueError, match="timezone-aware"):
         asyncio.run(query.read(key, at=datetime(2026, 9, 29)))
+
+
+def _future_withdrawn_decision() -> InvestmentDecision:
+    decision = _decision()
+    metadata = decision.history[0].metadata
+    return withdraw_decision_work(
+        decision,
+        basis=DecisionWorkControlBasis("future withdrawal"),
+        applicability=DecisionApplicability.OPERATIVE,
+        mutation=DecisionMutationContext(
+            DecisionLifecycleFactId(uuid4()),
+            OperationId(uuid4()),
+            metadata.actor_attribution,
+            metadata.trigger,
+            AT + timedelta(days=1),
+            AT - timedelta(minutes=1),
+            metadata.technical_provenance,
+        ),
+    )
+
+
+def test_current_basis_retains_distinct_concrete_decision_temporal_witness() -> None:
+    query, key, target, _, _, _ = _query(decision=_future_withdrawn_decision())
+    prior = _complete_current(query, key)
+    later = AT + timedelta(days=1)
+    fresh = _read_later(query, key, target, later)
+
+    assert prior.decision.version == fresh.decision.version
+    assert prior.owner_meaning.decision.subject == fresh.owner_meaning.decision.subject
+    assert (
+        prior.owner_meaning.decision.meaning.work_posture is DecisionWorkPosture.ACTIVE
+    )
+    assert fresh.owner_meaning.decision.meaning.work_posture is (
+        DecisionWorkPosture.WITHDRAWN
+    )
+    assert (
+        prior.owner_meaning.decision.semantic_identity
+        != fresh.owner_meaning.decision.semantic_identity
+    )
+    assert prior.owner_meaning.decision.cause == fresh.owner_meaning.decision.cause
+
+
+def test_future_only_owner_history_is_retained_without_material_change() -> None:
+    query, key, target, *_ = _query()
+    owner = query._target_meaning._owner
+    owner.future_fact_at = AT + timedelta(days=1)
+    prior = _complete_current(query, key)
+    later = AT + timedelta(hours=1)
+    fresh = _read_later(query, key, target, later)
+
+    assert len(prior.owner_meaning.target.cause.fact_ancestry) == 2
+    assert prior.owner_meaning.target.cause.fact_ancestry[1].effective_at > AT
+    assert prior.owner_meaning.target.cause == fresh.owner_meaning.target.cause
+    assert (
+        prior.owner_meaning.target.semantic_identity
+        == fresh.owner_meaning.target.semantic_identity
+    )
+
+
+def test_downstream_owner_meaning_changes_without_reference_or_version_change() -> None:
+    application_key, membership = _claim_scope(1)
+    query, key, target, contexts, _, _ = _empty_query(
+        application_key, claim_result=membership
+    )
+    role = ContextSelectionRole.SELECTED_ALTERNATIVE
+    selected = _selected_alternative()
+    contexts.selected[role] = (selected,)
+    prior = _complete_current(query, key)
+    later = AT + timedelta(days=1)
+    owner = query._target_meaning._owner
+    owner.future_fact_at = later
+    owner.meaning_at[prior.owner_meaning.target.subject] = (
+        later,
+        "target now operative",
+    )
+    assert prior.owner_meaning.claim is not None
+    owner.meaning_at[prior.owner_meaning.claim.subject] = (later, "claim now qualified")
+    selected_proof = next(
+        proof
+        for proof in prior.owner_meaning.context
+        if isinstance(proof.subject, CanonicalContextMeaning)
+    )
+    owner.meaning_at[selected_proof.subject] = (later, "context now operative")
+    fresh = _read_later(query, key, target, later)
+
+    assert prior.target.version == fresh.target.version
+    assert prior.claim_catalog_version == fresh.claim_catalog_version
+    assert prior.context.positive_references == fresh.context.positive_references
+    assert prior.context.guards == fresh.context.guards
+    assert (
+        prior.owner_meaning.target.semantic_identity
+        != fresh.owner_meaning.target.semantic_identity
+    )
+    assert fresh.owner_meaning.claim is not None
+    assert (
+        prior.owner_meaning.claim.semantic_identity
+        != fresh.owner_meaning.claim.semantic_identity
+    )
+    fresh_context = next(
+        proof
+        for proof in fresh.owner_meaning.context
+        if proof.subject == selected_proof.subject
+    )
+    assert selected_proof.semantic_identity != fresh_context.semantic_identity
+
+
+def test_invalid_future_only_decision_history_cannot_produce_current_basis() -> None:
+    query, key, _, _, _, store = _query(decision=_future_withdrawn_decision())
+    initiation, future = store.decision.history
+    store.history_override = (
+        initiation,
+        replace(
+            future,
+            metadata=replace(future.metadata, fact_id=initiation.metadata.fact_id),
+        ),
+    )
+    result = asyncio.run(query.read(key, at=AT))
+    assert isinstance(result, CurrentEvidenceNoBasis)
+    assert result.reason is CurrentNoBasisReason.INVALID_HISTORY
+
+
+def test_not_yet_effective_decision_has_distinct_no_basis_reason() -> None:
+    query, key, _, _, _, store = _query()
+    initiated = store.decision.history[0]
+    store.history_override = (
+        replace(
+            initiated,
+            metadata=replace(initiated.metadata, effective_at=AT + timedelta(days=1)),
+        ),
+    )
+    result = asyncio.run(query.read(key, at=AT))
+    assert isinstance(result, CurrentEvidenceNoBasis)
+    assert result.reason is CurrentNoBasisReason.NOT_YET_EFFECTIVE
+
+
+@pytest.mark.parametrize(
+    ("owner_reason", "expected"),
+    [
+        (OwnerMeaningNoBasisReason.MISSING, CurrentNoBasisReason.MISSING),
+        (OwnerMeaningNoBasisReason.INCOMPLETE, CurrentNoBasisReason.INCOMPLETE),
+        (OwnerMeaningNoBasisReason.CONTESTED, CurrentNoBasisReason.CONTESTED),
+        (
+            OwnerMeaningNoBasisReason.NOT_YET_EFFECTIVE,
+            CurrentNoBasisReason.NOT_YET_EFFECTIVE,
+        ),
+        (OwnerMeaningNoBasisReason.UNAVAILABLE, CurrentNoBasisReason.UNAVAILABLE),
+        (
+            OwnerMeaningNoBasisReason.CONTRADICTORY,
+            CurrentNoBasisReason.CONTRADICTORY,
+        ),
+        (
+            OwnerMeaningNoBasisReason.INVALID_HISTORY,
+            CurrentNoBasisReason.INVALID_HISTORY,
+        ),
+    ],
+)
+def test_target_owner_proof_failure_never_returns_partial_basis(
+    owner_reason: OwnerMeaningNoBasisReason, expected: CurrentNoBasisReason
+) -> None:
+    query, key, *_ = _query()
+    owner = query._target_meaning._owner
+    owner.failure = owner_reason
+    owner.failure_for = TargetJudgmentMeaning
+    result = asyncio.run(query.read(key, at=AT))
+    assert isinstance(result, CurrentEvidenceNoBasis)
+    assert result.reason is expected
+
+
+def test_mismatched_boundary_and_unverified_cause_reject_owner_proof() -> None:
+    query, key, target, *_ = _query()
+    owner, expected = _expected_target_proof(query, key, target)
+    owner.override_for = TargetJudgmentMeaning
+    owner.override = replace(expected, read_at=AT + timedelta(seconds=1))
+    mismatch = asyncio.run(query.read(key, at=AT))
+    assert isinstance(mismatch, CurrentEvidenceNoBasis)
+    assert mismatch.reason is CurrentNoBasisReason.INVALID_HISTORY
+
+    owner.override = replace(expected, meaning=("unsupported", ()))
+    unsupported = asyncio.run(query.read(key, at=AT))
+    assert isinstance(unsupported, CurrentEvidenceNoBasis)
+    assert unsupported.reason is CurrentNoBasisReason.INVALID_HISTORY
+
+
+def test_mismatched_owner_version_and_context_selection_guard_fail_closed() -> None:
+    query, key, target, contexts, *_ = _query()
+    owner, expected = _expected_target_proof(query, key, target)
+    owner.override_for = TargetJudgmentMeaning
+    owner.override = replace(
+        expected,
+        subject=TargetJudgmentMeaning(
+            InvestmentRecommendationVersionRef(key.target, JudgmentRevision(2))
+        ),
+    )
+    version_failure = asyncio.run(query.read(key, at=AT))
+    assert isinstance(version_failure, CurrentEvidenceNoBasis)
+    assert version_failure.reason is CurrentNoBasisReason.INVALID_HISTORY
+
+    owner.override = None
+    role = ContextSelectionRole.SELECTED_ALTERNATIVE
+    selected = _selected_alternative()
+    contexts.selected[role] = (selected,)
+    current = _complete_current(query, key)
+    selected_proof = next(
+        proof
+        for proof in current.owner_meaning.context
+        if isinstance(proof.subject, CanonicalContextMeaning)
+    )
+    contexts.revision += 1
+    owner.override_for = CanonicalContextMeaning
+    owner.override = selected_proof
+    guard_failure = asyncio.run(query.read(key, at=AT))
+    assert isinstance(guard_failure, CurrentEvidenceNoBasis)
+    assert guard_failure.reason is CurrentNoBasisReason.INVALID_HISTORY
+
+
+def test_every_selected_context_fact_has_its_own_verified_witness() -> None:
+    query, key, _, contexts, *_ = _query()
+    role = ContextSelectionRole.SELECTED_ALTERNATIVE
+    contexts.selected[role] = (_selected_alternative(), _selected_alternative())
+    result = _complete_current(query, key)
+    selected_proofs = tuple(
+        proof
+        for proof in result.owner_meaning.context
+        if isinstance(proof.subject, CanonicalContextMeaning)
+    )
+    assert len(selected_proofs) == 2
+    assert {proof.subject.reference for proof in selected_proofs} == set(
+        result.context.positive_references
+    )
+    assert len(result.owner_meaning.context) == len(ContextSelectionRole) + 1
+
+
+def test_context_and_claim_owner_proof_failure_keep_distinct_roles() -> None:
+    query, key, *_ = _query()
+    owner = query._context_meaning._owner
+    owner.failure = OwnerMeaningNoBasisReason.INCOMPLETE
+    owner.failure_for = CanonicalContextAbsence
+    context_failure = asyncio.run(query.read(key, at=AT))
+    assert isinstance(context_failure, CurrentEvidenceNoBasis)
+    assert context_failure.reason is CurrentNoBasisReason.INCOMPLETE
+
+    application_key, membership = _claim_scope(1)
+    query, key, *_ = _empty_query(application_key, claim_result=membership)
+    owner = query._claim_meaning._owner
+    owner.failure = OwnerMeaningNoBasisReason.CONTESTED
+    owner.failure_for = ClaimMembershipMeaning
+    claim_failure = asyncio.run(query.read(key, at=AT))
+    assert isinstance(claim_failure, CurrentEvidenceNoBasis)
+    assert claim_failure.reason is CurrentNoBasisReason.CONTESTED

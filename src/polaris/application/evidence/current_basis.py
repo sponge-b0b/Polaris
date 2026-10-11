@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -17,30 +18,47 @@ from polaris.application.decisions.memory import (
     DecisionMemoryView,
 )
 from polaris.application.decisions.ordinary_work import DecisionNotFound
-from polaris.domain.configuration import EvidenceRequirementApplicabilityKey
+from polaris.domain.configuration import (
+    EvidenceRequirementApplicabilityKey,
+    EvidenceRequirementSetVersionId,
+)
 from polaris.domain.decisions import (
     ContestedDecisionLifecycleInterpretation,
     DecisionRelationshipState,
     DeterminateDecisionLifecycleInterpretation,
     NotYetEffectiveDecisionLifecycleInterpretation,
 )
+from polaris.domain.decisions.facts import DecisionVersion
 from polaris.domain.evidence.claims import ClaimCatalogVersion
 from polaris.domain.evidence.context_versions import (
     BasisScopeKey,
+    CanonicalContextVersionRef,
+    ContextSelectionGuard,
     DecisionContextVersionRef,
+    context_root,
+    is_canonical_context_version_ref,
 )
 from polaris.domain.evidence.corrections import (
     EvidenceInterpretationState,
     EvidenceObservationCorrectionHistory,
     InvalidEvidenceCorrectionHistory,
 )
+from polaris.domain.evidence.judgment_versions import (
+    TargetJudgmentVersionRef,
+    is_target_judgment_version_ref,
+)
+from polaris.domain.evidence.judgments import ClaimSpecificEvidenceScope
 from polaris.domain.evidence.observations import (
     EvidenceBindingId,
     EvidenceFactRef,
     EvidenceSufficiencyAssessmentId,
     EvidenceSupportVersion,
+    is_evidence_fact_ref,
 )
 from polaris.domain.evidence.sufficiency import (
+    EvidenceBindingUniverseGuard,
+    EvidenceCorrectionUniverseGuard,
+    EvidenceRequirementAuthorityGuard,
     EvidenceSufficiencyEvaluation,
     InvalidEvidenceSufficiency,
     evaluate_evidence_sufficiency,
@@ -86,6 +104,8 @@ from .owner_meaning import (
 from .reconstruction import (
     EvidenceHistories,
     HistoricalEvidenceItem,
+    StaleEvidenceBasis,
+    StaleEvidenceBasisCategory,
 )
 from .requirements import (
     ContestedEvidenceRequirementAuthority,
@@ -259,18 +279,8 @@ class CurrentEvidenceBasis:
 
     def __post_init__(self) -> None:
         _aware(self.at)
-        if type(self.decision) is not DecisionMemoryView:
-            raise TypeError("basis requires a versioned DecisionMemoryView")
-        if self.decision.decision_id != self.key.decision_id:
-            raise ValueError("governing Decision must match the Evidence key")
-        if self.target.target != self.key.target:
-            raise ValueError("owner target must match the Evidence key")
-        if self.context.key != self.key or self.context.at != self.at:
-            raise ValueError("context must attest the exact key and T=K")
-        if self.support_version != self.sufficiency.support_version:
-            raise ValueError("Evidence epoch must match the sufficiency owner read")
-        if self.guards.fact_support != self.evidence.fact_support:
-            raise ValueError("Evidence ancestry guard must cover all selected support")
+        self._validate_identity()
+        self._validate_guards()
         if not _owner_meaning_matches(
             self.key,
             self.at,
@@ -281,6 +291,48 @@ class CurrentEvidenceBasis:
             self.owner_meaning,
         ):
             raise ValueError("owner meaning must match current dependencies")
+
+    def _validate_identity(self) -> None:
+        if type(self.key) is not BasisScopeKey:
+            raise TypeError("basis requires a typed BasisScopeKey")
+        if type(self.decision) is not DecisionMemoryView:
+            raise TypeError("basis requires a versioned DecisionMemoryView")
+        if self.decision.decision_id != self.key.decision_id:
+            raise ValueError("governing Decision must match the Evidence key")
+        if self.target.target != self.key.target:
+            raise ValueError("owner target must match the Evidence key")
+        if self.target.effective_at != self.at or self.target.known_at != self.at:
+            raise ValueError("target owner result must attest current T=K")
+        if self.context.key != self.key or self.context.at != self.at:
+            raise ValueError("context must attest the exact key and T=K")
+        if (
+            self.requirement_key.target != self.key.target
+            or self.requirement_key.scope != self.key.scope
+            or self.requirement_key.evidence_use is not self.key.use
+        ):
+            raise ValueError("requirement coordinates must match the exact key")
+        if self.support_version != self.sufficiency.support_version:
+            raise ValueError("Evidence epoch must match the sufficiency owner read")
+
+    def _validate_guards(self) -> None:
+        if self.guards.fact_support != self.evidence.fact_support:
+            raise ValueError("Evidence ancestry guard must cover all selected support")
+        if self.guards.binding_ids != frozenset(
+            item.root.binding_id for item in self.evidence.bindings
+        ) or self.guards.assessment_ids != frozenset(
+            item.root.assessment_id for item in self.evidence.assessments
+        ):
+            raise ValueError("Evidence selection guards must cover complete roots")
+        if type(self.key.scope) is ClaimSpecificEvidenceScope:
+            if (
+                self.guards.claim is None
+                or self.guards.claim.key != self.key
+                or self.guards.claim.membership.target != self.key.target
+                or self.guards.claim.membership.claim_id != self.key.scope.claim_id
+            ):
+                raise ValueError("claim-specific basis requires exact membership guard")
+        elif self.guards.claim is not None:
+            raise ValueError("judgment-wide basis cannot carry claim membership")
 
     @property
     def claim_catalog_version(self) -> ClaimCatalogVersion | None:
@@ -409,6 +461,584 @@ def _owner_meaning_matches(
 
 
 type CurrentEvidenceBasisResult = CurrentEvidenceBasis | CurrentEvidenceNoBasis
+
+
+class BasisPositiveRole(StrEnum):
+    DECISION = "decision"
+    TARGET = "target"
+    CLAIM = "claim"
+    REQUIREMENT = "requirement"
+    EVIDENCE_SUPPORT = "evidence_support"
+    CONTEXT = "context"
+
+
+type BasisPositiveReference = (
+    DecisionVersion
+    | TargetJudgmentVersionRef
+    | ClaimCatalogVersion
+    | EvidenceRequirementSetVersionId
+    | EvidenceRequirementApplicabilityKey
+    | EvidenceSupportVersion
+    | EvidenceFactRef
+    | CanonicalContextVersionRef
+)
+
+type PositiveRecorder = Callable[
+    [BasisPositiveRole, BasisPositiveReference | None, BasisPositiveReference | None],
+    None,
+]
+
+
+@dataclass(frozen=True, slots=True)
+class BasisPositiveChange:
+    role: BasisPositiveRole
+    prior: BasisPositiveReference | None
+    fresh: BasisPositiveReference | None
+
+    def __post_init__(self) -> None:
+        if type(self.role) is not BasisPositiveRole:
+            raise TypeError("positive dependency role must be typed")
+        if any(
+            value is not None and not _positive_reference_matches(self.role, value)
+            for value in (self.prior, self.fresh)
+        ):
+            raise TypeError("positive reference must match its dependency role")
+        if self.role not in (
+            BasisPositiveRole.CONTEXT,
+            BasisPositiveRole.EVIDENCE_SUPPORT,
+        ) and (self.prior is None or self.fresh is None):
+            raise ValueError("required owner and authority references cannot be absent")
+        if self.prior == self.fresh or (self.prior is None and self.fresh is None):
+            raise ValueError("changed reference must have distinct endpoints")
+
+
+def _positive_reference_matches(
+    role: BasisPositiveRole, value: BasisPositiveReference
+) -> bool:
+    if role is BasisPositiveRole.DECISION:
+        return type(value) is DecisionVersion
+    if role is BasisPositiveRole.TARGET:
+        return is_target_judgment_version_ref(value)
+    if role is BasisPositiveRole.CLAIM:
+        return type(value) is ClaimCatalogVersion
+    if role is BasisPositiveRole.REQUIREMENT:
+        return type(value) in (
+            EvidenceRequirementSetVersionId,
+            EvidenceRequirementApplicabilityKey,
+        )
+    if role is BasisPositiveRole.EVIDENCE_SUPPORT:
+        return type(value) is EvidenceSupportVersion or is_evidence_fact_ref(value)
+    return is_canonical_context_version_ref(value)
+
+
+@dataclass(frozen=True, slots=True)
+class BasisOwnerMeaningChange:
+    role: BasisPositiveRole
+    prior: OwnerMeaningWitness
+    fresh: OwnerMeaningWitness
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.role) is not BasisPositiveRole
+            or type(self.prior) is not OwnerMeaningWitness
+            or type(self.fresh) is not OwnerMeaningWitness
+        ):
+            raise TypeError("owner meaning change requires typed witnesses and role")
+        if self.role not in (
+            BasisPositiveRole.DECISION,
+            BasisPositiveRole.TARGET,
+            BasisPositiveRole.CLAIM,
+            BasisPositiveRole.CONTEXT,
+        ):
+            raise ValueError("owner meaning change requires an owner role")
+        if not all(
+            _owner_meaning_role_matches(self.role, witness.subject)
+            for witness in (self.prior, self.fresh)
+        ):
+            raise TypeError("owner meaning subjects must match their dependency role")
+        if self.prior.key != self.fresh.key or _owner_subject_identity(
+            self.prior.subject
+        ) != _owner_subject_identity(self.fresh.subject):
+            raise ValueError("meaning change requires one exact owner reference")
+        if (self.prior.meaning, self.prior.provenance) == (
+            self.fresh.meaning,
+            self.fresh.provenance,
+        ):
+            raise ValueError("owner meaning change requires distinct interpretations")
+
+
+def _owner_meaning_role_matches(
+    role: BasisPositiveRole, subject: OwnerMeaningSubject
+) -> bool:
+    if role is BasisPositiveRole.DECISION:
+        return isinstance(subject, GoverningDecisionMeaning)
+    if role is BasisPositiveRole.TARGET:
+        return isinstance(subject, TargetJudgmentMeaning)
+    if role is BasisPositiveRole.CLAIM:
+        return isinstance(subject, ClaimMembershipMeaning)
+    return isinstance(subject, (CanonicalContextMeaning, CanonicalContextAbsence))
+
+
+def _owner_subject_identity(subject: OwnerMeaningSubject) -> tuple[object, ...]:
+    if isinstance(subject, GoverningDecisionMeaning):
+        return (GoverningDecisionMeaning, subject.reference)
+    if isinstance(subject, TargetJudgmentMeaning):
+        return (TargetJudgmentMeaning, subject.reference)
+    if isinstance(subject, ClaimMembershipMeaning):
+        return (
+            ClaimMembershipMeaning,
+            subject.target,
+            subject.claim_id,
+            subject.catalog_version,
+        )
+    if isinstance(subject, CanonicalContextMeaning):
+        return (CanonicalContextMeaning, subject.role, subject.reference)
+    return (CanonicalContextAbsence, subject.role)
+
+
+class BasisGuardRole(StrEnum):
+    CONTEXT_SELECTION = "context_selection"
+    CLAIM_MEMBERSHIP = "claim_membership"
+    REQUIREMENT_AUTHORITY = "requirement_authority"
+    EVIDENCE_SELECTION = "evidence_selection"
+    SUFFICIENCY_BINDINGS = "sufficiency_bindings"
+    SUFFICIENCY_CORRECTIONS = "sufficiency_corrections"
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceSelectionGuard:
+    binding_ids: frozenset[EvidenceBindingId]
+    assessment_ids: frozenset[EvidenceSufficiencyAssessmentId]
+    fact_support: frozenset[EvidenceFactRef]
+
+    @classmethod
+    def from_basis(cls, basis: CurrentEvidenceBasis) -> EvidenceSelectionGuard:
+        guards = basis.guards
+        return cls(guards.binding_ids, guards.assessment_ids, guards.fact_support)
+
+
+type BasisNegativeGuard = (
+    ContextSelectionGuard
+    | ClaimMembershipGuard
+    | EvidenceSelectionGuard
+    | EvidenceBindingUniverseGuard
+    | EvidenceCorrectionUniverseGuard
+    | EvidenceRequirementAuthorityGuard
+)
+
+
+@dataclass(frozen=True, slots=True)
+class BasisGuardBreak:
+    role: BasisGuardRole
+    prior: BasisNegativeGuard
+    fresh: BasisNegativeGuard
+
+    def __post_init__(self) -> None:
+        expected = {
+            BasisGuardRole.CONTEXT_SELECTION: ContextSelectionGuard,
+            BasisGuardRole.CLAIM_MEMBERSHIP: ClaimMembershipGuard,
+            BasisGuardRole.REQUIREMENT_AUTHORITY: EvidenceRequirementAuthorityGuard,
+            BasisGuardRole.EVIDENCE_SELECTION: EvidenceSelectionGuard,
+            BasisGuardRole.SUFFICIENCY_BINDINGS: EvidenceBindingUniverseGuard,
+            BasisGuardRole.SUFFICIENCY_CORRECTIONS: EvidenceCorrectionUniverseGuard,
+        }
+        if type(self.role) is not BasisGuardRole or any(
+            type(value) is not expected[self.role] for value in (self.prior, self.fresh)
+        ):
+            raise TypeError("broken guard must match its typed dependency role")
+        if self.prior == self.fresh:
+            raise ValueError("broken guard must have distinct endpoints")
+
+
+def compare_current_evidence_bases(
+    prior: CurrentEvidenceBasis, fresh: CurrentEvidenceBasisResult
+) -> StaleEvidenceBasis | CurrentEvidenceNoBasis | None:
+    """Classify two complete owner-attested reads for the same exact key.
+
+    The caller supplies the fresh trusted T=K. A dependent write separately
+    revalidates both owner proofs within its atomic validation boundary.
+    """
+    _require_comparable_bases(prior, fresh)
+    if isinstance(fresh, CurrentEvidenceNoBasis):
+        return fresh
+
+    meaning_changes = _owner_meaning_changes(prior, fresh)
+    authority_failure = _authority_mismatch(prior, fresh, meaning_changes)
+    if authority_failure is not None:
+        return authority_failure
+    evaluation_failure = _evaluation_failure(prior, fresh)
+    if evaluation_failure is not None:
+        return evaluation_failure
+
+    changes = _positive_changes(prior, fresh)
+    broken = _broken_guards(prior, fresh)
+    categories_by_role = {
+        BasisPositiveRole.DECISION: StaleEvidenceBasisCategory.DECISION_CHANGED,
+        BasisPositiveRole.TARGET: StaleEvidenceBasisCategory.TARGET_CHANGED,
+        BasisPositiveRole.CLAIM: StaleEvidenceBasisCategory.CLAIM_CHANGED,
+        BasisPositiveRole.REQUIREMENT: StaleEvidenceBasisCategory.REQUIREMENTS_CHANGED,
+        BasisPositiveRole.EVIDENCE_SUPPORT: (
+            StaleEvidenceBasisCategory.EVIDENCE_SUPPORT_CHANGED
+        ),
+        BasisPositiveRole.CONTEXT: StaleEvidenceBasisCategory.EVIDENCE_SUPPORT_CHANGED,
+    }
+    changed_roles = [change.role for change in changes]
+    changed_roles.extend(change.role for change in meaning_changes)
+    categories = {categories_by_role[role] for role in changed_roles}
+    if broken:
+        categories.add(StaleEvidenceBasisCategory.NEGATIVE_PREDICATE_BROKEN)
+    if _evidence_changed_only_through_time(prior, fresh):
+        categories.add(StaleEvidenceBasisCategory.SUPPORT_CHANGED_BY_TIME)
+    if not categories and _evidence_result_changed(prior, fresh):
+        return _invalid(
+            prior.key,
+            fresh.at,
+            "Evidence meaning changed without an attributable dependency or time cause",
+        )
+    if not categories:
+        return None
+    return StaleEvidenceBasis(
+        frozenset(categories), tuple(changes), tuple(broken), tuple(meaning_changes)
+    )
+
+
+def _require_comparable_bases(
+    prior: CurrentEvidenceBasis, fresh: CurrentEvidenceBasisResult
+) -> None:
+    if type(prior) is not CurrentEvidenceBasis:
+        raise TypeError("prior must be a complete CurrentEvidenceBasis")
+    if type(fresh) not in (CurrentEvidenceBasis, CurrentEvidenceNoBasis):
+        raise TypeError("fresh must be a typed current-basis result")
+    if fresh.key != prior.key or fresh.at < prior.at:
+        raise ValueError("fresh result must have the same key and a later T=K")
+
+
+def _evaluation_failure(
+    prior: CurrentEvidenceBasis, fresh: CurrentEvidenceBasis
+) -> CurrentEvidenceNoBasis | None:
+    for basis in (prior, fresh):
+        try:
+            expected = evaluate_evidence_sufficiency(
+                basis.sufficiency.requirement_version,
+                basis.requirement_key,
+                basis.sufficiency.interpretations,
+                effective_at=basis.at,
+                known_at=basis.at,
+            )
+        except (InvalidEvidenceSufficiency, ValueError) as error:
+            return _invalid(prior.key, fresh.at, str(error))
+        if basis.evaluation != expected:
+            return _invalid(
+                prior.key,
+                fresh.at,
+                "Evidence fitness is not entailed by the attested basis at T=K",
+            )
+    return None
+
+
+def _evidence_result_changed(
+    prior: CurrentEvidenceBasis, fresh: CurrentEvidenceBasis
+) -> bool:
+    return (
+        prior.evaluation != fresh.evaluation
+        or prior.evidence != fresh.evidence
+        or prior.sufficiency.interpretations != fresh.sufficiency.interpretations
+    )
+
+
+def _owner_meaning_changes(
+    prior: CurrentEvidenceBasis, fresh: CurrentEvidenceBasis
+) -> list[BasisOwnerMeaningChange]:
+    old = prior.owner_meaning
+    new = fresh.owner_meaning
+    old_owners: list[tuple[BasisPositiveRole, OwnerMeaningWitness]] = [
+        (BasisPositiveRole.DECISION, old.decision),
+        (BasisPositiveRole.TARGET, old.target),
+    ]
+    if old.claim is not None:
+        old_owners.append((BasisPositiveRole.CLAIM, old.claim))
+    old_owners.extend((BasisPositiveRole.CONTEXT, witness) for witness in old.context)
+    new_owners = [new.decision, new.target, *new.context]
+    if new.claim is not None:
+        new_owners.append(new.claim)
+    changes: list[BasisOwnerMeaningChange] = []
+    for role, before in old_owners:
+        match = next(
+            (
+                after
+                for after in new_owners
+                if _owner_subject_identity(before.subject)
+                == _owner_subject_identity(after.subject)
+            ),
+            None,
+        )
+        if match is not None and (before.meaning, before.provenance) != (
+            match.meaning,
+            match.provenance,
+        ):
+            changes.append(BasisOwnerMeaningChange(role, before, match))
+    return changes
+
+
+def _authority_mismatch(
+    prior: CurrentEvidenceBasis,
+    fresh: CurrentEvidenceBasis,
+    meaning_changes: list[BasisOwnerMeaningChange],
+) -> CurrentEvidenceNoBasis | None:
+    if (
+        prior.sufficiency.requirement_version.version_id
+        == fresh.sufficiency.requirement_version.version_id
+        and prior.sufficiency.requirement_version
+        != fresh.sufficiency.requirement_version
+    ):
+        return _invalid(
+            prior.key,
+            fresh.at,
+            "immutable requirement authority changed without a new version",
+        )
+    changed_subjects = {
+        _owner_subject_identity(change.prior.subject) for change in meaning_changes
+    }
+    if (
+        prior.target.version == fresh.target.version
+        and (
+            prior.target.assertion != fresh.target.assertion
+            or prior.target.correction_support != fresh.target.correction_support
+        )
+        and _owner_subject_identity(prior.owner_meaning.target.subject)
+        not in changed_subjects
+    ):
+        return _invalid(
+            prior.key,
+            fresh.at,
+            "target owner projection changed without attested meaning",
+        )
+    for old_selection, new_selection in zip(
+        prior.context.selections, fresh.context.selections, strict=True
+    ):
+        old_facts = {fact.reference: fact for fact in old_selection.facts}
+        new_facts = {fact.reference: fact for fact in new_selection.facts}
+        if any(
+            old_facts[ref] != new_facts[ref]
+            and (CanonicalContextMeaning, old_selection.role, ref)
+            not in changed_subjects
+            for ref in old_facts.keys() & new_facts
+        ):
+            return _invalid(
+                prior.key,
+                fresh.at,
+                "context owner projection changed without attested meaning",
+            )
+    if (
+        _changed_immutable_roots(
+            prior.evidence.observations,
+            fresh.evidence.observations,
+            lambda root: root.observation_id,
+        )
+        or _changed_immutable_roots(
+            prior.evidence.bindings,
+            fresh.evidence.bindings,
+            lambda root: root.binding_id,
+        )
+        or _changed_immutable_roots(
+            prior.evidence.assessments,
+            fresh.evidence.assessments,
+            lambda root: root.assessment_id,
+        )
+    ):
+        return _invalid(
+            prior.key,
+            fresh.at,
+            "immutable Evidence root changed under the same identity",
+        )
+    if prior.at == fresh.at and (
+        meaning_changes
+        or (
+            prior.support_version == fresh.support_version
+            and prior.evidence != fresh.evidence
+        )
+    ):
+        return _invalid(
+            prior.key,
+            fresh.at,
+            "owner meaning changed without a new read boundary",
+        )
+    return None
+
+
+def _evidence_changed_only_through_time(
+    prior: CurrentEvidenceBasis, fresh: CurrentEvidenceBasis
+) -> bool:
+    if fresh.at <= prior.at or (
+        prior.requirement_key != fresh.requirement_key
+        or prior.sufficiency.requirement_version
+        != fresh.sufficiency.requirement_version
+        or prior.support_version != fresh.support_version
+        or prior.guards.binding_ids != fresh.guards.binding_ids
+        or prior.guards.assessment_ids != fresh.guards.assessment_ids
+        or prior.guards.fact_support != fresh.guards.fact_support
+        or prior.sufficiency.guards != fresh.sufficiency.guards
+    ):
+        return False
+    return (
+        prior.evaluation != fresh.evaluation
+        or prior.sufficiency.interpretations != fresh.sufficiency.interpretations
+    )
+
+
+def _changed_immutable_roots[FactT, IdT](
+    prior: tuple[HistoricalEvidenceItem[FactT], ...],
+    fresh: tuple[HistoricalEvidenceItem[FactT], ...],
+    identity: Callable[[FactT], IdT],
+) -> bool:
+    old = {identity(item.root): item.root for item in prior}
+    new = {identity(item.root): item.root for item in fresh}
+    return any(old[key] != new[key] for key in old.keys() & new)
+
+
+def _positive_changes(
+    prior: CurrentEvidenceBasis, fresh: CurrentEvidenceBasis
+) -> list[BasisPositiveChange]:
+    changes: list[BasisPositiveChange] = []
+
+    def positive(
+        role: BasisPositiveRole,
+        before: BasisPositiveReference | None,
+        after: BasisPositiveReference | None,
+    ) -> None:
+        if before != after:
+            changes.append(BasisPositiveChange(role, before, after))
+
+    positive(
+        BasisPositiveRole.DECISION,
+        prior.decision.version,
+        fresh.decision.version,
+    )
+    positive(
+        BasisPositiveRole.TARGET,
+        prior.target.version,
+        fresh.target.version,
+    )
+    positive(
+        BasisPositiveRole.CLAIM,
+        prior.claim_catalog_version,
+        fresh.claim_catalog_version,
+    )
+    positive(
+        BasisPositiveRole.REQUIREMENT,
+        prior.sufficiency.requirement_version.version_id,
+        fresh.sufficiency.requirement_version.version_id,
+    )
+    positive(
+        BasisPositiveRole.REQUIREMENT,
+        prior.requirement_key,
+        fresh.requirement_key,
+    )
+    positive(
+        BasisPositiveRole.EVIDENCE_SUPPORT,
+        prior.support_version,
+        fresh.support_version,
+    )
+    _compare_context_references(prior, fresh, positive)
+    _compare_fact_support(prior, fresh, positive)
+    return changes
+
+
+def _broken_guards(
+    prior: CurrentEvidenceBasis, fresh: CurrentEvidenceBasis
+) -> list[BasisGuardBreak]:
+    broken: list[BasisGuardBreak] = []
+    if (
+        prior.guards.claim is not None
+        and fresh.guards.claim is not None
+        and prior.guards.claim != fresh.guards.claim
+    ):
+        broken.append(
+            BasisGuardBreak(
+                BasisGuardRole.CLAIM_MEMBERSHIP,
+                prior.guards.claim,
+                fresh.guards.claim,
+            )
+        )
+    for old_guard, new_guard in zip(
+        prior.context.guards, fresh.context.guards, strict=True
+    ):
+        if old_guard != new_guard:
+            broken.append(
+                BasisGuardBreak(BasisGuardRole.CONTEXT_SELECTION, old_guard, new_guard)
+            )
+    if (
+        prior.sufficiency.guards.requirement_authority
+        != fresh.sufficiency.guards.requirement_authority
+    ):
+        broken.append(
+            BasisGuardBreak(
+                BasisGuardRole.REQUIREMENT_AUTHORITY,
+                prior.sufficiency.guards.requirement_authority,
+                fresh.sufficiency.guards.requirement_authority,
+            )
+        )
+    old_selection = EvidenceSelectionGuard.from_basis(prior)
+    new_selection = EvidenceSelectionGuard.from_basis(fresh)
+    if old_selection != new_selection:
+        broken.append(
+            BasisGuardBreak(
+                BasisGuardRole.EVIDENCE_SELECTION, old_selection, new_selection
+            )
+        )
+    if prior.sufficiency.guards.bindings != fresh.sufficiency.guards.bindings:
+        broken.append(
+            BasisGuardBreak(
+                BasisGuardRole.SUFFICIENCY_BINDINGS,
+                prior.sufficiency.guards.bindings,
+                fresh.sufficiency.guards.bindings,
+            )
+        )
+    if prior.sufficiency.guards.corrections != fresh.sufficiency.guards.corrections:
+        broken.append(
+            BasisGuardBreak(
+                BasisGuardRole.SUFFICIENCY_CORRECTIONS,
+                prior.sufficiency.guards.corrections,
+                fresh.sufficiency.guards.corrections,
+            )
+        )
+    return broken
+
+
+def _compare_context_references(
+    prior: CurrentEvidenceBasis,
+    fresh: CurrentEvidenceBasis,
+    positive: PositiveRecorder,
+) -> None:
+    old = {context_root(ref): ref for ref in prior.context.positive_references}
+    new = {context_root(ref): ref for ref in fresh.context.positive_references}
+    for root in sorted(old.keys() | new.keys(), key=repr):
+        positive(
+            BasisPositiveRole.CONTEXT,
+            old.get(root),
+            new.get(root),
+        )
+
+
+def _compare_fact_support(
+    prior: CurrentEvidenceBasis,
+    fresh: CurrentEvidenceBasis,
+    positive: PositiveRecorder,
+) -> None:
+    old = prior.guards.fact_support
+    new = fresh.guards.fact_support
+    for ref in sorted(old - new, key=repr):
+        positive(
+            BasisPositiveRole.EVIDENCE_SUPPORT,
+            ref,
+            None,
+        )
+    for ref in sorted(new - old, key=repr):
+        positive(
+            BasisPositiveRole.EVIDENCE_SUPPORT,
+            None,
+            ref,
+        )
 
 
 class CurrentEvidenceBasisQuery:

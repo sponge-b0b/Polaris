@@ -1349,7 +1349,10 @@ def test_unaware_current_instant_is_rejected() -> None:
         asyncio.run(query.read(key, at=datetime(2026, 9, 29)))
 
 
-def _future_withdrawn_decision() -> InvestmentDecision:
+def _future_withdrawn_decision(
+    *,
+    effective_at: datetime | None = None,
+) -> InvestmentDecision:
     decision = _decision()
     metadata = decision.history[0].metadata
     return withdraw_decision_work(
@@ -1361,7 +1364,7 @@ def _future_withdrawn_decision() -> InvestmentDecision:
             OperationId(uuid4()),
             metadata.actor_attribution,
             metadata.trigger,
-            AT + timedelta(days=1),
+            effective_at or AT + timedelta(days=1),
             AT - timedelta(minutes=1),
             metadata.technical_provenance,
         ),

@@ -96,6 +96,11 @@ from .corrections import (
     RecordEvidenceObservationCorrectionCommand,
 )
 from .current_basis import (
+    BasisGuardBreak,
+    BasisGuardRole,
+    BasisOwnerMeaningChange,
+    BasisPositiveChange,
+    BasisPositiveRole,
     ClaimMembershipGuard,
     CurrentEvidenceBasis,
     CurrentEvidenceBasisQuery,
@@ -109,6 +114,7 @@ from .current_basis import (
     CurrentSufficiencyReader,
     EvidenceHistoryIncomplete,
     EvidenceHistoryInvalid,
+    EvidenceSelectionGuard,
     RequirementKeyOwnerReader,
     ResolvedRequirementKey,
 )
@@ -224,6 +230,11 @@ from .sufficiency import (
 from .support_epochs import EvidenceSupportEpochReader
 
 __all__ = [
+    "BasisGuardBreak",
+    "BasisGuardRole",
+    "BasisOwnerMeaningChange",
+    "BasisPositiveChange",
+    "BasisPositiveRole",
     "ClaimMembershipGuard",
     "CurrentEvidenceBasis",
     "CurrentEvidenceBasisQuery",
@@ -235,6 +246,7 @@ __all__ = [
     "CurrentEvidenceSelection",
     "CurrentNoBasisReason",
     "CurrentSufficiencyReader",
+    "EvidenceSelectionGuard",
     "EvidenceHistoryIncomplete",
     "EvidenceHistoryInvalid",
     "RequirementKeyOwnerReader",

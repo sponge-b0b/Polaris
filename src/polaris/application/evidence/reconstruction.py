@@ -3,7 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from .current_basis import (
+        BasisGuardBreak,
+        BasisOwnerMeaningChange,
+        BasisPositiveChange,
+    )
 
 from polaris.application.decisions.contracts import (
     LifecycleConflict,
@@ -310,12 +317,24 @@ class StaleEvidenceBasisCategory(StrEnum):
 @dataclass(frozen=True, slots=True)
 class StaleEvidenceBasis:
     categories: frozenset[StaleEvidenceBasisCategory]
+    changed_positive_references: tuple[BasisPositiveChange, ...] = ()
+    broken_guards: tuple[BasisGuardBreak, ...] = ()
+    changed_owner_meanings: tuple[BasisOwnerMeaningChange, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.categories or any(
             type(value) is not StaleEvidenceBasisCategory for value in self.categories
         ):
             raise ValueError("stale Evidence basis requires typed mismatch categories")
+        if any(
+            type(value) is not tuple
+            for value in (
+                self.changed_positive_references,
+                self.broken_guards,
+                self.changed_owner_meanings,
+            )
+        ):
+            raise TypeError("stale diagnostics must be tuples")
 
 
 type HistoricalReconstructionResult[TargetFactT] = (

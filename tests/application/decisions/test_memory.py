@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -15,8 +16,21 @@ from polaris.application.decisions import (
     DecisionMemoryService,
     DecisionMemoryView,
     DecisionNotFound,
+    DecisionVersionSupport,
     PersistenceUnavailable,
+    RelationshipHistoryIncomplete,
     RelationshipHistoryInvalidOrIncomplete,
+)
+from polaris.application.decisions.owner_meaning import (
+    DecisionMeaningProvenance,
+    DecisionOwnerMeaningReader,
+)
+from polaris.application.evidence.owner_meaning import (
+    GoverningDecisionMeaning,
+    OwnerMeaningNoBasis,
+    OwnerMeaningNoBasisReason,
+    OwnerMeaningResolver,
+    OwnerMeaningWitness,
 )
 from polaris.domain.actors import ActorId, KnownActorAttribution
 from polaris.domain.decisions import (
@@ -43,6 +57,8 @@ from polaris.domain.decisions import (
     DecisionScope,
     DecisionSubject,
     DecisionVersion,
+    DecisionWorkControlBasis,
+    DecisionWorkPosture,
     InvestmentDecision,
     InvestmentDecisionId,
     OperationId,
@@ -58,8 +74,18 @@ from polaris.domain.decisions import (
     relationship_correction,
     relationship_fact,
     revise_subject,
+    withdraw_decision_work,
 )
 from polaris.domain.decisions.facts import DecisionLifecycleFact
+from polaris.domain.evidence.context_versions import (
+    BasisScopeKey,
+    DecisionContextVersionRef,
+)
+from polaris.domain.evidence.judgments import (
+    EvidenceUse,
+    InvestmentViewRef,
+    JudgmentWideEvidenceScope,
+)
 
 NOW = datetime(2026, 9, 12, 6, 0, tzinfo=UTC)
 START = NOW - timedelta(days=2)
@@ -597,3 +623,907 @@ def test_public_query_surface_adds_no_prior_decision_context_contract() -> None:
     }
     assert "DecisionMemoryService" in decisions_api.__all__
     assert "DecisionMemoryQueryReader" in decisions_api.__all__
+    assert "DecisionOwnerMeaningReader" in decisions_api.__all__
+
+
+def _meaning_key(decision: InvestmentDecision) -> BasisScopeKey:
+    return BasisScopeKey(
+        decision.decision_id,
+        InvestmentViewRef(uuid4()),
+        JudgmentWideEvidenceScope(),
+        EvidenceUse.JUDGMENT_BASIS,
+    )
+
+
+def _meaning_subject(decision: InvestmentDecision) -> GoverningDecisionMeaning:
+    return GoverningDecisionMeaning(
+        DecisionContextVersionRef(decision.decision_id, decision.version)
+    )
+
+
+def _version_support(
+    decision: InvestmentDecision, fact: DecisionRelationshipFact
+) -> DecisionVersionSupport:
+    return DecisionVersionSupport(
+        decision.decision_id,
+        fact.metadata.operation_id,
+        frozenset((fact.metadata.relationship_fact_id,)),
+        decision.version,
+        DecisionVersion(decision.version.value + 1),
+        fact.metadata.recorded_at,
+    )
+
+
+def _split_recording_operation(
+    source: InvestmentDecision, target: InvestmentDecision
+) -> tuple[DecisionRelationshipFact, DecisionRelationshipFact]:
+    first = _supersession(source, target, recorded_at=NOW - timedelta(hours=2))
+    second = _supersession(source, target, recorded_at=NOW - timedelta(hours=1))
+    return first, replace(
+        second,
+        metadata=replace(second.metadata, operation_id=first.metadata.operation_id),
+    )
+
+
+def _future_relationship_owner(
+    *, effective_at: datetime
+) -> tuple[
+    InvestmentDecision,
+    DecisionRelationshipFact,
+    FakeDecisionMemoryReader,
+    BasisScopeKey,
+    GoverningDecisionMeaning,
+    OwnerMeaningResolver,
+]:
+    source, target = _decision(subject="Successor"), _decision(subject="Prior")
+    edge = _supersession(
+        source,
+        target,
+        recorded_at=NOW - timedelta(hours=1),
+        effective_at=effective_at,
+    )
+    reader = FakeDecisionMemoryReader((source, target), relationship_history=(edge,))
+    version = DecisionVersion(
+        target.version.value
+        + (edge.relationship_effective_at <= edge.metadata.recorded_at)
+    )
+    support = replace(_version_support(target, edge), after=version)
+    reader.current_states[target.decision_id] = DecisionMemoryCurrentState(
+        target.history, version, (edge,), (support,)
+    )
+    key = _meaning_key(target)
+    subject = GoverningDecisionMeaning(
+        DecisionContextVersionRef(target.decision_id, version)
+    )
+    return (
+        target,
+        edge,
+        reader,
+        key,
+        subject,
+        OwnerMeaningResolver(DecisionOwnerMeaningReader(reader)),
+    )
+
+
+def _witness_at(
+    resolver: OwnerMeaningResolver,
+    key: BasisScopeKey,
+    subject: GoverningDecisionMeaning,
+    at: datetime,
+) -> OwnerMeaningWitness:
+    result = asyncio.run(resolver.read_current(key, subject, at=at))
+    assert isinstance(result, OwnerMeaningWitness)
+    return result
+
+
+def _owner_mutation(
+    reference: str, *, effective_at: datetime, recorded_at: datetime
+) -> DecisionMutationContext:
+    return DecisionMutationContext(
+        DecisionLifecycleFactId(uuid4()),
+        OperationId(uuid4()),
+        _actor(),
+        _trigger(reference),
+        effective_at,
+        recorded_at,
+        _technical(reference),
+    )
+
+
+def test_decision_owner_attests_future_relationship_change_without_new_version() -> (
+    None
+):
+    effective = NOW + timedelta(days=1)
+    _, edge, _, key, subject, resolver = _future_relationship_owner(
+        effective_at=effective
+    )
+    prior = _witness_at(resolver, key, subject, NOW)
+    fresh = _witness_at(resolver, key, subject, effective)
+
+    assert prior.subject == fresh.subject
+    assert prior.meaning.applicability is DecisionApplicability.OPERATIVE
+    assert fresh.meaning.applicability is DecisionApplicability.NON_OPERATIVE
+    assert prior.semantic_identity != fresh.semantic_identity
+    assert prior.provenance is DecisionMeaningProvenance.R2_DECISION_MEMORY
+    assert prior.cause.complete and fresh.cause.complete
+    assert prior.cause.fact_ancestry and prior.cause.relationship_guards
+    assert prior.key == fresh.key == key
+    assert prior.effective_at == prior.known_at == prior.read_at == NOW
+    assert fresh.effective_at == fresh.known_at == fresh.read_at == effective
+    assert prior.cause.relationship_guards[0].selected == ()
+    assert fresh.cause.relationship_guards[0].selected == fresh.meaning.lineage
+    assert any(record.fact == edge for record in fresh.cause.fact_ancestry)
+    assert asyncio.run(resolver.verify(prior, validation_at=effective)) == prior
+    fabricated = replace(
+        prior,
+        meaning=replace(
+            prior.meaning, applicability=DecisionApplicability.NON_OPERATIVE
+        ),
+    )
+    rejected = asyncio.run(resolver.verify(fabricated, validation_at=effective))
+    assert isinstance(rejected, OwnerMeaningNoBasis)
+    assert rejected.reason is OwnerMeaningNoBasisReason.INVALID_HISTORY
+
+
+@pytest.mark.parametrize(
+    ("effective_at", "claimed_version"),
+    (
+        (NOW + timedelta(days=1), 2),
+        (NOW - timedelta(days=1), 1),
+    ),
+)
+def test_decision_owner_rejects_receipt_with_wrong_relationship_version_effect(
+    effective_at: datetime, claimed_version: int
+) -> None:
+    target, _, reader, key, _, resolver = _future_relationship_owner(
+        effective_at=effective_at
+    )
+    snapshot = reader.current_states[target.decision_id]
+    version = DecisionVersion(claimed_version)
+    reader.current_states[target.decision_id] = replace(
+        snapshot,
+        version=version,
+        version_support=(replace(snapshot.version_support[0], after=version),),
+    )
+    subject = GoverningDecisionMeaning(
+        DecisionContextVersionRef(target.decision_id, version)
+    )
+    result = asyncio.run(resolver.read_current(key, subject, at=NOW))
+    assert isinstance(result, OwnerMeaningNoBasis)
+    assert result.reason is OwnerMeaningNoBasisReason.INVALID_HISTORY
+
+
+def test_decision_owner_requires_version_change_with_existing_v1_correction() -> None:
+    source, target = _decision(subject="Successor"), _decision(subject="Prior")
+    recorded_at = NOW - timedelta(hours=1)
+    edge = _supersession(source, target, recorded_at=recorded_at)
+    corrected = correct_decision_lifecycle(
+        target,
+        target_fact_id=target.history[0].metadata.fact_id,
+        effect=DecisionLifecycleCorrectionEffect.QUALIFY,
+        correction_basis=DecisionLifecycleCorrectionBasis("future qualification"),
+        replacement_disposition=(
+            DecisionLifecycleDisposition.NEED_RETRACTED_UNSUPPORTED
+        ),
+        replacement_basis=UnsupportedDecisionNeedBasis("bad initiation"),
+        mutation=replace(
+            _owner_mutation(
+                "future-qualification",
+                effective_at=NOW + timedelta(days=1),
+                recorded_at=recorded_at,
+            ),
+            operation_id=edge.metadata.operation_id,
+        ),
+        applicability=DecisionApplicability.OPERATIVE,
+    )
+    assert corrected.version == target.version
+    support = replace(_version_support(target, edge), after=target.version)
+    reader = FakeDecisionMemoryReader((source, corrected), relationship_history=(edge,))
+    reader.current_states[target.decision_id] = DecisionMemoryCurrentState(
+        corrected.history, corrected.version, (edge,), (support,)
+    )
+    result = asyncio.run(
+        OwnerMeaningResolver(DecisionOwnerMeaningReader(reader)).read_current(
+            _meaning_key(corrected), _meaning_subject(corrected), at=NOW
+        )
+    )
+    assert isinstance(result, OwnerMeaningNoBasis)
+    assert result.reason is OwnerMeaningNoBasisReason.INVALID_HISTORY
+
+
+def test_decision_owner_accepts_initial_relationship_at_version_one() -> None:
+    source = _decision(subject="Successor", recorded_at=START - timedelta(hours=1))
+    target = _decision(subject="Prior", recorded_at=START)
+    edge = _supersession(source, target, recorded_at=START, effective_at=START)
+    edge = replace(
+        edge,
+        metadata=replace(
+            edge.metadata, operation_id=target.history[0].metadata.operation_id
+        ),
+    )
+    support = replace(_version_support(target, edge), after=target.version)
+    reader = FakeDecisionMemoryReader((source, target), relationship_history=(edge,))
+    reader.current_states[target.decision_id] = DecisionMemoryCurrentState(
+        target.history, target.version, (edge,), (support,)
+    )
+    result = asyncio.run(
+        OwnerMeaningResolver(DecisionOwnerMeaningReader(reader)).read_current(
+            _meaning_key(target), _meaning_subject(target), at=NOW
+        )
+    )
+    assert isinstance(result, OwnerMeaningWitness)
+    assert result.cause.complete
+
+
+def test_decision_owner_ignores_time_and_valid_future_only_history() -> None:
+    target, edge, reader, key, subject, resolver = _future_relationship_owner(
+        effective_at=NOW + timedelta(days=2)
+    )
+    prior = _witness_at(resolver, key, subject, NOW)
+    fresh = _witness_at(resolver, key, subject, NOW + timedelta(days=1))
+
+    assert prior.semantic_identity == fresh.semantic_identity
+    assert prior.cause == fresh.cause
+
+    unrelated_source, unrelated_target = _decision(), _decision()
+    unrelated = _supersession(
+        unrelated_source,
+        unrelated_target,
+        recorded_at=NOW + timedelta(hours=1),
+        effective_at=NOW + timedelta(days=3),
+    )
+    reader.current_states[target.decision_id] = DecisionMemoryCurrentState(
+        target.history,
+        target.version,
+        (edge, unrelated),
+        (replace(_version_support(target, edge), after=target.version),),
+    )
+    after_unrelated = _witness_at(resolver, key, subject, NOW + timedelta(days=1))
+    assert prior.semantic_identity == after_unrelated.semantic_identity
+    assert prior.cause != after_unrelated.cause
+
+
+def test_decision_owner_attests_future_lifecycle_correction_without_new_version() -> (
+    None
+):
+    decision = _decision()
+    effective = NOW + timedelta(days=1)
+    corrected = correct_decision_lifecycle(
+        decision,
+        target_fact_id=decision.history[0].metadata.fact_id,
+        effect=DecisionLifecycleCorrectionEffect.QUALIFY,
+        correction_basis=DecisionLifecycleCorrectionBasis("unsupported-need"),
+        replacement_disposition=(
+            DecisionLifecycleDisposition.NEED_RETRACTED_UNSUPPORTED
+        ),
+        replacement_basis=UnsupportedDecisionNeedBasis("bad-initiation"),
+        mutation=_owner_mutation(
+            "future-correction",
+            effective_at=effective,
+            recorded_at=NOW - timedelta(minutes=1),
+        ),
+        applicability=DecisionApplicability.OPERATIVE,
+    )
+    reader = FakeDecisionMemoryReader((corrected,))
+    key, subject = _meaning_key(corrected), _meaning_subject(corrected)
+    resolver = OwnerMeaningResolver(DecisionOwnerMeaningReader(reader))
+
+    prior = _witness_at(resolver, key, subject, NOW)
+    fresh = _witness_at(resolver, key, subject, effective)
+    assert prior.subject == fresh.subject
+    assert prior.meaning.disposition is DecisionLifecycleDisposition.UNRESOLVED
+    assert (
+        fresh.meaning.disposition
+        is DecisionLifecycleDisposition.NEED_RETRACTED_UNSUPPORTED
+    )
+    assert prior.semantic_identity != fresh.semantic_identity
+    assert prior.cause.correction_ancestry == fresh.cause.correction_ancestry
+
+
+@pytest.mark.parametrize("with_relationship", (False, True))
+def test_decision_owner_rejects_future_correction_false_version_advance(
+    with_relationship: bool,
+) -> None:
+    # duplicate-code: this forged correction probes both the lifecycle-only and
+    # mixed-command version boundaries that lawful owner fixtures also construct.
+    # arid: disable
+    source, target = _decision(subject="Successor"), _decision(subject="Prior")
+    recorded_at = NOW - timedelta(hours=1)
+    edge = _supersession(
+        source,
+        target,
+        recorded_at=recorded_at,
+        effective_at=NOW + timedelta(days=2),
+    )
+    mutation = _owner_mutation(
+        "future-correction-version",
+        effective_at=NOW + timedelta(days=1),
+        recorded_at=recorded_at,
+    )
+    if with_relationship:
+        mutation = replace(mutation, operation_id=edge.metadata.operation_id)
+    corrected = correct_decision_lifecycle(
+        target,
+        target_fact_id=target.history[0].metadata.fact_id,
+        effect=DecisionLifecycleCorrectionEffect.QUALIFY,
+        correction_basis=DecisionLifecycleCorrectionBasis("future correction"),
+        replacement_disposition=(
+            DecisionLifecycleDisposition.NEED_RETRACTED_UNSUPPORTED
+        ),
+        replacement_basis=UnsupportedDecisionNeedBasis("bad initiation"),
+        mutation=mutation,
+        applicability=DecisionApplicability.OPERATIVE,
+    )
+    assert corrected.version == target.version
+    claimed_version = DecisionVersion(target.version.value + 1)
+    correction = replace(
+        corrected.history[-1],
+        metadata=replace(
+            corrected.history[-1].metadata, decision_version=claimed_version
+        ),
+    )
+    relationships = (edge,) if with_relationship else ()
+    support = (_version_support(target, edge),) if with_relationship else ()
+    reader = FakeDecisionMemoryReader(
+        (source, target), relationship_history=relationships
+    )
+    reader.current_states[target.decision_id] = DecisionMemoryCurrentState(
+        (*target.history, correction), claimed_version, relationships, support
+    )
+    subject = GoverningDecisionMeaning(
+        DecisionContextVersionRef(target.decision_id, claimed_version)
+    )
+    result = asyncio.run(
+        OwnerMeaningResolver(DecisionOwnerMeaningReader(reader)).read_current(
+            _meaning_key(target), subject, at=NOW
+        )
+    )
+    assert isinstance(result, OwnerMeaningNoBasis)
+    assert result.reason is OwnerMeaningNoBasisReason.INVALID_HISTORY
+    # arid: enable
+
+
+def test_decision_owner_attests_current_correction_version_advance() -> None:
+    # duplicate-code: the currently effective correction is the positive
+    # counterpart of the future-only correction's false-version proof.
+    # arid: disable
+    decision = _decision()
+    corrected = correct_decision_lifecycle(
+        decision,
+        target_fact_id=decision.history[0].metadata.fact_id,
+        effect=DecisionLifecycleCorrectionEffect.QUALIFY,
+        correction_basis=DecisionLifecycleCorrectionBasis("current correction"),
+        replacement_disposition=(
+            DecisionLifecycleDisposition.NEED_RETRACTED_UNSUPPORTED
+        ),
+        replacement_basis=UnsupportedDecisionNeedBasis("bad initiation"),
+        mutation=_owner_mutation(
+            "current-correction-version",
+            effective_at=NOW - timedelta(hours=2),
+            recorded_at=NOW - timedelta(hours=1),
+        ),
+        applicability=DecisionApplicability.OPERATIVE,
+    )
+    assert corrected.version == DecisionVersion(2)
+    witness = _witness_at(
+        OwnerMeaningResolver(
+            DecisionOwnerMeaningReader(FakeDecisionMemoryReader((corrected,)))
+        ),
+        _meaning_key(corrected),
+        _meaning_subject(corrected),
+        NOW,
+    )
+    assert (
+        witness.meaning.disposition
+        is DecisionLifecycleDisposition.NEED_RETRACTED_UNSUPPORTED
+    )
+    # arid: enable
+
+
+def test_decision_owner_attests_future_work_posture_without_new_version() -> None:
+    decision = _decision()
+    effective = NOW + timedelta(days=1)
+    withdrawn = withdraw_decision_work(
+        decision,
+        basis=DecisionWorkControlBasis("withdraw-work"),
+        applicability=DecisionApplicability.OPERATIVE,
+        mutation=_owner_mutation(
+            "future-withdrawal",
+            effective_at=effective,
+            recorded_at=NOW - timedelta(minutes=1),
+        ),
+    )
+    key, subject = _meaning_key(withdrawn), _meaning_subject(withdrawn)
+    resolver = OwnerMeaningResolver(
+        DecisionOwnerMeaningReader(FakeDecisionMemoryReader((withdrawn,)))
+    )
+    prior = _witness_at(resolver, key, subject, NOW)
+    fresh = _witness_at(resolver, key, subject, effective)
+
+    assert prior.subject == fresh.subject
+    assert prior.meaning.disposition is fresh.meaning.disposition
+    assert prior.meaning.work_posture is DecisionWorkPosture.ACTIVE
+    assert fresh.meaning.work_posture is DecisionWorkPosture.WITHDRAWN
+    assert prior.semantic_identity != fresh.semantic_identity
+
+
+def test_decision_owner_rejects_invalid_future_only_relationship_history() -> None:
+    decision = _decision()
+    other = _decision()
+    edge = _supersession(
+        other,
+        decision,
+        effective_at=NOW + timedelta(days=2),
+    )
+    orphan = relationship_correction(
+        target_relationship_fact_id=DecisionRelationshipFactId(uuid4()),
+        effect=DecisionRelationshipCorrectionEffect.DISCONFIRM,
+        correction_effective_at=NOW + timedelta(days=3),
+        correction_basis=DecisionRelationshipCorrectionBasis(("orphan",)),
+        mutation=_relationship_mutation(
+            recorded_at=NOW - timedelta(minutes=1), reference="orphan"
+        ),
+    )
+    reader = FakeDecisionMemoryReader(
+        (decision, other), relationship_history=(edge, orphan)
+    )
+    reader.current_states[decision.decision_id] = DecisionMemoryCurrentState(
+        decision.history, decision.version, (edge, orphan)
+    )
+    result = asyncio.run(
+        OwnerMeaningResolver(DecisionOwnerMeaningReader(reader)).read_current(
+            _meaning_key(decision), _meaning_subject(decision), at=NOW
+        )
+    )
+    assert isinstance(result, OwnerMeaningNoBasis)
+    assert result.reason is OwnerMeaningNoBasisReason.INVALID_HISTORY
+
+
+def test_decision_owner_does_not_infer_absence_or_accept_unexplained_meaning() -> None:
+    decision = _decision()
+    key, subject = _meaning_key(decision), _meaning_subject(decision)
+    missing = OwnerMeaningResolver(
+        DecisionOwnerMeaningReader(FakeDecisionMemoryReader(()))
+    )
+    absent = asyncio.run(missing.read_current(key, subject, at=NOW))
+    assert isinstance(absent, OwnerMeaningNoBasis)
+    assert absent.reason is OwnerMeaningNoBasisReason.MISSING
+
+    reader = FakeDecisionMemoryReader((decision,))
+    resolver = OwnerMeaningResolver(DecisionOwnerMeaningReader(reader))
+    prior = asyncio.run(resolver.read_current(key, subject, at=NOW))
+    assert isinstance(prior, OwnerMeaningWitness)
+
+    class IncompleteReader(FakeDecisionMemoryReader):
+        async def load_current_decision_state(
+            self, decision_id: InvestmentDecisionId, *, known_at: datetime
+        ) -> DecisionMemoryCurrentState | None:
+            return DecisionMemoryCurrentState((), decision.version, ())
+
+    changed = asyncio.run(
+        OwnerMeaningResolver(
+            DecisionOwnerMeaningReader(IncompleteReader((decision,)))
+        ).verify(prior, validation_at=NOW + timedelta(hours=1))
+    )
+    assert isinstance(changed, OwnerMeaningNoBasis)
+    assert changed.reason is OwnerMeaningNoBasisReason.INCOMPLETE
+
+    unavailable = OwnerMeaningResolver(
+        DecisionOwnerMeaningReader(FailingDecisionMemoryReader((decision,)))
+    )
+    result = asyncio.run(unavailable.read_current(key, subject, at=NOW))
+    assert isinstance(result, OwnerMeaningNoBasis)
+    assert result.reason is OwnerMeaningNoBasisReason.UNAVAILABLE
+
+    revised = revise_subject(
+        decision,
+        subject=DecisionSubject("Unexpected same-version revision"),
+        continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+        applicability=DecisionApplicability.OPERATIVE,
+        mutation=_owner_mutation(
+            "unversioned-revision", effective_at=NOW, recorded_at=NOW
+        ),
+    )
+    reader.current_states[decision.decision_id] = DecisionMemoryCurrentState(
+        revised.history, decision.version, ()
+    )
+    invalid = asyncio.run(resolver.read_current(key, subject, at=NOW))
+    assert isinstance(invalid, OwnerMeaningNoBasis)
+    assert invalid.reason is OwnerMeaningNoBasisReason.INVALID_HISTORY
+
+
+def test_decision_owner_keeps_temporal_and_version_failures_distinct() -> None:
+    decision = _decision()
+    key, subject = _meaning_key(decision), _meaning_subject(decision)
+    reader = FakeDecisionMemoryReader((decision,))
+    future_initiation = replace(
+        decision.history[0],
+        metadata=replace(
+            decision.history[0].metadata,
+            effective_at=NOW + timedelta(days=1),
+        ),
+    )
+    reader.current_states[decision.decision_id] = DecisionMemoryCurrentState(
+        (future_initiation,), decision.version, ()
+    )
+    resolver = OwnerMeaningResolver(DecisionOwnerMeaningReader(reader))
+    future = asyncio.run(resolver.read_current(key, subject, at=NOW))
+    assert isinstance(future, OwnerMeaningNoBasis)
+    assert future.reason is OwnerMeaningNoBasisReason.NOT_YET_EFFECTIVE
+
+    reader.current_states[decision.decision_id] = DecisionMemoryCurrentState(
+        decision.history, DecisionVersion(decision.version.value + 1), ()
+    )
+    contradictory = asyncio.run(resolver.read_current(key, subject, at=NOW))
+    assert isinstance(contradictory, OwnerMeaningNoBasis)
+    assert contradictory.reason is OwnerMeaningNoBasisReason.CONTRADICTORY
+
+    with pytest.raises(ValueError, match="exact key"):
+        asyncio.run(resolver.read_current(_meaning_key(_decision()), subject, at=NOW))
+
+
+def test_decision_owner_requires_history_for_exact_root_and_version() -> None:
+    decision, other = _decision(), _decision()
+    key, subject = _meaning_key(decision), _meaning_subject(decision)
+    reader = FakeDecisionMemoryReader((decision, other))
+    resolver = OwnerMeaningResolver(DecisionOwnerMeaningReader(reader))
+
+    reader.current_states[decision.decision_id] = DecisionMemoryCurrentState(
+        other.history, decision.version, ()
+    )
+    wrong_root = asyncio.run(resolver.read_current(key, subject, at=NOW))
+    assert isinstance(wrong_root, OwnerMeaningNoBasis)
+    assert wrong_root.reason is OwnerMeaningNoBasisReason.INVALID_HISTORY
+
+    unsupported = DecisionVersion(decision.version.value + 1)
+    reader.current_states[decision.decision_id] = DecisionMemoryCurrentState(
+        decision.history, unsupported, ()
+    )
+    higher_subject = GoverningDecisionMeaning(
+        DecisionContextVersionRef(decision.decision_id, unsupported)
+    )
+    no_version_cause = asyncio.run(resolver.read_current(key, higher_subject, at=NOW))
+    assert isinstance(no_version_cause, OwnerMeaningNoBasis)
+    assert no_version_cause.reason is OwnerMeaningNoBasisReason.INVALID_HISTORY
+
+
+def test_decision_owner_rejects_self_bootstrapping_relationship_version() -> None:
+    target, _, reader, key, subject, resolver = _future_relationship_owner(
+        effective_at=NOW - timedelta(days=1)
+    )
+    supported = reader.current_states[target.decision_id]
+    claimed = supported.version_support[0]
+    reader.current_states[target.decision_id] = replace(
+        supported,
+        version_support=(replace(claimed, before=supported.version),),
+    )
+    result = asyncio.run(resolver.read_current(key, subject, at=NOW))
+    assert isinstance(result, OwnerMeaningNoBasis)
+    assert result.reason is OwnerMeaningNoBasisReason.INVALID_HISTORY
+
+    reader.current_states[target.decision_id] = replace(supported, version_support=())
+    missing = asyncio.run(resolver.read_current(key, subject, at=NOW))
+    assert isinstance(missing, OwnerMeaningNoBasis)
+    assert missing.reason is OwnerMeaningNoBasisReason.INCOMPLETE
+
+
+def test_decision_owner_rejects_split_recording_boundary_in_one_operation() -> None:
+    source, target = _decision(subject="Successor"), _decision(subject="Prior")
+    first, second = _split_recording_operation(source, target)
+    support = DecisionVersionSupport(
+        target.decision_id,
+        first.metadata.operation_id,
+        frozenset(
+            (
+                first.metadata.relationship_fact_id,
+                second.metadata.relationship_fact_id,
+            )
+        ),
+        target.version,
+        DecisionVersion(target.version.value + 1),
+        second.metadata.recorded_at,
+    )
+    # duplicate-code: the split-recording falsifier constructs a deliberately
+    # invalid operation; sharing its reader setup with the contested-history
+    # proof would couple distinct owner failure boundaries.
+    # arid: disable
+    reader = FakeDecisionMemoryReader(
+        (source, target), relationship_history=(first, second)
+    )
+    reader.current_states[target.decision_id] = DecisionMemoryCurrentState(
+        target.history,
+        # arid: enable
+        support.after,
+        (first, second),
+        (support,),
+    )
+    key = _meaning_key(target)
+    subject = GoverningDecisionMeaning(
+        DecisionContextVersionRef(target.decision_id, support.after)
+    )
+    resolver = OwnerMeaningResolver(DecisionOwnerMeaningReader(reader))
+
+    invalid = asyncio.run(resolver.read_current(key, subject, at=NOW))
+    assert isinstance(invalid, OwnerMeaningNoBasis)
+    assert invalid.reason is OwnerMeaningNoBasisReason.INVALID_HISTORY
+
+    partial = asyncio.run(
+        resolver.read_current(key, subject, at=NOW - timedelta(minutes=90))
+    )
+    assert isinstance(partial, OwnerMeaningNoBasis)
+    assert partial.reason is OwnerMeaningNoBasisReason.INCOMPLETE
+
+
+def test_decision_owner_checks_nonincident_operation_recording_history() -> None:
+    decision, source, target = _decision(), _decision(), _decision()
+    first, second = _split_recording_operation(source, target)
+    reader = FakeDecisionMemoryReader(
+        (decision, source, target), relationship_history=(first, second)
+    )
+    reader.current_states[decision.decision_id] = DecisionMemoryCurrentState(
+        decision.history, decision.version, (first, second)
+    )
+    # duplicate-code: this out-of-key invalid-history proof reads its own owner
+    # result; sharing assertions with the orphan-history proof would couple
+    # independent failure cases.
+    # arid: disable
+    result = asyncio.run(
+        OwnerMeaningResolver(DecisionOwnerMeaningReader(reader)).read_current(
+            _meaning_key(decision), _meaning_subject(decision), at=NOW
+        )
+    )
+    assert isinstance(result, OwnerMeaningNoBasis)
+    assert result.reason is OwnerMeaningNoBasisReason.INVALID_HISTORY
+    # arid: enable
+
+
+def _mixed_operation_owner(
+    *,
+    lifecycle_recorded_at: datetime,
+    relationship_recorded_at: datetime,
+    relationship_effective_at: datetime | None = None,
+) -> tuple[OwnerMeaningResolver, BasisScopeKey, GoverningDecisionMeaning]:
+    # duplicate-code: this same-operation lifecycle fixture and the future-only
+    # relationship fixture above exercise distinct receipt/version contracts.
+    # arid: disable
+    source, target = _decision(subject="Successor"), _decision(subject="Prior")
+    edge = _supersession(
+        source,
+        target,
+        recorded_at=relationship_recorded_at,
+        effective_at=(
+            relationship_effective_at
+            if relationship_effective_at is not None
+            else NOW - timedelta(hours=3)
+        ),
+    )
+    # arid: enable
+    revised = revise_subject(
+        target,
+        subject=DecisionSubject("Revised prior"),
+        continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+        applicability=DecisionApplicability.OPERATIVE,
+        mutation=replace(
+            _owner_mutation(
+                "mixed-operation-revision",
+                effective_at=lifecycle_recorded_at,
+                recorded_at=lifecycle_recorded_at,
+            ),
+            operation_id=edge.metadata.operation_id,
+        ),
+    )
+    support = DecisionVersionSupport(
+        target.decision_id,
+        edge.metadata.operation_id,
+        frozenset((edge.metadata.relationship_fact_id,)),
+        target.version,
+        revised.version,
+        relationship_recorded_at,
+    )
+    reader = FakeDecisionMemoryReader((source, revised), relationship_history=(edge,))
+    reader.current_states[target.decision_id] = DecisionMemoryCurrentState(
+        revised.history, revised.version, (edge,), (support,)
+    )
+    return (
+        OwnerMeaningResolver(DecisionOwnerMeaningReader(reader)),
+        _meaning_key(revised),
+        _meaning_subject(revised),
+    )
+
+
+def test_decision_owner_attests_atomic_lifecycle_and_relationship_revision() -> None:
+    resolver, key, subject = _mixed_operation_owner(
+        lifecycle_recorded_at=NOW - timedelta(hours=1),
+        relationship_recorded_at=NOW - timedelta(hours=1),
+    )
+    result = asyncio.run(resolver.read_current(key, subject, at=NOW))
+    assert isinstance(result, OwnerMeaningWitness)
+    assert result.cause.complete
+    assert result.meaning.subject == DecisionSubject("Revised prior")
+
+
+def test_decision_owner_attests_atomic_revision_with_future_relationship() -> None:
+    resolver, key, subject = _mixed_operation_owner(
+        lifecycle_recorded_at=NOW - timedelta(hours=1),
+        relationship_recorded_at=NOW - timedelta(hours=1),
+        relationship_effective_at=NOW + timedelta(days=1),
+    )
+    result = asyncio.run(resolver.read_current(key, subject, at=NOW))
+    assert isinstance(result, OwnerMeaningWitness)
+    assert result.meaning.subject == DecisionSubject("Revised prior")
+    assert result.cause.complete
+
+
+def test_decision_owner_rejects_split_mixed_operation_recording() -> None:
+    resolver, key, subject = _mixed_operation_owner(
+        lifecycle_recorded_at=NOW - timedelta(hours=2),
+        relationship_recorded_at=NOW - timedelta(hours=1),
+    )
+    result = asyncio.run(resolver.read_current(key, subject, at=NOW))
+    assert isinstance(result, OwnerMeaningNoBasis)
+    assert result.reason is OwnerMeaningNoBasisReason.INVALID_HISTORY
+
+
+@pytest.mark.parametrize("relationship_version", (1, 2))
+def test_decision_owner_orders_equal_recording_time_by_version_cause(
+    relationship_version: int,
+) -> None:
+    # duplicate-code: this distinct-operation causal-order proof shares the
+    # revision and receipt setup with the atomic same-operation proof above.
+    # arid: disable
+    for _ in range(24):
+        source, target = _decision(subject="Successor"), _decision(subject="Prior")
+        recorded_at = NOW - timedelta(hours=1)
+        revised = revise_subject(
+            target,
+            subject=DecisionSubject("Revised prior"),
+            continuity=DecisionContinuity.SAME_COHERENT_CHOICE,
+            applicability=DecisionApplicability.OPERATIVE,
+            mutation=_owner_mutation(
+                "equal-time-revision",
+                effective_at=recorded_at,
+                recorded_at=recorded_at,
+            ),
+        )
+        edge = _supersession(
+            source,
+            target,
+            recorded_at=recorded_at,
+            effective_at=NOW + timedelta(days=1),
+        )
+        support = DecisionVersionSupport(
+            target.decision_id,
+            edge.metadata.operation_id,
+            frozenset((edge.metadata.relationship_fact_id,)),
+            DecisionVersion(relationship_version),
+            DecisionVersion(relationship_version),
+            recorded_at,
+        )
+        reader = FakeDecisionMemoryReader(
+            (source, revised), relationship_history=(edge,)
+        )
+        reader.current_states[target.decision_id] = DecisionMemoryCurrentState(
+            revised.history, revised.version, (edge,), (support,)
+        )
+        resolver = OwnerMeaningResolver(DecisionOwnerMeaningReader(reader))
+        result = asyncio.run(
+            resolver.read_current(
+                _meaning_key(revised), _meaning_subject(revised), at=NOW
+            )
+        )
+        assert isinstance(result, OwnerMeaningWitness)
+        assert result.cause.complete
+    # arid: enable
+
+
+def test_decision_owner_orders_equal_time_relationship_correction_ancestry() -> None:
+    for _ in range(16):
+        source, target = _decision(subject="Successor"), _decision(subject="Prior")
+        recorded_at = NOW - timedelta(hours=1)
+        edge = _supersession(
+            source,
+            target,
+            recorded_at=recorded_at,
+            effective_at=NOW + timedelta(days=1),
+        )
+        correction = relationship_correction(
+            target_relationship_fact_id=edge.metadata.relationship_fact_id,
+            effect=DecisionRelationshipCorrectionEffect.DISCONFIRM,
+            correction_effective_at=NOW + timedelta(days=2),
+            correction_basis=DecisionRelationshipCorrectionBasis(
+                ("future disconfirmation",)
+            ),
+            mutation=_relationship_mutation(
+                recorded_at=recorded_at, reference="future disconfirmation"
+            ),
+        )
+        support = (
+            replace(_version_support(target, edge), after=target.version),
+            DecisionVersionSupport(
+                target.decision_id,
+                correction.metadata.operation_id,
+                frozenset((correction.metadata.relationship_fact_id,)),
+                target.version,
+                target.version,
+                recorded_at,
+            ),
+        )
+        reader = FakeDecisionMemoryReader(
+            (source, target), relationship_history=(edge, correction)
+        )
+        reader.current_states[target.decision_id] = DecisionMemoryCurrentState(
+            target.history, target.version, (edge, correction), support
+        )
+        result = _witness_at(
+            OwnerMeaningResolver(DecisionOwnerMeaningReader(reader)),
+            _meaning_key(target),
+            _meaning_subject(target),
+            NOW,
+        )
+        assert result.cause.complete
+
+
+def test_decision_owner_keeps_incomplete_relationship_read_distinct() -> None:
+    decision = _decision()
+    key, subject = _meaning_key(decision), _meaning_subject(decision)
+
+    class IncompleteRelationshipReader(FakeDecisionMemoryReader):
+        async def load_current_decision_state(
+            self, decision_id: InvestmentDecisionId, *, known_at: datetime
+        ) -> DecisionMemoryCurrentState | None:
+            raise RelationshipHistoryIncomplete("missing relationship ancestry")
+
+    class InvalidRelationshipReader(FakeDecisionMemoryReader):
+        async def load_current_decision_state(
+            self, decision_id: InvestmentDecisionId, *, known_at: datetime
+        ) -> DecisionMemoryCurrentState | None:
+            raise RelationshipHistoryInvalidOrIncomplete("invalid relationship fact")
+
+    incomplete = asyncio.run(
+        OwnerMeaningResolver(
+            DecisionOwnerMeaningReader(IncompleteRelationshipReader((decision,)))
+        ).read_current(key, subject, at=NOW)
+    )
+    invalid = asyncio.run(
+        OwnerMeaningResolver(
+            DecisionOwnerMeaningReader(InvalidRelationshipReader((decision,)))
+        ).read_current(key, subject, at=NOW)
+    )
+    assert isinstance(incomplete, OwnerMeaningNoBasis)
+    assert incomplete.reason is OwnerMeaningNoBasisReason.INCOMPLETE
+    assert isinstance(invalid, OwnerMeaningNoBasis)
+    assert invalid.reason is OwnerMeaningNoBasisReason.INVALID_HISTORY
+
+
+def test_decision_owner_reports_contested_incident_relationship() -> None:
+    source, target = _decision(subject="Successor"), _decision(subject="Prior")
+    first = _supersession(source, target, effective_at=NOW - timedelta(hours=2))
+    second = _supersession(source, target, effective_at=NOW - timedelta(hours=1))
+    reader = FakeDecisionMemoryReader(
+        (source, target), relationship_history=(first, second)
+    )
+    reader.current_states[target.decision_id] = DecisionMemoryCurrentState(
+        target.history,
+        DecisionVersion(target.version.value + 1),
+        (first, second),
+        (
+            _version_support(target, first),
+            replace(
+                _version_support(target, second),
+                before=DecisionVersion(target.version.value + 1),
+                after=DecisionVersion(target.version.value + 1),
+            ),
+        ),
+    )
+    subject = GoverningDecisionMeaning(
+        DecisionContextVersionRef(
+            target.decision_id, DecisionVersion(target.version.value + 1)
+        )
+    )
+    result = asyncio.run(
+        OwnerMeaningResolver(DecisionOwnerMeaningReader(reader)).read_current(
+            _meaning_key(target), subject, at=NOW
+        )
+    )
+    assert isinstance(result, OwnerMeaningNoBasis)
+    assert result.reason is OwnerMeaningNoBasisReason.CONTESTED

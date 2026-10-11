@@ -15,9 +15,13 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from polaris.application.decisions.contracts import (
     DecisionApplicationError,
     DecisionCommandReadUnavailable,
+    RelationshipHistoryIncomplete,
     RelationshipHistoryInvalidOrIncomplete,
 )
-from polaris.application.decisions.memory import DecisionMemoryCurrentState
+from polaris.application.decisions.memory import (
+    DecisionMemoryCurrentState,
+    DecisionVersionSupport,
+)
 from polaris.application.decisions.ordinary_work import DecisionCommandState
 from polaris.application.decisions.relationships import (
     DecisionRelationshipCommit,
@@ -246,6 +250,13 @@ class PostgresDecisionStore(_BasePostgresDecisionStore):
                     lifecycle_facts=history,
                     version=version,
                     relationship_history=relationships,
+                    version_support=_version_support(
+                        decision_id,
+                        relationships,
+                        await _relationship_version_receipts(
+                            connection, decision_id, known_at=known_at
+                        ),
+                    ),
                     # duplicate-code: paths require separate transaction semantics.
                     # arid: disable
                 )
@@ -656,7 +667,9 @@ async def _validate_relationship_receipts(
     for operation_id, fact_ids in grouped.items():
         row = await _get_operation_receipt(connection, OperationId(operation_id))
         if row is None or row["command_kind"] != _RELATIONSHIP_COMMAND_KIND:
-            raise ValueError("relationship history is missing its durable receipt")
+            raise RelationshipHistoryIncomplete(
+                "relationship history is missing its durable receipt"
+            )
         receipt = _relationship_receipt(row)
         recorded = {identity.value for identity in receipt.result.relationship_fact_ids}
         if recorded != fact_ids:
@@ -703,7 +716,9 @@ def _validate_correction_relationship_row(
 ) -> None:
     target = by_id.get(row["target_relationship_fact_id"])
     if target is None:
-        raise ValueError("relationship correction ancestry is incomplete")
+        raise RelationshipHistoryIncomplete(
+            "relationship correction ancestry is incomplete"
+        )
     if target["recorded_at"] > row["recorded_at"]:
         raise ValueError("relationship correction targets later-recorded history")
     _validate_correction_shape(row)
@@ -749,7 +764,9 @@ def _root_row(
         seen.add(identity)
         target = by_id.get(current["target_relationship_fact_id"])
         if target is None:
-            raise ValueError("relationship correction ancestry is incomplete")
+            raise RelationshipHistoryIncomplete(
+                "relationship correction ancestry is incomplete"
+            )
         current = target
     if current["fact_kind"] != "base":
         raise ValueError("relationship correction ancestry must root in a base fact")
@@ -856,6 +873,21 @@ async def _authoritative_decision_version(
     if not history:
         raise ValueError("Decision version requires lifecycle history")
     versions = [history[-1].metadata.decision_version.value]
+    receipts = await _relationship_version_receipts(
+        connection, decision_id, known_at=known_at
+    )
+    for receipt in receipts:
+        _, after = _receipt_endpoint_versions(receipt, decision_id)
+        versions.append(after.value)
+    return DecisionVersion(max(versions))
+
+
+async def _relationship_version_receipts(
+    connection: AsyncConnection,
+    decision_id: InvestmentDecisionId,
+    *,
+    known_at: datetime | None = None,
+) -> tuple[DecisionRelationshipReceipt, ...]:
     query = select(investment_decision_relationships.c.operation_id).where(
         (investment_decision_relationships.c.source_decision_id == decision_id.value)
         | (investment_decision_relationships.c.target_decision_id == decision_id.value)
@@ -863,26 +895,63 @@ async def _authoritative_decision_version(
     if known_at is not None:
         query = query.where(investment_decision_relationships.c.recorded_at <= known_at)
     operation_rows = await connection.execute(query.distinct())
+    receipts = []
     for operation_row in operation_rows:
         row = await _get_operation_receipt(
             connection, OperationId(_domain_uuid(operation_row.operation_id))
         )
         if row is None or row["command_kind"] != _RELATIONSHIP_COMMAND_KIND:
-            raise ValueError("relationship fact is missing its durable command receipt")
-        receipt = _relationship_receipt(row)
-        expected = dict(receipt.request.expected_versions)
-        if receipt.result.new_decision_id == decision_id:
-            versions.append(1)
-            continue
-        before = expected.get(decision_id)
-        if before is None:
-            raise ValueError(
-                "relationship receipt is missing endpoint version evidence"
+            raise RelationshipHistoryIncomplete(
+                "relationship fact is missing its durable command receipt"
             )
-        versions.append(
-            before.value + (decision_id in receipt.result.versioned_decision_ids)
+        receipts.append(_relationship_receipt(row))
+    return tuple(receipts)
+
+
+def _receipt_endpoint_versions(
+    receipt: DecisionRelationshipReceipt, decision_id: InvestmentDecisionId
+) -> tuple[DecisionVersion, DecisionVersion]:
+    if receipt.result.new_decision_id == decision_id:
+        initial = DecisionVersion(1)
+        return initial, initial
+    before = dict(receipt.request.expected_versions).get(decision_id)
+    if before is None:
+        raise RelationshipHistoryIncomplete(
+            "relationship receipt is missing endpoint version evidence"
         )
-    return DecisionVersion(max(versions))
+    return before, DecisionVersion(
+        before.value + (decision_id in receipt.result.versioned_decision_ids)
+    )
+
+
+def _version_support(
+    decision_id: InvestmentDecisionId,
+    history: tuple[DecisionRelationshipHistoryFact, ...],
+    receipts: tuple[DecisionRelationshipReceipt, ...],
+) -> tuple[DecisionVersionSupport, ...]:
+    support = []
+    for receipt in receipts:
+        facts = tuple(
+            fact
+            for fact in history
+            if fact.metadata.operation_id == receipt.operation_id
+        )
+        if not facts:
+            raise RelationshipHistoryIncomplete(
+                "relationship version receipt is missing its recorded facts"
+            )
+        before, after = _receipt_endpoint_versions(receipt, decision_id)
+        support.append(
+            DecisionVersionSupport(
+                decision_id,
+                receipt.operation_id,
+                frozenset(receipt.result.relationship_fact_ids),
+                before,
+                after,
+                max(fact.metadata.recorded_at for fact in facts),
+            )
+        )
+    return tuple(support)
 
 
 def _validate_projection(

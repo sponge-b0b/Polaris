@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-10] R3 governing Decision temporal owner | #393 realized
+
+Added the Decisions owner reader that proves exact governing Decision meaning from complete R2 lifecycle and relationship history, including future-effective same-version transitions and future-only history validation. Updated Investment Decisions and Application Use Cases knowledge; carrying this witness in current Evidence bases remains downstream.
+
 ## [2026-10-10] R3 typed owner meaning witness contract | partial ADR 0016 realization
 
 Recorded the inward owner-meaning proof contract for exact Decision, target, claim, and canonical-context subjects in Application Use Cases. Owner history verification and distinct no-basis outcomes are now explicit; concrete Decision attestation and current-basis assembly remain pending.

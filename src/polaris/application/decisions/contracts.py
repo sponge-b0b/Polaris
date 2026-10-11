@@ -71,6 +71,10 @@ class RelationshipHistoryInvalidOrIncomplete(RelationshipConflict):
     pass
 
 
+class RelationshipHistoryIncomplete(RelationshipHistoryInvalidOrIncomplete):
+    """Required relationship facts, ancestry, or receipt evidence is absent."""
+
+
 class DecisionCommandReadUnavailable(Exception):
     """Technology-neutral failure contract for command-side persistence reads."""
 

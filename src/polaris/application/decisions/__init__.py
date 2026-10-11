@@ -31,6 +31,7 @@ from .contracts import (
     RelationshipConflict,
     RelationshipCycle,
     RelationshipCycleSafetyIndeterminate,
+    RelationshipHistoryIncomplete,
     RelationshipHistoryInvalidOrIncomplete,
 )
 from .initiation import DecisionInitiationService
@@ -43,6 +44,7 @@ from .memory import (
     DecisionMemoryService,
     DecisionMemoryTemporalView,
     DecisionMemoryView,
+    DecisionVersionSupport,
 )
 from .ordinary_work import (
     ApplyExternalResolutionCommand,
@@ -72,6 +74,13 @@ from .ordinary_work import (
     ResumeDecisionWorkCommand,
     ReviseDecisionSubjectCommand,
     WithdrawDecisionWorkCommand,
+)
+from .owner_meaning import (
+    DecisionMeaningProvenance,
+    DecisionOwnerMeaning,
+    DecisionOwnerMeaningReader,
+    DecisionRelationshipGuard,
+    DecisionRelationshipMeaning,
 )
 from .relationships import (
     DecisionRelationshipCommit,
@@ -114,11 +123,17 @@ __all__ = [
     "DecisionLineageDirection",
     "DecisionLineageView",
     "DecisionMemoryCurrentState",
+    "DecisionVersionSupport",
     "DecisionMemoryQueryReader",
     "DecisionMemoryReader",
     "DecisionMemoryService",
     "DecisionMemoryTemporalView",
     "DecisionMemoryView",
+    "DecisionMeaningProvenance",
+    "DecisionOwnerMeaning",
+    "DecisionOwnerMeaningReader",
+    "DecisionRelationshipGuard",
+    "DecisionRelationshipMeaning",
     "DecisionMutationCommit",
     "DecisionMutationCommitOutcome",
     "DecisionMutationCommitted",
@@ -175,6 +190,7 @@ __all__ = [
     "RelationshipConflict",
     "RelationshipCycle",
     "RelationshipCycleSafetyIndeterminate",
+    "RelationshipHistoryIncomplete",
     "RelationshipHistoryInvalidOrIncomplete",
     "RenewalPredecessor",
     "RenewDecisionCommand",

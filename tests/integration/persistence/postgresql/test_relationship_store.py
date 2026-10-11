@@ -380,6 +380,12 @@ def test_relationship_version_projection_drift_fails_closed(
                 recorded_at=relationship_at,
             )
             assert await _version(store, target, relationship_at) == DecisionVersion(2)
+            snapshot = await store.load_current_decision_state(
+                target, known_at=relationship_at
+            )
+            assert snapshot is not None
+            assert snapshot.version_support
+            assert snapshot.version_support[-1].after == DecisionVersion(2)
 
             async with engine.begin() as connection:
                 await connection.execute(

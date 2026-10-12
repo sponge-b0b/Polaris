@@ -819,9 +819,33 @@ The current prerequisite ticket also does not advance or terminalize the sibling
 
 Before every Human Handoff/ordinary return and before removing the isolated prerequisite worktree, recompute the protected caller fingerprint and require exact equality. Unexpected caller mutation is a hard blocker.
 
+#### Terminal protected-donor residual isolation
+
+When destination, source, and protected-donor prerequisite isolation do not apply, a dirty caller checkout may still be intentionally preserved donor state from a **terminal** `source-reconciled` reslice. Before falling through to the ordinary clean-worktree requirement, evaluate this residual-isolation mode.
+
+This mode is admissible only when all of the following can be proven from durable state:
+
+1. the current ticket and every candidate recovery record share the same native parent Spec and `Ticket branch`;
+2. each candidate record has `Status: source-reconciled`, `Recovery mode: isolated-worktree`, a full-SHA source baseline, reslice branch anchor, destination baseline, destination completion commit, and source completion commit;
+3. the protected caller checkout is on the declared shared branch and its current `HEAD` exactly equals the candidate record's recorded **Reslice branch anchor**; this exact equality is the durable identity that distinguishes the intentionally preserved donor checkout from arbitrary dirty local work;
+4. collect every recovery record under that parent with the same Source ticket, Source ticket baseline, Shared branch, and Reslice branch anchor; require all such records to be terminal `source-reconciled` and mutually consistent;
+5. require every recorded Source and Destination ticket to be closed with independently certified closure evidence matching the recorded completion commit, and require every recorded source/destination completion commit to be an ancestor of the exact frozen current remote shared-branch tip;
+6. require complete/untruncated native hierarchy/dependency data. Any contradictory identity, missing completion evidence, non-ancestor completion commit, nonterminal sibling recovery record for the same donor identity, or caller-HEAD mismatch disables this mode and fails closed rather than treating the checkout as protected residual state.
+
+When those conditions hold:
+
+* fingerprint the protected caller checkout strongly using branch/HEAD, staged diff, unstaged tracked diff, and untracked path+content state;
+* freeze the exact current remote shared-branch tip and create a temporary isolated worktree detached there;
+* when the current ticket still has `Ticket baseline: Pending`, persist that isolated-worktree HEAD as its immutable Ticket baseline and read it back exactly;
+* from baseline persistence through implementation, verification, candidate certification, commit, push, readback, and closure, execute repository mutation and candidate-state commands only in the isolated worktree. The protected caller checkout is not the current ticket's candidate.
+
+This residual-isolation mode is **non-donor and non-retirement**. The current ticket has no authority to classify, copy, transplant, repair, commit, reset, clean, or otherwise consume the dirty caller state, and it must not rewrite or terminalize already-terminal recovery records. Residual isolation exists only to keep later tickets executable until a separately authorized retirement evaluation proves that no unique owner-local state remains.
+
+Before every Human Handoff/ordinary return and before removing the isolated residual worktree, recompute the protected caller fingerprint and require exact equality. Unexpected caller mutation is a hard blocker.
+
 #### Ordinary baseline path
 
-When none of destination, source, or protected-donor prerequisite isolation applies:
+When none of destination, source, protected-donor prerequisite, or terminal protected-donor residual isolation applies:
 
 If `Pending`:
 

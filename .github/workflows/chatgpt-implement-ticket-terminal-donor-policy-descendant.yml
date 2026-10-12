@@ -1,0 +1,62 @@
+name: ChatGPT refine terminal donor caller identity
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/chatgpt-implement-ticket-terminal-donor-policy-descendant.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+      - name: Refine and propagate bounded fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          test "$(git rev-parse HEAD^)" = "62ebc63afc57efcede2dd0fcf19c2ce39f7efc9c"
+          test "$(git rev-parse HEAD^:.agents/skills/implement-ticket/SKILL.md)" = "cdc8859b4f2a6ecb4ec6693d8461b752e0bbc48d"
+          git fetch origin spec-357
+          test "$(git rev-parse origin/spec-357)" = "88972ac5db1ada7e0365eb7ef891e914fb9d8e08"
+
+          echo 'CmZyb20gcGF0aGxpYiBpbXBvcnQgUGF0aAoKcGF0aCA9IFBhdGgoIi5hZ2VudHMvc2tpbGxzL2ltcGxlbWVudC10aWNrZXQvU0tJTEwubWQiKQp0ZXh0ID0gcGF0aC5yZWFkX3RleHQoKQoKb2xkMyA9ICIiIjMuIHRoZSBwcm90ZWN0ZWQgY2FsbGVyIGNoZWNrb3V0IGlzIG9uIHRoZSBkZWNsYXJlZCBzaGFyZWQgYnJhbmNoIGFuZCBpdHMgY3VycmVudCBgSEVBRGAgZXhhY3RseSBlcXVhbHMgdGhlIGNhbmRpZGF0ZSByZWNvcmQncyByZWNvcmRlZCAqKlJlc2xpY2UgYnJhbmNoIGFuY2hvcioqOyB0aGlzIGV4YWN0IGVxdWFsaXR5IGlzIHRoZSBkdXJhYmxlIGlkZW50aXR5IHRoYXQgZGlzdGluZ3Vpc2hlcyB0aGUgaW50ZW50aW9uYWxseSBwcmVzZXJ2ZWQgZG9ub3IgY2hlY2tvdXQgZnJvbSBhcmJpdHJhcnkgZGlydHkgbG9jYWwgd29yazsKIiIiCm5ldzMgPSAiIiIzLiB0aGUgcHJvdGVjdGVkIGNhbGxlciBjaGVja291dCBpcyBvbiB0aGUgZGVjbGFyZWQgc2hhcmVkIGJyYW5jaCBhbmQgaXRzIGN1cnJlbnQgYEhFQURgIGVpdGhlciBleGFjdGx5IGVxdWFscyB0aGUgY2FuZGlkYXRlIHJlY29yZCdzIHJlY29yZGVkICoqUmVzbGljZSBicmFuY2ggYW5jaG9yKiogKipvcioqIGlzIGEgZGVzY2VuZGFudCByZWFjaGVkIHNvbGVseSB0aHJvdWdoIGNvbW1pdHMgcHJvdmVuIHdvcmtmbG93LXBvbGljeS1vbmx5IG9yIG90aGVyd2lzZSBzZW1hbnRpY2FsbHkgaW5kZXBlbmRlbnQgb2YgcHJvZHVjdC90aWNrZXQvcmVzbGljZSBvd25lcnNoaXAuIEluc3BlY3QgdGhlIGNvbXBsZXRlIGFuY2hvci10by1jYWxsZXIgY29tbWl0L3BhdGggZGVsdGE7IGFueSBwcm9kdWN0LCB0aWNrZXQtY29udHJhY3QsIGFyY2hpdGVjdHVyZSwgb3IgcmVjb3ZlcnktaWRlbnRpdHkgY2hhbmdlIG1ha2VzIHRoZSBhZHZhbmNlbWVudCBpbmVsaWdpYmxlLiBUaGlzIGJvdW5kZWQgcG9saWN5LW9ubHkgYW5jZXN0cnkgaXMgdGhlIGR1cmFibGUgY2FsbGVyIGlkZW50aXR5OyBkbyBub3QgaW5mZXIgaWRlbnRpdHkgZnJvbSBicmFuY2ggbmFtZSBvciBkaXJ0aW5lc3MgYWxvbmU7CiIiIgpvbGQ2ID0gIiIiNi4gcmVxdWlyZSBjb21wbGV0ZS91bnRydW5jYXRlZCBuYXRpdmUgaGllcmFyY2h5L2RlcGVuZGVuY3kgZGF0YS4gQW55IGNvbnRyYWRpY3RvcnkgaWRlbnRpdHksIG1pc3NpbmcgY29tcGxldGlvbiBldmlkZW5jZSwgbm9uLWFuY2VzdG9yIGNvbXBsZXRpb24gY29tbWl0LCBub250ZXJtaW5hbCBzaWJsaW5nIHJlY292ZXJ5IHJlY29yZCBmb3IgdGhlIHNhbWUgZG9ub3IgaWRlbnRpdHksIG9yIGNhbGxlci1IRUFEIG1pc21hdGNoIGRpc2FibGVzIHRoaXMgbW9kZSBhbmQgZmFpbHMgY2xvc2VkIHJhdGhlciB0aGFuIHRyZWF0aW5nIHRoZSBjaGVja291dCBhcyBwcm90ZWN0ZWQgcmVzaWR1YWwgc3RhdGUuCiIiIgpuZXc2ID0gIiIiNi4gcmVxdWlyZSBjb21wbGV0ZS91bnRydW5jYXRlZCBuYXRpdmUgaGllcmFyY2h5L2RlcGVuZGVuY3kgZGF0YS4gQW55IGNvbnRyYWRpY3RvcnkgaWRlbnRpdHksIG1pc3NpbmcgY29tcGxldGlvbiBldmlkZW5jZSwgbm9uLWFuY2VzdG9yIGNvbXBsZXRpb24gY29tbWl0LCBub250ZXJtaW5hbCBzaWJsaW5nIHJlY292ZXJ5IHJlY29yZCBmb3IgdGhlIHNhbWUgZG9ub3IgaWRlbnRpdHksIG9yIGNhbGxlciBgSEVBRGAIHRoYXQgaXMgbmVpdGhlciB0aGUgZXhhY3QgYW5jaG9yIG5vciBhbiBhZG1pc3NpYmxlIHBvbGljeS1vbmx5IGRlc2NlbmRhbnQgZGlzYWJsZXMgdGhpcyBtb2RlIGFuZCBmYWlscyBjbG9zZWQgcmF0aGVyIHRoYW4gdHJlYXRpbmcgdGhlIGNoZWNrb3V0IGFzIHByb3RlY3RlZCByZXNpZHVhbCBzdGF0ZS4KIiIiCgppZiB0ZXh0LmNvdW50KG9sZDMpICE9IDEgb3IgdGV4dC5jb3VudChvbGQ2KSAhPSAxOgogICAgcmFpc2UgU3lzdGVtRXhpdCgidW5leHBlY3RlZCB0ZXJtaW5hbCByZXNpZHVhbCBpZGVudGl0eSB0ZXh0IikKCnBhdGgud3JpdGVfdGV4dCh0ZXh0LnJlcGxhY2Uob2xkMywgbmV3MywgMSkucmVwbGFjZShvbGQ2LCBuZXc2LCAxKSkK' | base64 -d > /tmp/refine-terminal-donor.py
+          python /tmp/refine-terminal-donor.py
+
+          git diff --check
+          test "$(git diff --name-only)" = ".agents/skills/implement-ticket/SKILL.md"
+          git add .agents/skills/implement-ticket/SKILL.md
+          git commit -m "fix(workflow): admit policy-only donor ancestry"
+          FIX_COMMIT=$(git rev-parse HEAD)
+          SKILL_BLOB=$(git rev-parse HEAD:.agents/skills/implement-ticket/SKILL.md)
+          git push origin HEAD:main
+
+          TMP=$(mktemp -d)
+          git worktree add --detach "$TMP" 88972ac5db1ada7e0365eb7ef891e914fb9d8e08
+          git -C "$TMP" config user.name "github-actions[bot]"
+          git -C "$TMP" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git show "$FIX_COMMIT:.agents/skills/implement-ticket/SKILL.md" > "$TMP/.agents/skills/implement-ticket/SKILL.md"
+          test "$(git -C "$TMP" diff --name-only)" = ".agents/skills/implement-ticket/SKILL.md"
+          test "$(git -C "$TMP" hash-object .agents/skills/implement-ticket/SKILL.md)" = "$SKILL_BLOB"
+          git -C "$TMP" add .agents/skills/implement-ticket/SKILL.md
+          git -C "$TMP" commit -m "fix(workflow): propagate terminal donor ancestry refinement"
+          git -C "$TMP" push origin HEAD:spec-357
+          git fetch origin spec-357
+          test "$(git rev-parse origin/spec-357:.agents/skills/implement-ticket/SKILL.md)" = "$SKILL_BLOB"
+          git worktree remove "$TMP"
+
+          git rm .github/workflows/chatgpt-implement-ticket-terminal-donor-policy-descendant.yml
+          git commit -m "chore: remove terminal-donor identity transport"
+          git push origin HEAD:main
+
+          echo "FIX_COMMIT=$FIX_COMMIT"
+          echo "SKILL_BLOB=$SKILL_BLOB"

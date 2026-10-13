@@ -68,7 +68,7 @@ For every resolved decision currently relevant to the input map, resolve one cur
 A decision has a consumable current accepted state only when:
 
 * the issue is currently closed through normal successful resolution, not merely retired as `not_planned` / superseded;
-* exactly one latest terminal resolution anchor can be selected by comment chronology whose first non-empty line is `## Resolution` or `## Final Resolution`;
+* exactly one latest terminal resolution anchor can be selected by comment chronology whose first non-empty line is `## Resolution` or `## Final Resolution`, optionally followed by an em-dash (` — `) and a non-empty descriptive suffix;
 * no later semantic-change/re-entry comment begins with `## Decision Analysis`, `## Recommendation Revision`, `## Architecture Remediation Re-entry`, or `## Workflow Convergence Remediation` without a later terminal resolution anchor;
 * the exact terminal resolution comment body is recoverable.
 

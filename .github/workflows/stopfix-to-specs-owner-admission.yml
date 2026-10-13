@@ -1,0 +1,63 @@
+name: stopfix to-specs owner admission
+
+on:
+  push:
+    paths:
+      - '.github/workflows/stopfix-to-specs-owner-admission.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Patch canonical skill and propagate
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_main=07929dc6872c04e39abf68cf2daa396c3561c87c
+          expected_spec=417662c2c6bd0f9eb1ada5aec0d67b7858bd2088
+          test "$(git rev-parse HEAD^)" = "$expected_main"
+          test "$(git ls-remote origin refs/heads/spec-357 | cut -f1)" = "$expected_spec"
+
+          python - <<'PY'
+          from pathlib import Path
+          import base64
+
+          p = Path('.agents/skills/to-specs/SKILL.md')
+          s = p.read_text()
+          anchor = "If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.\n\n"
+          assert anchor in s
+          assert '## Delegated Owner Result Admission Gate' not in s
+          payload = '''IyMgRGVsZWdhdGVkIE93bmVyIFJlc3VsdCBBZG1pc3Npb24gR2F0ZQoKTmFtZWQgY2hpbGQgc2tpbGxzIHByZXNjcmliZWQgYnkgdGhpcyB3b3JrZmxvdyBhcmUgbGlmZWN5Y2xlIG93bmVycywgbm90IHJlZmVyZW5jZSBtYXRlcmlhbC4gV2hlbiBgJHRvLXNwZWNzYCBzYXlzIHRvIGludm9rZSBhIGNoaWxkIHNraWxsLCBzdWNjZXNzZnVsIGludGVybmFsIGNvbXBvc2l0aW9uIHJlcXVpcmVzIHRoYXQgY2hpbGQgdG8gZXhlY3V0ZSBhbmQgaXRzIHJldHVybmVkIHJlc3VsdCB0byBiZSBhZG1pdHRlZCBieSBgJHRvLXNwZWNzYC4gUmVhZGluZyB0aGUgY2hpbGQgYFNLSUxMLm1kYCwgcXVlcnlpbmcgdGhlIHNhbWUgZHVyYWJsZSBpbnB1dHMsIHJlcHJvZHVjaW5nIHRoZSBjaGlsZCdzIGFsZ29yaXRobSwgb3IgaW5kZXBlbmRlbnRseSBkZXJpdmluZyBhbiBlcXVpdmFsZW50LWxvb2tpbmcgYW5zd2VyIGRvZXMgKipub3QqKiBzYXRpc2Z5IGludm9jYXRpb24uCgpUaGlzIGdhdGUgaXMgdHJhbnNpdGlvbi1ib3VuZC4gSXQgZG9lcyBub3QgYWRkIGEgSHVtYW4gSGFuZG9mZjogcHJlc2NyaWJlZCBjaGlsZCBza2lsbHMgc3RpbGwgcnVuIGFzIGludGVybmFsIGNvbXBvc2l0aW9uIGFuZCByZXR1cm4gbm9ybWFsbHkgdG8gYCR0by1zcGVjc2AuCgojIyMgUHJvamVjdC1kZWxpdmVyeSByZXN1bHQgYWRtaXNzaW9uCgpXaGVuZXZlciB0aGlzIHdvcmtmbG93IHJlcXVpcmVzIGAkcHJvamVjdC1kZWxpdmVyeS1tYW5hZ2VtZW50IHJlY29uY2lsZWAgYW5kL29yIGBndWFyZCA8V2F5ZmluZGVyPmA6CgoxLiBhY3R1YWxseSBpbnZva2UgZWFjaCByZXF1aXJlZCBjaGlsZCBvcGVyYXRpb24gYW5kIHJlY2VpdmUgaXRzIHRlcm1pbmFsIHJlc3VsdDsKMi4gcmVxdWlyZSB0aGUgZXhhY3QgcmV0dXJuZWQgZ3VhcmQgcmVzdWx0IHJlcXVpcmVkIGJ5IHRoZSBzdXJyb3VuZGluZyBhY3Rpb25hYmlsaXR5L2Zyb250aWVyIHJ1bGU7CjMuIGJpbmQgdGhvc2UgcmVzdWx0cyB0byB0aGUgc2FtZSBjdXJyZW50IFdheWZpbmRlci9TcGVjIHN0YXRlIHVzZWQgYnkgdGhlIHBlbmRpbmcgbXV0YXRpb24gb3IgaGFuZG9mZi4KCkJlZm9yZSByZWx5aW5nIG9uIHByb2plY3QtZGVsaXZlcnkgc3RhdGUsIHJlcXVpcmU6CgpgYGB0ZXh0ClByb2plY3QtZGVsaXZlcnkgcmVjb25jaWxlIHJlc3VsdCByZWNlaXZlZDogeWVzClByb2plY3QtZGVsaXZlcnkgZ3VhcmQgcmVzdWx0KHMpIHJlY2VpdmVkOiA8bj4vPG4gcmVxdWlyZWQ+ClJlcXVpcmVkIFBST0pFQ1QgREVMSVZFUlkgR1VBUkQgcmVzdWx0KHMpIGFkbWl0dGVkOiB5ZXMKTWFudWFsIHByb2plY3QtZGVsaXZlcnkgcmVjb25zdHJ1Y3Rpb24gdXNlZCBhcyBzdWJzdGl0dXRlOiBubwpgYGAKCkEgbWFudWFsbHkgcmVjb25zdHJ1Y3RlZCBmb2N1cy9mcm9udGllci9zaW5nbGV0b24gYW5zd2VyIGlzIGRpYWdub3N0aWMgY29udGV4dCBvbmx5LiBNaXNzaW5nLCBwZW5kaW5nLCBtYWxmb3JtZWQsIG9yIG5vbi1hdXRob3JpemluZyByZXF1aXJlZCBjaGlsZCByZXN1bHRzIGZhaWwgY2xvc2VkOyBkbyBub3QgbXV0YXRlIHRyYWNrZXIgc3RhdGUgb3IgZW1pdCBhbiBhY3Rpb25hYmxlIGAkdG8tdGlja2V0c2AgaGFuZG9mZiBmcm9tIGEgbWFudWFsIHN1YnN0aXR1dGUuCgojIyMgRXhpc3RpbmctU3BlYyByZW1lZGlhdGlvbiByZXN1bHQgYWRtaXNzaW9uCgpXaGVuICoqUmVzb2x2ZSBzcGVjIG1vZGUqKiBmaW5kcyBvbmUgb3IgbW9yZSBpbi1wcm9ncmVzcyBEZXJpdmVkIFNwZWNzIG9yIFJlbWVkaWF0aW9uIFNwZWNzOgoKMS4gYWN0dWFsbHkgaW52b2tlIGAkdG8tcmVtZWRpYXRpb24tc3BlY3NgIHdpdGggdGhlIGV4YWN0IGN1cnJlbnQgV2F5ZmluZGVyIGFuZCByZWNvbmNpbGVkIGhhbmRlZC1vZmYgU3BlYyBzZXQ7CjIuIHJlY2VpdmUgdGhlIGNoaWxkJ3MgY29tcGxldGUgdGVybWluYWwgcmVzdWx0LCBpbmNsdWRpbmcgYW55IGFtZW5kZWQvYWxyZWFkeS1zeW5jaHJvbml6ZWQvYmxvY2tlZCBjbGFzc2lmaWNhdGlvbnMgYW5kIHVuY2hhbmdlZC1zdGF0ZSBkZWZlY3QtcmVtZWRpYXRpb24gcmVjb3JkcyB3aGVuIGFwcGxpY2FibGU7CjMuIGJpbmQgdGhhdCByZXN1bHQgdG8gdGhlIHNhbWUgY3VycmVudCBXYXlmaW5kZXIgZGVjaXNpb24tc3RhdGUgaWRlbnRpdGllcyBhbmQgU3BlYyBzdGF0ZXMgdXNlZCBieSBgJHRvLXNwZWNzYC4KCkJlZm9yZSBjb250aW51aW5nIHRvIGRlcGVuZGVuY3kvZnJvbnRpZXIgcmVjb25jaWxpYXRpb24sIHJlcXVpcmU6CgpgYGB0ZXh0ClJlbWVkaWF0aW9uIG93bmVyIGludm9rZWQ6ICR0by1yZW1lZGlhdGlvbi1zcGVjcwpSZW1lZGlhdGlvbiByZXN1bHQgcGF5bG9hZCByZWNlaXZlZDogeWVzClJlbWVkaWF0aW9uIHJlc3VsdCBzb3VyY2UvY3VycmVudC1TcGVjIHN0YXRlIG1hdGNoOiB5ZXMKTWFudWFsIHJlbWVkaWF0aW9uIGFuYWx5c2lzIHVzZWQgYXMgc3Vic3RpdHV0ZTogbm8KYGBgCgpUaGUgY2hpbGQgcmVzdWx0IGlzIGF1dGhvcml0YXRpdmUgZm9yIGV4aXN0aW5nLVNwZWMgcmVjb3ZlcnksIGRlY2lzaW9uLXN0YXRlIGRlbHRhIGFuYWx5c2lzLCBlbGlnaWJsZSB1bmNoYW5nZWQtc3RhdGUgZGVmZWN0IHJlbWVkaWF0aW9uLCBhbmQgaW4tcGxhY2UgYW1lbmRtZW50LiBgJHRvLXNwZWNzYCBtYXkgcGVyZm9ybSBvbmx5IGl0cyBwYXJlbnQtb3duZWQgYXJjaGl0ZWN0dXJlL2Rlc2lnbiByZWFkaW5lc3MsIGRlcGVuZGVuY3kvZnJvbnRpZXIsIHB1YmxpY2F0aW9uLCBhbmQgbGlmZWN5Y2xlIHdvcmsgYWZ0ZXIgYWRtaXR0aW5nIHRoYXQgcmVzdWx0LiBBIG1pc3NpbmcsIHBlbmRpbmcsIG1hbGZvcm1lZCwgc3RhbGUsIG9yIGJsb2NraW5nIGNoaWxkIHJlc3VsdCBzdG9wcyBhdCB0aGF0IG93bmVyIGJvdW5kYXJ5LgoK'''
+          insert = base64.b64decode(payload).decode()
+          s = s.replace(anchor, anchor + insert, 1)
+          p.write_text(s)
+          PY
+
+          git diff --check
+          grep -q '## Delegated Owner Result Admission Gate' .agents/skills/to-specs/SKILL.md
+          grep -q 'Remediation owner invoked: $to-remediation-specs' .agents/skills/to-specs/SKILL.md
+          grep -q 'Manual project-delivery reconstruction used as substitute: no' .agents/skills/to-specs/SKILL.md
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .agents/skills/to-specs/SKILL.md
+          git commit -m 'fix(workflow): require to-specs delegated owner results'
+          fix_commit=$(git rev-parse HEAD)
+          git push origin HEAD:main
+
+          git checkout -B spec-357 origin/spec-357
+          git cherry-pick "$fix_commit"
+          git push origin HEAD:spec-357
+
+          git checkout main
+          git rm .github/workflows/stopfix-to-specs-owner-admission.yml
+          git commit -m 'chore: remove to-specs stopfix transport'
+          git push origin HEAD:main

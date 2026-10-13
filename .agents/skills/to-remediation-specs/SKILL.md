@@ -1,6 +1,6 @@
 ---
 name: to-remediation-specs
-description: Invoked only by `$to-specs` when a Wayfinder map already has one or more in-progress Spec handoffs — recover derived and remediation Specs, apply new or revised accepted decision-state deltas, and amend them without duplicating previously consumed decision states.
+description: Invoked only by `$to-specs` when a Wayfinder map already has one or more in-progress Spec handoffs — recover derived and remediation Specs, apply new or revised accepted decision-state deltas or bounded durable representation defects against already-consumed accepted decision states, and amend them without duplicating or falsely advancing decision provenance.
 compatibility: product=codex product=claude-code system=gh network=required
 disable-model-invocation: true
 ---
@@ -131,6 +131,40 @@ Delta reason: new-decision | legacy-state-bootstrap | revised-decision-state
 
 A matching decision ID must never suppress `revised-decision-state`.
 
+### Defect remediation against unchanged accepted decision state
+
+A zero decision-state delta proves only that the accepted decision-state identity has not changed. It does **not** prove that the current Spec body still represents that already-consumed authority correctly.
+
+An existing handed-off Spec may therefore enter **unchanged-state defect remediation** only when current durable tracker evidence proves all of the following:
+
+* one current unresolved lifecycle-owned defect/report identifies a concrete semantic contradiction or omission in the **parent Spec itself**, not merely an implementation-ticket wording problem;
+* the affected meaning is governed by one or more accepted decision states already present in the Spec's current source/remediation provenance and `wayfinder-decision-states:v1` marker;
+* each governing current accepted Decision State Identity exactly equals the corresponding already-consumed identity, so no `new-decision`, `legacy-state-bootstrap`, or `revised-decision-state` transition is being manufactured;
+* ticket-only reconciliation cannot satisfy the durable source contract without changing the parent Spec semantics; a pure ticket-routing defect remains owned by `$to-tickets` and is not eligible here;
+* the smallest candidate amendment is entailed completely by the unchanged accepted authority and current planning scope, introduces no new material architecture/design choice, and does not transfer concrete downstream ownership into this Spec;
+* no decision ID, decision-state identity, source/remediation membership, baseline, branch lineage, ticket identity, or review lineage needs to advance merely to perform the correction.
+
+The durable defect may originate from an existing managed decomposition-defect record, conventional Spec Review finding, or another established lifecycle-owned blocker/report. Ad-hoc conversational reasoning, scratch files, or an unpersisted agent observation are not sufficient authority for this path.
+
+For every eligible item create one working **Unchanged-State Spec Defect Remediation Record**:
+
+```text
+Durable defect: <tracker artifact / finding identity>
+Target Spec: #<n>
+Governing accepted decision state(s): <#decision:state_sha256,...>
+Decision-state delta for those decisions: 0
+Contradicted Spec obligations/sections: <exact IDs/anchors>
+Accepted authority that fixes the intended meaning: <exact durable sources>
+Why ticket-only reconciliation is insufficient: <compact proof>
+Proposed Spec correction: <smallest semantic amendment>
+New material architecture/design choice required: no
+Planning/downstream ownership changed: no
+Decision provenance advancement proposed: no
+Eligibility: pass | fail
+```
+
+Any `fail`, unknown authority, changed decision-state identity, new material choice, or ownership/scope ambiguity blocks this defect-remediation path. Do not reinterpret the defect as permission to revise accepted architecture.
+
 ### Legacy ID-only bootstrap
 
 Existing Specs created before `wayfinder-decision-states:v1` are valid historical artifacts, but their decision-ID markers cannot prove which later revision they consumed.
@@ -148,9 +182,11 @@ If a Remediation Spec has no remediation marker yet for the input map, treat thi
 
 Do not regenerate a Spec merely to bootstrap provenance. Keep decision-state deltas independent per Spec and per Wayfinder; consumption by one Spec or one Wayfinder does not imply consumption by another.
 
-## 3. Reconcile the Decision-State Deltas
+## 3. Reconcile Decision-State Deltas and Eligible Representation Defects
 
 For each Spec with a non-empty decision-state delta, read only the affected current accepted decision states and the authority they reference.
+
+For each Spec with one or more `Eligibility: pass` Unchanged-State Spec Defect Remediation Records, read only the durable defect evidence, the unchanged governing accepted decision states, and the authority needed to prove the smallest correction. Apply that correction to the candidate Spec without advancing decision provenance. Preserve every unaffected obligation and section.
 
 Apply that delta semantically to a candidate amendment for that Spec:
 
@@ -271,6 +307,8 @@ A Spec may have provenance/state markers for more than one Wayfinder. Never merg
 
 Decision membership, consumed-state advancement, and the semantic Spec amendment are one atomic tracker mutation. If the issue update/readback cannot prove all three agree, treat publication as failed rather than leaving provenance ahead of semantics.
 
+For an unchanged-state defect-only amendment with zero decision-state delta, the already-consumed decision membership and state identities remain byte-for-byte unchanged. Do not create a synthetic provenance transition. The semantic Spec-body correction is the only authorized Spec mutation from this child; the lifecycle owner of the durable defect record remains responsible for reconciling that record after the amended Spec is certified and any downstream decomposition is repaired.
+
 Wayfinder decision tickets and their terminal resolution comments remain the durable home of the decisions themselves.
 
 ## 6. Update the Existing Specs
@@ -299,9 +337,10 @@ Report:
 * Architecture Completeness Preflight result;
 * concrete contracts/production seams checked when applicable;
 * whether legacy decision-state provenance was bootstrapped per Spec;
+* unchanged-state Spec defect remediation records applied or rejected, when any;
 * whether any ambiguity or architecture blocker prevented amendment.
 
-If a Spec's decision-state delta is empty, make no semantic changes to that Spec and report that it is synchronized with the current accepted decision states of the input Wayfinder.
+If a Spec's decision-state delta is empty **and** it has no `Eligibility: pass` Unchanged-State Spec Defect Remediation Record, make no semantic changes to that Spec and report that no authorized remediation input requires a change. A zero decision-state delta by itself must not be reported as proof that the Spec body semantically represents the accepted decisions.
 
 If the Architecture Completeness Preflight fails, leave all existing Specs and provenance unchanged and present the Human Handoff.
 
@@ -344,6 +383,9 @@ Decisions without consumable current state: 0
 Decision-state delta items: <n>
 Decision-state consumption records: <n>
 Missing delta records: 0
+Eligible unchanged-state Spec defect remediation records: <n>
+Failed/ambiguous unchanged-state defect records proposed for amendment: 0
+Synthetic decision-provenance advancements for defect-only remediation: 0
 State-identity mismatches without reconciliation: 0
 Legacy ID-only decisions treated synchronized without bootstrap proof: 0
 Incomplete semantic representations: 0

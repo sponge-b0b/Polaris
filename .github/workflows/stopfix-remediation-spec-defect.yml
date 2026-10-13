@@ -21,88 +21,47 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected_main=97fd47165500f34871c5d417c7b3b006ab0fb4e1
+          expected_main=69b80a535a23a7e2c0d903b832cc7c569e807fc2
           expected_spec=88d5263eb78a6b6d4bdc20f8bf7fe51176bf447a
           test "$(git rev-parse HEAD^)" = "$expected_main"
           test "$(git ls-remote origin refs/heads/spec-357 | cut -f1)" = "$expected_spec"
 
           python - <<'PY'
+          import base64
           from pathlib import Path
-
           p = Path('.agents/skills/to-remediation-specs/SKILL.md')
           s = p.read_text()
-
           old = "description: Invoked only by `$to-specs` when a Wayfinder map already has one or more in-progress Spec handoffs — recover derived and remediation Specs, apply new or revised accepted decision-state deltas, and amend them without duplicating previously consumed decision states."
           new = "description: Invoked only by `$to-specs` when a Wayfinder map already has one or more in-progress Spec handoffs — recover derived and remediation Specs, apply new or revised accepted decision-state deltas or bounded durable representation defects against already-consumed accepted decision states, and amend them without duplicating or falsely advancing decision provenance."
           assert old in s
           s = s.replace(old, new, 1)
-
           anchor = "A matching decision ID must never suppress `revised-decision-state`.\n\n"
           assert anchor in s
-          defect = r'''### Defect remediation against unchanged accepted decision state
-
-A zero decision-state delta proves only that the accepted decision-state identity has not changed. It does **not** prove that the current Spec body still represents that already-consumed authority correctly.
-
-An existing handed-off Spec may therefore enter **unchanged-state defect remediation** only when current durable tracker evidence proves all of the following:
-
-* one current unresolved lifecycle-owned defect/report identifies a concrete semantic contradiction or omission in the **parent Spec itself**, not merely an implementation-ticket wording problem;
-* the affected meaning is governed by one or more accepted decision states already present in the Spec's current source/remediation provenance and `wayfinder-decision-states:v1` marker;
-* each governing current accepted Decision State Identity exactly equals the corresponding already-consumed identity, so no `new-decision`, `legacy-state-bootstrap`, or `revised-decision-state` transition is being manufactured;
-* ticket-only reconciliation cannot satisfy the durable source contract without changing the parent Spec semantics; a pure ticket-routing defect remains owned by `$to-tickets` and is not eligible here;
-* the smallest candidate amendment is entailed completely by the unchanged accepted authority and current planning scope, introduces no new material architecture/design choice, and does not transfer concrete downstream ownership into this Spec;
-* no decision ID, decision-state identity, source/remediation membership, baseline, branch lineage, ticket identity, or review lineage needs to advance merely to perform the correction.
-
-The durable defect may originate from an existing managed decomposition-defect record, conventional Spec Review finding, or another established lifecycle-owned blocker/report. Ad-hoc conversational reasoning, scratch files, or an unpersisted agent observation are not sufficient authority for this path.
-
-For every eligible item create one working **Unchanged-State Spec Defect Remediation Record**:
-
-```text
-Durable defect: <tracker artifact / finding identity>
-Target Spec: #<n>
-Governing accepted decision state(s): <#decision:state_sha256,...>
-Decision-state delta for those decisions: 0
-Contradicted Spec obligations/sections: <exact IDs/anchors>
-Accepted authority that fixes the intended meaning: <exact durable sources>
-Why ticket-only reconciliation is insufficient: <compact proof>
-Proposed Spec correction: <smallest semantic amendment>
-New material architecture/design choice required: no
-Planning/downstream ownership changed: no
-Decision provenance advancement proposed: no
-Eligibility: pass | fail
-```
-
-Any `fail`, unknown authority, changed decision-state identity, new material choice, or ownership/scope ambiguity blocks this defect-remediation path. Do not reinterpret the defect as permission to revise accepted architecture.
-
-'''
+          defect = base64.b64decode("IyMjIERlZmVjdCByZW1lZGlhdGlvbiBhZ2FpbnN0IHVuY2hhbmdlZCBhY2NlcHRlZCBkZWNpc2lvbiBzdGF0ZQoKQSB6ZXJvIGRlY2lzaW9uLXN0YXRlIGRlbHRhIHByb3ZlcyBvbmx5IHRoYXQgdGhlIGFjY2VwdGVkIGRlY2lzaW9uLXN0YXRlIGlkZW50aXR5IGhhcyBub3QgY2hhbmdlZC4gSXQgZG9lcyAqKm5vdCoqIHByb3ZlIHRoYXQgdGhlIGN1cnJlbnQgU3BlYyBib2R5IHN0aWxsIHJlcHJlc2VudHMgdGhhdCBhbHJlYWR5LWNvbnN1bWVkIGF1dGhvcml0eSBjb3JyZWN0bHkuCgpBbiBleGlzdGluZyBoYW5kZWQtb2ZmIFNwZWMgbWF5IHRoZXJlZm9yZSBlbnRlciAqKnVuY2hhbmdlZC1zdGF0ZSBkZWZlY3QgcmVtZWRpYXRpb24qKiBvbmx5IHdoZW4gY3VycmVudCBkdXJhYmxlIHRyYWNrZXIgZXZpZGVuY2UgcHJvdmVzIGFsbCBvZiB0aGUgZm9sbG93aW5nOgoKKiBvbmUgY3VycmVudCB1bnJlc29sdmVkIGxpZmVjeWNsZS1vd25lZCBkZWZlY3QvcmVwb3J0IGlkZW50aWZpZXMgYSBjb25jcmV0ZSBzZW1hbnRpYyBjb250cmFkaWN0aW9uIG9yIG9taXNzaW9uIGluIHRoZSAqKnBhcmVudCBTcGVjIGl0c2VsZioqLCBub3QgbWVyZWx5IGFuIGltcGxlbWVudGF0aW9uLXRpY2tldCB3b3JkaW5nIHByb2JsZW07CiogdGhlIGFmZmVjdGVkIG1lYW5pbmcgaXMgZ292ZXJuZWQgYnkgb25lIG9yIG1vcmUgYWNjZXB0ZWQgZGVjaXNpb24gc3RhdGVzIGFscmVhZHkgcHJlc2VudCBpbiB0aGUgU3BlYydzIGN1cnJlbnQgc291cmNlL3JlbWVkaWF0aW9uIHByb3ZlbmFuY2UgYW5kIGB3YXlmaW5kZXItZGVjaXNpb24tc3RhdGVzOnYxYCBtYXJrZXI7CiogZWFjaCBnb3Zlcm5pbmcgY3VycmVudCBhY2NlcHRlZCBEZWNpc2lvbiBTdGF0ZSBJZGVudGl0eSBleGFjdGx5IGVxdWFscyB0aGUgY29ycmVzcG9uZGluZyBhbHJlYWR5LWNvbnN1bWVkIGlkZW50aXR5LCBzbyBubyBgbmV3LWRlY2lzaW9uYCwgYGxlZ2FjeS1zdGF0ZS1ib290c3RyYXBgLCBvciBgcmV2aXNlZC1kZWNpc2lvbi1zdGF0ZWAgdHJhbnNpdGlvbiBpcyBiZWluZyBtYW51ZmFjdHVyZWQ7CiogdGlja2V0LW9ubHkgcmVjb25jaWxpYXRpb24gY2Fubm90IHNhdGlzZnkgdGhlIGR1cmFibGUgc291cmNlIGNvbnRyYWN0IHdpdGhvdXQgY2hhbmdpbmcgdGhlIHBhcmVudCBTcGVjIHNlbWFudGljczsgYSBwdXJlIHRpY2tldC1yb3V0aW5nIGRlZmVjdCByZW1haW5zIG93bmVkIGJ5IGAkdG8tdGlja2V0c2AgYW5kIGlzIG5vdCBlbGlnaWJsZSBoZXJlOwoqIHRoZSBzbWFsbGVzdCBjYW5kaWRhdGUgYW1lbmRtZW50IGlzIGVudGFpbGVkIGNvbXBsZXRlbHkgYnkgdGhlIHVuY2hhbmdlZCBhY2NlcHRlZCBhdXRob3JpdHkgYW5kIGN1cnJlbnQgcGxhbm5pbmcgc2NvcGUsIGludHJvZHVjZXMgbm8gbmV3IG1hdGVyaWFsIGFyY2hpdGVjdHVyZS9kZXNpZ24gY2hvaWNlLCBhbmQgZG9lcyBub3QgdHJhbnNmZXIgY29uY3JldGUgZG93bnN0cmVhbSBvd25lcnNoaXAgaW50byB0aGlzIFNwZWM7Ciogbm8gZGVjaXNpb24gSUQsIGRlY2lzaW9uLXN0YXRlIGlkZW50aXR5LCBzb3VyY2UvcmVtZWRpYXRpb24gbWVtYmVyc2hpcCwgYmFzZWxpbmUsIGJyYW5jaCBsaW5lYWdlLCB0aWNrZXQgaWRlbnRpdHksIG9yIHJldmlldyBsaW5lYWdlIG5lZWRzIHRvIGFkdmFuY2UgbWVyZWx5IHRvIHBlcmZvcm0gdGhlIGNvcnJlY3Rpb24uCgpUaGUgZHVyYWJsZSBkZWZlY3QgbWF5IG9yaWdpbmF0ZSBmcm9tIGFuIGV4aXN0aW5nIG1hbmFnZWQgZGVjb21wb3NpdGlvbi1kZWZlY3QgcmVjb3JkLCBjb252ZW50aW9uYWwgU3BlYyBSZXZpZXcgZmluZGluZywgb3IgYW5vdGhlciBlc3RhYmxpc2hlZCBsaWZlY3ljbGUtb3duZWQgYmxvY2tlci9yZXBvcnQuIEFkLWhvYyBjb252ZXJzYXRpb25hbCByZWFzb25pbmcsIHNjcmF0Y2ggZmlsZXMsIG9yIGFuIHVucGVyc2lzdGVkIGFnZW50IG9ic2VydmF0aW9uIGFyZSBub3Qgc3VmZmljaWVudCBhdXRob3JpdHkgZm9yIHRoaXMgcGF0aC4KCkZvciBldmVyeSBlbGlnaWJsZSBpdGVtIGNyZWF0ZSBvbmUgd29ya2luZyAqKlVuY2hhbmdlZC1TdGF0ZSBTcGVjIERlZmVjdCBSZW1lZGlhdGlvbiBSZWNvcmQqKjoKCmBgYHRleHQKRHVyYWJsZSBkZWZlY3Q6IDx0cmFja2VyIGFydGlmYWN0IC8gZmluZGluZyBpZGVudGl0eT4KVGFyZ2V0IFNwZWM6ICM8bj4KR292ZXJuaW5nIGFjY2VwdGVkIGRlY2lzaW9uIHN0YXRlKHMpOiA8I2RlY2lzaW9uOnN0YXRlX3NoYTI1NiwuLi4+CkRlY2lzaW9uLXN0YXRlIGRlbHRhIGZvciB0aG9zZSBkZWNpc2lvbnM6IDAKQ29udHJhZGljdGVkIFNwZWMgb2JsaWdhdGlvbnMvc2VjdGlvbnM6IDxleGFjdCBJRHMvYW5jaG9ycz4KQWNjZXB0ZWQgYXV0aG9yaXR5IHRoYXQgZml4ZXMgdGhlIGludGVuZGVkIG1lYW5pbmc6IDxleGFjdCBkdXJhYmxlIHNvdXJjZXM+CldoeSB0aWNrZXQtb25seSByZWNvbmNpbGlhdGlvbiBpcyBpbnN1ZmZpY2llbnQ6IDxjb21wYWN0IHByb29mPgpQcm9wb3NlZCBTcGVjIGNvcnJlY3Rpb246IDxzbWFsbGVzdCBzZW1hbnRpYyBhbWVuZG1lbnQ+Ck5ldyBtYXRlcmlhbCBhcmNoaXRlY3R1cmUvZGVzaWduIGNob2ljZSByZXF1aXJlZDogbm8KUGxhbm5pbmcvZG93bnN0cmVhbSBvd25lcnNoaXAgY2hhbmdlZDogbm8KRGVjaXNpb24gcHJvdmVuYW5jZSBhZHZhbmNlbWVudCBwcm9wb3NlZDogbm8KRWxpZ2liaWxpdHk6IHBhc3MgfCBmYWlsCmBgYAoKQW55IGBmYWlsYCwgdW5rbm93biBhdXRob3JpdHksIGNoYW5nZWQgZGVjaXNpb24tc3RhdGUgaWRlbnRpdHksIG5ldyBtYXRlcmlhbCBjaG9pY2UsIG9yIG93bmVyc2hpcC9zY29wZSBhbWJpZ3VpdHkgYmxvY2tzIHRoaXMgZGVmZWN0LXJlbWVkaWF0aW9uIHBhdGguIERvIG5vdCByZWludGVycHJldCB0aGUgZGVmZWN0IGFzIHBlcm1pc3Npb24gdG8gcmV2aXNlIGFjY2VwdGVkIGFyY2hpdGVjdHVyZS4KCg==").decode()
           s = s.replace(anchor, anchor + defect, 1)
-
           old = "## 3. Reconcile the Decision-State Deltas\n\nFor each Spec with a non-empty decision-state delta, read only the affected current accepted decision states and the authority they reference.\n"
           new = "## 3. Reconcile Decision-State Deltas and Eligible Representation Defects\n\nFor each Spec with a non-empty decision-state delta, read only the affected current accepted decision states and the authority they reference.\n\nFor each Spec with one or more `Eligibility: pass` Unchanged-State Spec Defect Remediation Records, read only the durable defect evidence, the unchanged governing accepted decision states, and the authority needed to prove the smallest correction. Apply that correction to the candidate Spec without advancing decision provenance. Preserve every unaffected obligation and section.\n"
           assert old in s
           s = s.replace(old, new, 1)
-
           old = "Decision membership, consumed-state advancement, and the semantic Spec amendment are one atomic tracker mutation. If the issue update/readback cannot prove all three agree, treat publication as failed rather than leaving provenance ahead of semantics.\n"
           new = old + "\nFor an unchanged-state defect-only amendment with zero decision-state delta, the already-consumed decision membership and state identities remain byte-for-byte unchanged. Do not create a synthetic provenance transition. The semantic Spec-body correction is the only authorized Spec mutation from this child; the lifecycle owner of the durable defect record remains responsible for reconciling that record after the amended Spec is certified and any downstream decomposition is repaired.\n"
           assert old in s
           s = s.replace(old, new, 1)
-
           old = "* whether legacy decision-state provenance was bootstrapped per Spec;\n* whether any ambiguity or architecture blocker prevented amendment.\n\nIf a Spec's decision-state delta is empty, make no semantic changes to that Spec and report that it is synchronized with the current accepted decision states of the input Wayfinder.\n"
           new = "* whether legacy decision-state provenance was bootstrapped per Spec;\n* unchanged-state Spec defect remediation records applied or rejected, when any;\n* whether any ambiguity or architecture blocker prevented amendment.\n\nIf a Spec's decision-state delta is empty **and** it has no `Eligibility: pass` Unchanged-State Spec Defect Remediation Record, make no semantic changes to that Spec and report that no authorized remediation input requires a change. A zero decision-state delta by itself must not be reported as proof that the Spec body semantically represents the accepted decisions.\n"
           assert old in s
           s = s.replace(old, new, 1)
-
           old = "Decision-state consumption records: <n>\nMissing delta records: 0\nState-identity mismatches without reconciliation: 0\n"
           new = "Decision-state consumption records: <n>\nMissing delta records: 0\nEligible unchanged-state Spec defect remediation records: <n>\nFailed/ambiguous unchanged-state defect records proposed for amendment: 0\nSynthetic decision-provenance advancements for defect-only remediation: 0\nState-identity mismatches without reconciliation: 0\n"
           assert old in s
           s = s.replace(old, new, 1)
-
           p.write_text(s)
           PY
 
           git diff --check
-          git diff -- .agents/skills/to-remediation-specs/SKILL.md
           grep -q '### Defect remediation against unchanged accepted decision state' .agents/skills/to-remediation-specs/SKILL.md
           grep -q 'A zero decision-state delta by itself must not be reported as proof' .agents/skills/to-remediation-specs/SKILL.md
+          test "$(git diff --name-only)" = '.agents/skills/to-remediation-specs/SKILL.md'
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'

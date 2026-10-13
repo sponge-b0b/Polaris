@@ -16,6 +16,50 @@ Recover every correctness-critical input from the explicit invocation, repositor
 
 If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.
 
+## Delegated Owner Result Admission Gate
+
+Named child skills prescribed by this workflow are lifecycle owners, not reference material. When `$to-specs` says to invoke a child skill, successful internal composition requires that child to execute and its returned result to be admitted by `$to-specs`. Reading the child `SKILL.md`, querying the same durable inputs, reproducing the child's algorithm, or independently deriving an equivalent-looking answer does **not** satisfy invocation.
+
+This gate is transition-bound. It does not add a Human Handoff: prescribed child skills still run as internal composition and return normally to `$to-specs`.
+
+### Project-delivery result admission
+
+Whenever this workflow requires `$project-delivery-management reconcile` and/or `guard <Wayfinder>`:
+
+1. actually invoke each required child operation and receive its terminal result;
+2. require the exact returned guard result required by the surrounding actionability/frontier rule;
+3. bind those results to the same current Wayfinder/Spec state used by the pending mutation or handoff.
+
+Before relying on project-delivery state, require:
+
+```text
+Project-delivery reconcile result received: yes
+Project-delivery guard result(s) received: <n>/<n required>
+Required PROJECT DELIVERY GUARD result(s) admitted: yes
+Manual project-delivery reconstruction used as substitute: no
+```
+
+A manually reconstructed focus/frontier/singleton answer is diagnostic context only. Missing, pending, malformed, or non-authorizing required child results fail closed; do not mutate tracker state or emit an actionable `$to-tickets` handoff from a manual substitute.
+
+### Existing-Spec remediation result admission
+
+When **Resolve spec mode** finds one or more in-progress Derived Specs or Remediation Specs:
+
+1. actually invoke `$to-remediation-specs` with the exact current Wayfinder and reconciled handed-off Spec set;
+2. receive the child's complete terminal result, including any amended/already-synchronized/blocked classifications and unchanged-state defect-remediation records when applicable;
+3. bind that result to the same current Wayfinder decision-state identities and Spec states used by `$to-specs`.
+
+Before continuing to dependency/frontier reconciliation, require:
+
+```text
+Remediation owner invoked: $to-remediation-specs
+Remediation result payload received: yes
+Remediation result source/current-Spec state match: yes
+Manual remediation analysis used as substitute: no
+```
+
+The child result is authoritative for existing-Spec recovery, decision-state delta analysis, eligible unchanged-state defect remediation, and in-place amendment. `$to-specs` may perform only its parent-owned architecture/design readiness, dependency/frontier, publication, and lifecycle work after admitting that result. A missing, pending, malformed, stale, or blocking child result stops at that owner boundary.
+
 ## Process
 
 1. **Gather context.** Work from the provided source and explore the repo as needed to understand the current codebase. Use the project's domain glossary vocabulary throughout the spec.

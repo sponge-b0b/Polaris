@@ -27,9 +27,10 @@ ROOT_RECORDED_AT = datetime(2026, 9, 29, 13, 2, tzinfo=UTC)
 
 
 def _observation(value: str = "321.1") -> EvidenceObservation:
-    # arid: disable
-    # This domain fixture deliberately mirrors the canonical observation shape
+    # duplicate-code: this domain fixture deliberately mirrors the canonical observation
+    # shape
     # while retaining independent construction for correction-algebra tests.
+    # arid: disable
     return EvidenceObservation(
         observation_id=ROOT_ID,
         source=EvidenceSourceProvenance(
@@ -84,9 +85,10 @@ def _correction(
 
 
 def test_retracting_revision_restores_immediately_preceding_observation() -> None:
-    # arid: disable
-    # The root/revision/retraction chain is intentionally rebuilt in this
+    # duplicate-code: the root/revision/retraction chain is intentionally rebuilt in
+    # this
     # falsifier so recursive restoration is not coupled to sibling semantics.
+    # arid: disable
     root = _observation()
     revised = _revised_observation(root)
     revision = _correction(
@@ -188,7 +190,7 @@ def test_revision_correcting_future_effective_time_retains_root_support() -> Non
         root,
         effective_at=ROOT_RECORDED_AT - timedelta(minutes=1),
     )
-    # This temporal-support falsifier constructs its own lineage branch.
+    # duplicate-code: this temporal-support falsifier constructs its own lineage branch.
     # arid: disable
     revision = _correction(
         REVISION_ID,
@@ -307,9 +309,10 @@ def test_siblings_coalesce_equivalent_assertions_and_contest_incompatible_ones()
 def test_positive_and_withdrawal_siblings_are_contested_without_ordering_winner() -> (
     None
 ):
-    # arid: disable
-    # This sibling conflict is independently constructed to prove that input
+    # duplicate-code: this sibling conflict is independently constructed to prove that
+    # input
     # ordering cannot turn either correction into an implicit winner.
+    # arid: disable
     root = _observation()
     revised = _revised_observation(root)
     revision = _correction(

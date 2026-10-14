@@ -924,7 +924,8 @@ def test_corrected_future_acquisition_uses_immutable_commit_for_knowledge_cutoff
             observation,
             acquired_at=CORRECTION_RECORDED_AT - timedelta(minutes=9),
         )
-        # This corrected acquisition case owns its commit and historical reads.
+        # duplicate-code: this corrected acquisition case owns its commit and historical
+        # reads.
         # arid: disable
         async with postgres_store(
             postgres_target,
@@ -981,9 +982,10 @@ def test_recursive_restoration_and_exact_retry_survive_restart(
             effective_minutes_before_recording=2,
             replacement=revised,
         )
-        # arid: disable
-        # The recursive-chain proof owns a separate transaction boundary from
+        # duplicate-code: the recursive-chain proof owns a separate transaction boundary
+        # from
         # the multi-family and cross-family falsifiers.
+        # arid: disable
         async with postgres_store(
             postgres_target,
             PostgresEvidenceCorrectionStore,
@@ -1031,9 +1033,10 @@ def test_missing_ancestry_rejects_without_partial_write(
     postgres_target: PostgresTestTarget,
 ) -> None:
     async def scenario() -> None:
-        # arid: disable
-        # Keep the injected-rollback transaction and its zero-row assertions
+        # duplicate-code: keep the injected-rollback transaction and its zero-row
+        # assertions
         # independent so a shared helper cannot mask partial-write behavior.
+        # arid: disable
         observation = await _seed_and_load_observation(postgres_target)
         command = _observation_correction_command(
             observation,
@@ -1088,7 +1091,8 @@ def test_revision_rejects_invalid_succession_predecessor_without_partial_write(
             basis="invalid predecessor",
             replacement=revised,
         )
-        # This succession rejection owns an independent transaction boundary.
+        # duplicate-code: this succession rejection owns an independent transaction
+        # boundary.
         # arid: disable
         async with postgres_store(
             postgres_target,
@@ -1343,7 +1347,8 @@ def test_corrected_observed_time_reaches_sufficiency_basis(
             observed_at=CORRECTION_RECORDED_AT - timedelta(minutes=10),
             effective_at=CORRECTION_RECORDED_AT - timedelta(minutes=10),
         )
-        # This corrected-time consumer proof owns independent store lifetimes.
+        # duplicate-code: this corrected-time consumer proof owns independent store
+        # lifetimes.
         # arid: disable
         async with postgres_store(
             postgres_target,

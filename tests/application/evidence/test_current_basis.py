@@ -443,9 +443,9 @@ class _MeaningOwner:
         return OwnerCauseVerdict.VALID
 
 
-# This current-basis fake independently fixes historical Configuration authority;
+# duplicate-code: this current-basis fake independently fixes historical Configuration
+# authority;
 # sharing the historical-query fake would couple separate proofs.
-
 # arid: disable
 
 
@@ -469,7 +469,8 @@ def _histories() -> EvidenceHistories:
         EvidenceSourceProvenance("provider", "release", "publisher"),
         requirement_key().subject,
         # arid: enable
-        # This current-basis fixture independently constructs observation ancestry;
+        # duplicate-code: this current-basis fixture independently constructs
+        # observation ancestry;
         # sharing historical-query construction would couple separate proofs.
         # arid: disable
         binding.effective_at,
@@ -708,7 +709,8 @@ def test_atomic_revalidation_detects_same_version_future_decision_change() -> No
 def test_atomic_revalidation_rejects_nonoperative_same_version_decision() -> None:
     later = AT + timedelta(seconds=1)
     decision, _, reader, *_ = _future_relationship_owner(effective_at=later)
-    # This command-bound fixture separately proves the classifier's relationship
+    # duplicate-code: this command-bound fixture separately proves the classifier's
+    # relationship
     # case through the complete owner query and atomic participation port.
     # arid: disable
     query, key, target, *_ = _query(
@@ -1183,7 +1185,8 @@ def test_claim_catalog_change_is_separate_from_target_revision_and_epoch() -> No
             application_key.target, claim_id, ClaimCatalogVersion(1)
         ),
     )
-    # The second claim-catalog candidate repeats setup deliberately so only its owner
+    # duplicate-code: the second claim-catalog candidate repeats setup deliberately so
+    # only its owner
     # version changes.
     # arid: disable
     second_query, second_key, *_ = _query(
@@ -1215,7 +1218,8 @@ def test_requirement_change_is_separate_from_evidence_epoch() -> None:
         empty=True,
         version=EvidenceSupportVersion(0),
     )
-    # The second requirement candidate repeats setup deliberately so only requirement
+    # duplicate-code: the second requirement candidate repeats setup deliberately so
+    # only requirement
     # authority changes.
     # arid: disable
     second_query, second_key, *_ = _query(
@@ -1322,7 +1326,8 @@ def test_binding_correction_support_is_kept_with_exact_key() -> None:
     histories = _histories()
     binding = histories.bindings[0].root
     revised = replace(binding, role=EvidenceRole.QUALIFYING)
-    # This binding correction is constructed locally to prove current support and
+    # duplicate-code: this binding correction is constructed locally to prove current
+    # support and
     # provenance capture.
     # arid: disable
     correction = EvidenceBindingCorrection(
@@ -1419,7 +1424,8 @@ def test_corrected_binding_applicability_enters_current_basis() -> None:
 def test_binding_restoration_and_competing_corrections_are_distinguished() -> None:
     histories = _histories()
     binding = histories.bindings[0].root
-    # This restoration falsifier constructs its own correction branch independently of
+    # duplicate-code: this restoration falsifier constructs its own correction branch
+    # independently of
     # the single-correction proof.
     # arid: disable
     first = EvidenceBindingCorrection(
@@ -1449,7 +1455,8 @@ def test_binding_restoration_and_competing_corrections_are_distinguished() -> No
         histories,
         bindings=(replace(histories.bindings[0], corrections=(first, restore)),),
     )
-    # This restoration candidate repeats exact owner setup so the changed correction
+    # duplicate-code: this restoration candidate repeats exact owner setup so the
+    # changed correction
     # ancestry is isolated.
     # arid: disable
     query, key, owner, *_ = _query(
@@ -1500,7 +1507,8 @@ def test_assessment_retraction_retains_ancestry_but_clears_current_selection() -
         AT,
         AT + timedelta(minutes=1),
     )
-    # This assessment-retraction candidate repeats exact owner setup to isolate the new
+    # duplicate-code: this assessment-retraction candidate repeats exact owner setup to
+    # isolate the new
     # correction branch.
     # arid: disable
     histories = replace(

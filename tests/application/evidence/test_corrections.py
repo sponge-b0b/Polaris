@@ -117,7 +117,8 @@ def test_application_allocates_correction_identity_before_store_commit() -> None
 
 def test_commit_rejects_request_that_differs_from_immutable_correction() -> None:
     root = _observation("321.1")
-    # Keep this direct commit-contract falsifier independent from domain shape tests.
+    # duplicate-code: keep this direct commit-contract falsifier independent from domain
+    # shape tests.
     # arid: disable
     correction = EvidenceObservationCorrection(
         correction_id=EvidenceCorrectionId(CORRECTION_ID),

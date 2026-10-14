@@ -1399,7 +1399,8 @@ class CurrentEvidenceBasisQuery:
                     key.target,
                     key.scope.claim_id,
                     effective_at=item.root.effective_at,
-                    # The historical and current claim reads use the same owner port
+                    # duplicate-code: the historical and current claim reads use the
+                    # same owner port
                     # with different cutoffs and independent failure meanings.
                     # arid: disable
                     known_at=item.root.recorded_at,
@@ -1420,7 +1421,8 @@ class CurrentEvidenceBasisQuery:
                     or membership.claim_id != key.scope.claim_id
                 ):
                     return _invalid(key, at, "historical claim owner result mismatch")
-        # Historical requirement lookup shares the owner call with reconstruction, while
+        # duplicate-code: historical requirement lookup shares the owner call with
+        # reconstruction, while
         # this current basis has its own no-basis result.
         # arid: disable
         for item in selected.assessments:
@@ -1727,7 +1729,8 @@ def _unavailable(
     return _no_basis(key, at, CurrentNoBasisReason.UNAVAILABLE, detail)
 
 
-# This public query checks aware time independently of the Decisions domain and retains
+# duplicate-code: this public query checks aware time independently of the Decisions
+# domain and retains
 # its own error contract.
 # arid: disable
 def _aware(value: datetime) -> None:

@@ -107,7 +107,8 @@ async def _assessment_ids(
 class PostgresHistoricalEvidenceStore:
     """Read a complete target Evidence history from one database snapshot."""
 
-    # This adapter owns its own runtime qualification and current snapshot boundary;
+    # duplicate-code: this adapter owns its own runtime qualification and current
+    # snapshot boundary;
     # sharing another adapter or the historical read setup would couple independent
     # queries.
     # arid: disable

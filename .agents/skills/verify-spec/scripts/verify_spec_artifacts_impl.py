@@ -131,7 +131,9 @@ def _review_manifest_parser(receipt: str) -> list[dict[str, str]]:
         raise ValidationError(
             f"rendered receipt is not consumable by $review-spec: {exc}"
         ) from exc
-    _require(isinstance(parsed, list), "review-spec manifest parser returned invalid data")
+    _require(
+        isinstance(parsed, list), "review-spec manifest parser returned invalid data"
+    )
     return parsed
 
 
@@ -149,6 +151,27 @@ def _require_contract_digest(path: str | Path, expected: str) -> None:
         actual_digest == expected_digest,
         "contract handoff digest mismatch; rebuild via $spec-contract and recertify",
     )
+
+
+def _structural_contract_hash(
+    body_hash: str, source_rows: list[Any], manifest_rows: list[Any]
+) -> str:
+    payload = (
+        "SPEC-CONTRACT\n"
+        + body_hash
+        + "\n--SOURCE-UNITS--\n"
+        + "\n".join(
+            json.dumps(row, ensure_ascii=False, separators=(",", ":"))
+            for row in source_rows
+        )
+        + "\n--MANIFEST--\n"
+        + "\n".join(
+            json.dumps(row, ensure_ascii=False, separators=(",", ":"))
+            for row in manifest_rows
+        )
+        + "\n"
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def _validate_contract_identity(contract: dict[str, Any]) -> None:
@@ -208,7 +231,9 @@ def _validate_contract_identity(contract: dict[str, Any]) -> None:
             f"{source_id} duplicates manifest cells",
         )
         if classification == "non-normative":
-            _require(not cells, f"non-normative {source_id} must not map manifest cells")
+            _require(
+                not cells, f"non-normative {source_id} must not map manifest cells"
+            )
         else:
             _require(bool(cells), f"normative {source_id} must map manifest cells")
         for cell in cells:
@@ -231,7 +256,9 @@ def _validate_contract_identity(contract: dict[str, Any]) -> None:
             isinstance(cell, str) and CELL_RE.fullmatch(cell) is not None,
             "invalid manifest identity cell",
         )
-        _require(cell not in identity_cells, f"duplicate manifest identity cell: {cell}")
+        _require(
+            cell not in identity_cells, f"duplicate manifest identity cell: {cell}"
+        )
         _require(
             isinstance(row_source_ids, list) and bool(row_source_ids),
             f"manifest identity {cell} has no source units",
@@ -259,22 +286,7 @@ def _validate_contract_identity(contract: dict[str, Any]) -> None:
         "source-unit identity maps cells outside the manifest identity",
     )
 
-    payload = (
-        "SPEC-CONTRACT\n"
-        + body_hash
-        + "\n--SOURCE-UNITS--\n"
-        + "\n".join(
-            json.dumps(row, ensure_ascii=False, separators=(",", ":"))
-            for row in source_rows
-        )
-        + "\n--MANIFEST--\n"
-        + "\n".join(
-            json.dumps(row, ensure_ascii=False, separators=(",", ":"))
-            for row in manifest_rows
-        )
-        + "\n"
-    )
-    actual_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    actual_hash = _structural_contract_hash(body_hash, source_rows, manifest_rows)
     _require(
         actual_hash == expected_hash,
         "contract handoff structural identity does not reproduce SPEC_CONTRACT_HASH",
@@ -826,9 +838,7 @@ def self_test() -> None:
     assert state["verification_hash"] == finalize(raw)["verification_hash"]
 
     contract = {
-        key: raw[key]
-        for key in CONTRACT_HANDOFF_KEYS
-        if key != "contract_identity"
+        key: raw[key] for key in CONTRACT_HANDOFF_KEYS if key != "contract_identity"
     }
     contract["contract_identity"] = {
         "source_units": source_identity,

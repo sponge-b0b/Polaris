@@ -44,14 +44,24 @@ from polaris.application.evidence.owner_meaning import (
     OwnerMeaningCause,
     OwnerMeaningNoBasis,
     OwnerMeaningNoBasisReason,
+    OwnerMeaningResolver,
     OwnerMeaningSubject,
     OwnerMeaningWitness,
     TargetJudgmentMeaning,
 )
-from polaris.application.evidence.reconstruction import EvidenceHistories
+from polaris.application.evidence.reconstruction import (
+    EvidenceHistories,
+    StaleEvidenceBasis,
+    StaleEvidenceBasisCategory,
+)
 from polaris.application.evidence.requirements import (
     MissingEvidenceRequirementAuthority,
     ResolvedEvidenceRequirementVersion,
+)
+from polaris.application.evidence.revalidation import (
+    AtomicCurrentBasisRead,
+    AtomicCurrentBasisUnavailable,
+    CurrentEvidenceBasisRevalidator,
 )
 from polaris.application.evidence.sufficiency import EvidenceSufficiencyBasis
 from polaris.domain.actors import UnknownActorAttribution
@@ -123,6 +133,7 @@ from polaris.domain.evidence.sufficiency import (
     EvidenceRequirementAuthorityGuard,
     EvidenceSufficiencyBasisGuards,
 )
+from tests.application.decisions.test_memory import _future_relationship_owner
 from tests.application.evidence.test_context_versions import _OWNER_FAMILY_CASES
 from tests.application.evidence.test_reconstruction import _decision
 from tests.configuration_support import (
@@ -542,6 +553,319 @@ def _complete_current(
     result = asyncio.run(query.read(key, at=at))
     assert isinstance(result, CurrentEvidenceBasis)
     return result
+
+
+class _AtomicParticipation:
+    def __init__(self, read: AtomicCurrentBasisRead | None) -> None:
+        self.read = read
+        self.keys: list[BasisScopeKey] = []
+
+    async def establish(self, key: BasisScopeKey) -> AtomicCurrentBasisRead | None:
+        self.keys.append(key)
+        return self.read
+
+
+class _UnavailableParticipation:
+    async def establish(self, key: BasisScopeKey) -> AtomicCurrentBasisRead:
+        raise AtomicCurrentBasisUnavailable("target owner cannot join the write")
+
+
+class _RevalidationReads:
+    def __init__(
+        self,
+        prior: CurrentEvidenceBasis,
+        fresh: CurrentEvidenceBasis | CurrentEvidenceNoBasis,
+    ) -> None:
+        self.results = [prior, fresh]
+        self.reads: list[datetime] = []
+        self.verified: list[CurrentEvidenceBasis] = []
+
+    async def read(
+        self, key: BasisScopeKey, *, at: datetime
+    ) -> CurrentEvidenceBasis | CurrentEvidenceNoBasis:
+        self.reads.append(at)
+        result = self.results.pop(0)
+        assert result.key == key and result.at == at
+        return result
+
+    async def verify_owner_meaning(
+        self, basis: CurrentEvidenceBasis, *, validation_at: datetime
+    ) -> None:
+        self.verified.append(basis)
+
+
+def _revalidate_scripted(
+    prior: CurrentEvidenceBasis, reads: _RevalidationReads
+) -> StaleEvidenceBasis | CurrentEvidenceNoBasis | None:
+    later = AT + timedelta(seconds=1)
+    return asyncio.run(
+        CurrentEvidenceBasisRevalidator().revalidate(
+            prior,
+            _AtomicParticipation(AtomicCurrentBasisRead(prior.key, later, reads)),
+        )
+    )
+
+
+class _TimestampedTargets(_Targets):
+    async def read_at(
+        self, target: object, *, effective_at: datetime, known_at: datetime
+    ) -> object:
+        result = await super().read_at(
+            target, effective_at=effective_at, known_at=known_at
+        )
+        assert isinstance(result, ResolvedTargetJudgment)
+        return replace(result, effective_at=effective_at, known_at=known_at)
+
+
+def _enroll_temporal_target(query: CurrentEvidenceBasisQuery, target: _Targets) -> None:
+    temporal = _TimestampedTargets(target.result)
+    query._targets = TargetJudgmentResolver(temporal)
+    query._target_meaning._owner.target = temporal
+
+
+def _revalidate_at(
+    query: CurrentEvidenceBasisQuery, prior: CurrentEvidenceBasis, later: datetime
+) -> StaleEvidenceBasis | CurrentEvidenceNoBasis | None:
+    return asyncio.run(
+        CurrentEvidenceBasisRevalidator().revalidate(
+            prior,
+            _AtomicParticipation(AtomicCurrentBasisRead(prior.key, later, query)),
+        )
+    )
+
+
+def _empty_temporal_basis() -> tuple[
+    CurrentEvidenceBasisQuery, BasisScopeKey, CurrentEvidenceBasis
+]:
+    query, key, target, *_ = _empty_query(requirement_key())
+    _enroll_temporal_target(query, target)
+    return query, key, _complete_current(query, key)
+
+
+def _future_decision_temporal_basis(
+    effective_at: datetime,
+) -> tuple[CurrentEvidenceBasisQuery, CurrentEvidenceBasis, _DecisionStore]:
+    query, key, target, _, _, store = _query(
+        decision=_future_withdrawn_decision(effective_at=effective_at),
+        histories=EvidenceHistories((), (), ()),
+        empty=True,
+    )
+    _enroll_temporal_target(query, target)
+    return query, _complete_current(query, key), store
+
+
+def _invalidate_future_decision_fact(store: _DecisionStore) -> None:
+    initiation, future = store.decision.history
+    store.history_override = (
+        initiation,
+        replace(
+            future,
+            metadata=replace(future.metadata, fact_id=initiation.metadata.fact_id),
+        ),
+    )
+
+
+def test_atomic_revalidation_reconstructs_prior_and_fresh_before_acceptance() -> None:
+    query, key, prior = _empty_temporal_basis()
+    participation = _AtomicParticipation(
+        AtomicCurrentBasisRead(key, AT + timedelta(seconds=1), query)
+    )
+
+    result = asyncio.run(
+        CurrentEvidenceBasisRevalidator().revalidate(prior, participation)
+    )
+
+    assert result is None
+    assert participation.keys == [key]
+
+
+def test_atomic_revalidation_rejects_old_read_instant() -> None:
+    query, key, *_ = _query()
+    prior = _complete_current(query, key)
+
+    result = asyncio.run(
+        CurrentEvidenceBasisRevalidator().revalidate(
+            prior, _AtomicParticipation(AtomicCurrentBasisRead(key, AT, query))
+        )
+    )
+
+    assert isinstance(result, CurrentEvidenceNoBasis)
+    assert result.reason is CurrentNoBasisReason.INVALID_HISTORY
+
+
+def test_atomic_revalidation_detects_same_version_future_decision_change() -> None:
+    later = AT + timedelta(seconds=1)
+    query, prior, _ = _future_decision_temporal_basis(later)
+
+    result = _revalidate_at(query, prior, later)
+
+    assert isinstance(result, StaleEvidenceBasis)
+    assert result.categories == {StaleEvidenceBasisCategory.DECISION_CHANGED}
+    assert result.changed_owner_meanings[0].prior is prior.owner_meaning.decision
+    assert result.changed_owner_meanings[0].fresh.read_at == later
+
+
+def test_atomic_revalidation_rejects_nonoperative_same_version_decision() -> None:
+    later = AT + timedelta(seconds=1)
+    decision, _, reader, *_ = _future_relationship_owner(effective_at=later)
+    # This command-bound fixture separately proves the classifier's relationship
+    # case through the complete owner query and atomic participation port.
+    # arid: disable
+    query, key, target, *_ = _query(
+        decision=decision,
+        histories=EvidenceHistories((), (), ()),
+        empty=True,
+    )
+    query._decisions = DecisionMemoryService(reader=reader)
+    query._decision_meaning = OwnerMeaningResolver(DecisionOwnerMeaningReader(reader))
+    # arid: enable
+    _enroll_temporal_target(query, target)
+    prior = _complete_current(query, key)
+
+    result = _revalidate_at(query, prior, later)
+
+    assert isinstance(result, StaleEvidenceBasis)
+    assert result.categories == {StaleEvidenceBasisCategory.DECISION_CHANGED}
+    assert result.changed_owner_meanings[0].fresh.meaning.applicability is (
+        DecisionApplicability.NON_OPERATIVE
+    )
+
+
+def test_atomic_revalidation_accepts_equal_future_only_owner_meaning() -> None:
+    query, _, prior = _empty_temporal_basis()
+    query._target_meaning._owner.future_fact_at = AT + timedelta(days=1)
+    prior = _complete_current(query, prior.key)
+
+    assert _revalidate_at(query, prior, AT + timedelta(seconds=1)) is None
+
+
+def test_atomic_revalidation_rejects_invalid_future_only_history() -> None:
+    later = AT + timedelta(seconds=1)
+    query, prior, store = _future_decision_temporal_basis(AT + timedelta(days=1))
+    _invalidate_future_decision_fact(store)
+
+    result = _revalidate_at(query, prior, later)
+
+    assert isinstance(result, CurrentEvidenceNoBasis)
+    assert result.reason is CurrentNoBasisReason.INVALID_HISTORY
+
+
+def test_atomic_revalidation_rejects_contradictory_owner_meaning() -> None:
+    query, _, prior = _empty_temporal_basis()
+    owner = query._target_meaning._owner
+    owner.failure = OwnerMeaningNoBasisReason.CONTRADICTORY
+    owner.failure_for = TargetJudgmentMeaning
+
+    result = _revalidate_at(query, prior, AT + timedelta(seconds=1))
+
+    assert isinstance(result, CurrentEvidenceNoBasis)
+    assert result.reason is CurrentNoBasisReason.INVALID_HISTORY
+
+
+def test_atomic_revalidation_rejects_missing_write_participation() -> None:
+    query, key, *_ = _query()
+    prior = _complete_current(query, key)
+
+    result = asyncio.run(
+        CurrentEvidenceBasisRevalidator().revalidate(prior, _AtomicParticipation(None))
+    )
+
+    assert isinstance(result, CurrentEvidenceNoBasis)
+    assert result.reason is CurrentNoBasisReason.UNAVAILABLE
+
+
+def test_atomic_revalidation_keeps_owner_participation_unavailable_distinct() -> None:
+    query, key, *_ = _query()
+    prior = _complete_current(query, key)
+
+    result = asyncio.run(
+        CurrentEvidenceBasisRevalidator().revalidate(prior, _UnavailableParticipation())
+    )
+
+    assert isinstance(result, CurrentEvidenceNoBasis)
+    assert result.reason is CurrentNoBasisReason.UNAVAILABLE
+    assert "target owner" in result.detail
+
+
+def test_atomic_revalidation_rejects_changed_prior_owner_history() -> None:
+    query, key, target, *_ = _query()
+    prior = _complete_current(query, key)
+    owner, _ = _expected_target_proof(query, key, target)
+    owner.meaning_at[prior.owner_meaning.target.subject] = (AT, "contradicted")
+
+    result = asyncio.run(
+        CurrentEvidenceBasisRevalidator().revalidate(
+            prior,
+            _AtomicParticipation(
+                AtomicCurrentBasisRead(key, AT + timedelta(seconds=1), query)
+            ),
+        )
+    )
+
+    assert isinstance(result, CurrentEvidenceNoBasis)
+    assert result.reason is CurrentNoBasisReason.INVALID_HISTORY
+
+
+def test_atomic_revalidation_rejects_support_epoch_drift_after_prior_proof() -> None:
+    query, key, target, _, epochs, _ = _empty_query(requirement_key())
+    _enroll_temporal_target(query, target)
+    prior = _complete_current(query, key)
+    fresh_version = EvidenceSupportVersion(prior.support_version.value + 1)
+    epochs.version = fresh_version
+    query._sufficiency.version = fresh_version
+    fresh = _complete_current(query, key, at=AT + timedelta(seconds=1))
+    reads = _RevalidationReads(prior, fresh)
+
+    result = _revalidate_scripted(prior, reads)
+
+    assert isinstance(result, StaleEvidenceBasis)
+    assert result.categories == {StaleEvidenceBasisCategory.EVIDENCE_SUPPORT_CHANGED}
+    assert reads.reads == [AT, AT + timedelta(seconds=1)]
+    assert reads.verified == [prior, fresh]
+
+
+def test_atomic_revalidation_rejects_contradicted_prior_evidence_history() -> None:
+    query, key, *_ = _query()
+    prior = _complete_current(query, key)
+    other_epoch = EvidenceSupportVersion(prior.support_version.value + 1)
+    reconstructed = replace(
+        prior,
+        support_version=other_epoch,
+        sufficiency=replace(prior.sufficiency, support_version=other_epoch),
+    )
+    reads = _RevalidationReads(reconstructed, prior)
+
+    result = _revalidate_scripted(prior, reads)
+
+    assert isinstance(result, CurrentEvidenceNoBasis)
+    assert result.reason is CurrentNoBasisReason.INVALID_HISTORY
+    assert reads.reads == [AT]
+    assert reads.verified == [prior]
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        CurrentNoBasisReason.MISSING,
+        CurrentNoBasisReason.INCOMPLETE,
+        CurrentNoBasisReason.CONTESTED,
+        CurrentNoBasisReason.NOT_YET_EFFECTIVE,
+        CurrentNoBasisReason.INVALID_HISTORY,
+        CurrentNoBasisReason.UNAVAILABLE,
+    ],
+)
+def test_atomic_revalidation_preserves_fresh_no_basis_reason(
+    reason: CurrentNoBasisReason,
+) -> None:
+    query, key, *_ = _query()
+    prior = _complete_current(query, key)
+    fresh = CurrentEvidenceNoBasis(key, AT + timedelta(seconds=1), reason, "owner read")
+    reads = _RevalidationReads(prior, fresh)
+
+    result = _revalidate_scripted(prior, reads)
+
+    assert result is fresh
+    assert reads.verified == [prior]
 
 
 def _read_later(
@@ -1458,14 +1782,7 @@ def test_downstream_owner_meaning_changes_without_reference_or_version_change() 
 
 def test_invalid_future_only_decision_history_cannot_produce_current_basis() -> None:
     query, key, _, _, _, store = _query(decision=_future_withdrawn_decision())
-    initiation, future = store.decision.history
-    store.history_override = (
-        initiation,
-        replace(
-            future,
-            metadata=replace(future.metadata, fact_id=initiation.metadata.fact_id),
-        ),
-    )
+    _invalidate_future_decision_fact(store)
     result = asyncio.run(query.read(key, at=AT))
     assert isinstance(result, CurrentEvidenceNoBasis)
     assert result.reason is CurrentNoBasisReason.INVALID_HISTORY
@@ -1498,7 +1815,7 @@ def test_not_yet_effective_decision_has_distinct_no_basis_reason() -> None:
         (OwnerMeaningNoBasisReason.UNAVAILABLE, CurrentNoBasisReason.UNAVAILABLE),
         (
             OwnerMeaningNoBasisReason.CONTRADICTORY,
-            CurrentNoBasisReason.CONTRADICTORY,
+            CurrentNoBasisReason.INVALID_HISTORY,
         ),
         (
             OwnerMeaningNoBasisReason.INVALID_HISTORY,

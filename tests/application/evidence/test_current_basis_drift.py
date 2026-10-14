@@ -573,5 +573,5 @@ def test_unverified_downstream_cause_is_no_basis_before_comparison() -> None:
     owner.failure_for = type(prior.owner_meaning.target.subject)
     fresh = asyncio.run(query.read(key, at=AT))
     assert isinstance(fresh, CurrentEvidenceNoBasis)
-    assert fresh.reason is CurrentNoBasisReason.CONTRADICTORY
+    assert fresh.reason is CurrentNoBasisReason.INVALID_HISTORY
     assert compare_current_evidence_bases(prior, fresh) is fresh

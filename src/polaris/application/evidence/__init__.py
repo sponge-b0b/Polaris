@@ -200,6 +200,13 @@ from .requirements import (
     requirement_not_applicable_witness,
     resolve_requirement_version,
 )
+from .revalidation import (
+    AtomicCurrentBasisParticipation,
+    AtomicCurrentBasisRead,
+    AtomicCurrentBasisUnavailable,
+    CurrentBasisValidationReader,
+    CurrentEvidenceBasisRevalidator,
+)
 from .sufficiency import (
     EvidenceSufficiencyAssessmentResult,
     EvidenceSufficiencyBasis,
@@ -230,6 +237,9 @@ from .sufficiency import (
 from .support_epochs import EvidenceSupportEpochReader
 
 __all__ = [
+    "AtomicCurrentBasisParticipation",
+    "AtomicCurrentBasisRead",
+    "AtomicCurrentBasisUnavailable",
     "BasisGuardBreak",
     "BasisGuardRole",
     "BasisOwnerMeaningChange",
@@ -238,6 +248,7 @@ __all__ = [
     "ClaimMembershipGuard",
     "CurrentEvidenceBasis",
     "CurrentEvidenceBasisQuery",
+    "CurrentEvidenceBasisRevalidator",
     "CurrentEvidenceBasisResult",
     "CurrentEvidenceGuards",
     "CurrentEvidenceHistoryReader",
@@ -245,6 +256,7 @@ __all__ = [
     "CurrentOwnerMeaning",
     "CurrentEvidenceSelection",
     "CurrentNoBasisReason",
+    "CurrentBasisValidationReader",
     "CurrentSufficiencyReader",
     "EvidenceSelectionGuard",
     "EvidenceHistoryIncomplete",

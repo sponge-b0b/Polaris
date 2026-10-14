@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-13] R3 Evidence fresh-basis revalidation | #381 Application seam
+
+Recorded the inward Evidence/Application capability for fresh atomic-basis revalidation. It verifies prior owner causes, reconstructs the prior basis, reads and verifies the complete fresh basis, and returns typed stale or no-basis outcomes. Concrete dependent writes and integrated atomic proof remain with consuming Specs.
+
 ## [2026-10-11] R3 current Evidence drift classifier | #391 realized
 
 Added pure typed comparison of complete owner-attested current Evidence bases. It reports all attributable stale categories with changed positive references, broken negative guards, and prior/fresh owner-meaning witnesses, including lawful same-version Decision drift and independent Evidence fitness time drift. Application Use Cases and Evidence knowledge now reserve atomic dependent-write revalidation for the remaining command ticket.

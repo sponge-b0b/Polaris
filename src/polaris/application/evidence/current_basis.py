@@ -135,7 +135,6 @@ class CurrentNoBasisReason(StrEnum):
     CONTESTED = "contested"
     NOT_YET_EFFECTIVE = "not_yet_effective"
     # arid: enable
-    CONTRADICTORY = "contradictory"
     INVALID_HISTORY = "invalid_history"
     UNAVAILABLE = "unavailable"
 
@@ -1123,6 +1122,28 @@ class CurrentEvidenceBasisQuery:
             owner_meaning,
         )
 
+    async def verify_owner_meaning(
+        self, basis: CurrentEvidenceBasis, *, validation_at: datetime
+    ) -> CurrentEvidenceNoBasis | None:
+        """Recheck every prior or fresh owner cause against authoritative history."""
+        _aware(validation_at)
+        if type(basis) is not CurrentEvidenceBasis:
+            raise TypeError("owner verification requires a complete basis")
+        witnesses = [
+            (self._decision_meaning, basis.owner_meaning.decision),
+            (self._target_meaning, basis.owner_meaning.target),
+        ]
+        if basis.owner_meaning.claim is not None:
+            witnesses.append((self._claim_meaning, basis.owner_meaning.claim))
+        witnesses.extend(
+            (self._context_meaning, witness) for witness in basis.owner_meaning.context
+        )
+        for resolver, witness in witnesses:
+            result = await resolver.verify(witness, validation_at=validation_at)
+            if isinstance(result, OwnerMeaningNoBasis):
+                return _owner_meaning_failure(basis.key, validation_at, result)
+        return None
+
     async def _read_governing_decision(
         self, key: BasisScopeKey, at: datetime
     ) -> tuple[DecisionMemoryView, OwnerMeaningWitness] | CurrentEvidenceNoBasis:
@@ -1654,7 +1675,7 @@ def _owner_meaning_failure(
             CurrentNoBasisReason.NOT_YET_EFFECTIVE
         ),
         OwnerMeaningNoBasisReason.UNAVAILABLE: CurrentNoBasisReason.UNAVAILABLE,
-        OwnerMeaningNoBasisReason.CONTRADICTORY: CurrentNoBasisReason.CONTRADICTORY,
+        OwnerMeaningNoBasisReason.CONTRADICTORY: CurrentNoBasisReason.INVALID_HISTORY,
         OwnerMeaningNoBasisReason.INVALID_HISTORY: CurrentNoBasisReason.INVALID_HISTORY,
     }
     return _no_basis(key, at, reasons[result.reason], result.detail)

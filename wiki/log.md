@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-14] R3 Evidence entity registry | implemented boundary
+
+Marked Evidence `present` and added its domain and application routing anchors. Spec #357 introduced durable Evidence identity, bindings, correction, sufficiency, reconstruction, and current-basis implementation; the entity page already records the realized invariants. Concrete dependent writes remain planned in consuming Specs.
+
 ## [2026-10-13] R3 Evidence fresh-basis revalidation | #381 Application seam
 
 Recorded the inward Evidence/Application capability for fresh atomic-basis revalidation. It verifies prior owner causes, reconstructs the prior basis, reads and verifies the complete fresh basis, and returns typed stale or no-basis outcomes. Concrete dependent writes and integrated atomic proof remain with consuming Specs.

@@ -11,6 +11,8 @@ _LIST_RE = re.compile(r"^(?P<indent>[ \t]*)(?:[-+*]|\d+[.)])[ \t]+")
 _HEADING_RE = re.compile(r"^[ \t]{0,3}#{1,6}[ \t]+(?P<title>.+?)[ \t]*$")
 _FENCE_RE = re.compile(r"^[ \t]{0,3}(?P<fence>\x60{3,}|~{3,})")
 _TABLE_SEPARATOR_CELL_RE = re.compile(r"^:?-{3,}:?$")
+_DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
+_SPEC_CONTRACT_HASH_DOMAIN = b"POLARIS-SPEC-CONTRACT-V2\x00"
 _PROVENANCE_COMMENT_RE = re.compile(
     r"^\s*<!--\s*(?:"
     r"wayfinder-source|wayfinder-remediation|architecture-blocker|"
@@ -23,6 +25,21 @@ _PROVENANCE_COMMENT_RE = re.compile(
 
 def _sha256_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def spec_contract_hash_from_body_hash(spec_body_hash: str) -> str:
+    """Return the stable durable contract identity for exact Spec body bytes.
+
+    The body hash is produced mechanically from the exact GitHub issue body.
+    Semantic source-unit classification and source-to-cell mapping are validation
+    evidence, not durable identity inputs, because independent compliant builders
+    may describe represented-summary mappings differently.
+    """
+
+    if _DIGEST_RE.fullmatch(spec_body_hash) is None:
+        raise ValueError("spec_body_hash must be a lowercase SHA-256 digest")
+    payload = _SPEC_CONTRACT_HASH_DOMAIN + bytes.fromhex(spec_body_hash)
+    return hashlib.sha256(payload).hexdigest()
 
 
 def _normalize_text(value: str) -> str:
@@ -302,8 +319,10 @@ def main() -> int:
     if not isinstance(body, str):
         raise SystemExit("issue JSON must contain a string 'body' field")
 
+    spec_body_hash = _sha256_text(body)
     result = {
-        "spec_body_hash": _sha256_text(body),
+        "spec_body_hash": spec_body_hash,
+        "spec_contract_hash": spec_contract_hash_from_body_hash(spec_body_hash),
         "source_units": extract_source_units(body),
     }
     args.output.write_text(

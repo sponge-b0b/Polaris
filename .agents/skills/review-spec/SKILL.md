@@ -591,6 +591,7 @@ VERIFY_TOOL=.agents/skills/verify-spec/scripts/verify_spec_artifacts.py
 REVIEW_TOOL=.agents/skills/review-spec/scripts/review_spec_artifacts.py
 SPEC_COMMENTS_FILE=$(mktemp)
 SPEC_COMMENTS_SUMMARY=$(mktemp)
+SPEC_ISSUE_JSON=$(mktemp)
 SPEC_BODY_FILE=$(mktemp)
 REVIEW_CHECKPOINT=$(mktemp)
 
@@ -603,8 +604,25 @@ python "$VERIFY_TOOL" comments \
   --input "$SPEC_COMMENTS_FILE" \
   > "$SPEC_COMMENTS_SUMMARY"
 
-gh issue view "$SPEC_NUMBER" --repo "$REPO" --json body --jq .body \
-  > "$SPEC_BODY_FILE"
+gh api \
+  -H "X-GitHub-Api-Version: 2026-03-10" \
+  "repos/$REPO/issues/$SPEC_NUMBER" \
+  > "$SPEC_ISSUE_JSON"
+
+python - "$SPEC_ISSUE_JSON" "$SPEC_BODY_FILE" <<'PY'
+import json
+import pathlib
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as handle:
+    payload = json.load(handle)
+
+body = payload.get("body")
+if not isinstance(body, str):
+    raise SystemExit("Spec issue body missing or non-string")
+
+pathlib.Path(sys.argv[2]).write_bytes(body.encode("utf-8"))
+PY
 
 python "$REVIEW_TOOL" checkpoint \
   --comments-summary "$SPEC_COMMENTS_SUMMARY" \
@@ -618,6 +636,8 @@ python "$REVIEW_TOOL" checkpoint \
 Require the expected `spec-<n>` branch and a clean worktree before review begins.
 
 The checkpoint utility fails closed unless the newest verification receipt is passed, bound to the exact current Spec/HEAD/baseline/branch/body hash, contains one complete manifest, maps every manifest cell exactly once to proven/not-applicable coverage, and has zero unresolved cells. It also mechanically compares that receipt with the current parent Ticket Coverage Manifest and requires the same Spec Body Hash and Spec Contract Hash.
+
+The Spec body file used for a byte-sensitive checkpoint must contain exactly the issue body's UTF-8 bytes. Do not obtain it through `gh issue view --jq .body`, `jq -r`, `echo`, `print`, or another text-output path that can append a record terminator. Fetch the issue as JSON, parse the body string, and write its encoded bytes directly as above.
 
 Any body/hash mismatch is a **review-input contract-coherence failure**, even when manifest cell counts and cell-ID sets match. Do not infer equivalence. Route the parent Spec to `$to-tickets` for deterministic current-contract reconciliation when eligible; after reconciliation, require a fresh `$verify-spec` receipt before review resumes.
 
@@ -656,7 +676,28 @@ For a Wayfinder-managed Spec, before reviewer dispatch:
 
 Do not reproduce the guard with custom `sed`, `awk`, regex parsing, Project-field logic, or a parallel frontier implementation.
 
-Immediately before Pending or Exit persistence, invoke `guard <Wayfinder>` again for the already-resolved governor(s). That is mutable-state **revalidation**, not a second delivery-analysis phase. Do not rediscover lineage or explicitly rerun broader reconciliation unless intervening durable mutation invalidated those inputs.
+### Project-delivery result admission
+
+The Project Delivery guard is a delegated-owner boundary, not a checklist that `$review-spec` may reconstruct itself. Before reviewer dispatch, successful guard execution requires the prescribed child workflow to execute and this invocation to receive and admit its terminal returned results.
+
+Require:
+
+```text
+Project-delivery reconcile result: received | not-required-by-child-contract
+Project-delivery guard result(s) received: <n>/<n governing Wayfinders>
+At least one exact PROJECT DELIVERY GUARD: ALLOWED: yes
+Manual project-delivery reconstruction used as substitute: no
+```
+
+Rules:
+
+* actually invoke `$project-delivery-management reconcile` when required by that skill and receive its terminal result before proceeding;
+* actually invoke `$project-delivery-management guard <Wayfinder>` for every governing Wayfinder and receive each terminal guard result before reviewer dispatch;
+* reading the child `SKILL.md`, inspecting the management singleton, querying focus/frontier/blocker state, or independently reproducing the child's algorithm is diagnostic context only and cannot populate this witness or substitute for invocation;
+* missing, pending, malformed, stale-source, or otherwise inadmissible required child results fail closed;
+* reviewer dispatch is unreachable until the witness above is complete from actual returned child payloads.
+
+Immediately before Pending or Exit persistence, invoke `guard <Wayfinder>` again for the already-resolved governor(s) and receive/admit the returned terminal guard result(s) before persisting. That is mutable-state **revalidation**, not a second delivery-analysis phase. Do not rediscover lineage or explicitly rerun broader reconciliation unless intervening durable mutation invalidated those inputs. Manual reconstruction cannot substitute for this revalidation result.
 
 ## 4. Recover Durable Review State
 

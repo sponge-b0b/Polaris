@@ -9,8 +9,11 @@ to model-authored source-unit mappings as hash input.
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib.util
+import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -59,7 +62,9 @@ def _stable_contract_hash(body_hash: str) -> str:
     try:
         value = module.spec_contract_hash_from_body_hash(body_hash)
     except (AttributeError, ValueError) as exc:
-        raise _impl.ValidationError(f"spec-contract hash helper failed: {exc}") from exc
+        raise _impl.ValidationError(
+            f"spec-contract hash helper failed: {exc}"
+        ) from exc
     return _impl._digest_text(value, "mechanical spec contract hash")
 
 
@@ -69,13 +74,24 @@ def _old_structural_hash(contract: dict[str, Any]) -> str:
     _impl._require(isinstance(identity, dict), "contract_identity must be an object")
     source_rows = identity.get("source_units")
     manifest_rows = identity.get("manifest")
-    _impl._require(
-        isinstance(source_rows, list), "contract identity source units missing"
+    _impl._require(isinstance(source_rows, list), "contract identity source units missing")
+    _impl._require(isinstance(manifest_rows, list), "contract identity manifest missing")
+    payload = (
+        "SPEC-CONTRACT\n"
+        + body_hash
+        + "\n--SOURCE-UNITS--\n"
+        + "\n".join(
+            json.dumps(row, ensure_ascii=False, separators=(",", ":"))
+            for row in source_rows
+        )
+        + "\n--MANIFEST--\n"
+        + "\n".join(
+            json.dumps(row, ensure_ascii=False, separators=(",", ":"))
+            for row in manifest_rows
+        )
+        + "\n"
     )
-    _impl._require(
-        isinstance(manifest_rows, list), "contract identity manifest missing"
-    )
-    return _impl._structural_contract_hash(body_hash, source_rows, manifest_rows)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def _validate_contract_identity(contract: dict[str, Any]) -> None:
@@ -211,9 +227,9 @@ def self_test() -> None:
     assert coherent["status"] == "PASS"
 
     mismatched = copy.deepcopy(summary)
-    mismatched["ticket_coverage_manifest"]["body"] = mismatched[
-        "ticket_coverage_manifest"
-    ]["body"].replace("US-1 → #1", "US-2 → #1")
+    mismatched["ticket_coverage_manifest"]["body"] = (
+        mismatched["ticket_coverage_manifest"]["body"].replace("US-1 → #1", "US-2 → #1")
+    )
     try:
         contract_coherence(mismatched, contract)
     except _impl.ValidationError:

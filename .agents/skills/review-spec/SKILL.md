@@ -974,7 +974,7 @@ If ordinary Blocking findings remain, decomposition defects remain, Scope correc
 4. require every current Blocking finding in the Pending packet to name its stable `RF-*` row and persist/read back the updated Finding Continuity Ledger before remediation synthesis;
 5. render/persist the Pending packet through the deterministic review utility where possible; fold Domain Finality Reconciliation into existing provenance/root/scope/saturation text when the utility has no dedicated field rather than changing its schema solely for this hardening;
 6. POST once, GET that exact comment, and require byte-for-byte equality;
-7. invoke `$review-spec-remediation` only after persistence succeeds.
+7. invoke `$review-spec-remediation` only after persistence succeeds and admit its returned terminal result before any remediation/root-state mutation or lifecycle handoff.
 
 The Pending packet must make the active/non-actionable distinction recoverable:
 
@@ -985,7 +985,29 @@ Domain Finality Reconciliation:
 
 Do not hand-build a parallel root-remediation packet that bypasses the deterministic renderer's existing checkpoint bindings.
 
-If remediation remains active and `$review-spec-remediation` returns `$to-tickets`, target the conventional Spec Review issue and present the Human Handoff from durable review/remediation state:
+### Review-remediation result admission
+
+`$review-spec-remediation` is a delegated-owner boundary. After exact Pending persistence/readback, `$review-spec` must actually invoke that child workflow and receive/admit its terminal returned result before consuming remediation state or choosing the next lifecycle.
+
+Require:
+
+```text
+Review-spec-remediation child invoked: yes
+Terminal remediation result received: yes
+Result bound to current Spec Review and exact Pending packet: yes
+Parent reconstruction used as substitute: no
+```
+
+Rules:
+
+* reading `$review-spec-remediation`'s `SKILL.md`, inspecting existing Root Blocker state, or manually reproducing its root/matrix/accounting algorithm is diagnostic context only and cannot populate this witness or substitute for invocation;
+* until the terminal child result is received and admitted, `$review-spec` must not create/update Root Blocker remediation state, synthesize a remediation delta, decide that remediation remains active, or emit a `$to-tickets` handoff;
+* missing, pending, malformed, stale-source, or otherwise inadmissible child results fail closed at the remediation boundary;
+* when the child returns control to `$review-spec` because scope/domain correction removes all active Blocking findings, continue the parent review from that returned disposition rather than manufacturing a handoff;
+* when the child returns an architecture blocker, hard remediation-state error, or other terminal disposition, follow that exact returned disposition;
+* emit `$to-tickets` only when the admitted `$review-spec-remediation` result explicitly returns that handoff for the current conventional Spec Review.
+
+If remediation remains active and the admitted `$review-spec-remediation` result returns `$to-tickets`, target the conventional Spec Review issue and present the Human Handoff from durable review/remediation state:
 
 > ⚠️ **Spec Review Failed with Blocking Findings.**
 >

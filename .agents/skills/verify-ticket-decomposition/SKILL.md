@@ -48,12 +48,11 @@ Architecture/design source inventory: <durable source identities + anchors + dis
 Normative source-unit / ARCHSRC routing: <IDs + source anchors + dispositions>
 Parent semantic-carry evidence: <compact rows/pointers>
 Parent semantic-consumer impact evidence: <None | compact changed-invariant/consumer rows when remediation or changed authority makes it applicable>
-Parent remediation root-slice necessity evidence: <None | per-root necessity witness returned by $to-remediation-tickets when Mode: remediation>
 Parent Context-Fit Manifest: <per-ticket scenario/domain/modality/proof-family summary + disposition>
 Design-delegation result: <compact rows/pointers>
 ```
 
-The packet locates authority efficiently. It does not establish that the source universe, routing, consumer propagation, root-slice necessity, or carry is correct.
+The packet locates authority efficiently. It does not establish that the source universe, routing, consumer propagation, or carry is correct.
 
 Missing, contradictory, or candidate-mismatched dispatch state invalidates verification. A stale persisted parent TCM also invalidates verification except in a substantive remediation where `$to-tickets` explicitly carries that stale TCM as pre-publication state, the exact proposed parent coverage candidate is part of the frozen proposal, and that candidate repairs the identity to the bound current Spec contract. In that bounded case, the persisted stale TCM is an input to be repaired rather than evidence of candidate mismatch.
 
@@ -185,9 +184,9 @@ For every proposed implementation/remediation ticket, independently derive the s
 First apply the mode-specific slice boundary:
 
 * `Mode: fresh` — use the ordinary tracer-bullet green-intermediate-state rule below.
-* `Mode: remediation` — the stable Root Blocker is the primary slice boundary. The verifier must independently challenge the parent's per-root remediation necessity witness. A same-root split into multiple remediation tickets is valid only when a concrete independently necessary stage, pre-existing dependency, authority boundary, or genuinely unavoidable fresh-context/proof boundary makes one root-complete ticket infeasible. The mere fact that symptom subsets, test families, files, or proof facets can each reach a green intermediate state is **not** a split justification. Dependency edges introduced only by the proposed split are not evidence that the split was independently necessary.
+* `Mode: remediation` — recover the stable Root Blocker invariant and current cumulative acceptance state directly from the remediation source. The Root Blocker is the primary slice boundary. A same-root split into multiple remediation tickets is valid only when a concrete independently necessary stage, pre-existing dependency, authority boundary, or genuinely unavoidable fresh-context/proof boundary makes one root-complete ticket infeasible. The mere fact that symptom subsets, test families, files, or proof facets can each reach a green intermediate state is **not** a split justification. Dependency edges introduced only by the proposed split are not evidence that the split was independently necessary.
 
-For every unresolved remediation root derive:
+For every unresolved remediation root independently derive:
 
 ```text
 Root: RB-<n>

@@ -5,6 +5,7 @@ import os
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from datetime import datetime
 from uuid import uuid4
 
 import pytest
@@ -30,6 +31,23 @@ from polaris.infrastructure.persistence.postgresql.schema import (
 class PostgresTestTarget:
     database_url: str
     schema: str
+
+
+class ConcurrentCandidateReadStore(PostgresDecisionStore):
+    """Pause candidate discovery after its read for concurrent-write proofs."""
+
+    def __init__(self, engine: AsyncEngine, barrier: asyncio.Barrier) -> None:
+        super().__init__(engine)
+        self._barrier = barrier
+
+    async def find_unresolved_continuity_candidates(
+        self, *, known_at: datetime
+    ) -> tuple[InvestmentDecisionId, ...]:
+        candidates = await super().find_unresolved_continuity_candidates(
+            known_at=known_at
+        )
+        await self._barrier.wait()
+        return candidates
 
 
 @asynccontextmanager

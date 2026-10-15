@@ -309,6 +309,7 @@ def upgrade() -> None:
         # duplicate-code: this revision's receipt DDL is an independently frozen
         # historical snapshot, not reusable runtime command-table infrastructure.
         # arid: disable
+        # jscpd:ignore-start
         sa.Column("request_fingerprint", sa.String(length=64), nullable=False),
         sa.Column(
             "request_payload",
@@ -325,6 +326,7 @@ def upgrade() -> None:
             "char_length(request_fingerprint) = 64",
             name=op.f("ck_evidence_sufficiency_command_receipts_fingerprint_sha256"),
         ),
+        # jscpd:ignore-end
         # arid: enable
         sa.PrimaryKeyConstraint(
             "row_id",

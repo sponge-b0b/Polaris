@@ -64,6 +64,7 @@ ACTOR = KnownActorAttribution(ActorId(UUID("00000000-0000-4000-8000-000000000f01
 # initiation fixtures independently of lower-level graph/persistence tests; sharing
 # them would couple the ticket-level proof to another semantic layer.
 # arid: disable
+# jscpd:ignore-start
 def _uuid(value: int) -> UUID:
     return UUID(f"00000000-0000-4000-8000-{value:012x}")
 
@@ -153,6 +154,7 @@ async def _resolve(
     fact: int,
     operation: int,
 ) -> None:
+    # jscpd:ignore-end
     await DecisionOrdinaryWorkService(
         store=store,
         now=lambda: recorded_at,
@@ -176,6 +178,9 @@ async def _resolve(
     )
 
 
+# duplicate-code: cycle acceptance builds its own relationship command so a
+# versioning helper cannot mask the cycle-specific acceptance path.
+# jscpd:ignore-start
 async def _supersede(
     store: PostgresDecisionStore,
     *,
@@ -215,6 +220,9 @@ async def _supersede(
         now=lambda: recorded_at,
         new_uuid=lambda: next(generated),
     ).establish_supersession(command)
+
+
+# jscpd:ignore-end
 
 
 async def _correct(

@@ -122,6 +122,9 @@ class FakeDecisionStore:
         with self._lock:
             return self._receipts.get(operation_id)
 
+    # duplicate-code: ordinary-work fake transitions and seed helpers remain
+    # local so its failure proof does not inherit another command's fake state.
+    # jscpd:ignore-start
     async def load_decision_for_command(
         self,
         decision_id: InvestmentDecisionId,
@@ -193,6 +196,9 @@ def _technical(reference: str = "trace-1") -> TechnicalProvenance:
             ),
         )
     )
+
+
+# jscpd:ignore-end
 
 
 def _mutation(

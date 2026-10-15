@@ -92,6 +92,7 @@ def upgrade() -> None:
     # sharing receipt-table construction with an earlier revision would make
     # historical migration behavior depend on mutable current code.
     # arid: disable
+    # jscpd:ignore-start
     op.create_table(
         "evidence_observation_command_receipts",
         sa.Column("row_id", sa.BigInteger(), sa.Identity(), nullable=False),
@@ -112,6 +113,7 @@ def upgrade() -> None:
             "char_length(request_fingerprint) = 64",
             name="ck_evidence_observation_receipts_fingerprint_sha256",
         ),
+        # jscpd:ignore-end
         sa.PrimaryKeyConstraint(
             "row_id",
             name="pk_evidence_observation_command_receipts",

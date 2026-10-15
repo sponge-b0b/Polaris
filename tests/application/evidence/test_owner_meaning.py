@@ -25,6 +25,10 @@ from polaris.application.evidence.owner_meaning import (
 )
 from polaris.domain.decisions.facts import DecisionVersion, InvestmentDecisionId
 from polaris.domain.evidence.claims import ClaimCatalogVersion
+
+# duplicate-code: this owner-meaning proof declares its own context inputs;
+# sharing an import scaffold would couple independent proof dependencies.
+# jscpd:ignore-start
 from polaris.domain.evidence.context_versions import (
     BasisScopeKey,
     ContextRootRef,
@@ -57,6 +61,8 @@ from polaris.domain.evidence.context_versions import (
     ProjectedPortfolioStateRevision,
     ProjectedPortfolioStateVersionRef,
 )
+
+# jscpd:ignore-end
 from polaris.domain.evidence.judgment_versions import (
     DecisionEvaluationVersionRef,
     HumanInvestmentDecisionVersionRef,

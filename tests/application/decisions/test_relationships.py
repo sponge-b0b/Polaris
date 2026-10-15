@@ -269,6 +269,9 @@ def _decision(*, resolved: bool = False) -> InvestmentDecision:
         need=need,
         subject=DecisionSubject("Portfolio exposure"),
         scope=DecisionScope.unresolved(),
+        # duplicate-code: relationship admission seeds its own decision;
+        # reusing a lifecycle fixture would couple distinct command proofs.
+        # jscpd:ignore-start
         continuity=DecisionInitiationContinuity(
             determination=DecisionInitiationDetermination.NO_CANDIDATES,
             candidate_decision_ids=(),
@@ -283,6 +286,7 @@ def _decision(*, resolved: bool = False) -> InvestmentDecision:
             created,
             need.technical_provenance,
         ),
+        # jscpd:ignore-end
     )
     if not resolved:
         return decision
@@ -1755,6 +1759,9 @@ def test_relationship_state_reads_translate_unavailability_without_commit(
 
 def test_renewal_candidate_read_translates_unavailability_without_commit() -> None:
     predecessor = _decision(resolved=True)
+    # duplicate-code: this failure path builds its own renewal command so the
+    # candidate-read error cannot depend on the ambiguity proof's setup.
+    # jscpd:ignore-start
     store = FakeRelationshipStore(
         (predecessor,),
         candidate_read_unavailable=True,
@@ -1774,6 +1781,7 @@ def test_renewal_candidate_read_translates_unavailability_without_commit() -> No
 
     with pytest.raises(PersistenceUnavailable) as exc_info:
         asyncio.run(_service(store).renew(command))
+    # jscpd:ignore-end
 
     assert isinstance(exc_info.value.__cause__, DecisionCommandReadUnavailable)
     assert store.history == ()

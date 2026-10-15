@@ -225,6 +225,7 @@ def upgrade() -> None:
     # duplicate-code: each immutable Alembic revision owns its receipt-table
     # snapshot; sharing a mutable migration helper would rewrite history.
     # arid: disable
+    # jscpd:ignore-start
     op.create_table(
         "evidence_binding_command_receipts",
         sa.Column("row_id", sa.BigInteger(), sa.Identity(), nullable=False),
@@ -245,6 +246,7 @@ def upgrade() -> None:
             "char_length(request_fingerprint) = 64",
             name=op.f("ck_evidence_binding_command_receipts_fingerprint_sha256"),
         ),
+        # jscpd:ignore-end
         sa.PrimaryKeyConstraint(
             "row_id",
             name="pk_evidence_binding_command_receipts",

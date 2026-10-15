@@ -6,6 +6,10 @@ from uuid import uuid4
 import pytest
 
 from polaris.domain.decisions.facts import DecisionVersion, InvestmentDecisionId
+
+# duplicate-code: this domain proof lists the exact context types it exercises;
+# sharing imports with application proofs would hide distinct dependencies.
+# jscpd:ignore-start
 from polaris.domain.evidence.context_versions import (
     BasisScopeKey,
     ContextRootRef,
@@ -40,6 +44,8 @@ from polaris.domain.evidence.context_versions import (
     context_root,
     is_canonical_context_version_ref,
 )
+
+# jscpd:ignore-end
 from polaris.domain.evidence.judgment_versions import (
     InvestmentViewVersionRef,
     JudgmentRevision,

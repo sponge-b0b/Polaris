@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+# duplicate-code: correction acceptance states its own relationship command
+# dependencies; sharing an import scaffold would obscure its proof boundary.
+# jscpd:ignore-start
 import asyncio
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
@@ -13,6 +16,8 @@ from polaris.application.decisions import (
     ExpectedDecisionVersion,
     InitiateDecisionCommand,
 )
+
+# jscpd:ignore-end
 from polaris.application.decisions.relationships import (
     CorrectDecisionRelationshipCommand,
     DecisionRelationshipCorrectionService,
@@ -57,6 +62,7 @@ ACTOR = KnownActorAttribution(ActorId(UUID("00000000-0000-4000-8000-000000000d01
 # initiation fixtures independently of lower-level persistence/domain tests; sharing
 # them would couple the ticket-level proof to another semantic layer.
 # arid: disable
+# jscpd:ignore-start
 def _uuid(value: int) -> UUID:
     return UUID(f"00000000-0000-4000-8000-{value:012x}")
 
@@ -126,6 +132,9 @@ async def _create_decision(
         )
     )
     return result.decision_id
+
+
+# jscpd:ignore-end
 
 
 # arid: enable

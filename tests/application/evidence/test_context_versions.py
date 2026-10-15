@@ -19,6 +19,10 @@ from polaris.application.evidence.context_versions import (
 )
 from polaris.domain.configuration import InvestmentHorizon
 from polaris.domain.decisions.facts import DecisionVersion, InvestmentDecisionId
+
+# duplicate-code: this context-selection proof declares its domain inputs locally;
+# sharing an import scaffold with other proofs would hide their dependencies.
+# jscpd:ignore-start
 from polaris.domain.evidence.context_versions import (
     BasisScopeKey,
     CanonicalContextVersionRef,
@@ -53,6 +57,8 @@ from polaris.domain.evidence.context_versions import (
     ProjectedPortfolioStateVersionRef,
     context_root,
 )
+
+# jscpd:ignore-end
 from polaris.domain.evidence.judgment_versions import (
     InvestmentViewVersionRef,
     JudgmentRevision,

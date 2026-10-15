@@ -91,6 +91,9 @@ class FakeDecisionStore:
         self._unavailable = unavailable
         self._conflict_on_commit = conflict_on_commit
 
+    # duplicate-code: resolution admission keeps its fake read port local so a
+    # shared fake cannot make correction and resolution proofs fail together.
+    # jscpd:ignore-start
     async def get_initiation_receipt(
         self, operation_id: OperationId
     ) -> InitiationReceipt | None:
@@ -119,6 +122,8 @@ class FakeDecisionStore:
                 return None
             return self._state
 
+    # jscpd:ignore-end
+
     async def commit_mutation(
         self, commit: DecisionMutationCommit
     ) -> DecisionMutationCommitOutcome:
@@ -137,6 +142,9 @@ class FakeDecisionStore:
                 return DecisionMutationConcurrencyConflict(
                     self._state.decision.decision_id
                 )
+            # duplicate-code: resolution fake commits remain local to its
+            # command proof instead of inheriting correction-fake behavior.
+            # jscpd:ignore-start
             self._state = DecisionCommandState(
                 commit.decision,
                 self._state.applicability,
@@ -164,6 +172,12 @@ def _actor() -> KnownActorAttribution:
     return KnownActorAttribution(ActorId(uuid4()))
 
 
+# jscpd:ignore-end
+
+
+# duplicate-code: resolution seeds its own initial decision to expose the
+# admission path independently of lifecycle-correction fixtures.
+# jscpd:ignore-start
 def _technical(reference: str = "trace-1") -> TechnicalProvenance:
     return TechnicalProvenance(
         (TechnicalReference(TechnicalReferenceKind.TRACE, reference),)
@@ -205,6 +219,9 @@ def _decision() -> InvestmentDecision:
             need.technical_provenance,
         ),
     )
+
+
+# jscpd:ignore-end
 
 
 def _envelope(

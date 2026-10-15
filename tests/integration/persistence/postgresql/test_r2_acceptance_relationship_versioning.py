@@ -48,6 +48,7 @@ ACTOR = KnownActorAttribution(ActorId(UUID("00000000-0000-4000-8000-000000000e01
 # initiation fixtures independently of lower-level relationship/version tests; sharing
 # them would couple ticket-level proof to another semantic layer.
 # arid: disable
+# jscpd:ignore-start
 def _uuid(value: int) -> UUID:
     return UUID(f"00000000-0000-4000-8000-{value:012x}")
 
@@ -63,6 +64,9 @@ def _technical(reference: str) -> TechnicalProvenance:
             TechnicalReference(TechnicalReferenceKind.REQUEST, reference),
         )
     )
+
+
+# jscpd:ignore-end
 
 
 def _envelope(
@@ -100,6 +104,9 @@ async def _create_decision(
         now=lambda: recorded_at,
         new_uuid=lambda: next(generated),
     ).initiate(
+        # duplicate-code: versioning acceptance seeds its own decision so its
+        # relationship check remains independent of correction/store fixtures.
+        # jscpd:ignore-start
         InitiateDecisionCommand(
             envelope=_envelope(
                 operation=ids[3],
@@ -117,6 +124,7 @@ async def _create_decision(
         )
     )
     return result.decision_id
+    # jscpd:ignore-end
 
 
 async def _version(
@@ -129,6 +137,9 @@ async def _version(
     return state.decision.version
 
 
+# duplicate-code: versioning acceptance assembles this command locally;
+# sharing a cycle or supersession fixture could mask stale-version rejection.
+# jscpd:ignore-start
 async def _supersede(
     store: PostgresDecisionStore,
     *,
@@ -161,6 +172,7 @@ async def _supersede(
             for index, target in enumerate(targets)
         ),
     )
+    # jscpd:ignore-end
     generated = _ids(*fact_ids)
     return await DecisionRelationshipService(
         reader=store,

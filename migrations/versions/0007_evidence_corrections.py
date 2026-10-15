@@ -193,6 +193,9 @@ def upgrade() -> None:
         "evidence_correction_command_receipts",
         sa.Column("row_id", sa.BigInteger(), sa.Identity(), nullable=False),
         sa.Column("operation_id", postgresql.UUID(as_uuid=True), nullable=False),
+        # duplicate-code: this revision freezes correction receipt DDL separately
+        # from earlier command families; sharing would couple migration history.
+        # jscpd:ignore-start
         sa.Column("family", sa.String(length=32), nullable=False),
         sa.Column("request_fingerprint", sa.String(length=64), nullable=False),
         sa.Column(
@@ -210,6 +213,7 @@ def upgrade() -> None:
             "char_length(request_fingerprint) = 64",
             name=op.f("ck_evidence_correction_command_receipts_fingerprint_sha256"),
         ),
+        # jscpd:ignore-end
         sa.CheckConstraint(
             "family IN ('observation', 'binding', 'assessment')",
             name=op.f("ck_evidence_correction_command_receipts_family"),

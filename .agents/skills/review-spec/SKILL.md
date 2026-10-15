@@ -481,7 +481,7 @@ Recover and validate the current `review-spec-finding-ledger:v1` **before** deci
 For every nonterminal Blocking `RF-*` row compare the complete current delta against that row's own invalidation boundary:
 
 ```text
-Prior finding: <RF-n>
+Prior finding: RF-<n>
 Boundary intersection: zero | non-zero | ambiguous
 Continuity state: carried-open | stale-review-required
 Evidence: <deterministic delta/authority witness>

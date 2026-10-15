@@ -141,7 +141,7 @@ EXPECTED_MODEL_FIELDS: dict[type[Any], frozenset[str]] = {
         """.split()
     ),
     DecisionMemoryCurrentState: frozenset(
-        "lifecycle_facts version relationship_history".split()
+        "lifecycle_facts version relationship_history version_support".split()
     ),
     DecisionMemoryView: MEMORY_COMMON_FIELDS | {"version"},
     DecisionMemoryTemporalView: MEMORY_COMMON_FIELDS,

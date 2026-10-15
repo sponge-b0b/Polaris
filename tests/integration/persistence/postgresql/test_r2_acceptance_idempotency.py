@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+# duplicate-code: receipt replay acceptance names its own command dependencies;
+# sharing another test's import scaffold would hide its proof boundary.
+# jscpd:ignore-start
 import asyncio
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
@@ -37,6 +40,7 @@ from polaris.domain.decisions import (
 )
 from polaris.infrastructure.persistence.postgresql import PostgresDecisionStore
 
+# jscpd:ignore-end
 from .conftest import PostgresTestTarget, postgres_engine_store
 
 START = datetime(2026, 9, 20, 7, 0, tzinfo=UTC)
@@ -46,6 +50,7 @@ ACTOR = KnownActorAttribution(ActorId(UUID("00000000-0000-4000-8000-000000000801
 # duplicate-code: this acceptance module keeps deterministic identity/envelope fixtures
 # local so receipt semantics remain independently executable at the product boundary.
 # arid: disable
+# jscpd:ignore-start
 def _uuid(value: int) -> UUID:
     return UUID(f"00000000-0000-4000-8000-{value:012x}")
 
@@ -112,6 +117,9 @@ async def _initiate(store: PostgresDecisionStore) -> InitiationResult:
     )
     # arid: enable
     return result
+
+
+# jscpd:ignore-end
 
 
 def test_r2_acceptance_operation_receipt_replays_after_restart_and_rejects_reuse(

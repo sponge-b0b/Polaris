@@ -62,6 +62,7 @@ ACTOR = KnownActorAttribution(ActorId(UUID("00000000-0000-4000-8000-000000000b01
 # duplicate-code: this acceptance proof owns its deterministic temporal fixture;
 # sharing it with other ticket proofs would couple independently diagnostic scenarios.
 # arid: disable
+# jscpd:ignore-start
 def _uuid(value: int) -> UUID:
     return UUID(f"00000000-0000-4000-8000-{value:012x}")
 
@@ -151,6 +152,9 @@ def _correction(
         replacement_disposition=disposition,
         replacement_basis=basis,
     )
+
+
+# jscpd:ignore-end
 
 
 # arid: enable

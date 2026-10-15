@@ -1430,6 +1430,27 @@ def _relationship_version_changes(
     return frozenset(changed)
 
 
+def relationship_version_changes_for_command(
+    existing_history: Iterable[DecisionRelationshipHistoryFact],
+    proposed_facts: Iterable[DecisionRelationshipHistoryFact],
+    *,
+    recording_boundary: datetime,
+) -> frozenset[InvestmentDecisionId]:
+    """Return endpoints whose protected meaning changes at one recording boundary."""
+    before = tuple(existing_history)
+    proposed = tuple(proposed_facts)
+    if not proposed or any(
+        fact.metadata.recorded_at != recording_boundary for fact in proposed
+    ):
+        raise InvalidDecisionRelationshipHistory(
+            "relationship version effect requires one recorded command"
+        )
+    post = (*before, *proposed)
+    by_id, parent = _history_maps(post)
+    groups = _changed_groups(proposed, by_id, parent)
+    return _relationship_version_changes(before, post, groups, recording_boundary)
+
+
 def _updated_decisions(
     touched: frozenset[InvestmentDecisionId],
     *,

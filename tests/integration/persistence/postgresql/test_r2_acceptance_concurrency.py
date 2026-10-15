@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+# duplicate-code: concurrency acceptance declares its own command dependencies;
+# sharing an import scaffold would hide which boundary this proof exercises.
+# jscpd:ignore-start
 import asyncio
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
@@ -37,6 +40,7 @@ from polaris.domain.decisions import (
 )
 from polaris.infrastructure.persistence.postgresql import PostgresDecisionStore
 
+# jscpd:ignore-end
 from .conftest import PostgresTestTarget, postgres_engine_store
 
 START = datetime(2026, 9, 20, 8, 0, tzinfo=UTC)
@@ -46,6 +50,7 @@ ACTOR = KnownActorAttribution(ActorId(UUID("00000000-0000-4000-8000-000000000901
 # duplicate-code: this acceptance module owns deterministic command fixtures locally;
 # sharing them across ticket-level acceptance proofs would couple independent scenarios.
 # arid: disable
+# jscpd:ignore-start
 def _uuid(value: int) -> UUID:
     return UUID(f"00000000-0000-4000-8000-{value:012x}")
 
@@ -139,6 +144,9 @@ def _revision(
     )
     # arid: enable
     return result
+
+
+# jscpd:ignore-end
 
 
 def test_r2_acceptance_stale_expected_version_fails_closed_after_restart(

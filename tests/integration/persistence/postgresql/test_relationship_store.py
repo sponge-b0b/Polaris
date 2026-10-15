@@ -82,6 +82,7 @@ from polaris.infrastructure.persistence.postgresql.schema import (
 )
 
 from .conftest import (
+    ConcurrentCandidateReadStore,
     PostgresTestTarget,
     corrupt_relationship_lineage_source,
     postgres_engine_store,
@@ -146,26 +147,6 @@ async def _create_decision(
         )
     )
     return result.decision_id
-
-
-# duplicate-code: relation falsifiers require local proof shape.
-# arid: disable
-class _ConcurrentCandidateReadStore(PostgresDecisionStore):
-    def __init__(self, engine: AsyncEngine, barrier: asyncio.Barrier) -> None:
-        super().__init__(engine)
-        self._barrier = barrier
-
-    async def find_unresolved_continuity_candidates(
-        self, *, known_at: datetime
-    ) -> tuple[InvestmentDecisionId, ...]:
-        candidates = await super().find_unresolved_continuity_candidates(
-            known_at=known_at
-        )
-        await self._barrier.wait()
-        return candidates
-
-
-# arid: enable
 
 
 async def _version(
@@ -380,6 +361,12 @@ def test_relationship_version_projection_drift_fails_closed(
                 recorded_at=relationship_at,
             )
             assert await _version(store, target, relationship_at) == DecisionVersion(2)
+            snapshot = await store.load_current_decision_state(
+                target, known_at=relationship_at
+            )
+            assert snapshot is not None
+            assert snapshot.version_support
+            assert snapshot.version_support[-1].after == DecisionVersion(2)
 
             async with engine.begin() as connection:
                 await connection.execute(
@@ -826,7 +813,7 @@ def test_ordinary_and_renewal_initiation_share_one_continuity_guard(
                 predecessor,
                 recorded_at=initiation_at - timedelta(minutes=30),
             )
-            concurrent = _ConcurrentCandidateReadStore(engine, asyncio.Barrier(2))
+            concurrent = ConcurrentCandidateReadStore(engine, asyncio.Barrier(2))
 
             ordinary_ids = iter((uuid4(), uuid4(), uuid4()))
             ordinary = DecisionInitiationService(

@@ -121,6 +121,7 @@ from .relationships import (
     reconcile_relationship_replay,
     relationship_correction,
     relationship_fact,
+    relationship_version_changes_for_command,
     renew_decision,
     require_determinate_relationship_applicability,
     validate_decision_lifecycle_lineage,
@@ -241,6 +242,7 @@ __all__ = [
     "reconcile_relationship_replay",
     "relationship_correction",
     "relationship_fact",
+    "relationship_version_changes_for_command",
     "renew_decision",
     "require_determinate_relationship_applicability",
 ]

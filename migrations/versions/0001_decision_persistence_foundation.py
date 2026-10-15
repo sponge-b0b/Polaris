@@ -157,8 +157,10 @@ def upgrade() -> None:
         sa.Column("lifecycle_sequence", sa.Integer(), nullable=False),
         sa.Column("decision_version", sa.Integer(), nullable=False),
         sa.Column("fact_kind", sa.String(length=48), nullable=False),
-        # duplicate-code: immutable DDL must remain revision-local.
+        # duplicate-code: lifecycle facts and needs freeze separate actor-column
+        # snapshots; sharing a constructor would couple their historical schema.
         # arid: disable
+        # jscpd:ignore-start
         sa.Column("operation_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("actor_attribution_kind", sa.String(length=16), nullable=False),
         sa.Column("actor_id", postgresql.UUID(as_uuid=True), nullable=True),
@@ -175,6 +177,7 @@ def upgrade() -> None:
             server_default=sa.text("'[]'::jsonb"),
             nullable=False,
         ),
+        # jscpd:ignore-end
         # arid: enable
         sa.Column("effective_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("recorded_at", sa.DateTime(timezone=True), nullable=False),
@@ -296,8 +299,10 @@ def upgrade() -> None:
             postgresql.UUID(as_uuid=True),
             nullable=True,
         ),
-        # duplicate-code: immutable DDL must remain revision-local.
+        # duplicate-code: relationship facts freeze their actor columns apart
+        # from lifecycle facts; a shared constructor would couple table history.
         # arid: disable
+        # jscpd:ignore-start
         sa.Column("operation_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("actor_attribution_kind", sa.String(length=16), nullable=False),
         sa.Column("actor_id", postgresql.UUID(as_uuid=True), nullable=True),
@@ -316,6 +321,7 @@ def upgrade() -> None:
         ),
         sa.Column("effective_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("recorded_at", sa.DateTime(timezone=True), nullable=False),
+        # jscpd:ignore-end
         # arid: enable
         sa.Column("correction_effect", sa.String(length=16), nullable=True),
         sa.Column(

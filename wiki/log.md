@@ -1,16 +1,97 @@
 # wiki/log.md
 
+## [2026-10-14] R3 Evidence entity registry | implemented boundary
+
+Marked Evidence `present` and added its domain and application routing anchors. Spec #357 introduced durable Evidence identity, bindings, correction, sufficiency, reconstruction, and current-basis implementation; the entity page already records the realized invariants. Concrete dependent writes remain planned in consuming Specs.
+
+## [2026-10-13] R3 Evidence fresh-basis revalidation | #381 Application seam
+
+Recorded the inward Evidence/Application capability for fresh atomic-basis revalidation. It verifies prior owner causes, reconstructs the prior basis, reads and verifies the complete fresh basis, and returns typed stale or no-basis outcomes. Concrete dependent writes and integrated atomic proof remain with consuming Specs.
+
+## [2026-10-11] R3 current Evidence drift classifier | #391 realized
+
+Added pure typed comparison of complete owner-attested current Evidence bases. It reports all attributable stale categories with changed positive references, broken negative guards, and prior/fresh owner-meaning witnesses, including lawful same-version Decision drift and independent Evidence fitness time drift. Application Use Cases and Evidence knowledge now reserve atomic dependent-write revalidation for the remaining command ticket.
+
+## [2026-10-11] R3 current Evidence owner meaning | #394 realized
+
+Current Evidence basis reads now retain verified governing Decision, target, claim, and selected-or-absent canonical-context meaning witnesses at the exact `T=K` boundary. The Decisions witness comes from concrete R2 history; downstream-owned target and context facts remain owner-port contracts. Invalid or mismatched proof yields typed no-basis results. Cross-read classification and dependent writes remain downstream.
+
+## [2026-10-10] R3 governing Decision temporal owner | #393 realized
+
+Added the Decisions owner reader that proves exact governing Decision meaning from complete R2 lifecycle and relationship history, including future-effective same-version transitions and future-only history validation. Updated Investment Decisions and Application Use Cases knowledge; carrying this witness in current Evidence bases remains downstream.
+
+## [2026-10-10] R3 typed owner meaning witness contract | partial ADR 0016 realization
+
+Recorded the inward owner-meaning proof contract for exact Decision, target, claim, and canonical-context subjects in Application Use Cases. Owner history verification and distinct no-basis outcomes are now explicit; concrete Decision attestation and current-basis assembly remain pending.
+
 ## [2026-10-10] R3 Evidence temporal current-basis meaning | owner proof and stale roles
 
 Accepted ADR 0016 to complete the in-domain same-version temporal-drift contract under ADRs 0013 and 0015. Authoritative owners must attest complete as-of meaning and lawful temporal cause at exact reads and atomic fresh revalidation; matching owner versions alone do not prove a basis is unchanged. Valid governing Decision drift maps to `DECISION_CHANGED`, independent Evidence time fitness remains `SUPPORT_CHANGED_BY_TIME`, and invalid or unavailable proof retains its distinct no-basis outcome. Updated Evidence, Application Use Cases, and Investment Decisions implementation-pending knowledge.
+
+## [2026-10-08] R3 current Evidence support basis | #380 scoped read realized
+
+Added an Application current-basis query that returns owner-attested Decision, judgment, context, claim, requirement, sufficiency, and Evidence support at exact `T=K`, with typed guards and fail-closed no-basis outcomes. PostgreSQL supplies complete exact target/scope/use Evidence histories in a repeatable-read snapshot. Updated Evidence, Application Use Cases, and Durable Persistence knowledge; dependent-command revalidation remains downstream.
+
+## [2026-10-08] R3 scope-local Evidence support epochs | #390 persistence and read boundary realized
+
+Extended the durable target/scope/use epoch beyond bindings and corrections to assessment/reassessment and bound observation succession commits. One typed inward read capability exposes the stored epoch without Decision identity; future-only or unrelated keys remain isolated. Updated Durable Persistence knowledge.
+
+## [2026-10-08] R3 canonical context version and selection contract | #389 owner boundary realized
+
+Added closed owner-specific context reference values, exact BasisScopeKey selection guards with owner-specific typed relationship and selection-universe witnesses, and an inward context owner-read boundary with complete role attestations and typed no-basis outcomes. Kept context fact ownership and current-basis assembly downstream. Updated Evidence and Application Use Cases knowledge.
+
+## [2026-10-07] R3 target-owner judgment version contract | #388 owner boundary realized
+
+Added the closed ten-family target judgment version values and an inward owner-read contract with explicit historical cutoffs and distinct fail-closed results. Evidence and Application consume owner-issued meaning without persisting downstream judgment facts or creating revisions. Updated Evidence and Application Use Cases knowledge; current-basis assembly remains downstream.
 
 ## [2026-10-07] R3 Evidence current-basis completion | owner versions and seven-category stale mapping
 
 Accepted ADR 0015 to complete target-owner judgment revisions and typed canonical-context version dependencies for exact current Evidence support bases. Target correction retains its root while new judgments receive new roots; materially used context versions and selection/absence guards are revalidated at commit. `StaleEvidenceBasis` keeps ADR 0013's seven categories: positive context drift belongs to `EVIDENCE_SUPPORT_CHANGED` with the exact typed changed reference. Updated Evidence, Application Use Cases, Durable Persistence, Investment Intelligence, Portfolio & Risk, Governance & Authority, and Learning knowledge; implementation and downstream Spec/ticket reconciliation remain pending.
 
+## [2026-10-06] R3 historical Decision Context and Evidence | #379 query realized
+
+Added a deep Application historical query with explicit Decision/typed target and `(effective_at, known_at)` inputs. It composes canonical Decision and target-owner context separately from observation, binding, and assessment correction histories, retains original derived assessment proof and requirement authority across correction/reassessment, separates retrospective later Evidence, and returns typed complete, partial, contested, invalid, unavailable, and temporal outcomes. PostgreSQL reads complete target Evidence histories within one repeatable-read snapshot. Updated Evidence, Application Use Cases, and Durable Persistence knowledge; current support bases and dependent command revalidation remain downstream.
+
+## [2026-10-05] R3 Evidence sufficiency-assessment correction | #387 contract realized
+
+Realized typed assessment `REVISE | RETRACT` lineage with immutable same-root history, derived complete replacement proof, independent sibling interpretation, and PostgreSQL restart reconstruction. Application excludes caller-authored assessment proof; persistence re-derives and checks authority, support, freshness, and absence at a fresh trusted commit instant before atomic append. Updated Evidence, Application Use Cases, and Durable Persistence knowledge; cross-root current/historical/current-basis queries remain downstream.
+
+## [2026-10-05] R3 Evidence binding correction | #386 contract realized
+
+Implemented typed append-only binding correction lineage with complete fixed-endpoint replacements, recursive restoration, contested sibling interpretation, exact replay, immutable PostgreSQL history, and correction-aware sufficiency support. Derived sufficiency proof preserves every surviving corrected binding assertion and its assessment-time freshness across persistence restart. Updated Evidence, Application Use Cases, and Durable Persistence knowledge; assessment correction and broader reconstruction remain downstream.
+
+## [2026-10-05] R3 Evidence observation correction lineage | #378 contract realized
+
+Implemented immutable append-only `REVISE | RETRACT` acts for Evidence observation roots with application-allocated correction identity, exact root or prior-correction targets, complete replacement assertions, Actor Attribution, basis, and temporal coordinates. The shared correction-reference foundation is ready for later family-specific paths. Observation interpretation reconstructs complete acyclic ancestry at `(effective_at, known_at)`, recursively restores the preceding branch, preserves independent siblings, coalesces equivalent assertions, and returns incompatible or positive/withdrawal support as `CONTESTED` without ordering-based selection. Application preserves exact replay and typed historical inspection; PostgreSQL preserves immutable observation history and receipts with atomic rollback, reference constraints, restart reconstruction, observation-correction-aware sufficiency basis, and affected-scope support epochs. Binding and sufficiency-assessment correction paths remain assigned to #386 and #387; broader Decision Context/current-support queries remain downstream.
+
+## [2026-10-03] R3 derived Evidence sufficiency | #377 contract realized
+
+Replaced caller-authored dispositions and support subsets with the Evidence-owned deterministic evaluator over the complete exact-key binding universe at explicit `(effective_at, known_at)`. Immutable assessments now preserve the exact requirement predicate and authority, distinct counted observations, every contributor and typed deficiency proof with fact/freshness support, both negative-witness families, a durable target/scope/use-local support epoch, and binding/correction/authority absence guards. Binding commits advance the immutable epoch for current support/provenance changes rather than deriving it from cardinality; future-only appends leave the current epoch unchanged. Application and PostgreSQL validate observation temporal coordinates and re-load and re-derive the complete basis under shared requirement/binding transaction locks before append; invalid Evidence history remains distinct from requirement authority and stale basis, and exact replay, rollback, restart, reassessment history, immutability, and concurrent distinct roots are covered. Evidence correction interpretation remains owned by #378.
+
+## [2026-10-03] R3 executable Evidence-sufficiency requirements | #385 contract realized
+
+Extended immutable Configuration requirement-set versions with the Evidence-owned executable `MinimumEligibleEvidence` predicate, closed eligible-role validation, explicit `REQUIRED | NOT_APPLICABLE` state, and exact negative witnesses derived only from resolved authority. PostgreSQL now round-trips the typed definition and defends its JSON shape in the committed migration lineage. This ticket establishes the requirement contract and witness foundation; Evidence selection, sufficiency evaluation, assessment persistence, and reconstruction remain assigned to downstream tickets.
+
 ## [2026-10-02] R3 Evidence sufficiency entailment | executable predicate and proof contract frozen
 
 Accepted ADR 0014 to close the in-domain Configuration-to-Evidence omission exposed during Spec #357 implementation. Configuration now supplies immutable typed `MinimumEligibleEvidence` values and explicit applicability authority while Evidence derives dispositions from the complete interpreted binding universe, counts distinct observations, preserves contributor and deficiency proof, and requires exact per-requirement or zero-definition negative witnesses. Commit-time assessment revalidation remains atomic across requirement authority, binding/correction history, support versions, temporal freshness, and relied-upon absence. Updated the affected Evidence, Configuration, Application Use Cases, and Durable Persistence knowledge; implementation remains pending.
+
+## [2026-10-01] R3 Evidence binding freshness | #376 contract realized
+
+Implemented historical Evidence-binding freshness evaluation against the exact Configuration-owned requirement version resolved at `(effective_at, known_at)`. Applicable bindings now preserve exact set/version/requirement identity, basis, and the closed `FRESH | STALE | INDETERMINATE` result; a resolved set with no freshness rule preserves an explicit set/version negative witness; and missing, unavailable, contested, and invalid authority remain distinct through PostgreSQL round trip. Actual historical reconstruction result emission, sufficiency, current-support bases, and atomic command revalidation remain assigned to downstream tickets.
+
+## [2026-09-30] R3 target-owned claim catalogs | #375 contract realized
+
+Implemented the shared target-owned claim-catalog contract for all ten admitted judgment families without introducing a generic Claim authority or downstream target judgment content. Complete positive catalog versions now preserve explicit claim formation, same-proposition identity continuity, fresh identity for material proposition changes and new roots, retraction without historical erasure, and typed `(effective_at, known_at)` membership outcomes. Evidence binding admission now validates claim-specific scope through the inward cross-owner resolver, exact retry preserves immutable historical endpoints, and PostgreSQL binding storage durably round-trips the dependent `ClaimId`. Broader reconstruction, target-domain judgment implementations, current-support bases, and atomic command revalidation remain with downstream tickets.
+
+## [2026-09-30] R3 Evidence judgment bindings | #374 partial contract realized
+
+Implemented durable judgment-wide Evidence binding roots over the accepted closed ten-family judgment target union with fixed observation/target/scope/use endpoints, independent six-role/five-use vocabularies, judgment-time `AVAILABLE | UNAVAILABLE | UNKNOWN` semantics, material-use gating, optional qualification, and complete typed freshness-authority/basis references without performing the later freshness evaluation. Application recording now provides operation-specific idempotency while preserving independently attributable duplicate endpoint tuples. Extended the greenfield PostgreSQL lineage with immutable binding/receipt storage, observation referential integrity, no semantic-tuple uniqueness, restart reconstruction, rollback proof, and migration round-trip coverage. Claim-specific admission, target-owned claim catalogs, freshness results, sufficiency, correction history, and broader Decision Context reconstruction remain planned for downstream tickets.
+
+
+## [2026-09-29] R3 Evidence requirement authority | #373 implementation realized
+
+Implemented Configuration-owned immutable Evidence requirement-set versions with application-allocated UUIDv4 identities, complete typed applicability, attributable authority/source and dual temporal boundaries, acyclic single-predecessor `CORRECTS | SUPERSEDES` history, hindsight-safe exact `(effective_at, known_at)` resolution, and distinct missing/contested/unavailable/invalid-authority outcomes. Realized the shared Evidence-owned closed ten-family judgment-reference union, dependent `ClaimId`, exact scope values, and fixed use vocabulary without implementing the binding roots or claim catalogs owned by downstream tickets. Added the inward Evidence requirements port plus replaceable PostgreSQL persistence, rollback/restart and migration-lifecycle proof, while keeping production contracts Portfolio/instrument-identity based rather than SPY-hard-coded. Marked Configuration `present` with its greenfield routing anchor and removed only its realized pending entry; broader Evidence, application reconstruction, and persistence plans remain pending for their downstream tickets.
 
 ## [2026-09-29] R3 Evidence contract completion | claims, requirement authority, and command basis frozen
 

@@ -78,6 +78,7 @@ ACTOR = KnownActorAttribution(ActorId(UUID("00000000-0000-4000-8000-000000000c01
 # initiation fixtures independently of lower-level domain/persistence tests; sharing
 # those helpers would couple product acceptance to another proof layer.
 # arid: disable
+# jscpd:ignore-start
 def _uuid(value: int) -> UUID:
     return UUID(f"00000000-0000-4000-8000-{value:012x}")
 
@@ -160,6 +161,9 @@ async def _version(
     state = await store.load_decision_for_command(decision_id, known_at=at)
     assert state is not None
     return state.decision.version
+
+
+# jscpd:ignore-end
 
 
 async def _resolve(

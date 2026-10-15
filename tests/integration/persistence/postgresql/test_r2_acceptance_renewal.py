@@ -73,6 +73,9 @@ def _ids(*values: int) -> Iterator[UUID]:
     yield from (_uuid(value) for value in values)
 
 
+# duplicate-code: renewal acceptance constructs its own envelope to prove
+# renewal timing without another transaction proof's setup.
+# jscpd:ignore-start
 def _technical(reference: str) -> TechnicalProvenance:
     return TechnicalProvenance(
         (
@@ -103,6 +106,9 @@ def _envelope(
         technical_provenance=_technical(reference),
         expected_versions=expected,
     )
+
+
+# jscpd:ignore-end
 
 
 # arid: enable

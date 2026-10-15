@@ -9,7 +9,7 @@ The pre-greenfield registry remains historical donor/reference material under `l
 | Entity | Category | Implementation | Routing Anchors | Summary |
 |---|---|---|---|---|
 | [Investment Decisions](entities/investment-decisions.md) | Domain | pending | — | First-class Investment Decision identity, lifecycle continuity, resolution, deferral, supersession, and renewal semantics. |
-| [Evidence](entities/evidence.md) | Domain | pending | — | Attributable Evidence identity, provenance, temporal fitness, sufficiency, and judgment-support bindings. |
+| [Evidence](entities/evidence.md) | Domain | present | `src/polaris/domain/evidence/`, `src/polaris/application/evidence/` | Attributable Evidence identity, provenance, temporal fitness, sufficiency, and judgment-support bindings. |
 | [Investment Intelligence](entities/investment-intelligence.md) | Domain | pending | — | Attributable investment hypotheses, views, uncertainty, alternatives, signals, recommendations, and proposed actions. |
 | [Portfolio & Risk](entities/portfolio-risk.md) | Domain | pending | — | Portfolio identity and state, exposure/allocation distinctions, projected consequences, Portfolio Risk, mandates, and deterministic constraints. |
 | [Governance & Authority](entities/governance-authority.md) | Domain | pending | — | Policy, admissibility, power-specific authority acts, human investment judgment, contestability, and residual-risk acceptance. |
@@ -22,7 +22,7 @@ The pre-greenfield registry remains historical donor/reference material under `l
 | [Background Work & Durable Follow-Up](entities/background-work-follow-up.md) | Infrastructure | pending | — | Scheduling, worker execution, and reliable post-commit asynchronous follow-up without business-identity ownership. |
 | [Observability & Technical Provenance](entities/observability-provenance.md) | Infrastructure | pending | — | Execution correlation, model/source call provenance, diagnostics, sanitation, and replaceable observability backends. |
 | [Security & Identity](entities/security-identity.md) | Infrastructure | pending | — | Authenticated actor context, application access control, secrets, and security mechanisms distinct from investment authority. |
-| [Configuration](entities/configuration.md) | Infrastructure | pending | — | Domain-facing product configuration and isolation of technical/provider configuration from business semantics. |
+| [Configuration](entities/configuration.md) | Infrastructure | present | `src/polaris/domain/configuration/` | Domain-facing product configuration and isolation of technical/provider configuration from business semantics. |
 | [Interfaces & Presentation](entities/interfaces-presentation.md) | Interfaces | pending | — | Thin human/machine surfaces over shared application commands, queries, and canonical decision truth. |
 
 ## Cross-Cutting Discovery

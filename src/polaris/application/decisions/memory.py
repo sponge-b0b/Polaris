@@ -26,6 +26,7 @@ from polaris.domain.decisions import (
     InvalidDecisionHistory,
     InvalidDecisionRelationshipHistory,
     InvestmentDecisionId,
+    OperationId,
     derive_relationship_applicability,
     interpret_relationship,
     reconstruct_decision,
@@ -79,12 +80,25 @@ class DecisionLineageView:
 
 
 @dataclass(frozen=True, slots=True)
+class DecisionVersionSupport:
+    """Durable relationship command evidence for one endpoint version."""
+
+    decision_id: InvestmentDecisionId
+    operation_id: OperationId
+    relationship_fact_ids: frozenset[DecisionRelationshipFactId]
+    before: DecisionVersion
+    after: DecisionVersion
+    recorded_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class DecisionMemoryCurrentState:
     """One coherent persistence-neutral Decision Memory current-read snapshot."""
 
     lifecycle_facts: tuple[DecisionLifecycleFact, ...]
     version: DecisionVersion
     relationship_history: tuple[DecisionRelationshipHistoryFact, ...]
+    version_support: tuple[DecisionVersionSupport, ...] = ()
 
     def __post_init__(self) -> None:
         if type(self.version) is not DecisionVersion:
@@ -98,6 +112,10 @@ class DecisionMemoryCurrentState:
             raise TypeError(
                 "relationship_history must contain Decision relationship facts"
             )
+        if type(self.version_support) is not tuple or any(
+            type(item) is not DecisionVersionSupport for item in self.version_support
+        ):
+            raise TypeError("version_support must contain typed support records")
 
 
 # duplicate-code: current and temporal query views are separate caller contracts even
@@ -147,7 +165,11 @@ class DecisionMemoryQueryReader(DecisionMemoryReader, Protocol):
         *,
         known_at: datetime,
     ) -> DecisionMemoryCurrentState | None:
-        """Return lifecycle, version, and relationships from one committed snapshot."""
+        """Return one committed snapshot with relationship version support.
+
+        Raise RelationshipHistoryIncomplete for absent required history or receipt
+        evidence; malformed relationship history uses the broader invalid error.
+        """
         ...
 
     async def load_decision_history(
@@ -170,8 +192,14 @@ class DecisionMemoryService:
         self._now = now or (lambda: datetime.now(UTC))
 
     async def current(self, decision_id: InvestmentDecisionId) -> DecisionMemoryView:
+        return await self.current_at(decision_id, at=self._now())
+
+    async def current_at(
+        self, decision_id: InvestmentDecisionId, *, at: datetime
+    ) -> DecisionMemoryView:
+        """Read a versioned Decision at an explicit current observation instant."""
         _decision_id(decision_id)
-        boundary = _boundary(self._now(), "now")
+        boundary = _boundary(at, "at")
         current = await _read(
             self._reader.load_current_decision_state(
                 decision_id,

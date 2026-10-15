@@ -105,7 +105,12 @@ from polaris.infrastructure.persistence.postgresql.schema import (
     investment_decisions,
 )
 
-from .conftest import PostgresTestTarget, postgres_engine_store, postgres_row_counts
+from .conftest import (
+    ConcurrentCandidateReadStore,
+    PostgresTestTarget,
+    postgres_engine_store,
+    postgres_row_counts,
+)
 
 RECORDED_AT = datetime(2026, 9, 17, 5, 0, tzinfo=UTC)
 ACTOR_ID = UUID("00000000-0000-4000-8000-000000000001")
@@ -217,21 +222,6 @@ class _StaleCandidateReadStore(PostgresDecisionStore):
     ) -> tuple[InvestmentDecisionId, ...]:
         del known_at
         return ()
-
-
-class _ConcurrentCandidateReadStore(PostgresDecisionStore):
-    def __init__(self, engine: AsyncEngine, barrier: asyncio.Barrier) -> None:
-        super().__init__(engine)
-        self._barrier = barrier
-
-    async def find_unresolved_continuity_candidates(
-        self, *, known_at: datetime
-    ) -> tuple[InvestmentDecisionId, ...]:
-        candidates = await super().find_unresolved_continuity_candidates(
-            known_at=known_at
-        )
-        await self._barrier.wait()
-        return candidates
 
 
 async def _initiate(
@@ -2368,7 +2358,7 @@ def test_concurrent_different_operations_create_at_most_one_decision_and_need(
             schema=postgres_target.schema,
         )
         # arid: enable
-        store = _ConcurrentCandidateReadStore(engine, asyncio.Barrier(2))
+        store = ConcurrentCandidateReadStore(engine, asyncio.Barrier(2))
         shared_need_id = UUID("00000000-0000-4000-8000-000000000010")
 
         def service(*, decision_id: UUID, fact_id: UUID) -> DecisionInitiationService:

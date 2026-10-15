@@ -71,6 +71,7 @@ ACTOR = KnownActorAttribution(ActorId(UUID("00000000-0000-4000-8000-000000001401
 # duplicate-code: this ticket-level acceptance proof owns deterministic identity,
 # provenance, and command construction independently of lower-level persistence tests.
 # arid: disable
+# jscpd:ignore-start
 def _uuid(value: int) -> UUID:
     return UUID(f"00000000-0000-4000-8000-{value:012x}")
 
@@ -145,6 +146,12 @@ async def _create_decision(
     return result.decision_id
 
 
+# jscpd:ignore-end
+
+
+# duplicate-code: lineage readback owns its version lookup and predecessor
+# resolution setup; sharing with supersession proof would couple their checks.
+# jscpd:ignore-start
 async def _version(
     store: PostgresDecisionStore,
     decision_id: InvestmentDecisionId,
@@ -183,6 +190,9 @@ async def _resolve(
             ),
         )
     )
+
+
+# jscpd:ignore-end
 
 
 async def _renew(

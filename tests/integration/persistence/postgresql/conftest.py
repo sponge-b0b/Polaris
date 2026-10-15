@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import os
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from datetime import datetime
 from uuid import uuid4
 
 import pytest
@@ -32,17 +33,43 @@ class PostgresTestTarget:
     schema: str
 
 
+class ConcurrentCandidateReadStore(PostgresDecisionStore):
+    """Pause candidate discovery after its read for concurrent-write proofs."""
+
+    def __init__(self, engine: AsyncEngine, barrier: asyncio.Barrier) -> None:
+        super().__init__(engine)
+        self._barrier = barrier
+
+    async def find_unresolved_continuity_candidates(
+        self, *, known_at: datetime
+    ) -> tuple[InvestmentDecisionId, ...]:
+        candidates = await super().find_unresolved_continuity_candidates(
+            known_at=known_at
+        )
+        await self._barrier.wait()
+        return candidates
+
+
+@asynccontextmanager
+async def postgres_store[StoreT](
+    target: PostgresTestTarget,
+    store_type: Callable[[AsyncEngine], StoreT],
+) -> AsyncIterator[tuple[AsyncEngine, StoreT]]:
+    engine = create_postgres_engine(target.database_url, schema=target.schema)
+    try:
+        yield engine, store_type(engine)
+    finally:
+        await engine.dispose()
+
+
 @asynccontextmanager
 async def postgres_engine_store(
     target: PostgresTestTarget,
     *,
     store_type: type[PostgresDecisionStore] = PostgresDecisionStore,
 ) -> AsyncIterator[tuple[AsyncEngine, PostgresDecisionStore]]:
-    engine = create_postgres_engine(target.database_url, schema=target.schema)
-    try:
-        yield engine, store_type(engine)
-    finally:
-        await engine.dispose()
+    async with postgres_store(target, store_type) as pair:
+        yield pair
 
 
 async def postgres_row_counts(

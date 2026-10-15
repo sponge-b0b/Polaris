@@ -81,6 +81,9 @@ PORTFOLIO_A = PortfolioId(UUID("00000000-0000-4000-8000-000000000102"))
 PORTFOLIO_B = PortfolioId(UUID("00000000-0000-4000-8000-000000000103"))
 
 
+# duplicate-code: core lifecycle acceptance builds deterministic identities and
+# envelopes locally so other acceptance scenarios cannot define its inputs.
+# jscpd:ignore-start
 def _uuid(value: int) -> UUID:
     return UUID(f"00000000-0000-4000-8000-{value:012x}")
 
@@ -119,6 +122,9 @@ def _envelope(
         technical_provenance=_technical(reference),
         expected_versions=expected,
     )
+
+
+# jscpd:ignore-end
 
 
 async def _initiate(

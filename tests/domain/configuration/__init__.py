@@ -1,0 +1,1 @@
+"""Configuration-domain contract tests."""

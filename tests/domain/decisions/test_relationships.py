@@ -687,6 +687,9 @@ def test_renewal_rejects_unresolved_predecessor_at_episode_start():
     predecessor = initiate()
     operation = OperationId(uuid4())
     new_id = InvestmentDecisionId(uuid4())
+    # duplicate-code: this rejection builds a fresh episode explicitly so the
+    # unresolved predecessor is the sole falsifier, independent of success setup.
+    # jscpd:ignore-start
     initiation = lifecycle_mutation(20, operation_id=operation)
     need = DecisionNeed(
         DecisionNeedId(uuid4()),
@@ -705,6 +708,7 @@ def test_renewal_rejects_unresolved_predecessor_at_episode_start():
         relationship_basis=RenewedFromRelationshipBasis(["renewal"]),
         mutation=relationship_mutation(20, operation_id=operation),
     )
+    # jscpd:ignore-end
     with pytest.raises(DecisionRelationshipAdmissionRejected):
         renew_decision(
             existing_relationship_history=(),
@@ -1054,6 +1058,7 @@ def test_relationship_metadata_keeps_actor_trigger_and_technical_provenance_sepa
 # QUALIFY shape used at command admission so the test proves immutable-history
 # validation independently of command validation.
 # arid: disable
+# jscpd:ignore-start
 def test_raw_history_rejects_qualify_basis_for_wrong_relationship_type():
     source = initiate()
     target = initiate()
@@ -1069,6 +1074,9 @@ def test_raw_history_rejects_qualify_basis_for_wrong_relationship_type():
     )
     with pytest.raises(InvalidDecisionRelationshipBasis):
         query((base, correction), source, target, 10)
+
+
+# jscpd:ignore-end
 
 
 # arid: enable

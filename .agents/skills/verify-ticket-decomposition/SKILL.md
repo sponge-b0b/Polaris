@@ -48,11 +48,12 @@ Architecture/design source inventory: <durable source identities + anchors + dis
 Normative source-unit / ARCHSRC routing: <IDs + source anchors + dispositions>
 Parent semantic-carry evidence: <compact rows/pointers>
 Parent semantic-consumer impact evidence: <None | compact changed-invariant/consumer rows when remediation or changed authority makes it applicable>
+Parent remediation root-slice necessity evidence: <None | per-root necessity witness returned by $to-remediation-tickets when Mode: remediation>
 Parent Context-Fit Manifest: <per-ticket scenario/domain/modality/proof-family summary + disposition>
 Design-delegation result: <compact rows/pointers>
 ```
 
-The packet locates authority efficiently. It does not establish that the source universe, routing, consumer propagation, or carry is correct.
+The packet locates authority efficiently. It does not establish that the source universe, routing, consumer propagation, root-slice necessity, or carry is correct.
 
 Missing, contradictory, or candidate-mismatched dispatch state invalidates verification. A stale persisted parent TCM also invalidates verification except in a substantive remediation where `$to-tickets` explicitly carries that stale TCM as pre-publication state, the exact proposed parent coverage candidate is part of the frozen proposal, and that candidate repairs the identity to the bound current Spec contract. In that bounded case, the persisted stale TCM is an input to be repaired rather than evidence of candidate mismatch.
 
@@ -181,9 +182,27 @@ For every proposed implementation/remediation ticket, independently derive the s
 * required proof modalities or runtime/service boundaries;
 * proof/invalidation families that require materially different evidence.
 
+First apply the mode-specific slice boundary:
+
+* `Mode: fresh` — use the ordinary tracer-bullet green-intermediate-state rule below.
+* `Mode: remediation` — the stable Root Blocker is the primary slice boundary. The verifier must independently challenge the parent's per-root remediation necessity witness. A same-root split into multiple remediation tickets is valid only when a concrete independently necessary stage, pre-existing dependency, authority boundary, or genuinely unavoidable fresh-context/proof boundary makes one root-complete ticket infeasible. The mere fact that symptom subsets, test families, files, or proof facets can each reach a green intermediate state is **not** a split justification. Dependency edges introduced only by the proposed split are not evidence that the split was independently necessary.
+
+For every unresolved remediation root derive:
+
+```text
+Root: RB-<n>
+Proposed remediation tickets: <n>
+Single root-complete ticket feasible: yes | no
+Independently necessary split boundaries: <None | exact dependency / authority / unavoidable stage or context/proof boundary>
+Symptom/proof-facet-only split: yes | no
+```
+
+If `Mode: remediation`, more than one proposed ticket for one root must FAIL as `oversliced-remediation` when `Single root-complete ticket feasible: yes`, when no independently necessary split boundary is established, or when the split is only by symptom/proof facet. Do not manufacture necessity from the proposal's own synthetic blocker edges.
+
 Then challenge the proposed slice:
 
-* if two subsets can each be implemented and semantically verified while leaving a green intermediate state, require separate tracer bullets unless durable authority requires atomic co-delivery;
+* for `Mode: fresh`, if two subsets can each be implemented and semantically verified while leaving a green intermediate state, require separate tracer bullets unless durable authority requires atomic co-delivery;
+* for `Mode: remediation`, do not apply that rule independently of the Root Blocker boundary; independently green subsets remain one remediation ticket when one fresh implementation context can remediate and prove the complete root;
 * do not infer small scope from file count, line count, a single test module, or absence of production-code changes;
 * do not multiply complexity merely because one semantic predicate carries several provenance IDs; equivalent authority may map to one scenario family;
 * conversely, do not hide several lifecycle transitions, authority boundaries, failure families, temporal modes, or correction paths inside one broad acceptance criterion and count them as one family;
@@ -204,6 +223,11 @@ Oversized tickets: 0
 Ambiguous context-fit dispositions: 0
 Durable ticket `Context fit` fields matching verifier disposition: <n>/<n>
 Mismatched/missing durable Context-fit fields: 0
+Remediation roots assessed: <n | not-applicable>
+Multi-ticket remediation roots: <n | not-applicable>
+Multi-ticket remediation roots with necessity proof: <n>/<n | not-applicable>
+Oversliced-remediation roots: 0
+Symptom/proof-facet-only root splits: 0
 ```
 
 ## Verdict
@@ -224,6 +248,7 @@ Spec-cell identity: exact; source <n>; manifest <n>; missing 0; extra 0
 Semantic consumers: candidates <n>; applicable <n>; accounted <n>/<n>; missing 0; ambiguous 0; untraced ownership handoffs 0
 Semantic carry: complete; incomplete 0; ambiguous 0
 Context fit: one-window <n>; validated indivisible two-window exceptions <n>; oversized 0; ambiguous 0; durable fields matched <n>/<n>
+Remediation slicing: roots <n | not-applicable>; multi-ticket <n | not-applicable>; necessity-proven <n>/<n | not-applicable>; oversliced 0; symptom-only 0
 Design delegation: 0
 Dependency/slice semantic defects: 0
 Findings: 0
@@ -238,7 +263,7 @@ Mode: fresh | remediation
 Source state identity: <identity/hash>
 Proposal identity: <sha256>
 Findings:
-1. Classification: missing-source | invented-source-cell | missing-predicate | incomplete-carry | misrouted | consumer-omission | dependency-safety | oversized-slice | design-delegation | contradiction
+1. Classification: missing-source | invented-source-cell | missing-predicate | incomplete-carry | misrouted | consumer-omission | dependency-safety | oversized-slice | oversliced-remediation | design-delegation | contradiction
    Governing source: <durable source + anchor>
    Authoritative requirement: <compact requirement>
    Affected proposal element: <ticket/manifest/dependency>

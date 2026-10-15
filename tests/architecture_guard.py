@@ -51,6 +51,7 @@ TECHNICAL_IDS = {
     "modelidentifier",
     "nodeid",
     "nodeidentifier",
+    "operationid",
     "outputid",
     "outputidentifier",
     "reportid",
@@ -66,6 +67,17 @@ TECHNICAL_IDS = {
     "workflowid",
     "workflowidentifier",
 }
+EVIDENCE_IDENTITIES = {
+    "evidenceobservationid": "ARCH-EVIDENCE-IDENTITY",
+    "evidencebindingid": "ARCH-EVIDENCE-IDENTITY",
+    "evidencesufficiencyassessmentid": "ARCH-EVIDENCE-IDENTITY",
+    "evidencecorrectionid": "ARCH-EVIDENCE-IDENTITY",
+    "observationid": "ARCH-EVIDENCE-IDENTITY",
+    "bindingid": "ARCH-EVIDENCE-IDENTITY",
+    "assessmentid": "ARCH-EVIDENCE-IDENTITY",
+    "correctionid": "ARCH-EVIDENCE-IDENTITY",
+}
+EVIDENCE_TARGET_FIELDS = ({"kind", "id"}, {"target_kind", "target_id"})
 LOADERS = {
     "__import__",
     "importlib.import_module",
@@ -166,6 +178,10 @@ class _Guard(ast.NodeVisitor):
         self.identity_binding_scopes: list[dict[str, bool]] = [{}]
         self.in_investment_decision = False
         self.in_investment_decision_class_body = False
+        self.in_evidence_identity_class_body = False
+        self.evidence_contract = self.source.startswith(
+            ("src/polaris/domain/evidence/", "src/polaris/application/evidence/")
+        )
         self.violations: list[Violation] = []
 
     def fail(self, node: ast.AST, rule: str, detail: str) -> None:
@@ -249,12 +265,9 @@ class _Guard(ast.NodeVisitor):
 
     def visit_assign(self, node: ast.Assign) -> None:
         names = [target.id for target in node.targets if isinstance(target, ast.Name)]
-        if any(_decision_name(name) for name in names):
-            self._check_identity(node, "InvestmentDecisionId", node.value)
-        if self.in_investment_decision_class_body and "id" in {
-            _norm(name) for name in names
-        }:
-            self._check_identity(node, "InvestmentDecision.id", node.value)
+        for name in names:
+            if self._guarded_identity(name):
+                self._check_identity(node, name, node.value)
         if len(names) == 1:
             self._bind_identity_name(names[0], self._identity_technical(node.value))
         self.generic_visit(node)
@@ -266,19 +279,10 @@ class _Guard(ast.NodeVisitor):
     def visit_ann_assign(self, node: ast.AnnAssign) -> None:
         name = node.target.id if isinstance(node.target, ast.Name) else None
         if name is not None:
-            if _decision_name(name):
+            if self._guarded_identity(name):
                 self._check_identity(node, name, node.annotation)
                 if node.value is not None:
                     self._check_identity(node, name, node.value)
-
-            if self.in_investment_decision_class_body and _norm(name) == "id":
-                self._check_identity(node, "InvestmentDecision.id", node.annotation)
-                if node.value is not None:
-                    self._check_identity(
-                        node,
-                        "InvestmentDecision.id",
-                        node.value,
-                    )
 
             if node.value is not None:
                 self._bind_identity_name(
@@ -294,15 +298,21 @@ class _Guard(ast.NodeVisitor):
     def visit_arg(self, node: ast.arg) -> None:
         self._mask_runtime_name(node.arg)
         self._bind_literal_name(node.arg, None)
-        if _decision_name(node.arg) and node.annotation is not None:
+        if (
+            _identity_rule(node.arg, self.evidence_contract)
+            and node.annotation is not None
+        ):
             self._check_identity(node, node.arg, node.annotation)
         self.generic_visit(node)
 
     def _visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         previous_class_body = self.in_investment_decision_class_body
+        previous_evidence_class_body = self.in_evidence_identity_class_body
         self.in_investment_decision_class_body = False
+        self.in_evidence_identity_class_body = False
         self._visit_scope(node, node.body)
         self.in_investment_decision_class_body = previous_class_body
+        self.in_evidence_identity_class_body = previous_evidence_class_body
         self._mask_runtime_name(node.name)
         self._bind_identity_name(node.name, False)
         self._bind_literal_name(node.name, None)
@@ -316,19 +326,37 @@ class _Guard(ast.NodeVisitor):
     def visit_class_def(self, node: ast.ClassDef) -> None:
         class_is_technical = any(self._identity_technical(base) for base in node.bases)
 
-        if _decision_name(node.name):
+        if _identity_rule(node.name, self.evidence_contract):
             for base in node.bases:
                 self._check_identity(node, node.name, base)
 
+        if self.evidence_contract and _generic_evidence_target(node):
+            self.fail(
+                node,
+                "ARCH-EVIDENCE-TARGET-GRAPH",
+                f"{node.name} introduces a generic Evidence target kind/id graph",
+            )
+
         previous_flag = self.in_investment_decision
         previous_class_body = self.in_investment_decision_class_body
+        previous_evidence_class_body = self.in_evidence_identity_class_body
         previous_ids = self.technical_ids
         self.in_investment_decision = _norm(node.name) == "investmentdecision"
         self.in_investment_decision_class_body = self.in_investment_decision
+        self.in_evidence_identity_class_body = self.evidence_contract and _norm(
+            node.name
+        ) in {
+            "evidenceobservation",
+            "evidencebinding",
+            "evidencesufficiencyassessment",
+            "evidencecorrection",
+            *EVIDENCE_IDENTITIES.keys(),
+        }
         if self.in_investment_decision:
             self.technical_ids = _technical_names(node.body, previous_ids)
         self._visit_scope(node, node.body)
         self.in_investment_decision_class_body = previous_class_body
+        self.in_evidence_identity_class_body = previous_evidence_class_body
         self.in_investment_decision = previous_flag
         self.technical_ids = previous_ids
         self._mask_runtime_name(node.name)
@@ -373,10 +401,8 @@ class _Guard(ast.NodeVisitor):
 
     def visit_type_alias(self, node: ast.TypeAlias) -> None:
         name = node.name.id
-        if _decision_name(name):
+        if self._guarded_identity(name):
             self._check_identity(node, name, node.value)
-        if self.in_investment_decision_class_body and _norm(name) == "id":
-            self._check_identity(node, "InvestmentDecision.id", node.value)
         self._bind_identity_name(name, self._identity_technical(node.value))
         self._bind_literal_name(name, None)
         self.generic_visit(node)
@@ -447,17 +473,32 @@ class _Guard(ast.NodeVisitor):
         self._bind_identity_name(bound, _technical_import(target))
         imported = ast.Name(id=bound, ctx=ast.Load())
 
-        if _decision_name(bound):
+        if self._guarded_identity(bound):
             self._check_identity(node, bound, imported)
 
-        if self.in_investment_decision_class_body and _norm(bound) == "id":
-            self._check_identity(node, "InvestmentDecision.id", imported)
+    def _guarded_identity(self, name: str) -> bool:
+        return bool(_identity_rule(name, self.evidence_contract)) or (
+            (
+                self.in_investment_decision_class_body
+                or self.in_evidence_identity_class_body
+            )
+            and _norm(name) in {"id", "value"}
+        )
 
     def _check_identity(self, node: ast.AST, name: str, value: ast.AST) -> None:
         if self._identity_technical(value):
+            rule = (
+                "ARCH-EVIDENCE-IDENTITY"
+                if self.evidence_contract
+                and (
+                    _norm(name) in EVIDENCE_IDENTITIES
+                    or self.in_evidence_identity_class_body
+                )
+                else "ARCH-DECISION-IDENTITY"
+            )
             self.fail(
                 node,
-                "ARCH-DECISION-IDENTITY",
+                rule,
                 f"{name} uses technical identity {ast.unparse(value)!r}",
             )
 
@@ -598,7 +639,7 @@ def _from_module(package: str | None, node: ast.ImportFrom) -> str:
             "." * node.level + (node.module or ""),
             package,
         )
-    except (ImportError, ValueError):
+    except ImportError, ValueError:
         return node.module or ""
 
 
@@ -719,6 +760,31 @@ def _legacy_literal(node: ast.Call, bindings: dict[str, str | None]) -> str | No
 
 def _decision_name(name: str) -> bool:
     return _norm(name) in {"decisionid", "investmentdecisionid"}
+
+
+def _identity_rule(name: str, evidence_contract: bool) -> str | None:
+    if _decision_name(name):
+        return "ARCH-DECISION-IDENTITY"
+    if evidence_contract:
+        return EVIDENCE_IDENTITIES.get(_norm(name))
+    return None
+
+
+def _generic_evidence_target(node: ast.ClassDef) -> bool:
+    fields = {
+        statement.target.id
+        for statement in node.body
+        if isinstance(statement, ast.AnnAssign)
+        and isinstance(statement.target, ast.Name)
+    }
+    fields.update(
+        target.id
+        for statement in node.body
+        if isinstance(statement, ast.Assign)
+        for target in statement.targets
+        if isinstance(target, ast.Name)
+    )
+    return any(pair <= fields for pair in EVIDENCE_TARGET_FIELDS)
 
 
 def _join(left: str, right: str) -> str:

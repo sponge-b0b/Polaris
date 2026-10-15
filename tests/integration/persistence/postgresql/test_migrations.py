@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
+import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import text
@@ -44,6 +45,12 @@ CORRECTION_TABLE_NAMES = {
     "evidence_assessment_corrections",
     "evidence_correction_command_receipts",
 }
+EVIDENCE_IDENTITY_COLUMNS = (
+    ("evidence_observations", "observation_id"),
+    ("evidence_bindings", "binding_id"),
+    ("evidence_sufficiency_assessments", "assessment_id"),
+    ("evidence_correction_identities", "correction_id"),
+)
 # arid: enable
 
 
@@ -114,6 +121,17 @@ async def _column_default(
             )
     finally:
         await engine.dispose()
+
+
+async def _assert_application_allocated_evidence_identities(
+    target: PostgresTestTarget,
+) -> None:
+    column_types = await _identity_column_types(target)
+    for table_name, column_name in EVIDENCE_IDENTITY_COLUMNS:
+        assert column_types.get((table_name, column_name)) == "uuid"
+        assert await _column_default(target, table_name, column_name) is None, (
+            f"{table_name}.{column_name} has a server-generated default"
+        )
 
 
 async def _column_names(
@@ -226,21 +244,7 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
     for (_, column_name), data_type in column_types.items():
         assert data_type == ("int8" if column_name == "row_id" else "uuid")
 
-    for table_name, column_name in (
-        ("evidence_observations", "observation_id"),
-        ("evidence_bindings", "binding_id"),
-        ("evidence_sufficiency_assessments", "assessment_id"),
-    ):
-        assert (
-            asyncio.run(
-                _column_default(
-                    postgres_target,
-                    table_name,
-                    column_name,
-                )
-            )
-            is None
-        )
+    asyncio.run(_assert_application_allocated_evidence_identities(postgres_target))
 
     relationship_columns = asyncio.run(
         _column_names(postgres_target, "investment_decision_relationships")
@@ -263,6 +267,33 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
         "freshness_failure_reason",
         "freshness_contested_version_ids",
     } <= binding_columns
+
+
+@pytest.mark.parametrize(("table_name", "column_name"), EVIDENCE_IDENTITY_COLUMNS)
+def test_evidence_public_identity_server_default_fails(
+    postgres_target: PostgresTestTarget,
+    table_name: str,
+    column_name: str,
+) -> None:
+    engine = create_postgres_engine(
+        postgres_target.database_url, schema=postgres_target.schema
+    )
+
+    async def introduce_default() -> None:
+        try:
+            async with engine.begin() as connection:
+                await connection.execute(
+                    text(
+                        f'ALTER TABLE "{postgres_target.schema}"."{table_name}" '
+                        f'ALTER COLUMN "{column_name}" SET DEFAULT gen_random_uuid()'
+                    )
+                )
+        finally:
+            await engine.dispose()
+
+    asyncio.run(introduce_default())
+    with pytest.raises(AssertionError, match="server-generated default"):
+        asyncio.run(_assert_application_allocated_evidence_identities(postgres_target))
 
 
 def test_binding_migration_preserves_canonical_constraint_names(

@@ -25,6 +25,129 @@ def test_current_greenfield_repository_satisfies_architecture_rules() -> None:
     assert not violations, "\n".join(item.render() for item in violations)
 
 
+def _mutated_evidence_source(root: Path, relative: str, source: str) -> None:
+    path = root / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(source, encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    ("relative", "class_name", "fields"),
+    [
+        (
+            "src/polaris/domain/evidence/judgments.py",
+            "EvidenceTargetRef",
+            "kind: str\n    id: str",
+        ),
+        (
+            "src/polaris/domain/evidence/judgments.py",
+            "GenericRef",
+            "kind: str\n    id: str",
+        ),
+        (
+            "src/polaris/application/evidence/contracts.py",
+            "EvidenceTargetRef",
+            "target_kind: str\n    target_id: str",
+        ),
+        (
+            "src/polaris/application/evidence/contracts.py",
+            "GenericRef",
+            "target_kind: str\n    target_id: str",
+        ),
+    ],
+)
+def test_parallel_generic_evidence_target_graph_fails(
+    tmp_path: Path,
+    relative: str,
+    class_name: str,
+    fields: str,
+) -> None:
+    original = (REPO_ROOT / relative).read_text(encoding="utf-8")
+    union_relative = "src/polaris/domain/evidence/judgments.py"
+    union_source = (REPO_ROOT / union_relative).read_text(encoding="utf-8")
+    assert "type EvidenceJudgmentRef = (" in union_source
+    if relative != union_relative:
+        _mutated_evidence_source(tmp_path, union_relative, union_source)
+    _mutated_evidence_source(
+        tmp_path,
+        relative,
+        original
+        + f"\nclass {class_name}:\n    {fields}\n"
+        + f"\nclass ParallelEvidenceBinding:\n    generic_target: {class_name}\n",
+    )
+    assert "ARCH-EVIDENCE-TARGET-GRAPH" in _rules(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("identity", "field"),
+    [
+        ("EvidenceObservationId", "observation_id"),
+        ("EvidenceBindingId", "binding_id"),
+        ("EvidenceSufficiencyAssessmentId", "assessment_id"),
+        ("EvidenceCorrectionId", "correction_id"),
+    ],
+)
+@pytest.mark.parametrize("technical_type", ["RunId", "OperationId"])
+def test_evidence_id_class_alias_and_field_reject_technical_identity(
+    tmp_path: Path,
+    identity: str,
+    field: str,
+    technical_type: str,
+) -> None:
+    relative = "src/polaris/domain/evidence/observations.py"
+    original = (REPO_ROOT / relative).read_text(encoding="utf-8")
+    assert f"class {identity}:" in original
+    with_technical_type = original.replace(
+        "class EvidenceError",
+        f"class {technical_type}: pass\n\nclass EvidenceError",
+        1,
+    )
+    mutations = (
+        with_technical_type.replace(
+            f"class {identity}:", f"class {identity}({technical_type}):", 1
+        ),
+        original + f"\nclass {technical_type}: pass\n{identity} = {technical_type}\n",
+        original
+        + f"\nclass {technical_type}: pass\n"
+        + f"class EvidenceRecord:\n    {field}: {technical_type}\n",
+        with_technical_type.replace(
+            f"class {identity}:\n    value: UUID",
+            f"class {identity}:\n    value: {technical_type}",
+            1,
+        ),
+    )
+    for index, source in enumerate(mutations):
+        case_root = tmp_path / str(index)
+        _mutated_evidence_source(case_root, relative, source)
+        assert "ARCH-EVIDENCE-IDENTITY" in _rules(case_root)
+
+
+@pytest.mark.parametrize(
+    ("relative", "mutation", "rule"),
+    [
+        (
+            "src/polaris/domain/evidence/observations.py",
+            "class WorkflowId: pass\ntype EvidenceCorrectionId = WorkflowId",
+            "ARCH-EVIDENCE-IDENTITY",
+        ),
+        (
+            "src/polaris/domain/evidence/judgments.py",
+            "from legacy.v0_1.evidence import GenericTarget",
+            "ARCH-LEGACY",
+        ),
+    ],
+)
+def test_actual_evidence_source_rejects_alias_or_legacy_dependency(
+    tmp_path: Path,
+    relative: str,
+    mutation: str,
+    rule: str,
+) -> None:
+    original = (REPO_ROOT / relative).read_text(encoding="utf-8")
+    _mutated_evidence_source(tmp_path, relative, original + f"\n{mutation}\n")
+    assert rule in _rules(tmp_path)
+
+
 LAYER_PATHS = {
     "domain": "src/polaris/domain/decisions/model.py",
     "application": "src/polaris/application/use_cases/run.py",

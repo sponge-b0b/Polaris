@@ -251,14 +251,17 @@ Use one deterministic batched command path per authorized reconciliation:
 validate supplied projections
 → resolve Project once
 → read schema once
-→ read affected current rows once
-→ add only missing members
+→ read affected current rows once on the normal path
+→ add only missing members, with at most one state-reconciled recovery pass for a recoverable membership write failure
+→ establish the current post-membership row snapshot
 → compute one complete deterministic field-delta plan
 → submit that plan through one or more deterministic bounded GraphQL batches
 → verify affected rows once
 ```
 
 A bounded GraphQL batch is still part of the same reconciliation path and uses the same `gh api graphql` interface. Chunking exists only to stay below GitHub GraphQL resource limits; it does not authorize recomputing semantic projections, changing interfaces, or retrying individual fields.
+
+The **Missing Membership** recovery in Section 3 is the only same-invocation retry exception. It is state-reconciled rather than blind: re-read current Project membership first, recompute the still-missing set, and retry only that set through the same prescribed `gh project item-add` interface. It does not authorize retries for field-delta batches, alternate interfaces, semantic recomputation, or open-ended polling/replay loops.
 
 Do **not**:
 
@@ -337,7 +340,7 @@ Validate only the fields/options required by the supplied projections. Do not in
 
 ## 3. Read Affected Current Rows Once
 
-Read Project items once for all supplied artifacts:
+Read Project items once for all supplied artifacts on the normal path:
 
 ```bash
 gh project item-list "$PROJECT_NUMBER" \
@@ -359,11 +362,13 @@ Do not add `--format json` to this command on `gh 2.97.0`.
 
 Locate each supplied artifact by repository + issue number/URL and capture its current required field values and Project item node ID when present.
 
+The bounded Missing Membership recovery below may repeat this exact read once to reconcile an ambiguous/failed membership write before retry, and once after successful recovery additions to establish the post-membership snapshot. Those reads are part of the same reconciliation and do not authorize broader Project rediscovery.
+
 ### Missing Membership
 
 Missing formal-artifact membership is expected when projection has been deferred.
 
-If an artifact is absent, add it once:
+For each artifact absent from the initial current-row snapshot, attempt the prescribed membership add once, in deterministic supplied-artifact order:
 
 ```bash
 gh project item-add "$PROJECT_NUMBER" \
@@ -374,7 +379,20 @@ gh project item-add "$PROJECT_NUMBER" \
 
 Capture the returned item ID when available.
 
-If any item was added, rerun the affected-row read once after all additions so every target has a current item ID/value snapshot.
+If every initial membership add succeeds, rerun the affected-row read once after all additions so every target has a current item ID/value snapshot.
+
+If an initial `gh project item-add` fails with a recoverable operation-level network/API/GraphQL error after the prescribed command/interface is known to be supported, stop issuing further first-pass membership writes and perform exactly one **state-reconciled membership recovery**:
+
+1. rerun the exact affected-row read from Section 3 once;
+2. recompute `still_missing` from the caller-supplied desired artifact set minus current Project membership; do not assume the failed command did or did not persist;
+3. do not replay any artifact that the fresh read shows is already present;
+4. retry each artifact in `still_missing` exactly once, in the original deterministic supplied-artifact order, using the same prescribed `gh project item-add` command and interface;
+5. if any recovery add fails, stop immediately and return `PROJECT TRACKING: DRIFT`; do not perform a second recovery pass, retry the failed artifact again, shrink into another ad hoc loop, or switch interfaces;
+6. after all recovery adds succeed, rerun the exact affected-row read once and require every supplied artifact to be present before computing the field-delta plan.
+
+A recoverable membership error is limited to an operation-level transport/network failure, GitHub service failure, or GraphQL `errors` response that does not identify a deterministic request defect. Authentication/authorization failure, rate/abuse limiting, missing/invalid Project or issue identity, unsupported CLI/API contract, schema/validation failure, or another deterministic request defect is not recoverable in this invocation and returns `PROJECT TRACKING: DRIFT` immediately.
+
+The recovery read is the safety boundary: membership is idempotently reconciled from observed current Project state rather than blindly replaying the failed command. The retry exception applies only to membership creation and only once per authorized reconciliation.
 
 Do not maintain or depend on the `workflow:tracked` label. Existing auto-add automation may remain a safety net, but `$project-tracking` neither waits for it nor mutates issue labels.
 
@@ -514,7 +532,9 @@ For multiple artifacts, return one result per artifact and aggregate `PROJECT TR
 
 Project synchronization happens only after authoritative state is durable. A synchronization failure never rolls back, rewrites, reopens, recloses, refocuses, or otherwise changes authoritative workflow state merely to match the Project.
 
-On membership, auth, schema, network, API, mutation, CLI-contract, or verification failure:
+A first-pass membership write failure that qualifies for the bounded state-reconciled recovery in Section 3 is not terminal until that recovery either succeeds or fails. No other failure gains retry authority from this exception.
+
+On a non-recoverable membership failure, a failed membership recovery, auth, schema, network/API failure outside that bounded exception, mutation, CLI-contract, or verification failure:
 
 ```text
 PROJECT TRACKING: DRIFT

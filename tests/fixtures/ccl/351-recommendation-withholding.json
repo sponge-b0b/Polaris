@@ -1,0 +1,33 @@
+{
+  "schema": "polaris.ccl/v1",
+  "proposal_hash": "sha256:f6be11f28f4036cfe8acbf8cf25b09956f29e4f353b5ca9a7d6b163ac601678c",
+  "origin": {
+    "mode": "wayfinder-decision",
+    "wayfinder": {"map": 348, "decision": 351},
+    "sources": [
+      {"source_id": "decision-351-resolution", "kind": "github_issue_comment", "role": "governing", "ref": "https://github.com/sponge-b0b/Polaris/issues/351#issuecomment-5883743931", "content_sha256": "3573908521b8df4e92b5dba0743a1220db74f86e5c560079d46c254812ca9c6b"},
+      {"source_id": "decision-351-analysis", "kind": "github_issue_comment", "role": "rationale", "ref": "https://github.com/sponge-b0b/Polaris/issues/351#issuecomment-5883700140", "content_sha256": "718ad574d58fb54b42a89b63a6c8a5ff7afc8383d68788dc9fb0fdf1059c6786"}
+    ]
+  },
+  "acceptance": {"proposal_hash": "sha256:f6be11f28f4036cfe8acbf8cf25b09956f29e4f353b5ca9a7d6b163ac601678c", "artifact": {"kind": "migration_fixture", "ref": "decision-351-resolution"}},
+  "revisions": [
+    {
+      "contract_id": "investment-intelligence.recommendation-withholding",
+      "revision": 1,
+      "operation": "create",
+      "supersedes_revision": null,
+      "owner": "investment-intelligence",
+      "scope": {"release": ["R3"]},
+      "display": {"title": "Recommendation Withholding", "summary": "Polaris may durably record that it cannot responsibly form a current Investment Recommendation."},
+      "assertions": [
+        {"assertion_id": "withholding.persistence", "kind": "persistence", "subject": "recommendation_withholding", "constraint": {"mode": "durable"}, "authority": {"source_ids": ["decision-351-resolution"]}, "display": {"description": "Recommendation withholding is a durable judgment."}},
+        {"assertion_id": "withholding.not-recommendation", "kind": "distinctness", "subject": "recommendation_withholding", "constraint": {"target": "investment_recommendation"}, "authority": {"source_ids": ["decision-351-resolution"]}},
+        {"assertion_id": "withholding.not-hold", "kind": "distinctness", "subject": "recommendation_withholding", "constraint": {"target": "hold_recommendation"}, "authority": {"source_ids": ["decision-351-resolution"]}}
+      ],
+      "annotations": {
+        "examples": ["insufficient Evidence", "stale required Evidence", "unresolved material conflict", "material Investment Uncertainty", "unresolved Portfolio consequence / Risk"],
+        "notes": ["Examples are explanatory only and do not define a reason taxonomy."]
+      }
+    }
+  ]
+}

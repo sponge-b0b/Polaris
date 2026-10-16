@@ -1,0 +1,9 @@
+{
+  "schema": "polaris.ccl-projection/v1",
+  "claims": [
+    {
+      "reference": "investment-intelligence.recommendation-withholding@1#withholding.not-recommendation",
+      "asserted": {"kind": "distinctness", "subject": "recommendation_withholding", "constraint": {"target": "investment_recommendation"}}
+    }
+  ]
+}

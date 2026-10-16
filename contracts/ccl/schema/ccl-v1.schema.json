@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://polaris.local/contracts/ccl/schema/ccl-v1.schema.json",
+  "title": "Polaris Canonical Contract Ledger v1 transaction",
+  "description": "Append-only CCL transaction. Typed assertion fields are authoritative semantics; display and annotations are non-authoritative.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "proposal_hash",
+    "origin",
+    "acceptance",
+    "revisions"
+  ],
+  "properties": {
+    "schema": {"const": "polaris.ccl/v1"},
+    "proposal_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "origin": {"$ref": "#/$defs/origin"},
+    "acceptance": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/acceptance"}]},
+    "revisions": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/revision"}}
+  },
+  "$defs": {
+    "display": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "title": {"type": "string", "minLength": 1},
+        "summary": {"type": "string", "minLength": 1},
+        "description": {"type": "string", "minLength": 1}
+      }
+    },
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_id", "kind", "role", "ref", "content_sha256"],
+      "properties": {
+        "source_id": {"type": "string", "minLength": 1},
+        "kind": {"type": "string", "minLength": 1},
+        "role": {"enum": ["governing", "constraint", "rationale", "evidence"]},
+        "ref": {"type": "string", "minLength": 1},
+        "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "wayfinder": {
+      "type": "object", "additionalProperties": false,
+      "required": ["map", "decision"],
+      "properties": {
+        "map": {"type": "integer", "minimum": 1},
+        "decision": {"type": "integer", "minimum": 1}
+      }
+    },
+    "origin": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mode", "sources"],
+      "properties": {
+        "mode": {"enum": ["existing-authority", "owner-decision", "wayfinder-decision"]},
+        "sources": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/source"}},
+        "wayfinder": {"$ref": "#/$defs/wayfinder"}
+      }
+    },
+    "acceptance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["proposal_hash", "artifact"],
+      "properties": {
+        "proposal_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "artifact": {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "ref"],
+          "properties": {
+            "kind": {"type": "string", "minLength": 1},
+            "ref": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "authority": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_ids"],
+      "properties": {
+        "source_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "scope": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "release": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "applies_to": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "annotations": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "notes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "examples": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "assertion": {
+      "oneOf": [
+        {"$ref": "#/$defs/persistenceAssertion"},
+        {"$ref": "#/$defs/distinctnessAssertion"},
+        {"$ref": "#/$defs/relationshipAssertion"},
+        {"$ref": "#/$defs/propertyAssertion"},
+        {"$ref": "#/$defs/vocabularyAssertion"},
+        {"$ref": "#/$defs/historyAssertion"},
+        {"$ref": "#/$defs/boundaryAssertion"},
+        {"$ref": "#/$defs/invariantAssertion"}
+      ]
+    },
+    "assertionBaseProperties": {
+      "assertion_id": {"type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"},
+      "subject": {"type": "string", "minLength": 1},
+      "authority": {"$ref": "#/$defs/authority"},
+      "display": {"$ref": "#/$defs/display"}
+    },
+    "persistenceAssertion": {
+      "type": "object", "additionalProperties": false,
+      "required": ["assertion_id", "kind", "subject", "constraint", "authority"],
+      "properties": {
+        "assertion_id": {"type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"},
+        "kind": {"const": "persistence"},
+        "subject": {"type": "string", "minLength": 1},
+        "constraint": {"type": "object", "additionalProperties": false, "required": ["mode"], "properties": {"mode": {"enum": ["durable", "derived", "transient"]}}},
+        "authority": {"$ref": "#/$defs/authority"},
+        "display": {"$ref": "#/$defs/display"}
+      }
+    },
+    "distinctnessAssertion": {
+      "type": "object", "additionalProperties": false,
+      "required": ["assertion_id", "kind", "subject", "constraint", "authority"],
+      "properties": {
+        "assertion_id": {"type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"},
+        "kind": {"const": "distinctness"},
+        "subject": {"type": "string", "minLength": 1},
+        "constraint": {"type": "object", "additionalProperties": false, "required": ["target"], "properties": {"target": {"type": "string", "minLength": 1}}},
+        "authority": {"$ref": "#/$defs/authority"},
+        "display": {"$ref": "#/$defs/display"}
+      }
+    },
+    "relationshipAssertion": {
+      "type": "object", "additionalProperties": false,
+      "required": ["assertion_id", "kind", "subject", "constraint", "authority"],
+      "properties": {
+        "assertion_id": {"type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"},
+        "kind": {"const": "relationship"},
+        "subject": {"type": "string", "minLength": 1},
+        "constraint": {
+          "type": "object", "additionalProperties": false,
+          "required": ["relation", "target", "presence"],
+          "properties": {
+            "relation": {"type": "string", "minLength": 1},
+            "target": {"type": "string", "minLength": 1},
+            "presence": {"enum": ["required", "optional", "forbidden"]},
+            "minimum": {"type": "integer", "minimum": 0},
+            "maximum": {"oneOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]}
+          }
+        },
+        "authority": {"$ref": "#/$defs/authority"},
+        "display": {"$ref": "#/$defs/display"}
+      }
+    },
+    "propertyAssertion": {
+      "type": "object", "additionalProperties": false,
+      "required": ["assertion_id", "kind", "subject", "constraint", "authority"],
+      "properties": {
+        "assertion_id": {"type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"},
+        "kind": {"const": "property"},
+        "subject": {"type": "string", "minLength": 1},
+        "constraint": {
+          "type": "object", "additionalProperties": false,
+          "required": ["name", "presence"],
+          "properties": {
+            "name": {"type": "string", "minLength": 1},
+            "presence": {"enum": ["required", "optional", "forbidden"]},
+            "value_type": {"type": "string", "minLength": 1}
+          }
+        },
+        "authority": {"$ref": "#/$defs/authority"},
+        "display": {"$ref": "#/$defs/display"}
+      }
+    },
+    "vocabularyAssertion": {
+      "type": "object", "additionalProperties": false,
+      "required": ["assertion_id", "kind", "subject", "constraint", "authority"],
+      "properties": {
+        "assertion_id": {"type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"},
+        "kind": {"const": "vocabulary"},
+        "subject": {"type": "string", "minLength": 1},
+        "constraint": {
+          "type": "object", "additionalProperties": false,
+          "required": ["name", "closure", "members"],
+          "properties": {
+            "name": {"type": "string", "minLength": 1},
+            "closure": {"enum": ["open", "closed", "reserved"]},
+            "members": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+          }
+        },
+        "authority": {"$ref": "#/$defs/authority"},
+        "display": {"$ref": "#/$defs/display"}
+      }
+    },
+    "historyAssertion": {
+      "type": "object", "additionalProperties": false,
+      "required": ["assertion_id", "kind", "subject", "constraint", "authority"],
+      "properties": {
+        "assertion_id": {"type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"},
+        "kind": {"const": "history"},
+        "subject": {"type": "string", "minLength": 1},
+        "constraint": {"type": "object", "additionalProperties": false, "required": ["mode"], "properties": {"mode": {"enum": ["append-only", "mutable", "replaceable"]}}},
+        "authority": {"$ref": "#/$defs/authority"},
+        "display": {"$ref": "#/$defs/display"}
+      }
+    },
+    "boundaryAssertion": {
+      "type": "object", "additionalProperties": false,
+      "required": ["assertion_id", "kind", "subject", "constraint", "authority"],
+      "properties": {
+        "assertion_id": {"type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"},
+        "kind": {"const": "boundary"},
+        "subject": {"type": "string", "minLength": 1},
+        "constraint": {
+          "type": "object", "additionalProperties": false,
+          "required": ["surface", "disposition"],
+          "properties": {
+            "surface": {"type": "string", "minLength": 1},
+            "disposition": {"enum": ["reserved", "forbidden", "implementation-freedom"]}
+          }
+        },
+        "authority": {"$ref": "#/$defs/authority"},
+        "display": {"$ref": "#/$defs/display"}
+      }
+    },
+    "invariantAssertion": {
+      "type": "object", "additionalProperties": false,
+      "required": ["assertion_id", "kind", "subject", "constraint", "authority"],
+      "properties": {
+        "assertion_id": {"type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"},
+        "kind": {"const": "invariant"},
+        "subject": {"type": "string", "minLength": 1},
+        "constraint": {
+          "type": "object", "additionalProperties": false,
+          "required": ["modality", "expression"],
+          "properties": {
+            "modality": {"enum": ["required", "forbidden"]},
+            "expression": {"type": "string", "minLength": 1}
+          }
+        },
+        "authority": {"$ref": "#/$defs/authority"},
+        "display": {"$ref": "#/$defs/display"}
+      }
+    },
+    "revision": {
+      "type": "object", "additionalProperties": false,
+      "required": ["contract_id", "revision", "operation", "supersedes_revision", "owner", "scope", "assertions"],
+      "properties": {
+        "contract_id": {"type": "string", "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$"},
+        "revision": {"type": "integer", "minimum": 1},
+        "operation": {"enum": ["create", "revise", "retire"]},
+        "supersedes_revision": {"oneOf": [{"type": "integer", "minimum": 1}, {"type": "null"}]},
+        "owner": {"type": "string", "minLength": 1},
+        "scope": {"$ref": "#/$defs/scope"},
+        "assertions": {"type": "array", "items": {"$ref": "#/$defs/assertion"}},
+        "display": {"$ref": "#/$defs/display"},
+        "annotations": {"$ref": "#/$defs/annotations"}
+      }
+    }
+  }
+}

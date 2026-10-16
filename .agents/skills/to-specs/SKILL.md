@@ -160,6 +160,7 @@ Contract: <canonical contract / boundary>
 Dimension: <material design dimension>
 Candidate authority/consumer: <why included>
 Authority: <exact current durable source(s)>
+Authority entailment: <exact source anchor/meaning that fixes this result; topic adjacency is insufficient>
 Disposition: determined | implementation-equivalent | unresolved | not-applicable
 Frozen meaning or equivalence boundary: <compact exact result>
 Materially-different-implementations falsifier: <competing implementation that would change material behavior>
@@ -167,7 +168,9 @@ Materially-different-implementations falsifier: <competing implementation that w
 
 Rules:
 
-* determined requires exact current authority that fixes the material contract;
+* determined requires exact current authority that **entails the full frozen meaning**, not merely a source that discusses the same topic;
+* a proposed Spec, its Design Readiness Record, prior generated ticket prose, or the current agent's synthesis can never bootstrap authority for a `determined` row;
+* analysis/examples in upstream planning material establish only the strength they actually state. Wording such as `may`, `for example`, `including`, `where applicable`, or a non-exhaustive example list does not establish a required field, closed vocabulary, exhaustive category set, uniqueness/cardinality rule, or mandatory persisted shape unless accepted authority explicitly closes that choice;
 * implementation-equivalent is legal only when plausible alternatives cannot alter public, product, domain, architecture, persistence, temporal, authority, failure, or downstream behavior;
 * not-applicable requires positive scope authority;
 * unresolved blocks publication for the affected scope;
@@ -180,6 +183,48 @@ Apply the AGENTS.md materially-different-implementations test to every non-block
 
 If yes, the row is unresolved. Do not choose the missing material design merely to complete the Spec unless the current planning source already delegates that exact non-architectural design authority to $to-specs; otherwise route the unresolved choice to its owning planning/design authority and stop publication for the affected scope.
 
+### Proposed-Spec Normative Claim Provenance Gate
+
+The matrix is a forward completeness proof from authority to contract. Before readiness may pass, perform the reverse proof from the **exact proposed/current Spec body back to authority** so the Spec itself cannot accidentally invent a stronger contract.
+
+Build one complete **Normative Claim Provenance Audit** for every software Spec body that will be published, amended, or considered for an actionable `$to-tickets` handoff in this invocation.
+
+A materially normative claim is any Spec statement whose truth would constrain one reasonable implementation or downstream consumer differently from another. Include, where applicable:
+
+* required or forbidden public/domain/application states, fields, identities, types, categories, vocabularies, cardinalities, uniqueness rules, references, or ownership;
+* persistence-visible shape or history requirements;
+* temporal/version/current-versus-historical behavior;
+* command/query/result/failure distinctions;
+* authority/provenance or atomicity requirements;
+* closed lists, enums, required reason/category sets, negative predicates, selection rules, and fail-closed behavior;
+* Testing Decisions or Out-of-Scope statements that materially constrain the delivered contract.
+
+Ordinary problem narration, explanatory rationale, private helper organization, local algorithms/data structures with no contract consequence, formatting, and equivalent test mechanics are not materially normative claims.
+
+Use:
+
+~~~text
+Normative claim: NSC-<n>
+Spec anchor/text: <exact section + compact claim>
+Material Contract Matrix row(s): <row identities>
+Upstream authority: <exact current durable source anchor(s)>
+Authority strength: exact-entailment | implementation-equivalent | unsupported
+Over-strengthened relative to authority: yes | no
+Reason: <why the authority fixes the exact strength/specificity, or why it does not>
+~~~
+
+Enforcement rules:
+
+* every materially normative claim in the exact Spec body must appear exactly once in this audit; omission is not legal;
+* every `exact-entailment` claim must map to one or more `determined` matrix rows whose cited authority fixes **all** material semantics asserted by the claim;
+* every `implementation-equivalent` claim must map to matrix rows that prove materially different implementations cannot arise from the remaining freedom;
+* if the Spec is stronger or more specific than its authority — for example `may` becomes `must`, illustrative reasons become a required or closed reason taxonomy, an example becomes an exhaustive vocabulary, an optional relationship becomes required cardinality, or a general durability requirement becomes a specific persisted public field — classify the claim `unsupported` and `Over-strengthened relative to authority: yes`;
+* a proposed/current Spec sentence cannot cite itself, another generated Spec sentence, or a prior readiness assertion as upstream authority;
+* a claim that combines several material dimensions is supported only when **every** dimension is supported at the asserted strength;
+* `unsupported` means an unresolved material choice. Correct the candidate by weakening/removing accidental over-specification only when the planning obligation is still completely satisfied by existing authority; otherwise route the missing choice to its owning planning/design authority. Do not silently choose the missing design in order to make the audit pass.
+
+This reverse audit is mandatory even when the Spec body was published in an earlier invocation. An already-published open Spec is **not grandfathered** merely because an earlier workflow reported `Implementation readiness: pass`. Before `$to-specs` includes an unchanged existing Spec in the actionable Spec frontier, its exact current body must pass the current Design Completeness Gate, this Normative Claim Provenance Gate, and the Independent Design Readiness Certification below in the same invocation (or through a durable certification contract that explicitly proves the same body and current authority under these exact gates).
+
 For each Spec candidate require:
 
 ~~~text
@@ -189,15 +234,19 @@ Material contract dimensions: <n>
 Determined by current authority: <n>
 Implementation-equivalent: <n>
 Not applicable with authority: <n>
+Materially normative Spec claims: <n>
+Claims with exact/equivalent upstream provenance: <n>
+Ungrounded or over-strengthened Spec claims: <count + details>
 Unresolved material choices: <count + details>
 Unclassified/omitted material dimensions: <count + details>
 Implementation-delegated material design choices: <count + details>
 ~~~
 
-Publication requires:
+Publication or actionable handoff requires:
 
 ~~~text
 Design readiness: pass
+Ungrounded or over-strengthened Spec claims: 0
 Unresolved material choices: 0
 Unclassified/omitted material dimensions: 0
 Implementation-delegated material design choices: 0
@@ -207,14 +256,15 @@ Missing private helper structure, local algorithms/data structures with no contr
 
 ### Independent Design Readiness Certification
 
-Before any software Spec is published or amended as implementation-ready, freeze the complete proposed Spec set for this invocation. Compute one `DESIGN_READINESS_PROPOSAL_ID` as the SHA-256 of the exact frozen design-readiness dispatch packet bytes, including the proposed Spec bodies and intended dependency partition. Dispatch exactly one **fresh, non-mutating semantic design-readiness verifier** over:
+Before any software Spec is published, amended, or included in an actionable `$to-tickets` handoff, freeze the complete Spec set being certified for this invocation. Compute one `DESIGN_READINESS_PROPOSAL_ID` as the SHA-256 of the exact frozen design-readiness dispatch packet bytes, including the exact Spec bodies, intended dependency partition, every Spec Material Contract Matrix, and every Normative Claim Provenance Audit. Dispatch exactly one **fresh, non-mutating semantic design-readiness verifier** over:
 
 * the exact planning source and consumed decision set;
 * the bounded authoritative architecture/design source inventory;
 * every Spec Material Contract Matrix;
-* the frozen proposed Spec bodies and intended dependency partition.
+* every Normative Claim Provenance Audit;
+* the frozen exact Spec bodies and intended dependency partition.
 
-The verifier independently reconstructs the materially consequential contract universe and attempts to falsify both completeness and every determined / implementation-equivalent / not-applicable disposition. It does not edit the proposal, make missing design decisions, mutate tracker/repository state, or publish Specs.
+The verifier independently reconstructs the materially consequential contract universe, performs its own reverse scan of each exact Spec body for materially normative claims, and attempts to falsify completeness, every determined / implementation-equivalent / not-applicable disposition, and every claimed authority mapping. It must compare **semantic strength**, not merely topical relevance. It does not edit the proposal, make missing design decisions, mutate tracker/repository state, or publish Specs.
 
 Return exactly one complete semantic result:
 
@@ -223,15 +273,16 @@ SPEC DESIGN READINESS: PASS | FAIL
 Proposal identity: <DESIGN_READINESS_PROPOSAL_ID>
 Unrepresented material contract candidates: <count + details>
 Unsupported determined/equivalent/not-applicable rows: <count + details>
+Ungrounded/over-strengthened proposed-Spec claims: <count + details>
 Surviving materially-different implementation choices: <count + details>
 Cross-Spec contract/dependency gaps: <count + details>
 ~~~
 
-Apply the repository-wide **Independent Semantic Child Result Admission** rule from `AGENTS.md`. Before consuming the result require the semantic payload to have actually returned, exactly one `SPEC DESIGN READINESS` verdict, the echoed proposal identity to equal `DESIGN_READINESS_PROPOSAL_ID`, and all four required result categories to be present. Pending/ambiguous child state or a missing/malformed/mismatched payload is unresolved, not PASS or FAIL, and cannot authorize publication.
+Apply the repository-wide **Independent Semantic Child Result Admission** rule from `AGENTS.md`. Before consuming the result require the semantic payload to have actually returned, exactly one `SPEC DESIGN READINESS` verdict, the echoed proposal identity to equal `DESIGN_READINESS_PROPOSAL_ID`, and all **five** required result categories to be present. Pending/ambiguous child state or a missing/malformed/mismatched payload is unresolved, not PASS or FAIL, and cannot authorize publication or actionable handoff.
 
-Publication of any affected software Spec requires PASS for the exact frozen proposal. A verifier FAIL returns control to $to-specs for correction or upstream routing; after any semantic proposal change, rerun the parent gate and recertify the exact new proposal. If the fresh verifier context is unavailable, do not substitute same-agent or owner assertion for certification and do not publish the affected software Spec as implementation-ready.
+Publication or actionable handoff of any affected software Spec requires PASS for the exact frozen body in the proposal. A verifier FAIL returns control to $to-specs for correction or upstream routing; after any semantic body/proposal change, rerun the parent gates and recertify the exact new proposal. If the fresh verifier context is unavailable, do not substitute same-agent or owner assertion for certification and do not publish or hand off the affected software Spec as implementation-ready.
 
-Invoke $attention as prescribed internal composition after the parent Design Completeness Gate and before independent certification/publication. Any Attention finding is handled under the authority/routing rules in AGENTS.md; $attention itself does not decide or mutate.
+Invoke $attention as prescribed internal composition after the parent Design Completeness and Normative Claim Provenance Gates and before independent certification/publication. Any Attention finding is handled under the authority/routing rules in AGENTS.md; $attention itself does not decide or mutate.
 
 4. **Resolve testing seams.** Prefer existing seams to new ones and use the highest practical seam. The fewer seams across the codebase, the better.
 
@@ -289,7 +340,7 @@ Invoke $attention as prescribed internal composition after the parent Design Com
 
    Then re-read every in-progress Spec handled for this source, including complete native blocker data. For a Wayfinder source this includes every reconciled Derived/Remediation Spec; for an Independent source it includes every Spec published/amended by this invocation.
 
-   The **Spec dependency frontier** is the set of open handled Specs with zero open native blockers directly on the Spec **and whose own implementation-readiness gate is currently satisfied**.
+   The **Spec dependency frontier** is the set of open handled Specs with zero open native blockers directly on the Spec **and whose own implementation-readiness gate is currently satisfied**. For software Specs, `currently satisfied` requires the exact current body to have passed the Design Completeness Gate, Normative Claim Provenance Gate, and Independent Design Readiness Certification in this invocation (or through the exact durable equivalent allowed above).
 
    For each Wayfinder-managed Spec in that frontier, recover its complete current governing Wayfinder set from durable source/remediation provenance and reconciled handoff evidence. Invoke `$project-delivery-management` `reconcile` once, then `guard <Wayfinder>` for every governing Wayfinder. The Spec belongs to the **actionable Spec frontier** when at least one governing Wayfinder returns `PROJECT DELIVERY GUARD: ALLOWED`.
 

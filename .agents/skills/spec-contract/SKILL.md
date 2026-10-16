@@ -1,163 +1,208 @@
 ---
 name: spec-contract
-description: Build or validate the deterministic Spec obligation manifest and classify repository change provenance without inferring semantic lifecycle ownership from Git history.
+description: Build or validate the deterministic ticket/verification contract of one CCL-backed Spec without semantically reinterpreting Spec prose.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
 
 # Spec Contract
 
-This `SKILL.md` is the authoritative entry point for `$spec-contract`.
+`$spec-contract` is a deterministic helper. It does **not** decide what the Spec means.
 
-Before executing the skill, read the sibling `.agents/skills/spec-contract/PROCEDURE.md` completely. That file preserves the established procedure. Apply every rule in `PROCEDURE.md` except where the overrides below conflict; these overrides win.
+The Spec's material semantics were already frozen by exact CCL addresses in its
+`spec-contract-ccl:v1` manifest. This helper converts that projection plus explicitly
+identified private implementation, testing, and exclusion cells into one reproducible
+contract universe for ticketing, verification, and review.
 
-The purpose of this overlay is narrow: **durable hashes must be mechanical and reproducible. Model-authored classification, mapping, explanatory prose, and other semantic analysis are validation evidence, never hash input.**
+## Contract cells
 
-## Mechanical Durable Contract Identity
+A CCL-backed software Spec exposes only these contract-cell families:
 
-`SPEC_BODY_HASH` and `SPEC_CONTRACT_HASH` are mechanical identities derived from the exact current GitHub Spec body bytes by `.agents/skills/spec-contract/scripts/extract_source_units.py`.
+* `OBL-*` — material semantic obligations, taken mechanically from
+  `spec-contract-ccl:v1`; their semantic payload is the exact ordered CCL address set;
+* `IMP-*` — private/mechanical implementation obligations from stable-ID bullets in
+  `## Implementation Decisions`;
+* `TEST-*` — explicit proof/test obligations from stable-ID bullets in
+  `## Testing Decisions`;
+* `EXC-*` — exclusions from stable-ID bullets in `## Out of Scope`.
 
-The extractor is the sole authority for both fields. A builder must consume:
+Problem/Solution prose, User Stories, Architecture Impact explanation, Further Notes,
+headings, provenance markers, and other narrative text are not contract cells.
+Mandatory-sounding prose outside these four cell families does not create a hidden
+implementation obligation. If material behavior is actually missing, the Spec must be
+reconciled through `$to-specs` and CCL first.
 
-```text
-spec_body_hash
-spec_contract_hash
-source_units
+Do not rebuild source-unit inventories, classify prose as normative/non-normative, invent
+`NORM-*` cells, or infer architecture obligations from ADR/wiki/code prose.
+
+## Deterministic builder
+
+Use:
+
+```bash
+python -m scripts.spec_contract build <issue-json> <handoff-output>
+python -m scripts.spec_contract validate <issue-json> <expected-handoff>
+python -m scripts.spec_contract check-coverage <contract-json> <coverage-json>
 ```
 
-from one extractor invocation over one exact issue-body snapshot. Never hand-compute, reconstruct, or reverse-engineer either durable hash from the Source Unit Inventory, manifest, prior Ticket Coverage Manifest, prior verification receipt, scratch files, or conversational state.
+The issue JSON must come from one exact tracker snapshot, for example:
 
-The contract hash algorithm is implemented by `spec_contract_hash_from_body_hash()` in that extractor and is exactly:
-
-```text
-SPEC_BODY_HASH = SHA256(exact UTF-8 Spec body bytes)
-SPEC_CONTRACT_HASH = SHA256(b"POLARIS-SPEC-CONTRACT-V2\0" + bytes.fromhex(SPEC_BODY_HASH))
+```bash
+gh issue view <spec> --json body > "$SPEC_ISSUE_JSON"
 ```
 
-The domain separator and byte conversion above are literal. Do not substitute JSON serialization, display text, source-unit rows, manifest rows, newline joining, shell interpolation, or an equivalent-looking custom payload.
+Before building, also require the same body to pass the CCL projection validator:
 
-This field remains named `SPEC_CONTRACT_HASH` for durable-artifact compatibility, but it is a **contract-source identity**, not a digest of model-authored semantic interpretation.
-
-### Never hash semantic analysis
-
-The following remain mandatory semantic validation evidence but are explicitly excluded from `SPEC_CONTRACT_HASH`:
-
-- source-unit `Classification`;
-- source-unit `Manifest cells`;
-- reverse source-unit mappings stored under `contract_identity.manifest`;
-- `Source`, `Requirement`, `Reason`, and `Named surfaces` prose;
-- source counts;
-- ticket/decomposition routing;
-- architecture/design routing;
-- repository change provenance;
-- verification/review proof text;
-- any other model-authored or lifecycle-authored representation.
-
-`contract_identity.source_units` and `contract_identity.manifest` remain in the existing build-handoff schema for **internal semantic consistency validation only**. Despite the historical key name, they do not participate in the durable hash. Independent valid builds may produce different represented-summary mappings or explanatory prose while retaining the same durable contract hash.
-
-### Reproducibility falsifiers
-
-Every build and validation path must satisfy:
-
-```text
-same exact Spec body bytes
-    -> SAME SPEC_BODY_HASH
-    -> SAME SPEC_CONTRACT_HASH
-
-same exact Spec body bytes
-+ different Source/Requirement/Reason wording
-    -> SAME SPEC_CONTRACT_HASH
-
-same exact Spec body bytes
-+ different but individually valid normative-represented summary mappings
-    -> SAME SPEC_CONTRACT_HASH
-
-same exact Spec body bytes
-+ different semantic classification/mapping that changes the actual manifest cell universe
-    -> SAME SPEC_CONTRACT_HASH
-    -> semantic contract validation FAILS separately
-
-changed Spec body bytes
-    -> DIFFERENT SPEC_BODY_HASH
-    -> DIFFERENT SPEC_CONTRACT_HASH
+```bash
+python -m scripts.ccl_spec check <spec-body-file> contracts/ccl/transactions
 ```
 
-If two runs over the same `SPEC_BODY_HASH` produce different `SPEC_CONTRACT_HASH` values, return:
+If the Spec lacks a valid CCL manifest or exact generated Canonical Contract Obligations
+section, return `SPEC CONTRACT: INVALID`; for an active software Spec the owning repair
+path is `$to-specs`, not prose reconstruction here.
+
+## Identity
+
+The helper returns two distinct hashes:
 
 ```text
-SPEC CONTRACT: INVALID
-Reason: mechanical contract identity is non-deterministic
+SPEC_BODY_HASH
+    SHA-256 of the exact current Spec body bytes.
+
+SPEC_CONTRACT_HASH
+    deterministic hash of the exact ordered contract-cell universe.
 ```
 
-Do not reconcile the Ticket Coverage Manifest to whichever hash happened to be produced most recently.
+Narrative-only prose may change `SPEC_BODY_HASH` without changing
+`SPEC_CONTRACT_HASH`.
 
-## Semantic Contract Validation Remains Independent
+Changing any of the following changes `SPEC_CONTRACT_HASH`:
 
-Removing semantic analysis from the hash does **not** weaken contract validation.
+* an `OBL-*` ID or its exact CCL address set;
+* an `IMP-*`, `TEST-*`, or `EXC-*` ID;
+* the exact text of an `IMP-*`, `TEST-*`, or `EXC-*` cell.
 
-The complete Source Unit Inventory, classifications, manifest mappings, source counts, and Manifest Integrity Gate in `PROCEDURE.md` remain mandatory. A build with unresolved classification or mapping is still invalid.
+Every cell also carries its own deterministic `cell_hash`. Downstream reconciliation uses
+`cell + cell_hash`; matching IDs alone never hide changed contract content.
 
-For build/verification/decomposition coherence, compare the actual semantic artifacts directly rather than using the hash as a proxy:
+## Build handoff
 
-- current manifest Spec-cell ID set must equal the Ticket Coverage Manifest Spec-cell ID set;
-- no current source-derived cell may be missing or extra;
-- source counts and manifest integrity gates must pass where required by the owning workflow;
-- `contract_identity.source_units` and `.manifest` must be internally self-consistent within the current build;
-- a genuine current semantic manifest change requires its normal owning reconciliation even though the body-derived contract hash is not an interpretation fingerprint.
+Build mode writes one compact JSON handoff containing at least:
 
-A disagreement only about which already-existing cells best explain a redundant `normative-represented` summary is not a durable identity change. It may be challenged for semantic completeness, but it must never force hash reconciliation by itself.
+```json
+{
+  "spec_body_hash": "...",
+  "spec_contract_hash": "...",
+  "source_counts": {
+    "user_stories": 0,
+    "implementation_decisions": 1,
+    "testing_decisions": 1,
+    "out_of_scope": 1,
+    "other_normative": 2
+  },
+  "manifest": [
+    {
+      "cell": "OBL-001",
+      "source": "Canonical Contract Obligations / OBL-001",
+      "requirement": "Exact CCL assertions: <addresses>"
+    }
+  ],
+  "cells": [
+    {
+      "cell": "OBL-001",
+      "kind": "material-contract",
+      "cell_hash": "...",
+      "ccl": ["contract@1#assertion"]
+    }
+  ],
+  "contract_identity": {
+    "source_units": [["SU-0001", "<cell-hash>", "normative-new", ["OBL-001"]]],
+    "manifest": [["OBL-001", ["SU-0001"]]]
+  }
+}
+```
 
-## Exact Source-Byte Safety Override
+`manifest`, `source_counts`, and `contract_identity` remain compatibility projections for
+existing verification/review consumers during migration. They are mechanically derived
+from the exact cells and contain no semantic classification judgment.
 
-Where `PROCEDURE.md` says the extractor is the mechanical authority for `SPEC_BODY_HASH`, extend that rule to `SPEC_CONTRACT_HASH` as well.
+The `cells` array is authoritative for new decomposition work.
 
-The extractor output is therefore the sole mechanical authority for:
+A caller may add invocation metadata such as Spec issue, fixed baseline, branch, HEAD,
+default branch/head, and handoff digest around this exact helper result. Those values do
+not alter the contract-cell semantics.
 
-- `SPEC_BODY_HASH`;
-- `SPEC_CONTRACT_HASH`;
-- ordered `SU-*` source-unit boundaries;
-- normalized source-unit text used for classification/display;
-- every source-unit Text Hash.
+## Change provenance
 
-The semantic caller still owns classification and source-unit-to-cell mapping. Those semantic outputs must never be fed back into either durable hash.
+When a caller needs repository change provenance, the existing mechanical
+`classify_ownership.py` helper remains available. Git provenance answers where changes
+occurred; it does not add contract cells or semantic ownership.
 
-## Build Handoff Override
+## Build isolation
 
-Keep the existing build-handoff JSON schema unchanged for compatibility.
+No independent semantic builder is required because construction is deterministic.
+A caller that already uses a fresh builder context may continue to do so during
+migration, but freshness is not semantic proof and must not cause another prose
+interpretation pass.
 
-`spec_body_hash` and `spec_contract_hash` must be copied exactly from the same extractor output used for that build.
+For compatibility with callers that still record isolation evidence, a deterministic
+build may truthfully report:
 
-`contract_identity.source_units` and `contract_identity.manifest` are current-build semantic-consistency evidence. They must still reconcile internally with the current displayed manifest, but they are not inputs to `SPEC_CONTRACT_HASH` and are not required to be byte-identical across independent valid builds.
+```text
+Build isolation: PASS
+Prior contract representations supplied or inspected: 0
+Pre-existing scratch contract artifacts inspected: 0
+Handoff path existed before build: no
+```
 
-`CONTRACT_HANDOFF_DIGEST` continues to bind exact handoff bytes only. It may change when semantic evidence or display prose changes even when `SPEC_CONTRACT_HASH` remains stable.
+provided those mechanical facts are true. They are transport/recovery evidence only.
 
-## Validate-Mode Override
+## Coverage validation
 
-Replace the hash-related portions of `PROCEDURE.md` Section 4 with this sequence:
+For ordinary CCL-backed ticketing, `$to-tickets` supplies one coverage object:
 
-1. take one exact current Spec-body snapshot through the mandatory extractor;
-2. read both `SPEC_BODY_HASH` and `SPEC_CONTRACT_HASH` from that extractor output;
-3. require those durable hashes to equal the passing receipt/TCM identities as applicable;
-4. independently rebuild/classify the complete current Source Unit Inventory;
-5. independently rebuild the current semantic manifest and require all integrity gates to pass;
-6. compare the actual current manifest cell universe and required persisted semantic artifacts directly with the receipt/TCM; do not infer semantic equality from hash equality;
-7. permit different `normative-represented` explanatory mappings when each current mapping is complete and the actual manifest obligation universe is unchanged;
-8. fail `STALE` or `INVALID` on genuine body, manifest-cell, source-count, unresolved-classification, baseline, branch, or HEAD/policy-anchor violations according to the existing procedure;
-9. recompute change provenance fresh as already required.
+```json
+{
+  "schema": "polaris.ticket-coverage/v2",
+  "spec_contract_hash": "...",
+  "routes": [
+    {
+      "cell": "OBL-001",
+      "cell_hash": "...",
+      "destination": "T1"
+    }
+  ],
+  "exclusions": [
+    {
+      "cell": "EXC-001",
+      "cell_hash": "..."
+    }
+  ]
+}
+```
 
-Do not canonicalize Source Unit Inventory classification/mapping rows or manifest reverse mappings to recompute `SPEC_CONTRACT_HASH`. That historical algorithm is superseded.
+`check-coverage` mechanically requires every non-exclusion cell exactly once, every
+exclusion exactly once outside ticket routing, no unknown cells, and exact current cell
+hashes.
 
-## Required Consumer Behavior
+It proves exhaustive routing identity. It does not judge whether a human-selected ticket
+slice is aesthetically ideal.
 
-Any deterministic consumer that validates a contract handoff must:
+## Return
 
-1. validate the handoff's source-unit/mapping evidence for internal consistency;
-2. recompute `SPEC_CONTRACT_HASH` only from `spec_body_hash` using the extractor's shared helper;
-3. compare TCM/receipt semantic cell sets directly where coherence matters;
-4. never use semantic mapping differences as hash mismatch evidence.
+Build mode returns:
 
-The canonical `$verify-spec` artifact helper implements this rule. Other consumers must not reintroduce the superseded structural-hash algorithm.
+```text
+SPEC CONTRACT: VALID | INVALID
+Spec Body Hash: <sha256>
+Spec Contract Hash: <sha256>
+Contract cells: <n>
+Material CCL cells: <n>
+Implementation cells: <n>
+Testing cells: <n>
+Exclusion cells: <n>
+Semantic prose classification performed: 0
+```
 
-## Execute Preserved Procedure
-
-After applying the overrides above, execute all remaining rules, gates, return contracts, isolation requirements, provenance requirements, and fail-closed behavior from `PROCEDURE.md` unchanged.
+Any malformed/missing stable-ID section, duplicate cell, malformed CCL manifest, or
+projection drift is `INVALID`.

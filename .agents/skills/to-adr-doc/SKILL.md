@@ -71,13 +71,13 @@ Optional:
 For a CCL-backed ADR, the entire `## Decision` section is machine-managed. Generate it only with:
 
 ```bash
-python scripts/ccl_adr.py render-decision <accepted-transaction.json>
+python -m scripts.ccl_adr render-decision <accepted-transaction.json>
 ```
 
 After writing the ADR, require:
 
 ```bash
-python scripts/ccl_adr.py check-adr <adr-path> <accepted-transaction.json>
+python -m scripts.ccl_adr check-adr <adr-path> <accepted-transaction.json>
 ```
 
 Do not add prose before, after, or inside the generated Decision block.

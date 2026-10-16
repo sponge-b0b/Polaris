@@ -55,7 +55,7 @@ Resolve exactly one mode.
 Read-only exact/latest contract or assertion lookup:
 
 ```bash
-python scripts/ccl_ledger.py lookup \
+python -m scripts.ccl_ledger lookup \
   contracts/ccl/transactions \
   <contract-id> \
   [--revision <n>] \
@@ -185,9 +185,9 @@ new decision.
 Before writing:
 
 ```bash
-python scripts/ccl_ledger.py validate-ledger contracts/ccl/transactions
+python -m scripts.ccl_ledger validate-ledger contracts/ccl/transactions
 
-python scripts/ccl_ledger.py admit \
+python -m scripts.ccl_ledger admit \
   contracts/ccl/transactions \
   <candidate.json>
 ```
@@ -222,7 +222,7 @@ When this skill owns persistence:
 5. create the transaction only with:
 
    ```bash
-   python scripts/ccl_ledger.py persist \
+   python -m scripts.ccl_ledger persist \
      contracts/ccl/transactions \
      <candidate.json>
    ```

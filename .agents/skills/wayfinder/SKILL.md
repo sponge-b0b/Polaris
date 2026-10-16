@@ -244,7 +244,7 @@ If repository files must change, persist them atomically on canonical `main`:
 11. fetch/read back the exact commit, rerun CCL ledger validation, and for every CCL-backed ADR run:
 
    ```bash
-   python scripts/ccl_adr.py check-adr <adr-path> <transaction-path>
+   python -m scripts.ccl_adr check-adr <adr-path> <transaction-path>
    ```
 
 12. prove the protected caller worktree fingerprint is unchanged.
@@ -260,6 +260,21 @@ If this Wayfinder is repairing authority above an existing durable continuation 
 A clean merge may be pushed normally after a concurrency check.
 
 A merge conflict means downstream semantic reconciliation is required. Preserve both canonical authority and downstream state; do not choose `ours`/`theirs` or manually redesign downstream artifacts inside Wayfinder. Record the canonical commit, continuation branch, and exact conflict paths for `$to-specs` reconciliation.
+
+When reconciliation is required, maintain exactly one machine-managed block on the governing map so the current `$to-specs` workflow can recover the transition without chat memory:
+
+```markdown
+<!-- continuation-reconciliation:v1 -->
+## Continuation Reconciliation
+
+**Status:** required | synchronized | not-applicable
+**Canonical authority:** <main commit | None>
+**Continuation branch:** <branch | None>
+**Conflict paths:** <exact paths | None>
+**Reconciliation owner:** <$to-specs | None>
+```
+
+`required` is legal only for an actual semantic merge conflict and must name `$to-specs`. Update this block in place; do not append competing transition state.
 
 ## Resolution Persistence
 

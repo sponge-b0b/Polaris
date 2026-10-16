@@ -1,5 +1,5 @@
 interface:
   display_name: "To Remediation Specs"
-  short_description: "Recover an existing spec and its Wayfinder provenance and amend it with a newly resolved decision delta"
+  short_description: "Recover existing Wayfinder Spec handoffs and provenance for To Specs"
 policy:
   allow_implicit_invocation: false

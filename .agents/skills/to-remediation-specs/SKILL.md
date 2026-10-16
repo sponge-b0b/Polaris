@@ -1,444 +1,98 @@
 ---
 name: to-remediation-specs
-description: Invoked only by `$to-specs` when a Wayfinder map already has one or more in-progress Spec handoffs — recover derived and remediation Specs, apply new or revised accepted decision-state deltas or bounded durable representation defects against already-consumed accepted decision states, and amend them without duplicating or falsely advancing decision provenance.
+description: Compatibility helper for `$to-specs` that mechanically recovers existing Wayfinder Spec handoffs and reconciles provenance markers without interpreting or amending Spec semantics.
 compatibility: product=codex product=claude-code system=gh network=required
 disable-model-invocation: true
 ---
 
 # To Remediation Specs
 
-Invoked by `$to-specs` when its source Wayfinder map already has one or more in-progress Spec handoffs.
+This skill is a **temporary compatibility helper** during the CCL workflow migration.
 
-Replace fresh spec creation for that handed-off scope. The Wayfinder map remains the source input for the current remediation decisions.
+It no longer owns semantic Spec remediation. `$to-specs` owns the desired CCL projection
+and every semantic/body amendment.
 
-## Session Independence
+Its only job is to recover the exact existing Wayfinder-managed Spec set and make the
+forward/Spec-local provenance mechanically consistent enough for `$to-specs` to reconcile
+those Specs in place.
 
-Assume no prior conversational or agent-session state.
+## Inputs
 
-Recover every correctness-critical input from the explicit invocation, repository, and durable tracker artifacts before acting. Prior-session summaries or remembered conclusions are routing context only and must not substitute for required durable evidence.
+Invoked only by `$to-specs` with one exact Wayfinder map.
 
-If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.
+Recover correctness-critical state from the current tracker. Do not use chat memory.
 
-## 1. Recover the Existing Specs
+## Recover handed-off Specs
 
-From the source Wayfinder map, resolve every in-progress Spec identified by the reconciled `Derived Spec` and `Remediation Spec` metadata established by `$to-specs`.
+Resolve both handoff roles:
 
-For a **Derived Spec**, confirm its durable source provenance identifies the input Wayfinder.
+* **Derived Spec** — created from this Wayfinder and carrying this map in a
+  `wayfinder-source` marker;
+* **Remediation Spec** — retains its original source and carries this map through
+  `wayfinder-remediation` provenance.
 
-For a **Remediation Spec**, preserve its original source provenance even when it identifies another Wayfinder. Confirm instead that the input Wayfinder explicitly names the Spec as a `Remediation Spec` or that the Spec already has a `wayfinder-remediation` marker for the input Wayfinder.
+Use both:
 
-If tracker evidence reveals an additional unambiguous handed-off Spec missing from the map's `Spec Handoff`, add the matching linkage and include that Spec before continuing.
+* forward `## Spec Handoff` metadata on the map; and
+* unambiguous Spec-local `wayfinder-source` / `wayfinder-remediation` markers.
 
-Preserve each Spec's:
+If reverse provenance proves an unambiguous linkage missing from the map, add only that
+missing forward linkage. If a forward linkage points to a Spec whose local provenance is
+unambiguously missing the matching marker, add only that matching marker.
+
+Never:
+
+* convert Derived ↔ Remediation roles;
+* replace original source provenance;
+* infer a linkage from Project fields, issue order, branch names, or conversational
+  history;
+* create a new Spec;
+* edit semantic Spec sections;
+* inspect Decision Analysis/ADR prose to infer contract meaning;
+* compute decision-state semantic hashes or deltas;
+* decide whether current Spec content is correct;
+* route architecture remediation.
+
+Ambiguous/malformed provenance fails closed and returns the ambiguity to `$to-specs`.
+
+## Legacy decision-state markers
+
+Existing `wayfinder-decision-states:v1` comments are historical provenance only.
+
+Do not create, update, remove, or use them to decide semantic synchronization. Exact CCL
+`contract@revision#assertion` addresses now provide semantic consumption identity in the
+parent `$to-specs` projection.
+
+## Preserve lifecycle identity
+
+For every recovered Spec return, but do not mutate:
 
 * issue identity;
-* original planning/source provenance;
-* branch and baseline lineage;
-* existing tickets;
-* Spec Review lineage, when present.
+* original planning provenance;
+* branch and fixed baseline lineage;
+* existing implementation tickets;
+* native dependencies;
+* Spec Review lineage.
 
-If no in-progress handed-off Specs exist, return to `$to-specs` for normal spec creation.
+## Return
 
-If any candidate relationship or handoff role is ambiguous, halt rather than guessing which Specs belong to the current remediation run.
-
-## 2. Recover Revision-Aware Decision Provenance
-
-Existing Wayfinder provenance remains the durable membership record for which decisions a Spec derives from.
-
-For each **Derived Spec**, read its source Wayfinder provenance marker:
-
-```html
-<!-- wayfinder-source: #<map>; decisions: #<decision>,#<decision> -->
-```
-
-Confirm that `wayfinder-source` identifies the input map.
-
-For each **Remediation Spec**, preserve its existing `wayfinder-source` marker unchanged and read the separate remediation marker for the input map when present:
-
-```html
-<!-- wayfinder-remediation: #<map>; decisions: #<decision>,#<decision> -->
-```
-
-Decision IDs alone are **not sufficient consumption identity** because an accepted Wayfinder decision may later be reopened and materially revised while retaining the same issue number.
-
-### Current accepted decision-state identity
-
-For every resolved decision currently relevant to the input map, resolve one current terminal accepted state from durable tracker evidence.
-
-A decision has a consumable current accepted state only when:
-
-* the issue is currently closed through normal successful resolution, not merely retired as `not_planned` / superseded;
-* exactly one latest terminal resolution anchor can be selected by comment chronology whose first non-empty line is `## Resolution` or `## Final Resolution`, optionally followed by an em-dash (` — `) and a non-empty descriptive suffix;
-* no later semantic-change/re-entry comment begins with `## Decision Analysis`, `## Recommendation Revision`, `## Architecture Remediation Re-entry`, or `## Workflow Convergence Remediation` without a later terminal resolution anchor;
-* the exact terminal resolution comment body is recoverable.
-
-If these conditions are ambiguous or incomplete, that decision has no consumable current state and remediation fails closed. Do not infer acceptance merely from issue `closed` state, an old resolution, or a decision ID already present in Spec provenance.
-
-For each consumable current accepted state compute:
+Return exactly one result:
 
 ```text
-Resolution body SHA-256 = sha256(exact UTF-8 terminal resolution comment body)
-
-Decision-state packet:
-wayfinder-decision-state:v1
-Decision: #<n>
-Resolution comment: <numeric comment id>
-Resolution body SHA-256: <sha256>
-
-Decision State Identity = sha256(exact UTF-8 packet bytes above)
+SPEC HANDOFF RECOVERY: PASS | BLOCKED
+Wayfinder: <map identity>
+Derived Specs: <exact issue set>
+Remediation Specs: <exact issue set>
+Forward links added: <exact set | None>
+Spec-local markers added: <exact set | None>
+Ambiguous relationships: <count + details>
+Semantic Spec changes performed: 0
 ```
 
-The terminal resolution comment remains semantic authority/provenance. The Decision State Identity is only a deterministic consumption identity.
+`PASS` requires zero ambiguous relationships.
 
-Use bounded retrieval: locate resolution/revision/re-entry headings and fetch the selected terminal resolution body rather than loading complete unrelated comment history.
+On `PASS`, return normally to `$to-specs`; the parent computes the desired CCL projection
+and performs any in-place Spec amendment.
 
-### Persisted consumed-state marker
-
-For each Wayfinder represented on a Spec, maintain zero or one machine-managed marker:
-
-```html
-<!-- wayfinder-decision-states:v1 map=#<map>; states=#<decision>:<state_sha256>,#<decision>:<state_sha256> -->
-```
-
-Rules:
-
-* the marker records the exact accepted decision states semantically represented by that Spec for that map;
-* preserve separate markers for separate Wayfinders;
-* update a map's marker in place; do not append competing markers;
-* more than one state marker for the same map is ambiguous and fails closed;
-* the marker is consumption provenance, not architecture authority;
-* never remove a historical consumed entry merely because a later map presentation omits it; only advance/add an entry when the corresponding current accepted state is completely represented.
-
-### Compute the per-Spec decision-state delta
-
-For each current resolved decision applicable to a Spec, compare:
-
-1. current accepted `Decision State Identity`;
-2. existing decision-ID membership in the Spec's source/remediation provenance for this map;
-3. persisted consumed state in `wayfinder-decision-states:v1`, when present.
-
-A decision enters the Spec's **decision-state delta** when any of these is true:
-
-* the decision is newly applicable and absent from decision-ID provenance;
-* the decision ID is present but no consumed-state identity has ever been recorded and semantic representation of the current accepted state has not yet been proven;
-* the persisted consumed-state identity differs from the current accepted state identity.
-
-Classify each delta item:
-
-```text
-Delta reason: new-decision | legacy-state-bootstrap | revised-decision-state
-```
-
-A matching decision ID must never suppress `revised-decision-state`.
-
-### Defect remediation against unchanged accepted decision state
-
-A zero decision-state delta proves only that the accepted decision-state identity has not changed. It does **not** prove that the current Spec body still represents that already-consumed authority correctly.
-
-An existing handed-off Spec may therefore enter **unchanged-state defect remediation** when the defect is a concrete semantic contradiction, omission, **or over-strengthening** in the parent Spec itself. Over-strengthening means the Spec asserts materially stronger or more specific semantics than the unchanged accepted authority entails — for example, `may` becoming `must`, illustrative examples becoming a required or closed taxonomy, optional cardinality becoming required cardinality, or a general durable judgment becoming an invented mandatory public field.
-
-For every recovered in-progress Spec, perform one bounded **Existing-Spec Authority-Strength Reconciliation** before concluding that zero decision-state delta requires no remediation. Limit this check to materially normative claims governed by the Spec's already-consumed accepted decision states and their directly referenced current durable authority. This is not a second open-ended architecture discovery pass and does not replace the parent `$to-specs` Design Completeness / Normative Claim Provenance / independent certification gates.
-
-Record each candidate as:
-
-```text
-Existing-Spec claim: <section + compact claim>
-Governing accepted decision state(s): <#decision:state_sha256,...>
-Exact accepted authority: <durable source anchor(s)>
-Authority strength: exact-entailment | implementation-equivalent | over-strengthened | source-conflict | unresolved
-Planning obligation preserved if weakened/removed: yes | no | unknown
-New material architecture/design choice required after correction: yes | no | unknown
-Disposition: already-supported | eligible-unchanged-state-defect | architecture-blocked | source-conflict
-```
-
-Rules:
-
-* `over-strengthened` is eligible for in-place defect remediation only when weakening or removing the unsupported specificity still completely satisfies the existing planning obligation, leaves the remaining contract implementation-ready under unchanged accepted authority, and requires no new material design choice;
-* never replace an unsupported closed taxonomy, cardinality, field, enum, state, or failure contract with a different invented one merely to make the Spec concrete;
-* if removing the unsupported specificity would leave a material planning obligation unresolved, classify `architecture-blocked`; do not silently weaken the product obligation away;
-* if two applicable accepted authorities materially disagree, classify `source-conflict`; do not choose one, average them, or convert the conflict into a Spec-local design choice;
-* an earlier `Implementation readiness: pass`, prior generated Spec prose, or prior ticket wording does not establish authority for an over-strengthened claim;
-* topical adjacency is insufficient: the exact accepted authority must entail the retained material semantics at the retained strength.
-
-An existing handed-off Spec may enter **unchanged-state defect remediation** only when current evidence proves all of the following:
-
-* either one current unresolved lifecycle-owned defect/report identifies a concrete semantic contradiction, omission, or over-strengthening in the **parent Spec itself**, or the bounded Existing-Spec Authority-Strength Reconciliation above independently classifies the claim `eligible-unchanged-state-defect`;
-* the affected meaning is governed by one or more accepted decision states already present in the Spec's current source/remediation provenance and `wayfinder-decision-states:v1` marker;
-* each governing current accepted Decision State Identity exactly equals the corresponding already-consumed identity, so no `new-decision`, `legacy-state-bootstrap`, or `revised-decision-state` transition is being manufactured;
-* ticket-only reconciliation cannot satisfy the durable source contract without changing the parent Spec semantics; a pure ticket-routing defect remains owned by `$to-tickets` and is not eligible here;
-* the smallest candidate amendment is entailed completely by the unchanged accepted authority and current planning scope, introduces no new material architecture/design choice, and does not transfer concrete downstream ownership into this Spec;
-* for over-strengthening, the correction removes or weakens only unsupported specificity and the remaining Spec still completely represents the planning obligation;
-* no decision ID, decision-state identity, source/remediation membership, baseline, branch lineage, ticket identity, or review lineage needs to advance merely to perform the correction.
-
-A durable defect may originate from an existing managed decomposition-defect record, conventional Spec Review finding, architecture-blocker record, or another established lifecycle-owned blocker/report. The bounded Existing-Spec Authority-Strength Reconciliation is also sufficient child-owned evidence for an over-strengthening correction because it is mechanically tied to the exact current Spec body and unchanged consumed authority; it does not authorize any new design. Ad-hoc conversational reasoning, scratch files, or an unpersisted agent observation remain insufficient authority for other defect classes.
-
-For every eligible item create one working **Unchanged-State Spec Defect Remediation Record**:
-
-```text
-Durable defect: <tracker artifact / finding identity | Existing-Spec Authority-Strength Reconciliation>
-Target Spec: #<n>
-Defect class: contradiction | omission | over-strengthening
-Governing accepted decision state(s): <#decision:state_sha256,...>
-Decision-state delta for those decisions: 0
-Affected Spec obligations/sections: <exact IDs/anchors>
-Accepted authority that fixes the intended meaning: <exact durable sources>
-Unsupported specificity removed/weakened: <exact text/meaning | not-applicable>
-Planning obligation preserved after correction: yes
-Why ticket-only reconciliation is insufficient: <compact proof>
-Proposed Spec correction: <smallest semantic amendment>
-New material architecture/design choice required: no
-Planning/downstream ownership changed: no
-Decision provenance advancement proposed: no
-Eligibility: pass | fail
-```
-
-Any `fail`, unknown authority, changed decision-state identity, new material choice, ownership/scope ambiguity, unresolved planning obligation, or source conflict blocks this defect-remediation path. Do not reinterpret the defect as permission to revise accepted architecture.
-
-### Legacy ID-only bootstrap
-
-Existing Specs created before `wayfinder-decision-states:v1` are valid historical artifacts, but their decision-ID markers cannot prove which later revision they consumed.
-
-For every such ID already recorded:
-
-* reconcile the current Spec semantics against the **current accepted decision state** once;
-* if the current state is completely represented, authorize a `legacy-state-bootstrap` consumption record and persist the current state identity without inventing a semantic edit;
-* if the current state is not completely represented, keep that decision in the state delta and amend the Spec;
-* never declare the Spec synchronized solely because its decision ID appears in the old marker.
-
-If a Derived Spec predates even source provenance metadata, first recover its map relationship under the existing compatibility rule, then perform this same state-aware bootstrap.
-
-If a Remediation Spec has no remediation marker yet for the input map, treat this as its initial remediation from that map and apply the same state-aware reconciliation.
-
-Do not regenerate a Spec merely to bootstrap provenance. Keep decision-state deltas independent per Spec and per Wayfinder; consumption by one Spec or one Wayfinder does not imply consumption by another.
-
-## 3. Reconcile Decision-State Deltas and Eligible Representation Defects
-
-For each Spec with a non-empty decision-state delta, read only the affected current accepted decision states and the authority they reference.
-
-For each Spec with one or more `Eligibility: pass` Unchanged-State Spec Defect Remediation Records, read only the durable defect evidence or bounded authority-strength evidence, the unchanged governing accepted decision states, and the authority needed to prove the smallest correction. Apply that correction to the candidate Spec without advancing decision provenance. Preserve every unaffected obligation and section.
-
-For an `over-strengthening` defect, prefer deletion or weakening of the unsupported specificity to the exact strongest meaning entailed by authority. Do not replace it with a newly invented taxonomy, cardinality, public type, persistence shape, state, or failure distinction. Recheck that the planning obligation remains completely represented after the correction; otherwise the record is not eligible and must route upstream.
-
-Apply a decision-state delta semantically to a candidate amendment for that Spec:
-
-* update existing requirements or user stories when the decision changes the same behavior;
-* replace or remove content invalidated by the decision;
-* add content only for genuinely new behavior;
-* reconcile **Architecture Impact** with newly resolved architecture;
-* update affected implementation and testing decisions;
-* preserve unaffected content.
-
-For every non-empty candidate amendment, normalize the resulting `## Out of Scope` section before publication: every materially independent exclusion must be a separate Markdown bullet. Split prose or a bullet only when it contains independent exclusions; keep semantically inseparable clauses together. Preserve the exact exclusion meaning and do not add, remove, broaden, or narrow scope merely to normalize structure.
-
-Do not duplicate:
-
-* user stories;
-* Architecture Impact entries;
-* implementation decisions;
-* testing decisions;
-* previously consumed Wayfinder decisions.
-
-A new decision does not imply a new spec entry when it only clarifies or supersedes an existing one.
-
-Do not introduce architectural decisions absent from resolved Wayfinder history.
-
-## 4. Architecture Completeness Preflight
-
-Before applying a materially changed architecture-dependent implementation obligation to any candidate Spec, verify that accepted architecture determines enough to implement it without inventing another durable architectural choice.
-
-Where applicable, check:
-
-* canonical ownership;
-* typed authority/input sources;
-* identity, version, selection, or correlation semantics;
-* lifecycle ordering;
-* persistence/retrieval responsibility;
-* dependency boundaries;
-* failure semantics.
-
-### Concrete Implementability Check
-
-For each materially changed obligation, identify the existing concrete contract and production seam expected to realize it.
-
-Inspect only enough existing source to determine whether the accepted architecture is realizable.
-
-Where applicable, verify:
-
-* required domain/type inputs can exist at the lifecycle point where the obligation requires them;
-* the designated producer has authoritative inputs sufficient to construct the required artifact;
-* required classifications or authority facts are determined or deterministically derivable from accepted authority;
-* production composition can supply required dependencies without inventing new durable semantics;
-* canonical consumers can obtain required typed inputs from the authoritative path.
-
-Search before reading. Locate the affected type, producer, consumer, or composition seam and read only the surrounding code needed to answer these questions.
-
-Do not require implementation wiring to already exist.
-
-Missing factories, methods, configuration objects, registration calls, repository operations, DI bindings, bootstrap wiring, or similar mechanisms are implementation work when accepted architecture already determines their semantics.
-
-If satisfying any candidate obligation would require inventing a new durable input, meaning, authority source, classification, owner, key/path, boundary, dependency direction, or lifecycle rule, architecture remains incomplete.
-
-Ordinary implementation details are not architecture.
-
-Removing or weakening accidental Spec over-strengthening to the exact strongest contract already entailed by unchanged accepted authority is **not** incomplete architecture when the original planning obligation remains completely satisfied and no material design choice remains. Do not route such a repair to `$architecture-remediation` merely because the prior Spec text was more specific.
-
-If satisfying any candidate obligation would require inventing unresolved architecture:
-
-* do not amend any Spec in the current remediation run;
-* do not consume any decision delta;
-* do not create or modify implementation tickets;
-* collect every independent architecture blocker;
-* preserve coupled questions as one blocker when they jointly define the same contract or lifecycle;
-
-Halt with a Human Handoff:
-
-> ⚠️ **Spec remediation is blocked by incomplete architecture.**
->
-> Please run:
->
-> ```
-> $architecture-remediation - <Blocked Spec Title> (<Spec URL>) — <concise blocker-set summary>
-> ```
->
-> Pass the blocked obligation, concrete contract/production-seam evidence, material consequence, governing authority, and source Wayfinder decisions.
-
-If an applicable accepted-authority source conflict prevents a safe in-place correction, do not route it as ordinary Spec-local architecture remediation. Return the exact conflicting sources and affected already-consumed decision domain to `$to-specs` so the parent can route reconciliation to the governing Wayfinder decision/domain owner under current Wayfinder policy.
-
-If more than one Spec is independently blocked, output one handoff per blocked Spec.
-
-Do not propose the architectural resolution.
-
-## 5. Update Provenance
-
-After all candidate amendments pass the Architecture Completeness Preflight and every affected decision-state consumption record is authorized, update provenance per Spec and handoff role.
-
-For a **Derived Spec**, keep its existing source marker as the decision-membership record and add any newly applicable decision IDs now completely represented:
-
-```html
-<!-- wayfinder-source: #<map>; decisions: #<decision>,#<decision>,#<new-decision> -->
-```
-
-For a **Remediation Spec**, preserve its original `wayfinder-source` marker unchanged and add/update the separate remediation marker for newly applicable decisions from the input Wayfinder:
-
-```html
-<!-- wayfinder-remediation: #<map>; decisions: #<decision>,#<decision>,#<new-decision> -->
-```
-
-Then create or update the input map's single revision-aware consumed-state marker:
-
-```html
-<!-- wayfinder-decision-states:v1 map=#<map>; states=#<decision>:<state_sha256>,#<decision>:<state_sha256> -->
-```
-
-For every authorized decision-state delta item:
-
-* add its current state identity when no prior state entry exists;
-* replace only that decision's prior state identity when a revised accepted state has been completely consumed;
-* leave unrelated consumed-state entries byte-for-byte unchanged.
-
-A materially revised decision may therefore advance the state marker **without adding a new decision ID** to source/remediation membership.
-
-A Spec may have provenance/state markers for more than one Wayfinder. Never merge a remediation Wayfinder into `wayfinder-source`, replace original source provenance, or use the state marker as architectural authority.
-
-Decision membership, consumed-state advancement, and the semantic Spec amendment are one atomic tracker mutation. If the issue update/readback cannot prove all three agree, treat publication as failed rather than leaving provenance ahead of semantics.
-
-For an unchanged-state defect-only amendment with zero decision-state delta, the already-consumed decision membership and state identities remain byte-for-byte unchanged. Do not create a synthetic provenance transition. The semantic Spec-body correction is the only authorized Spec mutation from this child; the lifecycle owner of any durable defect record remains responsible for reconciling that record after the amended Spec is certified and any downstream decomposition is repaired.
-
-Wayfinder decision tickets and their terminal resolution comments remain the durable home of the decisions themselves.
-
-## 6. Update the Existing Specs
-
-Write each reconciled candidate back to its existing Spec in place.
-
-Do not:
-
-* create new specs for handed-off scope;
-* reset branch or baseline metadata;
-* replace existing ticket or review lineage;
-* create implementation tickets;
-* reopen or close existing remediation tickets merely because a spec changed.
-
-Return the amended Spec set to `$to-specs`.
-
-## Completion
-
-Report:
-
-* existing Specs amended or already synchronized;
-* source Wayfinder map;
-* handoff role (`Derived Spec` or `Remediation Spec`) per Spec;
-* newly consumed or advanced decision states per Spec, including delta reason and terminal resolution comment;
-* spec sections changed per Spec;
-* Architecture Completeness Preflight result;
-* concrete contracts/production seams checked when applicable;
-* whether legacy decision-state provenance was bootstrapped per Spec;
-* Existing-Spec Authority-Strength Reconciliation results for every recovered in-progress Spec;
-* unchanged-state Spec defect remediation records applied or rejected, when any;
-* source conflicts returned to the parent for governing decision/domain reconciliation, when any;
-* whether any ambiguity or architecture blocker prevented amendment.
-
-If a Spec's decision-state delta is empty **and** it has no `Eligibility: pass` Unchanged-State Spec Defect Remediation Record, make no semantic changes to that Spec and report that no authorized remediation input requires a change. A zero decision-state delta by itself must not be reported as proof that the Spec body semantically represents the accepted decisions; the Existing-Spec Authority-Strength Reconciliation must also have no unresolved, over-strengthened, or source-conflict claims that require action.
-
-If the Architecture Completeness Preflight fails, leave all existing Specs and provenance unchanged and present the Human Handoff.
-
-## Transition-Bound Decision-State Consumption
-
-Wayfinder consumption is a semantic state transition, not an issue-number set operation. A decision ID or prior consumed-state identity may not advance merely because the decision was read or a Spec was edited.
-
-For every item in every per-Spec decision-state delta, create one working **Decision-State Consumption Record**:
-
-```text
-Decision: #<n>
-Target Spec: #<n>
-Delta reason: new-decision | legacy-state-bootstrap | revised-decision-state
-Terminal resolution comment: <comment id>
-Prior consumed state: <state identity | None>
-Current accepted state: <state identity>
-Affected obligations/sections: <exact mapping>
-Semantic representation: <complete | incomplete>
-Architecture implementability: <pass | blocked>
-Evidence: <current Spec/authority/concrete-seam evidence>
-Consumption authorized: <yes | no>
-```
-
-`Consumption authorized: yes` requires:
-
-* the current accepted decision-state identity was mechanically resolved from a valid terminal resolution anchor;
-* every material consequence of that exact accepted state for the target Spec is mapped to an existing or amended obligation/section, or explicitly shown already represented;
-* `Semantic representation: complete`;
-* `Architecture implementability: pass` under the existing completeness preflight;
-* no unresolved ambiguity about the decision state's applicability to that Spec.
-
-A decision revision that only clarifies or supersedes existing text may legitimately require no new requirement, but its record must name the exact existing representation. A partially incorporated revision remains `no` and its consumed-state identity must not advance.
-
-Before any Spec/provenance mutation require:
-
-```text
-Current applicable resolved decisions: <n>
-Current accepted state identities resolved: <n>
-Decisions without consumable current state: 0
-Decision-state delta items: <n>
-Decision-state consumption records: <n>
-Missing delta records: 0
-Existing-Spec authority-strength claims checked: <n>
-Unreconciled over-strengthened claims proposed for publication: 0
-Unresolved source conflicts proposed for Spec-local resolution: 0
-Eligible unchanged-state Spec defect remediation records: <n>
-Failed/ambiguous unchanged-state defect records proposed for amendment: 0
-Synthetic decision-provenance advancements for defect-only remediation: 0
-State-identity mismatches without reconciliation: 0
-Legacy ID-only decisions treated synchronized without bootstrap proof: 0
-Incomplete semantic representations: 0
-Architecture-blocked consumption records: 0
-Unauthorized state advancements proposed: 0
-Duplicate wayfinder-decision-states:v1 markers for any map: 0
-```
-
-Only after all records for the candidate amendment are authorized may the Spec body, decision-membership provenance, and consumed-state marker advance atomically. Immediately read the issue back and mechanically require:
-
-* every authorized current decision ID is present in the proper source/remediation membership marker;
-* every authorized current Decision State Identity exactly matches the single state marker for that map;
-* no unauthorized decision/state entry advanced;
-* the semantic sections named by every record are present in the published body.
-
-This prevents a Spec from claiming that a reopened/revised Wayfinder decision was consumed when it contains only an older accepted state.
+This helper is intentionally non-semantic and is expected to disappear once legacy
+handoff recovery no longer needs a separate compatibility boundary.

@@ -1,5 +1,5 @@
 interface:
   display_name: "To Specs"
-  short_description: "Turn a conversation into one or more specs"
+  short_description: "Project decision-complete planning into CCL-backed implementation specs"
 policy:
   allow_implicit_invocation: false

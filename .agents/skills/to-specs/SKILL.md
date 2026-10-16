@@ -1,500 +1,418 @@
 ---
 name: to-specs
-description: Turn an explicit planning source and current codebase understanding into one or more implementation specifications and publish or update them in the configured issue tracker.
+description: Project decision-complete planning into implementation Specs from exact Canonical Contract Ledger semantics while preserving Independent Specs and existing Spec identity.
 disable-model-invocation: true
 ---
 
-This skill takes an explicit planning source and current codebase understanding and produces a spec or specs depending on complexity and scope. Do NOT interview the user — recover and synthesize the required context from the invocation, repository, and durable tracker artifacts.
+# To Specs
 
-The issue tracker and triage label vocabulary should have been provided to you — run `$setup-matt-pocock-skills` if not.
+`$to-specs` owns the transition from decision-complete planning into implementation
+specification.
+
+Its job is **projection and partition**, not semantic design:
+
+```text
+planning source + CCL
+        ↓
+implementation Spec(s)
+```
+
+Material product/domain/architecture/public/persistence/temporal/authority/failure
+semantics come from exact Canonical Contract Ledger (CCL) assertions. `$to-specs`
+does not reconstruct those semantics from Decision Analysis, ADR prose, existing Spec
+prose, implementation precedent, or another agent's interpretation.
+
+`$to-specs` also owns in-place semantic reconciliation of existing Wayfinder-managed
+Specs. `$to-remediation-specs` remains temporarily as a **mechanical recovery/provenance
+helper only** so older cross-skill wiring stays compatible during migration; it may not
+interpret or amend Spec semantics.
 
 ## Session Independence
 
-Assume no prior conversational or agent-session state.
+Assume no prior conversational state. Recover correctness-critical inputs from the
+invocation, repository, CCL, and durable tracker artifacts. Chat summaries are context
+only.
 
-Recover every correctness-critical input from the explicit invocation, repository, and durable tracker artifacts before acting. Prior-session summaries or remembered conclusions are routing context only and must not substitute for required durable evidence.
+If required durable state cannot be recovered, stop rather than infer it.
 
-If required durable state cannot be recovered, report the missing artifact rather than infer or recreate it from memory.
+## Governance
 
-## Delegated Owner Result Admission Gate
+Resolve the planning source first.
 
-Named child skills prescribed by this workflow are lifecycle owners, not reference material. When `$to-specs` says to invoke a child skill, successful internal composition requires that child to execute and its returned result to be admitted by `$to-specs`. Reading the child `SKILL.md`, querying the same durable inputs, reproducing the child's algorithm, or independently deriving an equivalent-looking answer does **not** satisfy invocation.
+### Wayfinder source
 
-This gate is transition-bound. It does not add a Human Handoff: prescribed child skills still run as internal composition and return normally to `$to-specs`.
+A Wayfinder-managed invocation consumes the map, its durable Spec handoffs, and the
+accepted CCL transaction references recorded by the governing decisions.
 
-### Project-delivery result admission
+Before tracker mutation:
 
-Whenever this workflow requires `$project-delivery-management reconcile` and/or `guard <Wayfinder>`:
+1. invoke `$project-delivery-management reconcile`;
+2. invoke `$project-delivery-management guard <Wayfinder>`;
+3. require exact `PROJECT DELIVERY GUARD: ALLOWED`.
 
-1. actually invoke each required child operation and receive its terminal result;
-2. require the exact returned guard result required by the surrounding actionability/frontier rule;
-3. bind those results to the same current Wayfinder/Spec state used by the pending mutation or handoff.
+Do not reconstruct focus manually or establish/switch focus inside `$to-specs`.
 
-Before relying on project-delivery state, require:
+A Wayfinder map is specification-ready only when its current route-clear state proves
+that every material destination semantic obligation is represented by accepted CCL
+assertions or is explicitly implementation-equivalent/private, deferred, or out of
+scope.
+
+### Independent source
+
+An intentionally non-Wayfinder planning source remains Independent. Do not invent a
+Wayfinder merely because `$to-specs` was invoked.
+
+For each material semantic obligation required by the source:
+
+* if an exact active CCL assertion already represents it, consume that assertion;
+* if current durable governing/constraint authority already determines it exactly but
+  it is not yet registered, invoke `$contract-ledger existing-authority` as internal
+  composition and consume the resulting exact CCL address;
+* if one bounded independent semantic coupling group remains unresolved, stop with a
+  Human Handoff to `$contract-ledger owner-decision` against the durable planning
+  artifact;
+* if resolution requires multiple/coupled decision groups, cross-domain planning,
+  research/prototyping, or project partition decisions, stop and route to `$wayfinder`.
+
+`$to-specs` never chooses the missing semantic answer.
+
+## CCL Projection Contract
+
+Every software Spec that contains material semantics carries exactly one machine-managed
+manifest comment:
 
 ```text
-Project-delivery reconcile result received: yes
-Project-delivery guard result(s) received: <n>/<n required>
-Required PROJECT DELIVERY GUARD result(s) admitted: yes
-Manual project-delivery reconstruction used as substitute: no
+<!-- spec-contract-ccl:v1
+{
+  "schema": "polaris.spec-ccl/v1",
+  "obligations": [
+    {
+      "obligation_id": "OBL-001",
+      "source_ref": "<durable planning-source anchor>",
+      "ccl": [
+        "<contract-id>@<revision>#<assertion-id>"
+      ]
+    }
+  ]
+}
+-->
 ```
-
-A manually reconstructed focus/frontier/singleton answer is diagnostic context only. Missing, pending, malformed, or non-authorizing required child results fail closed; do not mutate tracker state or emit an actionable `$to-tickets` handoff from a manual substitute.
-
-### Existing-Spec remediation result admission
-
-When **Resolve spec mode** finds one or more in-progress Derived Specs or Remediation Specs:
-
-1. actually invoke `$to-remediation-specs` with the exact current Wayfinder and reconciled handed-off Spec set;
-2. receive the child's complete terminal result, including any amended/already-synchronized/blocked classifications and unchanged-state defect-remediation records when applicable;
-3. bind that result to the same current Wayfinder decision-state identities and Spec states used by `$to-specs`.
-
-Before continuing to dependency/frontier reconciliation, require:
-
-```text
-Remediation owner invoked: $to-remediation-specs
-Remediation result payload received: yes
-Remediation result source/current-Spec state match: yes
-Manual remediation analysis used as substitute: no
-```
-
-The child result is authoritative for existing-Spec recovery, decision-state delta analysis, eligible unchanged-state defect remediation, and in-place amendment. `$to-specs` may perform only its parent-owned architecture/design readiness, dependency/frontier, publication, and lifecycle work after admitting that result. A missing, pending, malformed, stale, or blocking child result stops at that owner boundary.
-
-## Process
-
-1. **Gather context.** Work from the provided source and explore the repo as needed to understand the current codebase. Use the project's domain glossary vocabulary throughout the spec.
-
-   When the source is a Wayfinder map, treat that map and its resolved decision tickets as the planning source.
-
-   Before any tracker/repository mutation for a Wayfinder-managed source, invoke `$project-delivery-management` `reconcile`, then `guard <Wayfinder>`. Require `PROJECT DELIVERY GUARD: ALLOWED` before reconciling handoff metadata, amending Specs, or publishing new Specs.
-
-   If the source Wayfinder is directly blocked, report its blockers and stop. If it is eligible but unfocused, stop and surface the explicit `$project-delivery-management` focus/switch/parallel choice. `$to-specs` must not establish or change focus itself.
-
-   Read-only context recovery and architecture inspection may happen before the guard. An intentionally non-Wayfinder planning source remains outside Wayfinder focus management; do not invent a governing Wayfinder merely to enroll it.
-
-2. **Resolve spec mode.** When the source is a Wayfinder map, resolve the complete set of existing Spec handoffs before choosing fresh or remediation mode.
-
-   A handoff is one of:
-
-   * **Derived Spec** — a Spec created from this Wayfinder map; the map remains its canonical `wayfinder-source`.
-   * **Remediation Spec** — an existing Spec created from another planning source that this Wayfinder is explicitly responsible for reconciling. Remediation does not change the Spec's original source provenance.
-
-   Recover derived Specs from both:
-
-   * explicit `Derived Spec` metadata under `Spec Handoff` on the source Wayfinder map; and
-   * existing Specs whose durable tracker provenance unambiguously identifies that Wayfinder as their source, including the canonical `wayfinder-source` marker and legacy source-context references that predate that marker.
-
-   Recover remediation Specs from both:
-
-   * explicit `Remediation Spec` metadata under `Spec Handoff` on the source Wayfinder map; and
-   * existing Specs whose `wayfinder-remediation` provenance marker unambiguously identifies that Wayfinder.
-
-   Reconcile each set. If reverse provenance unambiguously establishes a linkage missing from the map's `Spec Handoff`, add the matching `Derived Spec` or `Remediation Spec` linkage before continuing. Do not remove existing linkages, duplicate a linkage, convert one handoff role into the other, replace original `wayfinder-source` provenance to represent remediation, or treat incomplete Wayfinder metadata as proof that no other handed-off Specs exist.
-
-   `Spec Handoff` is additive provenance only. Entry order, issue number, publication order, and handoff role do not define execution order or priority.
-
-   If one or more derived or remediation in-progress Specs exist after reconciliation, invoke `$to-remediation-specs` and do not create another spec for that handed-off scope. Wait for that internal child to return, then continue through dependency/frontier and Wayfinder lifecycle reconciliation below.
-
-   `$to-remediation-specs` owns recovery of existing specs, Wayfinder decision provenance, delta analysis, duplicate prevention, and in-place amendment. It is intentionally Wayfinder-only and is not a remediation path for an Independent Spec.
-
-   If no in-progress handed-off Spec exists, continue with normal spec creation.
-
-3. **Architecture preflight.** For software work, identify the affected Living Entity Wiki entities and compare the distilled solution against their applicable invariants, decisions, rejections, boundaries, and current authoritative sources.
-
-   Confirm that:
-
-   * the architecture impact is understood;
-   * required architecture decisions and documentation have already been reconciled;
-   * no material architecture question remains unresolved;
-   * the solution still agrees with the current architecture.
-
-   If not, halt with a Human Handoff. Do not make material architectural decisions while writing the spec and do not publish placeholder Specs merely to reserve ordering or future scope.
-
-   When an originating Wayfinder map or decision is known, use it in the handoff:
-
-   > ⚠️ **Specification is blocked by unresolved architecture.**
-   >
-   > Please run:
-   >
-   > ```
-   > $wayfinder - <Wayfinder Map or Decision Title> (<URL>)
-   > ```
-
-   If no originating Wayfinder artifact can be resolved, report that the architectural planning source must be established before specification can continue rather than guessing one.
-
-### Design Completeness Gate
-
-Architecture consistency is necessary but is not sufficient implementation readiness.
-
-A prior Wayfinder route-clear claim, accepted decision summary, ADR status, or proposed Spec statement is an input to this gate, not proof that the resulting implementation contract is complete. $to-specs must independently reconstruct the bounded materially consequential contract universe from current durable authority before publication.
-
-For every software Spec candidate, build one **Spec Material Contract Matrix**. Seed the candidate universe from:
-
-* the exact planning-source obligations assigned to this Spec;
-* materially affected canonical entities and current ownership sources;
-* accepted decisions/ADRs required to interpret those obligations;
-* persistence/application boundaries named or necessarily consumed by the Spec;
-* known downstream Specs/components/surfaces whose contract depends on the candidate's output.
-
-Do not use the proposed Spec prose, a prior Design Readiness Record, the Wayfinder ticket set, or already-noticed gaps as the completeness denominator.
-
-For each materially affected contract, disposition every applicable design dimension:
-
-* identity representation and generation semantics;
-* ownership, cardinality, uniqueness, and first-class-versus-dependent identity;
-* public domain/application type meaning and canonical vocabulary;
-* typed references, admissible target families, role/use vocabulary, and dependency direction;
-* lifecycle/state, correction/supersession ancestry, and temporal interpretation;
-* effective-time / known-at / recorded-or-observed-time / version boundaries;
-* persistence-visible identities, keys, constraints, and reference contracts;
-* application command/query inputs, result distinctions, reconstruction semantics, and current-versus-historical behavior;
-* authority/provenance meaning;
-* externally observable unknown/contested/fail-closed outcomes;
-* downstream contract assumptions that would materially differ if the choice changed.
-
-Use:
-
-~~~text
-Spec candidate: <alias/title>
-Contract: <canonical contract / boundary>
-Dimension: <material design dimension>
-Candidate authority/consumer: <why included>
-Authority: <exact current durable source(s)>
-Authority entailment: <exact source anchor/meaning that fixes this result; topic adjacency is insufficient>
-Disposition: determined | implementation-equivalent | unresolved | not-applicable
-Frozen meaning or equivalence boundary: <compact exact result>
-Materially-different-implementations falsifier: <competing implementation that would change material behavior>
-~~~
 
 Rules:
 
-* determined requires exact current authority that **entails the full frozen meaning**, not merely a source that discusses the same topic;
-* a proposed Spec, its Design Readiness Record, prior generated ticket prose, or the current agent's synthesis can never bootstrap authority for a `determined` row;
-* analysis/examples in upstream planning material establish only the strength they actually state. Wording such as `may`, `for example`, `including`, `where applicable`, or a non-exhaustive example list does not establish a required field, closed vocabulary, exhaustive category set, uniqueness/cardinality rule, or mandatory persisted shape unless accepted authority explicitly closes that choice;
-* implementation-equivalent is legal only when plausible alternatives cannot alter public, product, domain, architecture, persistence, temporal, authority, failure, or downstream behavior;
-* not-applicable requires positive scope authority;
-* unresolved blocks publication for the affected scope;
-* implementation precedent may establish realizability or equivalence but may not silently supply missing design authority;
-* every material candidate/dimension receives exactly one disposition; omission is not a legal state.
+* `obligation_id` is stable inside the Spec once published;
+* every material Spec obligation references one or more exact CCL assertions;
+* one CCL assertion may support several Spec obligations when the planning partition
+  genuinely uses the same semantic contract;
+* the manifest contains provenance/mapping only; it does not restate semantic meaning;
+* material semantics not reachable through an exact manifest CCL address are not part
+  of an implementation-ready Spec contract.
 
-Apply the AGENTS.md materially-different-implementations test to every non-blocking row:
+Generate and validate the exact human-readable semantic section with:
 
-> Could two reasonable implementations satisfy the proposed Spec while establishing materially different public, product, domain, architecture, persistence, or downstream behavior/contracts?
+```bash
+python -m scripts.ccl_spec render <manifest.json> contracts/ccl/transactions
+python -m scripts.ccl_spec check <spec-body.txt> contracts/ccl/transactions
+```
 
-If yes, the row is unresolved. Do not choose the missing material design merely to complete the Spec unless the current planning source already delegates that exact non-architectural design authority to $to-specs; otherwise route the unresolved choice to its owning planning/design authority and stop publication for the affected scope.
+The generated section is titled:
 
-### Proposed-Spec Normative Claim Provenance Gate
+```markdown
+## Canonical Contract Obligations
+```
 
-The matrix is a forward completeness proof from authority to contract. Before readiness may pass, perform the reverse proof from the **exact proposed/current Spec body back to authority** so the Spec itself cannot accidentally invent a stronger contract.
+and is the Spec's authoritative material-semantic projection. It renders the typed CCL
+assertions exactly enough for humans and not-yet-migrated downstream tooling to inspect
+them without reparsing upstream prose.
 
-Build one complete **Normative Claim Provenance Audit** for every software Spec body that will be published, amended, or considered for an actionable `$to-tickets` handoff in this invocation.
+Other Spec prose may explain the problem, user outcome, implementation plan, testing
+strategy, and scope. It may refer to `OBL-*` identities, but it must not strengthen,
+weaken, close, enumerate, or otherwise reinterpret the material semantics represented
+by the generated CCL projection.
 
-A materially normative claim is any Spec statement whose truth would constrain one reasonable implementation or downstream consumer differently from another. Include, where applicable:
+If explanatory prose reveals that another material semantic assertion is actually
+required, add an exact CCL assertion through the owning semantic workflow first; do not
+make the prose authoritative.
 
-* required or forbidden public/domain/application states, fields, identities, types, categories, vocabularies, cardinalities, uniqueness rules, references, or ownership;
-* persistence-visible shape or history requirements;
-* temporal/version/current-versus-historical behavior;
-* command/query/result/failure distinctions;
-* authority/provenance or atomicity requirements;
-* closed lists, enums, required reason/category sets, negative predicates, selection rules, and fail-closed behavior;
-* Testing Decisions or Out-of-Scope statements that materially constrain the delivered contract.
+## Planning Source Partition
 
-Ordinary problem narration, explanatory rationale, private helper organization, local algorithms/data structures with no contract consequence, formatting, and equivalent test mechanics are not materially normative claims.
+Build one working partition over the complete current planning source before creating or
+amending Specs.
 
-Use:
-
-~~~text
-Normative claim: NSC-<n>
-Spec anchor/text: <exact section + compact claim>
-Material Contract Matrix row(s): <row identities>
-Upstream authority: <exact current durable source anchor(s)>
-Authority strength: exact-entailment | implementation-equivalent | unsupported
-Over-strengthened relative to authority: yes | no
-Reason: <why the authority fixes the exact strength/specificity, or why it does not>
-~~~
-
-Enforcement rules:
-
-* every materially normative claim in the exact Spec body must appear exactly once in this audit; omission is not legal;
-* every `exact-entailment` claim must map to one or more `determined` matrix rows whose cited authority fixes **all** material semantics asserted by the claim;
-* every `implementation-equivalent` claim must map to matrix rows that prove materially different implementations cannot arise from the remaining freedom;
-* if the Spec is stronger or more specific than its authority — for example `may` becomes `must`, illustrative reasons become a required or closed reason taxonomy, an example becomes an exhaustive vocabulary, an optional relationship becomes required cardinality, or a general durability requirement becomes a specific persisted public field — classify the claim `unsupported` and `Over-strengthened relative to authority: yes`;
-* a proposed/current Spec sentence cannot cite itself, another generated Spec sentence, or a prior readiness assertion as upstream authority;
-* a claim that combines several material dimensions is supported only when **every** dimension is supported at the asserted strength;
-* `unsupported` means an unresolved material choice. Correct the candidate by weakening/removing accidental over-specification only when the planning obligation is still completely satisfied by existing authority; otherwise route the missing choice to its owning planning/design authority. Do not silently choose the missing design in order to make the audit pass.
-
-This reverse audit is mandatory even when the Spec body was published in an earlier invocation. An already-published open Spec is **not grandfathered** merely because an earlier workflow reported `Implementation readiness: pass`. Before `$to-specs` includes an unchanged existing Spec in the actionable Spec frontier, its exact current body must pass the current Design Completeness Gate, this Normative Claim Provenance Gate, and the Independent Design Readiness Certification below in the same invocation (or through a durable certification contract that explicitly proves the same body and current authority under these exact gates).
-
-For each Spec candidate require:
-
-~~~text
-Design readiness: <pass | blocked>
-Material contract candidates: <n>
-Material contract dimensions: <n>
-Determined by current authority: <n>
-Implementation-equivalent: <n>
-Not applicable with authority: <n>
-Materially normative Spec claims: <n>
-Claims with exact/equivalent upstream provenance: <n>
-Ungrounded or over-strengthened Spec claims: <count + details>
-Unresolved material choices: <count + details>
-Unclassified/omitted material dimensions: <count + details>
-Implementation-delegated material design choices: <count + details>
-~~~
-
-Publication or actionable handoff requires:
-
-~~~text
-Design readiness: pass
-Ungrounded or over-strengthened Spec claims: 0
-Unresolved material choices: 0
-Unclassified/omitted material dimensions: 0
-Implementation-delegated material design choices: 0
-~~~
-
-Missing private helper structure, local algorithms/data structures with no contract consequence, code organization, formatting, or equivalent test mechanics are implementation details and do not block readiness.
-
-### Independent Design Readiness Certification
-
-Before any software Spec is published, amended, or included in an actionable `$to-tickets` handoff, freeze the complete Spec set being certified for this invocation. Compute one `DESIGN_READINESS_PROPOSAL_ID` as the SHA-256 of the exact frozen design-readiness dispatch packet bytes, including the exact Spec bodies, intended dependency partition, every Spec Material Contract Matrix, and every Normative Claim Provenance Audit. Dispatch exactly one **fresh, non-mutating semantic design-readiness verifier** over:
-
-* the exact planning source and consumed decision set;
-* the bounded authoritative architecture/design source inventory;
-* every Spec Material Contract Matrix;
-* every Normative Claim Provenance Audit;
-* the frozen exact Spec bodies and intended dependency partition.
-
-The verifier independently reconstructs the materially consequential contract universe, performs its own reverse scan of each exact Spec body for materially normative claims, and attempts to falsify completeness, every determined / implementation-equivalent / not-applicable disposition, and every claimed authority mapping. It must compare **semantic strength**, not merely topical relevance. It does not edit the proposal, make missing design decisions, mutate tracker/repository state, or publish Specs.
-
-Return exactly one complete semantic result:
-
-~~~text
-SPEC DESIGN READINESS: PASS | FAIL
-Proposal identity: <DESIGN_READINESS_PROPOSAL_ID>
-Unrepresented material contract candidates: <count + details>
-Unsupported determined/equivalent/not-applicable rows: <count + details>
-Ungrounded/over-strengthened proposed-Spec claims: <count + details>
-Surviving materially-different implementation choices: <count + details>
-Cross-Spec contract/dependency gaps: <count + details>
-~~~
-
-Apply the repository-wide **Independent Semantic Child Result Admission** rule from `AGENTS.md`. Before consuming the result require the semantic payload to have actually returned, exactly one `SPEC DESIGN READINESS` verdict, the echoed proposal identity to equal `DESIGN_READINESS_PROPOSAL_ID`, and all **five** required result categories to be present. Pending/ambiguous child state or a missing/malformed/mismatched payload is unresolved, not PASS or FAIL, and cannot authorize publication or actionable handoff.
-
-Publication or actionable handoff of any affected software Spec requires PASS for the exact frozen body in the proposal. A verifier FAIL returns control to $to-specs for correction or upstream routing; after any semantic body/proposal change, rerun the parent gates and recertify the exact new proposal. If the fresh verifier context is unavailable, do not substitute same-agent or owner assertion for certification and do not publish or hand off the affected software Spec as implementation-ready.
-
-Invoke $attention as prescribed internal composition after the parent Design Completeness and Normative Claim Provenance Gates and before independent certification/publication. Any Attention finding is handled under the authority/routing rules in AGENTS.md; $attention itself does not decide or mutate.
-
-4. **Resolve testing seams.** Prefer existing seams to new ones and use the highest practical seam. The fewer seams across the codebase, the better.
-
-   Use seams already established by the resolved solution, durable Wayfinder decisions, or current repository state. Ask the user only when the seam remains genuinely unresolved or multiple materially different seams remain plausible.
-
-5. **Write and publish the complete currently specifiable set** using the template below. Apply the `ready-for-agent` triage label only to Specs that pass both architecture and design readiness. A Spec intentionally persisted while blocked by unresolved design must instead use the appropriate human/blocking lifecycle state and receives no `$to-tickets` handoff.
-
-   Partition the planning source into every implementation Spec that is currently decision-complete and independently specifiable. Publish that complete set up front; do not serialize Spec creation merely because one Spec depends on another. A blocked Spec may be fully specified and published while remaining non-actionable.
-
-   Do not create a placeholder Spec for scope whose material architecture remains unresolved. Route that scope back through the Architecture preflight instead.
-
-   When sourced from Wayfinder, include the source map and the resolved decision tickets consumed by that spec:
-
-   ```html
-   <!-- wayfinder-source: #<map>; decisions: #<decision>,#<decision> -->
-   ```
-
-   After publishing, record each newly derived spec on the source Wayfinder map using additive tracker metadata:
-
-   ```markdown
-   ## Spec Handoff
-   **Derived Spec:** #<spec_issue_number>
-   **Derived Spec:** #<spec_issue_number>
-   ...
-   ```
-
-   An existing Spec intentionally governed by a later Wayfinder uses a distinct linkage:
-
-   ```markdown
-   ## Spec Handoff
-   **Remediation Spec:** #<spec_issue_number>
-   ```
-
-   Record each linkage once. Do not overwrite the Wayfinder map body, duplicate an existing linkage, or rewrite a Spec's original source provenance to represent remediation.
-
-6. **Publish semantic Spec dependencies and derive the frontier.** After all currently specifiable Specs for the source have been published or amended, establish every currently known semantic Spec prerequisite before any `$to-tickets` handoff.
-
-   A dependency says the consumer Spec may not advance until the blocker Spec closes through its authoritative Spec lifecycle. Ticket completion, verification readiness, review passage, `Ready to Merge`, Priority, Project fields, issue order, or handoff order do not satisfy a Spec dependency.
-
-   For each required Spec dependency:
-
-   * resolve the governance mode of consumer and blocker independently under `AGENTS.md`: `Wayfinder-managed` with exact governing lineage(s), or `Independent`; ambiguous/missing expected provenance fails closed rather than being treated as Independent;
-   * place the edge on the narrowest authoritative Specs whose closure expresses the prerequisite; do not promote a narrower dependency to a Wayfinder edge;
-   * when both Specs are Wayfinder-managed under the same exact governing lineage, `$to-specs` owns the semantic relationship and invokes `$github-issue-dependencies` for the exact native `blocked by` mutation;
-   * when both Specs are Wayfinder-managed and the relationship crosses governing Wayfinder lineages, delegate semantic validation and mutation to `$project-delivery-management` `dependency ensure <consumer> blocked-by <blocker>`;
-   * when **either Spec is Independent**, `$to-specs` owns the exact Spec-level semantic relationship. Validate the durable prerequisite, lowest accurate completion boundary, complete native blocker graph, and cycle safety, then invoke `$github-issue-dependencies` for only that native `blocked by` mutation;
-   * never create or require a Wayfinder merely because an Independent Spec is a consumer or blocker;
-   * re-read the consumer after mutation and require the exact native edge to exist.
-
-   For every `$to-specs`-owned edge, reject self-dependency, incomplete blocker data, and any edge that would create a cycle by proving the consumer is not reachable from the blocker through the complete native `blocked by` graph. Do not interpret unreadable/truncated graph data as acyclic.
-
-   A Wayfinder-managed Spec blocked by an Independent Spec remains in its original governance lineage. The narrower Spec edge removes it from the actionable Spec frontier; do not promote that prerequisite to a map-level blocker. Its governing map may remain focused-but-stalled when otherwise eligible.
-
-   Do not maintain a parallel dependency registry in Spec bodies, handoff metadata, or Project fields. Human-readable planning prose may explain why an edge exists but never substitutes for the native relationship.
-
-   Then re-read every in-progress Spec handled for this source, including complete native blocker data. For a Wayfinder source this includes every reconciled Derived/Remediation Spec; for an Independent source it includes every Spec published/amended by this invocation.
-
-   The **Spec dependency frontier** is the set of open handled Specs with zero open native blockers directly on the Spec **and whose own implementation-readiness gate is currently satisfied**. For software Specs, `currently satisfied` requires the exact current body to have passed the Design Completeness Gate, Normative Claim Provenance Gate, and Independent Design Readiness Certification in this invocation (or through the exact durable equivalent allowed above).
-
-   For each Wayfinder-managed Spec in that frontier, recover its complete current governing Wayfinder set from durable source/remediation provenance and reconciled handoff evidence. Invoke `$project-delivery-management` `reconcile` once, then `guard <Wayfinder>` for every governing Wayfinder. The Spec belongs to the **actionable Spec frontier** when at least one governing Wayfinder returns `PROJECT DELIVERY GUARD: ALLOWED`.
-
-   An Independent Spec is durably outside Wayfinder delivery governance. If it is in the Spec dependency frontier, include it directly in the actionable Spec frontier according to its ordinary lifecycle without invoking or inventing a Wayfinder/project-delivery guard.
-
-   Do not assume the invocation source remains the Spec's only or currently focused governor. If a Wayfinder-managed governing set is ambiguous or no governing Wayfinder is authorized, exclude the Spec from the actionable frontier and report the exact reason. One currently focused governing Wayfinder is sufficient.
-
-   Do not persist an active-Spec field, queue, WIP=1 marker, or frontier snapshot. Multiple independent actionable Specs inside the same focused Wayfinder are concurrently actionable.
-
-   A blocked Spec remains published and visible but receives no `$to-tickets` handoff. A Wayfinder-managed Spec governed only by unfocused Wayfinders also receives no handoff.
-
-   Native dependency state is re-read on every reduction. If a blocker Spec is legitimately reopened, the unchanged edge makes the dependent Spec ineligible again automatically; do not invent replacement state.
-
-7. **Derive the source Wayfinder lifecycle consequence.** When the planning source is a Wayfinder map, re-read its reconciled Derived/Remediation Spec set after all handoff and dependency mutations above.
-
-   If at least one durably governed Spec remains open, the Wayfinder has crossed the specification boundary and its lifecycle consequence is `Spec Delivery`: specification has happened and active governed Specs now own downstream execution. Do not infer `Ready to Spec` merely because the map itself remains open.
-
-   This lifecycle consequence is derived from durable Spec handoffs/provenance/dependencies. Do not invoke `$project-tracking` here; GitHub Project projection is deferred to the repository-wide `$project-tracking` cadence, normally `$spec-merge-cleanup`, or an explicit human-requested board refresh. Project drift never rolls back or deletes valid Spec handoffs.
-
-   If no governed Spec remains open, do not manufacture `Spec Delivery`; let the owning completion/re-entry lifecycle derive the map's resulting state.
-
-8. **Human Handoff Intercept.** After all creation/remediation, dependency reconciliation, and source-Wayfinder lifecycle derivation when applicable are complete, output handoffs only for Specs in the actionable Spec frontier.
-
-   Output one copy-ready handoff line per actionable Spec:
-
-   ```text
-   $to-tickets - <Spec Title> (<Spec URL>)
-   ```
-
-   If multiple independent actionable Specs exist, output all lines together and let the user choose or run independent sessions in parallel. If only one exists, output one line.
-
-   If no handled Spec is actionable, report each blocked or unfocused Spec and its exact reason, then stop without a `$to-tickets` handoff.
-
-   Use the actual tracker title and URL. Do not substitute issue numbers for titles.
-
-   Do not invoke `$to-tickets` implicitly. The user chooses which Spec to continue.
-
-## Problem Statement
-
-The problem that the user is facing, from the user's perspective.
-
-## Solution
-
-The solution to the problem, from the user's perspective.
-
-## User Stories
-
-A LONG, numbered list of user stories. Each user story should be in the format of:
-
-1. As an , I want a , so that
-
-This list of user stories should be extremely extensive and cover all aspects of the feature.
-
-## Architecture Impact
-
-For software work, record:
-
-* Affected entities
-* Impact: `none | conforming | extending | changing | retiring`
-* Governing architectural decisions or constraints
-* Required ADRs/docs already resolved
-* Unresolved architecture questions: `none`
-* Unresolved material design questions: `none`
-* Implementation readiness: `pass`
-
-Do not duplicate full invariants or architectural documentation into the spec.
-
-## Implementation Decisions
-
-A list of implementation decisions that were made. This can include:
-
-* The modules that will be built/modified
-* The interfaces of those modules that will be modified
-* Technical clarifications from the developer
-* Schema changes
-* API contracts
-* Specific interactions
-
-Architectural decisions belong here only as references to decisions already resolved during `$wayfinder`, not as new architecture created during specification.
-
-Do not leave a materially consequential public/domain/downstream choice implicit merely because it can be expressed later as a class, primitive type, schema field, or conventional implementation pattern.
-
-Do NOT include specific file paths or code snippets. They may end up being outdated very quickly.
-
-Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it within the relevant decision and note briefly that it came from a prototype. Trim to the decision-rich parts — not a working demo, just the important bits.
-
-## Testing Decisions
-
-A list of testing decisions that were made. Include:
-
-* A description of what makes a good test (only test external behavior, not implementation details)
-* Which modules will be tested
-* Prior art for the tests (i.e. similar types of tests in the codebase)
-
-## Out of Scope
-
-List exclusions as Markdown bullets. Every materially independent exclusion must be its own bullet so downstream `$spec-contract` receives one stable source unit per exclusion. Keep multiple clauses in one bullet only when they are semantically inseparable and form one exclusion obligation. Do not encode independent exclusions as a semicolon- or comma-separated prose paragraph.
-
-- <independent exclusion>
-
-## Further Notes
-
-Any further notes about the feature.
-
-## Transition-Bound Planning Partition and Spec Readiness
-
-The phrase **complete currently specifiable set** is an enforceable partition, not a prose judgment.
-
-Before publishing or amending Specs, materialize a working **Planning Source Partition** over the complete current planning source. For a Wayfinder source this includes every resolved decision relevant to the destination, every current in-scope `Not yet specified` fog item, and every distinct destination obligation already made explicit by the map.
+For each distinct planning item record:
 
 ```text
 Planning item: PI-<n>
-Source: <decision/fog/destination anchor>
-Disposition: <spec-candidate | deferred-architecture | already-represented | out-of-scope>
+Source: <durable decision/destination/request anchor>
+Disposition:
+  material-contract
+  implementation-equivalent
+  deferred-semantic-decision
+  already-represented
+  out-of-scope
 Spec: <candidate/existing Spec | None>
-Reason/authority: <why the disposition is complete>
+CCL: <exact assertion address set | None>
+Reason: <compact routing/partition reason>
 ```
 
-Every planning item must be dispositioned. `already-represented` names the exact existing Spec obligation/handoff. `deferred-architecture` preserves the unresolved question/fog and may not be treated as specifiable. `out-of-scope` requires durable planning-source authority. Omission is not a disposition.
+Enforcement:
 
-Before any Spec publication require:
+* every material-contract item has a non-empty exact CCL set;
+* implementation-equivalent means plausible private implementation choices cannot
+  change public/product/domain/architecture/persistence/temporal/authority/failure or
+  downstream semantics;
+* deferred-semantic-decision remains upstream work and blocks publication only for the
+  affected scope;
+* already-represented names the exact existing Spec obligation;
+* out-of-scope requires durable planning-source authority;
+* omission is not a disposition.
+
+This partition replaces the former Spec Material Contract Matrix, reverse normative
+claim audit, and independent semantic design-readiness verifier. Do not recreate those
+systems under new names.
+
+Before publication require:
 
 ```text
 Planning-source items: <n>
-Partition rows: <n>
-Missing/unclassified items: 0
+Partition rows: <same n>
+Unclassified items: 0
+Material-contract rows without CCL: 0
 Specifiable items without a Spec candidate: 0
-Deferred items without unresolved architecture evidence: 0
-Rows without reason/authority: 0
 ```
 
-For each Spec candidate also create an **Architecture and Design Readiness Record**:
+Invoke `$attention` after the partition and candidate Specs are complete but before
+publication. Attention may surface a real missing planning item or CCL gap; it does not
+create semantic authority.
+
+## Spec Set and Existing-Spec Reconciliation
+
+Publish the complete currently specifiable set. Do not serialize Spec creation merely
+because one Spec depends on another.
+
+### Recover existing Wayfinder handoffs
+
+For a Wayfinder source with existing handoffs, invoke `$to-remediation-specs` only to
+recover/reconcile the handed-off Spec identities and source/remediation markers. Admit
+its returned identity/provenance set, then perform all semantic reconciliation in this
+parent workflow. The helper must not classify CCL meaning, compute semantic deltas, or
+amend a Spec body.
+
+Reconcile both forward and Spec-local provenance for:
+
+* **Derived Spec** — Spec created from this Wayfinder; and
+* **Remediation Spec** — existing Spec whose original planning provenance is preserved
+  while this Wayfinder supplies later governing semantics.
+
+Keep the existing markers:
+
+```html
+<!-- wayfinder-source: #<map>; decisions: #<decision>,#<decision> -->
+<!-- wayfinder-remediation: #<map>; decisions: #<decision>,#<decision> -->
+```
+
+and map body handoffs:
+
+```markdown
+## Spec Handoff
+**Derived Spec:** #<spec>
+**Remediation Spec:** #<spec>
+```
+
+Reverse evidence may repair an unambiguous missing handoff link, but never change a
+Derived Spec into a Remediation Spec or replace original source provenance.
+
+### Reconcile in place
+
+For every in-progress handed-off Spec, compute the **desired** planning partition,
+`spec-contract-ccl:v1` manifest, generated Canonical Contract Obligations section, and
+non-semantic planning text from current durable state.
+
+Then:
+
+* if current and desired projection are identical, leave the Spec unchanged;
+* if they differ, amend the existing Spec issue in place;
+* preserve issue identity, source/remediation provenance, branch, fixed baseline,
+  existing tickets, review lineage, and native dependency edges;
+* do not create a replacement Spec merely because CCL revisions changed;
+* closed historical tickets remain history; `$to-tickets` later reconciles executable
+  decomposition against the amended Spec.
+
+Exact `contract@revision#assertion` addresses are the semantic consumption identity.
+Legacy `wayfinder-decision-states:v1` markers may be preserved as historical provenance
+but are no longer created, advanced, or consulted to decide semantic synchronization.
+
+### Legacy Spec migration
+
+An in-progress software Spec without `spec-contract-ccl:v1` is a legacy projection.
+Migrate it in place when its planning source is otherwise ready:
+
+1. derive the desired material obligations only from current accepted CCL;
+2. generate the canonical CCL section;
+3. retain planning/implementation/testing prose only as explanatory/private-mechanics
+   text tied to `OBL-*` identities;
+4. do not carry forward a material semantic claim that has no exact CCL address;
+5. if such a claim is still required by the durable planning source, stop and route the
+   missing semantic decision upstream;
+6. if the claim was accidental unsupported specificity not required by the planning
+   source, remove it rather than inventing a replacement taxonomy/cardinality/type.
+
+This is projection repair, not an architecture decision.
+
+If a durable `architecture-blocker:v1` exists solely because a downstream workflow
+interpreted now-removed unsupported Spec specificity as missing architecture, record the
+same blocker as resolved by CCL projection repair with the exact controlling CCL
+addresses. Do not mark a genuine unresolved semantic question resolved this way.
+
+## Concrete Implementability
+
+After CCL projection, inspect only enough current code to ensure the Spec can be realized
+without another material semantic decision.
+
+A missing class, method, migration, query, repository call, DI binding, local algorithm,
+or equivalent wiring is implementation work when CCL already fixes all material
+semantics.
+
+If realization still requires choosing a material semantic contract absent from CCL,
+stop and route that exact gap to the semantic owner. Do not add another design matrix or
+semantic verifier.
+
+## Spec Body
+
+Use this structure for software Specs:
+
+```markdown
+<governance/provenance markers>
+<spec-contract-ccl:v1 manifest>
+
+## Problem Statement
+
+<user/problem framing; explanatory, not a stronger semantic contract>
+
+## Solution
+
+<solution framing referencing OBL-* where material behavior matters>
+
+## User Stories
+
+1. As a <user>, I want <outcome under OBL-*>, so that <value>.
+
+## Architecture Impact
+
+- Affected entities: <...>
+- Impact: none | conforming | extending | changing | retiring
+- Governing CCL: <contract@revision list>
+- Unresolved material semantic questions: none
+- Implementation readiness: pass
+
+## Canonical Contract Obligations
+
+<generated by scripts.ccl_spec; do not hand-edit>
+
+## Implementation Decisions
+
+<private/mechanical plan and module/interface responsibilities. Refer to OBL-* for
+material behavior. Do not create new material semantics.>
+
+## Testing Decisions
+
+<external-behavior tests proving OBL-* plus implementation-equivalent test mechanics>
+
+## Out of Scope
+
+- <one materially independent exclusion per bullet>
+
+## Further Notes
+
+<non-authoritative context>
+```
+
+Do not include specific implementation file paths or working code snippets unless a
+prototype snippet is itself the already-authorized compact representation of a private
+mechanic. Material semantics always remain in CCL.
+
+A non-software Spec that genuinely has no material software contract may omit the CCL
+manifest/section. Do not use that exception for a software Spec merely because the
+semantics are inconvenient to register.
+
+## Dependencies and Frontier
+
+After publishing/amending the complete Spec set, establish every known native Spec
+prerequisite before any `$to-tickets` handoff.
+
+A Spec dependency means the consumer may not advance until the blocker Spec completes
+its authoritative lifecycle.
+
+Ownership:
+
+* same-lineage Wayfinder-managed Spec relationship — `$to-specs` owns semantics and
+  invokes `$github-issue-dependencies` for the native edge;
+* cross-Wayfinder relationship — delegate semantic validation/mutation to
+  `$project-delivery-management dependency ensure`;
+* when either endpoint is Independent — `$to-specs` validates the exact narrow Spec
+  prerequisite and cycle safety, then invokes `$github-issue-dependencies`.
+
+Never use Project fields, publication order, priority, or handoff order as dependency
+truth. Reject self-dependency, incomplete blocker graphs, and cycles.
+
+The **Spec dependency frontier** is every open handled Spec with zero open native blockers
+and a valid current CCL projection (`python -m scripts.ccl_spec check` for software
+Specs).
+
+For each Wayfinder-managed frontier Spec, invoke project-delivery reconciliation and
+`guard` for every current Spec-local governing Wayfinder. It is actionable when at least
+one governor returns exact `PROJECT DELIVERY GUARD: ALLOWED`.
+
+Independent frontier Specs are actionable without Wayfinder focus.
+
+Do not persist a separate active-Spec queue/frontier artifact.
+
+## Wayfinder Lifecycle Consequence
+
+After Wayfinder Spec publication/reconciliation, re-read its complete Derived/Remediation
+Spec handoff set.
+
+If at least one governed Spec remains open, downstream execution is in **Spec Delivery**.
+The GitHub Project is eventually consistent and is not synchronized here unless the human
+explicitly requested a board refresh.
+
+## Human Handoff
+
+Emit one line for each actionable Spec:
 
 ```text
-Spec candidate: <identity/title>
-Affected architecture obligations: <exact set>
-Current accepted authority: <sources>
-Unresolved durable architecture choices: <count + details>
-Material product/domain/public/downstream choices: <exact set>
-Unresolved material design choices: <count + details>
-Implementation-delegated material design choices: <count + details>
-Concrete implementability: <pass | blocked>
-Evidence: <contracts/production seams inspected where applicable>
+$to-tickets - <Spec Title> (<Spec URL>)
 ```
 
-Publication as implementation-ready requires:
+If none are actionable, report each exact blocker/unfocused reason and stop.
 
-```text
-Unresolved durable architecture choices: 0
-Unresolved material design choices: 0
-Implementation-delegated material design choices: 0
-Concrete implementability: pass
-```
+Never invoke `$to-tickets` implicitly.
 
-Missing implementation wiring is not an unresolved durable/material choice when authority already determines its semantics.
+## Fail-Closed Routing
 
-After publication/amendment and dependency reconciliation, recompute the partition against durable handoffs and recompute the Spec/actionable frontier before emitting any `$to-tickets` handoff. The final handoff set must be derivable from the completed partition, not from publication order or the subset most recently discussed.
+Use the smallest owner:
+
+* missing exact CCL registration but semantics already fixed by current authority ->
+  internal `$contract-ledger existing-authority`;
+* one bounded unresolved semantic choice for Independent planning -> Human Handoff to
+  `$contract-ledger owner-decision`;
+* coupled/multi-domain unresolved planning -> `$wayfinder`;
+* Wayfinder-managed missing/changed semantic decision -> governing `$wayfinder` decision;
+* genuine downstream architecture blocker on an existing Independent Spec ->
+  `$architecture-remediation` under its Independent mode;
+* CCL source conflict -> governing semantic decision owner; never choose locally.
+
+A projection defect in an existing Spec stays with `$to-specs`; it is not architecture
+remediation.
+
+## Non-Goals
+
+`$to-specs` does not:
+
+* infer material semantics from prose when an exact CCL assertion is absent;
+* independently certify/reinterpret CCL through a second semantic model;
+* maintain decision-state hashes as a parallel semantic identity;
+* delegate material design to implementation;
+* create implementation tickets;
+* create a Wayfinder for decision-complete Independent work;
+* replace an existing Spec when in-place reconciliation is possible.

@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import pytest
 
-from scripts.spec_contract import SpecContractError, build_contract, validate_coverage
+from scripts.spec_contract import (
+    SpecContractError,
+    build_contract,
+    validate_coverage,
+    validate_execution_closure,
+)
 
 REF_PERSIST = "workflow-demo.recording@1#record.persistence"
 REF_DISTINCT = "workflow-demo.recording@1#record.not-command"
@@ -34,6 +39,33 @@ Generated elsewhere.
 
 ## Out of Scope
 - `EXC-001` — Defining a public workflow-record taxonomy.
+'''
+
+CLOSURE_BODY = '''<!-- spec-contract-ccl:v1
+{
+  "schema": "polaris.spec-ccl/v1",
+  "obligations": [
+    {"obligation_id":"OBL-007","source_ref":"Decision #201","ccl":["demo@1#a"]},
+    {"obligation_id":"OBL-008","source_ref":"Decision #201","ccl":["demo@1#b"]},
+    {"obligation_id":"OBL-009","source_ref":"Decision #201","ccl":["demo@1#c"]}
+  ]
+}
+-->
+
+## Problem Statement
+Synthetic execution-closure fixture.
+
+## Canonical Contract Obligations
+Generated elsewhere.
+
+## Implementation Decisions
+- `IMP-002` — Implement only the target-owner side of OBL-007 through OBL-009 against the shared boundary.
+
+## Testing Decisions
+- `TEST-007` — Prove OBL-009 exact-basis capture.
+
+## Out of Scope
+- `EXC-001` — Widening the synthetic contract.
 '''
 
 
@@ -130,6 +162,24 @@ def _coverage(contract: dict) -> dict:
     }
 
 
+def _routed_coverage(contract: dict, routes: dict[str, str]) -> dict:
+    value = _coverage(contract)
+    for row in value["routes"]:
+        row["destination"] = routes[row["cell"]]
+    return value
+
+
+def _dependencies(contract: dict, graph: dict[str, list[str]]) -> dict:
+    return {
+        "schema": "polaris.ticket-dependencies/v1",
+        "spec_contract_hash": contract["spec_contract_hash"],
+        "tickets": [
+            {"destination": destination, "depends_on": depends_on}
+            for destination, depends_on in graph.items()
+        ],
+    }
+
+
 def test_coverage_requires_every_exact_cell_once() -> None:
     contract = build_contract(BODY)
     coverage = _coverage(contract)
@@ -154,3 +204,89 @@ def test_coverage_keeps_exclusions_out_of_tickets() -> None:
     coverage["routes"].append({**exclusion, "destination": "T2"})
     with pytest.raises(SpecContractError, match="cannot route to a ticket"):
         validate_coverage(contract, coverage)
+
+
+def test_execution_closure_accepts_same_or_upstream_current_cell_references() -> None:
+    contract = build_contract(CLOSURE_BODY)
+    coverage = _routed_coverage(
+        contract,
+        {
+            "OBL-007": "T1",
+            "OBL-008": "T2",
+            "OBL-009": "T2",
+            "IMP-002": "T2",
+            "TEST-007": "T3",
+        },
+    )
+    dependencies = _dependencies(
+        contract,
+        {"T1": [], "T2": ["T1"], "T3": ["T2"]},
+    )
+
+    assert validate_execution_closure(contract, coverage, dependencies) == 4
+
+
+def test_execution_closure_rejects_downstream_cell_hidden_inside_range() -> None:
+    contract = build_contract(CLOSURE_BODY)
+    coverage = _routed_coverage(
+        contract,
+        {
+            "OBL-007": "T1",
+            "OBL-008": "T2",
+            "OBL-009": "T3",
+            "IMP-002": "T2",
+            "TEST-007": "T3",
+        },
+    )
+    dependencies = _dependencies(
+        contract,
+        {"T1": [], "T2": ["T1"], "T3": ["T2"]},
+    )
+
+    with pytest.raises(
+        SpecContractError,
+        match=r"IMP-002 in T2 references OBL-009 in T3",
+    ):
+        validate_execution_closure(contract, coverage, dependencies)
+
+
+def test_execution_closure_requires_dependency_plan_for_every_destination() -> None:
+    contract = build_contract(CLOSURE_BODY)
+    coverage = _routed_coverage(
+        contract,
+        {
+            "OBL-007": "T1",
+            "OBL-008": "T2",
+            "OBL-009": "T2",
+            "IMP-002": "T2",
+            "TEST-007": "T3",
+        },
+    )
+    dependencies = _dependencies(contract, {"T1": [], "T2": ["T1"]})
+
+    with pytest.raises(
+        SpecContractError,
+        match="ticket set does not match coverage destinations",
+    ):
+        validate_execution_closure(contract, coverage, dependencies)
+
+
+def test_execution_closure_rejects_dependency_cycle() -> None:
+    contract = build_contract(CLOSURE_BODY)
+    coverage = _routed_coverage(
+        contract,
+        {
+            "OBL-007": "T1",
+            "OBL-008": "T2",
+            "OBL-009": "T2",
+            "IMP-002": "T2",
+            "TEST-007": "T3",
+        },
+    )
+    dependencies = _dependencies(
+        contract,
+        {"T1": ["T3"], "T2": ["T1"], "T3": ["T2"]},
+    )
+
+    with pytest.raises(SpecContractError, match="cycle detected"):
+        validate_execution_closure(contract, coverage, dependencies)

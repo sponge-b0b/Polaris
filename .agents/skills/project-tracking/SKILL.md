@@ -1,88 +1,73 @@
 ---
 name: project-tracking
-description: Reconcile the public GitHub Project only at an authorized projection boundary: mandatory Spec completion, explicit human-requested board refresh, or separately authorized bootstrap/migration. Internal helper only; never determines workflow truth.
+description: Reconcile the public GitHub Project from already-established durable lifecycle state at permanent authorized projection boundaries; never determine workflow truth.
 compatibility: product=codex product=claude-code system=gh network=required
 disable-model-invocation: true
 ---
 
 # Project Tracking
 
-Reconcile the public Polaris GitHub Project from already-established authoritative repository/tracker state.
+`$project-tracking` is a deterministic, non-authoritative projection helper.
 
-`$project-tracking` is a non-authoritative projection helper. It does not own lifecycle state, delivery focus, scheduling, dependencies, artifact membership semantics, or correctness.
+It does not own lifecycle state, semantic authority, delivery focus, scheduling,
+dependencies, hierarchy, completion, or artifact membership semantics.
 
-## Invocation Boundary
+## Invocation boundary
 
-Project projection is intentionally **eventually consistent during active delivery**.
+Project projection is intentionally eventually consistent during active delivery. Invoke
+this helper only at:
 
-Invoke this skill only at one of these boundaries:
+1. **Mandatory Spec completion reconciliation** — `$spec-merge-cleanup` reconstructs the
+   complete completed-Spec lineage and supplies one desired projection batch.
+2. **Explicit human-requested board reconciliation** — the active workflow reconstructs the
+   requested authoritative artifact universe and supplies one desired projection batch.
 
-1. **Mandatory Spec completion reconciliation** — `$spec-merge-cleanup` has completed its authoritative lifecycle work, reconstructed the complete completed-Spec lineage, and supplies the whole desired projection set in one invocation.
-2. **Explicit human-requested board reconciliation** — the human explicitly asked to refresh/reconcile the Project and the active workflow has independently reconstructed the requested authoritative artifact universe.
-3. **Bootstrap/migration** — a separately authorized setup/migration workflow requires Project projection.
+Ordinary lifecycle transitions do not synchronize the Project. Do not persist a pending
+Project-update queue/flag/label/comment ledger.
 
-Do **not** invoke `$project-tracking` merely because an ordinary `$wayfinder`, `$to-specs`, `$to-tickets`, `$implement-ticket`, `$verify-spec`, `$review-spec`, `$architecture-remediation`, or `$project-delivery-management` transition succeeded. Any older narrower skill wording requiring automatic Project synchronization at those ordinary boundaries is superseded by the repository-wide cadence rule in `AGENTS.md` and `.agents/skills/project-tracking/WIRING.md`.
+Repository/Project setup, schema changes, historical backfills, or other administrative
+conversion work are outside this runtime skill.
 
-Do not persist a pending-Project-update queue, flag, label, ledger, or comment stream. Missing Project membership and stale fields between authorized projection boundaries are expected projection lag, not workflow-state loss.
+## Input contract
 
-The caller supplies one or more desired **base formal artifact projections**. For each artifact provide:
+The caller supplies one desired base projection per formal artifact:
 
 * GitHub issue URL;
 * `Artifact Type`;
 * `Workflow State`;
-* `Next Skill` — ordinary lifecycle next action before project-delivery overlay;
-* `Work Status` — ordinary lifecycle status before project-delivery overlay;
-* `Area` only when the caller intentionally owns an Area presentation change;
-* `Root Blocker` as `RB-n` or `None`;
-* `Completed On` as `YYYY-MM-DD` only when `Workflow State = Complete`, otherwise `None`;
-* `Priority` only when the caller intentionally owns a Priority presentation change;
-* after project-delivery bootstrap, `Project Delivery State` for every active formal artifact whose `Workflow State` is neither `Complete` nor `Superseded`: `in-focus | eligible | blocked | independent`.
+* base `Next Skill`;
+* base `Work Status`;
+* `Completed On` only for `Complete`;
+* current `Project Delivery State` for every active formal artifact:
+  `in-focus | eligible | blocked | independent`;
+* optional `Area` / `Priority` only when the caller intentionally owns those presentation
+  changes.
 
-`Artifact Type = Idea` and `Workflow State = Intake` are outside this helper.
+The caller reconstructs the complete authoritative artifact universe. This skill never
+crawls Project rows to decide what ought to exist.
 
-The caller owns reconstruction of the authoritative artifact universe and base lifecycle state. `$project-tracking` does not crawl lifecycle history to decide what should be projected.
+## Authority rules
 
-Do not hand `$project-tracking` itself to the human as a lifecycle action. An explicit human board-refresh request authorizes the active workflow to compose this helper after it reconstructs authoritative state.
+Never infer lifecycle/delivery truth from:
 
-## Authority Rules
-
-The caller's base projection and project-delivery context must come from durable workflow evidence already recovered by the caller.
-
-Never infer workflow or delivery truth from:
-
-* current Project fields or membership;
-* GitHub issue Open/Closed state alone;
+* Project fields or membership;
+* issue open/closed state alone;
 * labels;
 * saved-view position;
-* hierarchy/sub-issue position alone;
-* prior conversation/session memory.
+* hierarchy alone;
+* prior conversation.
 
-Project state may be read only to detect and repair projection drift.
+Project state is read only to detect and repair projection drift.
 
-Project-delivery focus is authoritative only through `$project-delivery-management` and canonical tracker state. `$project-tracking` never derives focus from Project values.
+Delivery context comes from `$project-delivery-management` for Wayfinder-managed artifacts
+or explicit durable Independent classification. Ambiguous governance is invalid rather than
+silently treated as Independent.
 
-After project-delivery bootstrap, every formal artifact has exactly one visible delivery relationship:
+## Delivery projection
 
-* `Workflow State = Complete` → `Released`; no caller-supplied project-delivery context is required;
-* `Workflow State = Superseded` → `Superseded`; no caller-supplied project-delivery context is required;
-* active Wayfinder-managed artifact governed by at least one currently focused Wayfinder → caller supplies `in-focus`;
-* active Wayfinder-managed artifact governed by no focused Wayfinder but at least one frontier-eligible Wayfinder → caller supplies `eligible`;
-* active Wayfinder-managed artifact for which no governing Wayfinder is currently frontier-eligible → caller supplies `blocked`;
-* active formal artifact durably established as intentionally outside Wayfinder delivery governance → caller supplies `independent`.
+Map current delivery context to `Delivery State`:
 
-For multiple governing Wayfinders, one focused eligible governor is sufficient for `in-focus`; otherwise one eligible governor is sufficient for `eligible`.
-
-`independent` is an explicit durable classification, not a fallback for missing or ambiguous Wayfinder provenance. A Wayfinder-managed artifact with unresolved governance is invalid rather than `independent`.
-
-Before project-delivery bootstrap, `Delivery State` is outside this helper's required projection contract.
-
-If caller-supplied durable state is contradictory or ambiguous, reject it. Do not repair semantic state from the Project.
-
-### Visible Delivery State Projection
-
-Map authoritative context into the Project's universal `Delivery State` field:
-
-| Authoritative context | Project `Delivery State` |
+| Authoritative context | Project Delivery State |
 | --- | --- |
 | `in-focus` | In Focus |
 | `eligible` | Eligible |
@@ -91,35 +76,25 @@ Map authoritative context into the Project's universal `Delivery State` field:
 | `Workflow State = Complete` | Released |
 | `Workflow State = Superseded` | Superseded |
 
-`Delivery State` answers only the artifact's current relationship to project-level delivery authorization. `Denied` means current project-delivery authorization forbids advancement; it is distinct from lifecycle/execution `Blocked` in `Workflow State` or `Work Status`. `Superseded` is a terminal non-completion disposition: the artifact was retired from active delivery because newer product or architecture authority replaced it, not successfully delivered or released.
+`Delivery State` never establishes focus, frontier eligibility, dependency state, or
+lifecycle authorization.
 
-The field never establishes or changes focus, frontier eligibility, dependency state, lifecycle state, or authorization.
+## Base projection invariants
 
-A focused Wayfinder with narrower stalled work remains `In Focus`; stalledness is reported by its owning lifecycle and must not create a separate Delivery State value.
+Validate before mutation:
 
-## Projection Invariants
+* `Complete` -> base `Work Status = Done`, `Next Skill = None`, authoritative non-empty
+  `Completed On`;
+* `Superseded` -> base `Work Status = Done`, `Next Skill = None`, `Completed On = None`, and
+  explicit durable retirement authority supplied by the caller;
+* all other states -> `Completed On = None`;
+* requested select values must already exist in current Project schema;
+* `Artifact Type`, `Workflow State`, and base `Next Skill` must satisfy the current route
+  table below.
 
-Validate every supplied base lifecycle projection before any Project mutation:
+Do not infer `Completed On` from issue `closed_at`.
 
-* `Workflow State = Complete` requires base `Work Status = Done`, base `Next Skill = None`, and non-empty authoritative `Completed On`;
-* `Workflow State = Superseded` requires base `Work Status = Done`, base `Next Skill = None`, and `Completed On = None`;
-* non-`Complete` requires `Completed On = None`;
-* non-empty `Root Blocker` is valid only for `Artifact Type = Review Remediation Ticket` and must match `RB-[0-9]+`;
-* `Area` and `Priority` are preserved when omitted; either may be blank;
-* requested single-select values must exist in the Project schema;
-* `Artifact Type`, `Workflow State`, and base `Next Skill` must satisfy **Base Artifact Route Compatibility**.
-
-Never infer `Completed On` from issue closure alone. The caller must recover the authoritative lifecycle completion date.
-
-A caller-supplied `Superseded` projection requires explicit durable retirement authority recovered outside the Project. Issue closure or the current Project row alone is never sufficient.
-
-When an artifact legitimately re-enters from `Complete`, clear `Completed On` and require its current active `Project Delivery State` to be re-established from durable authority.
-
-### Base Artifact Route Compatibility
-
-`Next Skill` names the next human-invocable lifecycle/HITL entry point for that Project row before delivery authorization is considered. Never copy a descendant's next action onto its parent.
-
-`None` is correct when the artifact remains active while child/downstream work owns the next executable action.
+## Current base route table
 
 | Artifact Type | Workflow State | Allowed base `Next Skill` |
 | --- | --- | --- |
@@ -150,424 +125,122 @@ When an artifact legitimately re-enters from `Complete`, clear `Completed On` an
 | Spec Review | Blocked | None |
 | Spec Review | Complete | None |
 | Review Remediation Ticket | Ready to Implement | `$implement-ticket` |
-| Review Remediation Ticket | Awaiting Root Verification | `$verify-root-closure` |
 | Review Remediation Ticket | Architecture Remediation | `$architecture-remediation` |
 | Review Remediation Ticket | Blocked | None |
 | Review Remediation Ticket | Complete | None |
 
-For every formal `Artifact Type` listed above, `Workflow State = Superseded` is additionally valid only with base `Next Skill = None`.
+Every listed Artifact Type also permits `Superseded / None` with explicit retirement
+authority.
 
-Context-sensitive `None` cases:
+Context-sensitive `None` means downstream children own the next executable action; it does
+not mean the parent is complete.
 
-* `Spec / Ready to Implement` waits on implementation-ticket children;
-* `Spec / Review Remediation` waits on Spec Review/remediation lineage;
-* `Spec Review / Review Remediation` uses `$to-tickets` before executable remediation tickets exist and `None` while those children own the next action;
-* `Wayfinder Map / Spec Delivery` means durable Derived/Remediation Spec handoffs exist and at least one governed Spec remains open; those Specs own the next executable action.
+Reject unlisted combinations rather than guessing.
 
-`Wayfinder Map / Ready to Spec` means specification itself is next. Once durable Spec handoffs exist with active governed Specs, do not leave the map in `Ready to Spec`.
+## Delivery overlay
 
-Reject any unlisted combination.
+Validate the base route first, then apply only delivery presentation:
 
-### Project Delivery Overlay
+* terminal Complete -> `Done / None / Released`;
+* terminal Superseded -> `Done / None / Superseded`;
+* Independent active artifact -> preserve base status/next skill, Delivery State Independent;
+* focused Wayfinder Map -> `In Progress`, preserve base next skill, In Focus;
+* eligible Wayfinder Map -> `Ready`, `$project-delivery-management`, Eligible;
+* blocked Wayfinder Map -> `Blocked`, None, Denied;
+* Wayfinder-managed descendant -> preserve base lifecycle status/next skill for
+  `in-focus|eligible`; for delivery `blocked`, set visible Work Status Blocked while
+  preserving its lifecycle next skill; project the matching Delivery State.
 
-Validate the base route first. Then apply delivery coordination without changing `Artifact Type`, `Workflow State`, `Area`, `Root Blocker`, `Completed On`, or `Priority`.
+Delivery authorization never changes `Workflow State`.
 
-For `Workflow State = Complete` project exactly:
+## Terminal contradiction checks
 
-```text
-Work Status = Done
-Next Skill = None
-Delivery State = Released
-```
+Caller-supplied `Complete` must be supported by owning lifecycle evidence. Tracker
+relationships may disprove completion but never establish it by absence.
 
-For `Workflow State = Superseded` project exactly:
+At minimum reject:
 
-```text
-Work Status = Done
-Next Skill = None
-Delivery State = Superseded
-Completed On = None
-```
+* Wayfinder Map complete while a governed Spec/decision/fog remains unresolved;
+* Spec complete while an implementation ticket or conventional Spec Review remains open;
+* Spec Review complete while a Review Remediation Ticket remains open.
 
-Do not require or apply a caller-supplied `Project Delivery State` to either terminal workflow state.
+## Resolve current Project and schema
 
-For an active artifact with `Project Delivery State = independent`, preserve base `Work Status` and base `Next Skill` and project `Delivery State = Independent`.
+Resolve exactly one open Project titled `Polaris` for the repository owner. Resolve its
+current fields once and require:
 
-For a **Wayfinder Map**:
+* Artifact Type;
+* Workflow State;
+* Next Skill;
+* Work Status;
+* Intake State;
+* Priority;
+* Area;
+* Completed On;
+* Delivery State.
 
-| Project Delivery State | Final `Work Status` | Final `Next Skill` | Final `Delivery State` |
-| --- | --- | --- | --- |
-| `in-focus` | In Progress | preserve base | In Focus |
-| `eligible` | Ready | `$project-delivery-management` | Eligible |
-| `blocked` | Blocked | None | Denied |
+All required single-select options used by the supplied batch must already exist. Missing
+Project/schema/configuration state is `PROJECT TRACKING: DRIFT`; this skill does not create
+or repair schema.
 
-Rules:
+## Deterministic execution
 
-* `in-focus` and `eligible` are invalid with `Workflow State = Blocked`;
-* an eligible Wayfinder never advertises `$wayfinder` or `$to-specs`;
-* a focused-but-stalled Wayfinder remains `in-focus` / `In Focus` and `In Progress`.
-
-For a **Wayfinder-managed descendant** (`Wayfinder Decision`, `Spec`, `Implementation Ticket`, `Spec Review`, `Review Remediation Ticket`):
-
-| Project Delivery State | Final `Work Status` | Final `Next Skill` | Final `Delivery State` |
-| --- | --- | --- | --- |
-| `in-focus` | preserve base | preserve base | In Focus |
-| `eligible` | preserve base | preserve base | Eligible |
-| `blocked` | Blocked | preserve base | Denied |
-
-Delivery authorization never suppresses a descendant's lifecycle route. `Next Skill` continues to name the lifecycle owner even when delivery is currently `Eligible` or `Denied`; that lifecycle owner must enforce its existing project-delivery guard before substantive work. `None` appears only when the base lifecycle route itself is `None`.
-
-A lifecycle- or dependency-blocked descendant may therefore be `Delivery State = In Focus` or `Eligible` while `Work Status = Blocked`; the columns describe different facts.
-
-`$project-delivery-management` is a valid final Project `Next Skill` only for an eligible Wayfinder Map row.
-
-### Terminal Disposition Checks
-
-A caller-supplied `Complete` projection requires durable lifecycle authority. Tracker relationships may only prove that completion is impossible; they never establish completion by absence.
-
-Before accepting `Complete`:
-
-* Wayfinder Map — reject if any currently governed Derived/Remediation Spec remains open, any unresolved Wayfinder decision remains, or in-scope `Not yet specified` fog remains;
-* preserve original `wayfinder-source` versus additive `wayfinder-remediation` provenance while checking governed Specs;
-* Spec — reject if any implementation-ticket child or associated Spec Review remains open;
-* Spec Review — reject if any review-remediation ticket remains open.
-
-A caller-supplied `Superseded` projection is not completion and must not use completion contradiction checks as proof. Require explicit durable retirement authority from the owning lifecycle or reconciliation operation.
-
-If route compatibility, delivery overlay, or terminal-disposition validation fails, do not mutate the Project:
-
-```text
-PROJECT TRACKING: INVALID PROJECTION
-Artifact: <title / URL>
-Rejected projection: <field=value summary>
-Reason: <concise invariant failure>
-```
-
-## Execution Contract
-
-Use one deterministic batched command path per authorized reconciliation:
+Use one reconciliation path:
 
 ```text
 validate supplied projections
-→ resolve Project once
-→ read schema once
-→ read affected current rows once on the normal path
-→ add only missing members, with at most one state-reconciled recovery pass for a recoverable membership write failure
-→ establish the current post-membership row snapshot
-→ compute one complete deterministic field-delta plan
-→ submit that plan through one or more deterministic bounded GraphQL batches
-→ verify affected rows once
+-> resolve Project once
+-> read schema once
+-> read affected current rows once
+-> add only missing members
+-> establish post-membership row snapshot
+-> compute one complete field-delta plan
+-> submit bounded deterministic GraphQL batches
+-> verify affected rows once
 ```
 
-A bounded GraphQL batch is still part of the same reconciliation path and uses the same `gh api graphql` interface. Chunking exists only to stay below GitHub GraphQL resource limits; it does not authorize recomputing semantic projections, changing interfaces, or retrying individual fields.
+A recoverable membership-add failure permits at most one **state-reconciled** retry:
+re-read membership, recompute the still-missing set, and retry only that set through the
+same interface. This is ordinary transient-write recovery, not historical conversion.
 
-The **Missing Membership** recovery in Section 3 is the only same-invocation retry exception. It is state-reconciled rather than blind: re-read current Project membership first, recompute the still-missing set, and retry only that set through the same prescribed `gh project item-add` interface. It does not authorize retries for field-delta batches, alternate interfaces, semantic recomputation, or open-ended polling/replay loops.
+Do not retry field batches through alternate interfaces, recompute semantic projections in
+response to write failures, probe CLI capability with `--help`, or modify Project views,
+automations, or schema.
 
-Do **not**:
+If no membership or field delta exists, return `SYNCED` after verification.
 
-* probe `gh` capabilities with `--help`;
-* try alternate command/flag combinations;
-* retry a failed command using a different interface;
-* inspect or repair Project views, workflows, auto-add rules, or schema during steady-state reconciliation;
-* narrate successful intermediate discovery, field edits, waits, or no-op checks.
+## Mutation ownership
 
-The supported baseline is GitHub CLI `gh 2.97.0` or newer with authenticated `project` scope.
+This skill may mutate only Project membership and the supplied current projection fields.
+Preserve Area/Priority when omitted. Do not mutate GitHub issue lifecycle state, hierarchy,
+dependencies, CCL, delivery focus, branches, or repository content.
 
-If a prescribed command is unsupported or fails because of CLI/API compatibility, return `PROJECT TRACKING: DRIFT`. Do not discover another interface during the lifecycle run.
+## Result
 
-For `gh 2.97.0`, **never combine** `gh project item-list --format json` with `--field` / `--field-id`.
-
-If no membership or field delta exists, skip mutation and return `SYNCED` after verification.
-
-## 1. Resolve the Existing Project
-
-Resolve repository owner once:
-
-```bash
-REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
-OWNER=${REPO%%/*}
-```
-
-Resolve exactly one open Project titled `Polaris` once:
-
-```bash
-gh project list --owner "$OWNER" --format json
-```
-
-Capture its Project number and GraphQL node ID. Fail closed if unreadable, missing, or ambiguous.
-
-Do not hard-code the Project number or node ID.
-
-Do not run `gh auth status` or `gh auth refresh` during normal reconciliation. Authentication failure is Project drift; the operator may repair auth outside this helper.
-
-## 2. Read and Validate Schema Once
-
-Run exactly once per invocation:
-
-```bash
-gh project field-list "$PROJECT_NUMBER" \
-  --owner "$OWNER" \
-  --limit 100 \
-  --format json
-```
-
-Require existing fields:
-
-* `Artifact Type` — single select;
-* `Workflow State` — single select;
-* `Next Skill` — single select;
-* `Work Status` — single select;
-* `Intake State` — single select;
-* `Priority` — single select;
-* `Area` — single select;
-* `Root Blocker` — text;
-* `Completed On` — date.
-
-When project-delivery bootstrap is active, additionally require:
-
-* `Delivery State` — single select with `In Focus`, `Eligible`, `Denied`, `Independent`, `Released`, `Superseded`;
-* `Workflow State` options `Spec Delivery` and `Superseded`;
-* `Next Skill` option `$project-delivery-management`.
-
-If these projection additions are missing, return drift and report the exact missing Project schema. Steady-state `$project-tracking` never mutates schema.
-
-From this one response capture:
-
-* each required field's GraphQL node ID;
-* every requested single-select option ID.
-
-Validate only the fields/options required by the supplied projections. Do not inspect unrelated Project configuration.
-
-## 3. Read Affected Current Rows Once
-
-Read Project items once for all supplied artifacts on the normal path:
-
-```bash
-gh project item-list "$PROJECT_NUMBER" \
-  --owner "$OWNER" \
-  --limit 1000 \
-  --field "Artifact Type" \
-  --field "Workflow State" \
-  --field "Delivery State" \
-  --field "Next Skill" \
-  --field "Work Status" \
-  --field "Intake State" \
-  --field "Priority" \
-  --field "Area" \
-  --field "Root Blocker" \
-  --field "Completed On"
-```
-
-Do not add `--format json` to this command on `gh 2.97.0`.
-
-Locate each supplied artifact by repository + issue number/URL and capture its current required field values and Project item node ID when present.
-
-The bounded Missing Membership recovery below may repeat this exact read once to reconcile an ambiguous/failed membership write before retry, and once after successful recovery additions to establish the post-membership snapshot. Those reads are part of the same reconciliation and do not authorize broader Project rediscovery.
-
-### Missing Membership
-
-Missing formal-artifact membership is expected when projection has been deferred.
-
-For each artifact absent from the initial current-row snapshot, attempt the prescribed membership add once, in deterministic supplied-artifact order:
-
-```bash
-gh project item-add "$PROJECT_NUMBER" \
-  --owner "$OWNER" \
-  --url "$ISSUE_URL" \
-  --format json
-```
-
-Capture the returned item ID when available.
-
-If every initial membership add succeeds, rerun the affected-row read once after all additions so every target has a current item ID/value snapshot.
-
-If an initial `gh project item-add` fails with a recoverable operation-level network/API/GraphQL error after the prescribed command/interface is known to be supported, stop issuing further first-pass membership writes and perform exactly one **state-reconciled membership recovery**:
-
-1. rerun the exact affected-row read from Section 3 once;
-2. recompute `still_missing` from the caller-supplied desired artifact set minus current Project membership; do not assume the failed command did or did not persist;
-3. do not replay any artifact that the fresh read shows is already present;
-4. retry each artifact in `still_missing` exactly once, in the original deterministic supplied-artifact order, using the same prescribed `gh project item-add` command and interface;
-5. if any recovery add fails, stop immediately and return `PROJECT TRACKING: DRIFT`; do not perform a second recovery pass, retry the failed artifact again, shrink into another ad hoc loop, or switch interfaces;
-6. after all recovery adds succeed, rerun the exact affected-row read once and require every supplied artifact to be present before computing the field-delta plan.
-
-A recoverable membership error is limited to an operation-level transport/network failure, GitHub service failure, or GraphQL `errors` response that does not identify a deterministic request defect. Authentication/authorization failure, rate/abuse limiting, missing/invalid Project or issue identity, unsupported CLI/API contract, schema/validation failure, or another deterministic request defect is not recoverable in this invocation and returns `PROJECT TRACKING: DRIFT` immediately.
-
-The recovery read is the safety boundary: membership is idempotently reconciled from observed current Project state rather than blindly replaying the failed command. The retry exception applies only to membership creation and only once per authorized reconciliation.
-
-Do not maintain or depend on the `workflow:tracked` label. Existing auto-add automation may remain a safety net, but `$project-tracking` neither waits for it nor mutates issue labels.
-
-Never archive/delete formal workflow artifacts merely because they completed or were superseded.
-
-## 4. Compute the Minimal Field Delta
-
-Compare each final projection against its current Project row. Write only differences.
-
-Rules:
-
-* `Artifact Type`, `Workflow State`, final `Delivery State`, final `Next Skill`, and final `Work Status` → set only when different;
-* after project-delivery bootstrap, never intentionally leave `Delivery State` empty for a formal artifact;
-* `Area` → preserve unless caller supplied it; then set only when different;
-* `Priority` → preserve unless caller supplied it; then set only when different;
-* `Root Blocker = RB-n` → set text only when different;
-* `Root Blocker = None` → clear only when currently populated;
-* `Completed On` → set date only for `Complete` and only when different; otherwise clear only when populated;
-* `Intake State` → clear only when populated.
-
-If delta count is zero, skip Section 5 and verify.
-
-## 5. Apply the Complete Field-Delta Plan in Bounded GraphQL Batches
-
-Do not use one `gh project item-edit` process per field.
-
-GitHub's `updateProjectV2ItemFieldValue` still updates one field value per mutation field, and a GraphQL mutation operation may contain multiple aliased top-level mutation fields. Build **one complete deterministic ordered delta plan** for all supplied artifacts, then submit that plan through bounded `gh api graphql` batches.
-
-Use:
-
-* `updateProjectV2ItemFieldValue` to set single-select, text, or date values;
-* `clearProjectV2ItemFieldValue` to clear values.
-
-Batching rules:
-
-* preserve one global deterministic alias/order across the complete plan;
-* use at most **20 top-level field mutations per GraphQL request**;
-* split only at alias boundaries; never split or duplicate one field delta;
-* submit batches serially through the same `gh api graphql` interface;
-* require every completed batch to return no GraphQL `errors` and a non-empty `projectV2Item.id` for every alias in that batch;
-* if any batch fails, stop immediately and return `PROJECT TRACKING: DRIFT`; do not continue later batches in that invocation;
-* do not retry the failed batch, shrink it, or switch interfaces in the same invocation;
-* a later authorized reconciliation must re-read current Project rows and recompute the minimal remaining delta from authoritative state, because earlier successful batches or membership additions may already have persisted.
-
-Example shape:
-
-```graphql
-mutation {
-  u1: updateProjectV2ItemFieldValue(
-    input: {
-      projectId: "<PROJECT_ID>"
-      itemId: "<ITEM_ID>"
-      fieldId: "<FIELD_ID>"
-      value: { singleSelectOptionId: "<OPTION_ID>" }
-    }
-  ) {
-    projectV2Item { id }
-  }
-
-  u2: updateProjectV2ItemFieldValue(
-    input: {
-      projectId: "<PROJECT_ID>"
-      itemId: "<ITEM_ID>"
-      fieldId: "<ROOT_BLOCKER_FIELD_ID>"
-      value: { text: "RB-17" }
-    }
-  ) {
-    projectV2Item { id }
-  }
-
-  c1: clearProjectV2ItemFieldValue(
-    input: {
-      projectId: "<PROJECT_ID>"
-      itemId: "<ITEM_ID>"
-      fieldId: "<INTAKE_STATE_FIELD_ID>"
-    }
-  ) {
-    projectV2Item { id }
-  }
-}
-```
-
-Submit each generated bounded operation exactly once, in deterministic order:
-
-```bash
-gh api graphql -f query="$MUTATION_BATCH"
-```
-
-Top-level GraphQL mutation fields execute serially within each batch, and batches execute serially in the preserved global plan order.
-
-Requirements:
-
-* one alias per delta across the complete plan;
-* at most 20 aliases per request;
-* use captured Project/item/field/option IDs rather than field-name discovery during mutation;
-* interpolate only controlled Project values, `RB-n`, and ISO dates; GraphQL-escape any text value;
-* require every completed request to return no GraphQL `errors`;
-* require every mutation alias in every completed request to return a non-empty `projectV2Item.id`.
-
-If any batch returns an error or incomplete result, report drift immediately. Do not retry failed fields individually through `gh project item-edit`, do not shrink/replay the batch in the same invocation, and do not assume earlier batches rolled back. A future authorized reconciliation starts with a fresh current-row read and computes only remaining differences.
-
-GitHub Projects v2 does not provide a REST endpoint that replaces this Project-field mutation. Do not use repository issue-field REST endpoints as Project fields.
-
-## 6. Verify Once
-
-Re-run the exact affected-row command from Section 3 once after mutation.
-
-Require exact agreement with every final projection:
-
-* every supplied artifact is a Project member;
-* required lifecycle/delivery fields equal final projected values;
-* after project-delivery bootstrap, every formal artifact has exactly one valid `Delivery State` value;
-* `Root Blocker` is set/cleared as requested;
-* `Completed On` is set/cleared as requested;
-* `Area` and `Priority` equal supplied values when supplied and otherwise equal their pre-mutation values;
-* `Intake State` is empty.
-
-Do not infer success from mutation exit status alone.
-
-## Operational Output
-
-Keep successful reconciliation silent internally until final verification.
-
-Do not emit progress narration for Project discovery, schema reads, current-row reads, membership additions, delta construction, individual mutation aliases, waits, or successful no-op checks.
-
-On success:
+Return exactly one:
 
 ```text
 PROJECT TRACKING: SYNCED
-Artifact: <title / URL>
-Projection: <field=value summary>
+Artifacts supplied: <n>
+Members added: <n>
+Field changes: <n>
+Verified rows: <n>
 ```
 
-For multiple artifacts, return one result per artifact and aggregate `PROJECT TRACKING: SYNCED` only when every artifact verifies.
+or:
 
-## Failure Semantics
+```text
+PROJECT TRACKING: INVALID PROJECTION
+Artifact: <identity>
+Reason: <invariant failure>
+```
 
-Project synchronization happens only after authoritative state is durable. A synchronization failure never rolls back, rewrites, reopens, recloses, refocuses, or otherwise changes authoritative workflow state merely to match the Project.
-
-A first-pass membership write failure that qualifies for the bounded state-reconciled recovery in Section 3 is not terminal until that recovery either succeeds or fails. No other failure gains retry authority from this exception.
-
-On a non-recoverable membership failure, a failed membership recovery, auth, schema, network/API failure outside that bounded exception, mutation, CLI-contract, or verification failure:
+or:
 
 ```text
 PROJECT TRACKING: DRIFT
-Artifact: <title / URL>
-Desired projection: <field=value summary>
-Unreconciled: <membership or exact field mismatches>
-Cause: <concise failure>
+Reason: <missing/ambiguous project or schema | read/write/verification failure>
+Authoritative lifecycle state changed: no
 ```
 
-The lifecycle continues to treat durable tracker/repository state as authoritative. A later authorized reconciliation reconstructs the board again from that authority rather than replaying a pending-delta log.
-
-## Scope Boundary
-
-This helper may:
-
-* ensure formal issue membership in the existing Polaris Project;
-* validate caller-supplied project-delivery context;
-* apply the deterministic delivery overlay;
-* project the universal visible `Delivery State` field;
-* set/clear existing Project field values;
-* verify final projection.
-
-This helper must not:
-
-* determine lifecycle state or project focus;
-* reconstruct the caller's artifact universe;
-* infer delivery state from Project fields or incidental tracker metadata;
-* interpret, create, remove, or otherwise mutate native dependency semantics/relationships;
-* modify GitHub issue labels or issue content;
-* open/close issues;
-* create/change parent, sub-issue, or blocking relationships;
-* create/delete/repair Project schema, options, views, workflows, hierarchy, or automation;
-* archive/delete formal workflow history;
-* modify repository files;
-* perform another lifecycle Human Handoff;
-* persist projection debt or pending-update state.
+Project drift never rolls back authoritative lifecycle work.

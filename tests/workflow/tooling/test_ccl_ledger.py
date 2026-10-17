@@ -23,6 +23,13 @@ def _load(name: str) -> dict:
     return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
 
 
+def _refresh_hashes(transaction: dict) -> None:
+    transaction["proposal_hash"] = proposal_hash(transaction)
+    acceptance = transaction["acceptance"]
+    if acceptance is not None:
+        acceptance["proposal_hash"] = transaction["proposal_hash"]
+
+
 def _revision(
     source: dict,
     revision: int,
@@ -36,7 +43,7 @@ def _revision(
     item["supersedes_revision"] = supersedes
     if operation == "retire":
         item["assertions"] = []
-    transaction["proposal_hash"] = proposal_hash(transaction)
+    _refresh_hashes(transaction)
     return transaction
 
 
@@ -99,7 +106,7 @@ def test_one_transaction_cannot_contain_two_revisions_of_same_contract() -> None
     transaction = _load("351-recommendation-withholding.json")
     second = _revision(transaction, 2, "revise", 1)
     transaction["revisions"].append(second["revisions"][0])
-    transaction["proposal_hash"] = proposal_hash(transaction)
+    _refresh_hashes(transaction)
 
     with pytest.raises(CclValidationError, match="duplicate contract"):
         validate_ledger([transaction])
@@ -119,6 +126,7 @@ def test_ledger_filename_is_bound_to_proposal_hash(tmp_path: Path) -> None:
 def test_owner_decision_requires_exact_hash_acceptance() -> None:
     transaction = _load("351-recommendation-withholding.json")
     transaction["origin"]["mode"] = "owner-decision"
+    transaction["origin"].pop("wayfinder")
     transaction["acceptance"] = {
         "proposal_hash": transaction["proposal_hash"],
         "artifact": {
@@ -137,6 +145,7 @@ def test_owner_decision_requires_exact_hash_acceptance() -> None:
 def test_wayfinder_decision_requires_wayfinder_identity() -> None:
     transaction = _load("351-recommendation-withholding.json")
     transaction["origin"]["mode"] = "wayfinder-decision"
+    transaction["origin"].pop("wayfinder")
     transaction["acceptance"] = {
         "proposal_hash": transaction["proposal_hash"],
         "artifact": {

@@ -10,10 +10,13 @@ from pathlib import Path
 from typing import Any
 
 _CCL_MARKER = "spec-contract-ccl:v1"
+_TOPOLOGY_MARKER = "spec-execution-topology:v1"
 _CONTRACT_DOMAIN = b"POLARIS-SPEC-CONTRACT-V3\0"
 _CELL_DOMAIN = b"POLARIS-SPEC-CELL-V1\0"
 _TICKET_DOMAIN = b"POLARIS-TICKET-CONTRACT-V1\0"
+_TOPOLOGY_DOMAIN = b"POLARIS-SPEC-EXECUTION-TOPOLOGY-V1\0"
 _OBL_ID = re.compile(r"^OBL-[0-9]{3,}$")
+_UNIT_ID = re.compile(r"^EU-(?P<number>[0-9]{3})$")
 _PLAN_ITEM = re.compile(
     r"^- `(?P<id>(?P<prefix>IMP|TEST|EXC)-[0-9]{3,})` — (?P<text>\S(?:.*\S)?)$"
 )
@@ -47,18 +50,23 @@ def _canonical(value: Any) -> bytes:
     ).encode("utf-8")
 
 
-def _extract_ccl_manifest(body: str) -> dict[str, Any]:
+def _extract_json_marker(body: str, marker: str, label: str) -> dict[str, Any]:
     pattern = re.compile(
-        rf"<!--\s*{re.escape(_CCL_MARKER)}\s*\n(?P<payload>.*?)\n-->",
+        rf"<!--\s*{re.escape(marker)}\s*\n(?P<payload>.*?)\n-->",
         re.DOTALL,
     )
     matches = list(pattern.finditer(body))
-    _need(len(matches) == 1, f"Spec: expected exactly one {_CCL_MARKER} manifest")
+    _need(len(matches) == 1, f"Spec: expected exactly one {marker} manifest")
     try:
-        manifest = json.loads(matches[0].group("payload"))
+        value = json.loads(matches[0].group("payload"))
     except json.JSONDecodeError as exc:
-        raise SpecContractError(f"Spec CCL manifest: invalid JSON: {exc}") from exc
-    _need(isinstance(manifest, dict), "Spec CCL manifest: expected object")
+        raise SpecContractError(f"{label}: invalid JSON: {exc}") from exc
+    _need(isinstance(value, dict), f"{label}: expected object")
+    return value
+
+
+def _extract_ccl_manifest(body: str) -> dict[str, Any]:
+    manifest = _extract_json_marker(body, _CCL_MARKER, "Spec CCL manifest")
     _need(
         manifest.get("schema") == "polaris.spec-ccl/v1",
         "Spec CCL manifest: wrong schema",
@@ -423,6 +431,283 @@ def validate_execution_closure(
     return checked
 
 
+def _topology_unit_sort_key(unit_id: str) -> int:
+    match = _UNIT_ID.fullmatch(unit_id)
+    _need(match is not None, f"execution topology: invalid unit id {unit_id}")
+    assert match is not None
+    number = int(match.group("number"))
+    _need(number > 0, "execution topology: EU-000 is not a valid unit id")
+    return number
+
+
+def _destination_for_unit(unit_id: str) -> str:
+    match = _UNIT_ID.fullmatch(unit_id)
+    _need(match is not None, f"execution topology: invalid unit id {unit_id}")
+    assert match is not None
+    number = int(match.group("number"))
+    _need(number > 0, "execution topology: EU-000 is not a valid unit id")
+    return f"T{number}"
+
+
+def build_execution_topology(
+    body: str,
+    contract: dict[str, Any],
+) -> dict[str, Any]:
+    """Validate and normalize the Spec-owned atomic execution topology."""
+    manifest = _extract_json_marker(
+        body,
+        _TOPOLOGY_MARKER,
+        "Spec execution topology",
+    )
+    _need(
+        set(manifest) == {"schema", "units"},
+        "execution topology: unsupported shape",
+    )
+    _need(
+        manifest.get("schema") == "polaris.spec-execution-topology/v1",
+        "execution topology: wrong schema",
+    )
+    units = manifest.get("units")
+    _need(
+        isinstance(units, list) and units,
+        "execution topology.units: expected non-empty list",
+    )
+    cells = {cell["cell"]: cell for cell in contract["cells"]}
+    positive_ids = {
+        cell_id for cell_id, cell in cells.items() if cell["kind"] != "exclusion"
+    }
+    exclusion_ids = set(cells) - positive_ids
+    seen_units: set[str] = set()
+    seen_cells: set[str] = set()
+    normalized_units: list[dict[str, Any]] = []
+
+    for index, row in enumerate(units):
+        where = f"execution topology.units[{index}]"
+        _need(isinstance(row, dict), f"{where}: expected object")
+        _need(
+            set(row) == {"unit_id", "cells", "depends_on"},
+            f"{where}: unsupported shape",
+        )
+        unit_id = row["unit_id"]
+        unit_cells = row["cells"]
+        depends_on = row["depends_on"]
+        _need(
+            isinstance(unit_id, str) and _UNIT_ID.fullmatch(unit_id) is not None,
+            f"{where}.unit_id: invalid",
+        )
+        _need(unit_id not in seen_units, f"{where}.unit_id: duplicate")
+        seen_units.add(unit_id)
+        _need(
+            isinstance(unit_cells, list)
+            and unit_cells
+            and all(isinstance(item, str) and item for item in unit_cells),
+            f"{where}.cells: expected non-empty cell list",
+        )
+        _need(
+            len(unit_cells) == len(set(unit_cells)),
+            f"{where}.cells: duplicate cell",
+        )
+        unknown = set(unit_cells) - set(cells)
+        _need(
+            not unknown,
+            f"{where}.cells: unknown cells " + ", ".join(sorted(unknown)),
+        )
+        excluded = set(unit_cells) & exclusion_ids
+        _need(
+            not excluded,
+            f"{where}.cells: exclusions cannot be executable "
+            + ", ".join(sorted(excluded)),
+        )
+        duplicate = set(unit_cells) & seen_cells
+        _need(
+            not duplicate,
+            f"{where}.cells: duplicate ownership " + ", ".join(sorted(duplicate)),
+        )
+        seen_cells.update(unit_cells)
+        _need(
+            any(
+                cells[cell_id]["kind"] == "material-contract"
+                for cell_id in unit_cells
+            ),
+            f"{where}: atomic execution unit requires at least one OBL cell",
+        )
+        _need(
+            isinstance(depends_on, list)
+            and all(isinstance(item, str) and item for item in depends_on),
+            f"{where}.depends_on: expected list",
+        )
+        _need(
+            len(depends_on) == len(set(depends_on)),
+            f"{where}.depends_on: duplicate prerequisite",
+        )
+        for prerequisite in depends_on:
+            _topology_unit_sort_key(prerequisite)
+        _need(unit_id not in depends_on, f"{where}: self-dependency")
+        normalized_units.append(
+            {
+                "unit_id": unit_id,
+                "cells": sorted(unit_cells, key=_cell_sort_key),
+                "depends_on": sorted(depends_on, key=_topology_unit_sort_key),
+            }
+        )
+
+    missing = positive_ids - seen_cells
+    _need(
+        not missing,
+        "execution topology: missing executable cells " + ", ".join(sorted(missing)),
+    )
+    extra = seen_cells - positive_ids
+    _need(
+        not extra,
+        "execution topology: non-executable cells " + ", ".join(sorted(extra)),
+    )
+
+    unit_ids = {row["unit_id"] for row in normalized_units}
+    for row in normalized_units:
+        unknown_dependencies = set(row["depends_on"]) - unit_ids
+        _need(
+            not unknown_dependencies,
+            f"execution topology: {row['unit_id']} references unknown units "
+            + ", ".join(sorted(unknown_dependencies)),
+        )
+
+    graph = {
+        row["unit_id"]: tuple(row["depends_on"])
+        for row in normalized_units
+    }
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(unit_id: str) -> None:
+        if unit_id in visited:
+            return
+        _need(
+            unit_id not in visiting,
+            f"execution topology: cycle detected at {unit_id}",
+        )
+        visiting.add(unit_id)
+        for prerequisite in graph[unit_id]:
+            visit(prerequisite)
+        visiting.remove(unit_id)
+        visited.add(unit_id)
+
+    for unit_id in sorted(graph, key=_topology_unit_sort_key):
+        visit(unit_id)
+
+    normalized_units.sort(key=lambda row: _topology_unit_sort_key(row["unit_id"]))
+    topology_identity = {
+        "spec_contract_hash": contract["spec_contract_hash"],
+        "units": normalized_units,
+    }
+    return {
+        "schema": "polaris.spec-execution-topology/v1",
+        "spec_contract_hash": contract["spec_contract_hash"],
+        "topology_hash": _sha256_bytes(
+            _TOPOLOGY_DOMAIN + _canonical(topology_identity)
+        ),
+        "units": normalized_units,
+    }
+
+
+def derive_decomposition(
+    body: str,
+    contract: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], int]:
+    """Derive the exact finest ticket partition from Spec-owned atomic units."""
+    topology = build_execution_topology(body, contract)
+    unit_to_destination = {
+        row["unit_id"]: _destination_for_unit(row["unit_id"])
+        for row in topology["units"]
+    }
+    cells = {cell["cell"]: cell for cell in contract["cells"]}
+    routes: list[dict[str, str]] = []
+    for unit in topology["units"]:
+        destination = unit_to_destination[unit["unit_id"]]
+        for cell_id in unit["cells"]:
+            routes.append(
+                {
+                    "cell": cell_id,
+                    "cell_hash": cells[cell_id]["cell_hash"],
+                    "destination": destination,
+                }
+            )
+    routes.sort(key=lambda row: _cell_sort_key(row["cell"]))
+    exclusions = [
+        {"cell": cell["cell"], "cell_hash": cell["cell_hash"]}
+        for cell in contract["cells"]
+        if cell["kind"] == "exclusion"
+    ]
+    coverage = {
+        "schema": "polaris.ticket-coverage/v2",
+        "spec_contract_hash": contract["spec_contract_hash"],
+        "routes": routes,
+        "exclusions": exclusions,
+    }
+    dependencies = {
+        "schema": "polaris.ticket-dependencies/v1",
+        "spec_contract_hash": contract["spec_contract_hash"],
+        "tickets": [
+            {
+                "destination": unit_to_destination[unit["unit_id"]],
+                "depends_on": [
+                    unit_to_destination[item] for item in unit["depends_on"]
+                ],
+            }
+            for unit in topology["units"]
+        ],
+    }
+    checked = validate_execution_closure(contract, coverage, dependencies)
+    return topology, coverage, dependencies, checked
+
+
+def validate_decomposition(
+    body: str,
+    contract: dict[str, Any],
+    coverage: dict[str, Any],
+    dependency_plan: dict[str, Any],
+) -> tuple[dict[str, Any], int]:
+    """Require a proposed partition to exactly equal the Spec-owned atomic topology."""
+    topology, expected_coverage, expected_dependencies, _ = derive_decomposition(
+        body, contract
+    )
+    validate_coverage(contract, coverage)
+    actual_routes = {
+        row["cell"]: (row["cell_hash"], row["destination"])
+        for row in coverage["routes"]
+    }
+    expected_routes = {
+        row["cell"]: (row["cell_hash"], row["destination"])
+        for row in expected_coverage["routes"]
+    }
+    _need(
+        actual_routes == expected_routes,
+        "decomposition: coverage does not match atomic execution topology",
+    )
+    actual_exclusions = {
+        (row["cell"], row["cell_hash"]) for row in coverage["exclusions"]
+    }
+    expected_exclusions = {
+        (row["cell"], row["cell_hash"])
+        for row in expected_coverage["exclusions"]
+    }
+    _need(
+        actual_exclusions == expected_exclusions,
+        "decomposition: exclusion set does not match contract",
+    )
+    actual_graph = _dependency_graph(contract, coverage, dependency_plan)
+    expected_graph = _dependency_graph(
+        contract,
+        expected_coverage,
+        expected_dependencies,
+    )
+    _need(
+        actual_graph == expected_graph,
+        "decomposition: dependency graph does not match atomic execution topology",
+    )
+    checked = validate_execution_closure(contract, coverage, dependency_plan)
+    return topology, checked
+
+
 def build_ticket_contract(
     contract: dict[str, Any],
     coverage: dict[str, Any],
@@ -510,6 +795,29 @@ def _write(path: Path, value: dict[str, Any]) -> None:
     tmp.replace(path)
 
 
+def _load_object(path: str, label: str) -> dict[str, Any]:
+    value = json.loads(Path(path).read_text(encoding="utf-8"))
+    _need(isinstance(value, dict), f"{label}: expected object")
+    return value
+
+
+def _print_decomposition_receipts(
+    topology: dict[str, Any],
+    checked: int,
+    *,
+    status: str,
+) -> None:
+    print(f"TICKET DECOMPOSITION: {status}")
+    print(f"Execution Topology Hash: {topology['topology_hash']}")
+    print(f"Atomic execution units: {len(topology['units'])}")
+    print("TICKET COVERAGE: VALID")
+    print("Missing mappings: 0")
+    print("Duplicate mappings: 0")
+    print("TICKET EXECUTION CLOSURE: VALID")
+    print("Dependency graph: VALID")
+    print(f"Explicit cell references checked: {checked}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -526,6 +834,16 @@ def main() -> int:
     execution.add_argument("contract")
     execution.add_argument("coverage")
     execution.add_argument("dependencies")
+    derive = sub.add_parser("derive-decomposition")
+    derive.add_argument("issue_json")
+    derive.add_argument("contract")
+    derive.add_argument("coverage_output")
+    derive.add_argument("dependencies_output")
+    check_decomposition = sub.add_parser("check-decomposition")
+    check_decomposition.add_argument("issue_json")
+    check_decomposition.add_argument("contract")
+    check_decomposition.add_argument("coverage")
+    check_decomposition.add_argument("dependencies")
     ticket = sub.add_parser("build-ticket")
     ticket.add_argument("contract")
     ticket.add_argument("coverage")
@@ -539,16 +857,37 @@ def main() -> int:
     check_ticket.add_argument("ticket_body")
     args = parser.parse_args()
     try:
+        if args.command == "derive-decomposition":
+            body = _load_issue_body(Path(args.issue_json))
+            contract = _load_object(args.contract, "contract")
+            topology, coverage_value, dependency_value, checked = derive_decomposition(
+                body, contract
+            )
+            _write(Path(args.coverage_output), coverage_value)
+            _write(Path(args.dependencies_output), dependency_value)
+            _print_decomposition_receipts(topology, checked, status="DERIVED")
+            return 0
+        if args.command == "check-decomposition":
+            body = _load_issue_body(Path(args.issue_json))
+            contract = _load_object(args.contract, "contract")
+            coverage_value = _load_object(args.coverage, "coverage")
+            dependency_value = _load_object(args.dependencies, "dependencies")
+            topology, checked = validate_decomposition(
+                body,
+                contract,
+                coverage_value,
+                dependency_value,
+            )
+            _print_decomposition_receipts(topology, checked, status="VALID")
+            return 0
         if args.command in {
             "check-coverage",
             "check-execution",
             "build-ticket",
             "check-ticket",
         }:
-            contract = json.loads(Path(args.contract).read_text(encoding="utf-8"))
-            coverage_value = json.loads(Path(args.coverage).read_text(encoding="utf-8"))
-            _need(isinstance(contract, dict), "contract: expected object")
-            _need(isinstance(coverage_value, dict), "coverage: expected object")
+            contract = _load_object(args.contract, "contract")
+            coverage_value = _load_object(args.coverage, "coverage")
             if args.command == "check-coverage":
                 validate_coverage(contract, coverage_value)
                 print("TICKET COVERAGE: VALID")
@@ -556,13 +895,7 @@ def main() -> int:
                 print("Duplicate mappings: 0")
                 return 0
             if args.command == "check-execution":
-                dependency_value = json.loads(
-                    Path(args.dependencies).read_text(encoding="utf-8")
-                )
-                _need(
-                    isinstance(dependency_value, dict),
-                    "dependencies: expected object",
-                )
+                dependency_value = _load_object(args.dependencies, "dependencies")
                 checked = validate_execution_closure(
                     contract,
                     coverage_value,
@@ -595,8 +928,7 @@ def main() -> int:
             print(f"Spec Body Hash: {current['spec_body_hash']}")
             print(f"Spec Contract Hash: {current['spec_contract_hash']}")
         else:
-            expected = json.loads(Path(args.expected).read_text(encoding="utf-8"))
-            _need(isinstance(expected, dict), "expected contract: expected object")
+            expected = _load_object(args.expected, "expected contract")
             _need(
                 expected.get("spec_body_hash") == current["spec_body_hash"],
                 "SPEC CONTRACT: STALE body hash",

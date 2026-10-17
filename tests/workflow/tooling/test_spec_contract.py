@@ -11,6 +11,7 @@ from scripts.spec_contract import (
 
 REF_PERSIST = "workflow-demo.recording@1#record.persistence"
 REF_DISTINCT = "workflow-demo.recording@1#record.not-command"
+R = "OBL-007 through OBL-009"
 
 BODY = f'''<!-- spec-contract-ccl:v1
 {{
@@ -41,15 +42,15 @@ Generated elsewhere.
 - `EXC-001` — Defining a public workflow-record taxonomy.
 '''
 
-CLOSURE_BODY = '''<!-- spec-contract-ccl:v1
-{
+CLOSURE_BODY = f'''<!-- spec-contract-ccl:v1
+{{
   "schema": "polaris.spec-ccl/v1",
   "obligations": [
-    {"obligation_id":"OBL-007","source_ref":"Decision #201","ccl":["demo@1#a"]},
-    {"obligation_id":"OBL-008","source_ref":"Decision #201","ccl":["demo@1#b"]},
-    {"obligation_id":"OBL-009","source_ref":"Decision #201","ccl":["demo@1#c"]}
+    {{"obligation_id":"OBL-007","source_ref":"Decision #201","ccl":["demo@1#a"]}},
+    {{"obligation_id":"OBL-008","source_ref":"Decision #201","ccl":["demo@1#b"]}},
+    {{"obligation_id":"OBL-009","source_ref":"Decision #201","ccl":["demo@1#c"]}}
   ]
-}
+}}
 -->
 
 ## Problem Statement
@@ -59,7 +60,7 @@ Synthetic execution-closure fixture.
 Generated elsewhere.
 
 ## Implementation Decisions
-- `IMP-002` — Implement only the target-owner side of OBL-007 through OBL-009 against the shared boundary.
+- `IMP-002` — Implement only the target-owner side of {R} against the shared boundary.
 
 ## Testing Decisions
 - `TEST-007` — Prove OBL-009 exact-basis capture.

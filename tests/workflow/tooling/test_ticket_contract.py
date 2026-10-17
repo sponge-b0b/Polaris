@@ -8,8 +8,7 @@ from scripts.spec_contract import (
     build_ticket_contract,
     validate_ticket_body,
 )
-
-from tests.test_spec_contract import (
+from tests.workflow.tooling.test_spec_contract import (
     BODY,
     REF_DISTINCT,
     REF_PERSIST,

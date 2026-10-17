@@ -1,6 +1,6 @@
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[3]
 VERIFY = (ROOT / ".agents/skills/verify-spec/SKILL.md").read_text(encoding="utf-8")
 CLOSURE = (
     ROOT / ".agents/skills/verify-spec-closure/SKILL.md"

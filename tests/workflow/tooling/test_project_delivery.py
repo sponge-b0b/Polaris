@@ -4,6 +4,11 @@ import pytest
 
 from scripts.project_delivery import DeliveryStateError, guard, reconcile
 
+CONTROL_ISSUE = 9001
+FOCUSED_WAYFINDER = 101
+UNFOCUSED_WAYFINDER = 102
+BLOCKING_WAYFINDER = 99
+
 
 def issue(number: int, *, state: str = "open", labels: tuple[str, ...] = ()) -> dict:
     return {
@@ -31,7 +36,7 @@ class FakeClient:
     def control_issues(self) -> list[dict]:
         return [
             {
-                "number": 227 + i,
+                "number": CONTROL_ISSUE + i,
                 "state": "open",
                 "labels": [{"name": "project-delivery:management"}],
                 "body": self.control_body,
@@ -53,54 +58,76 @@ class FakeClient:
         self.control_body = body
 
 
-CONTROL_348 = """## Current Delivery State
+CONTROL_FOCUSED = f"""## Current Delivery State
 
-**Focused Wayfinders:** #348
+**Focused Wayfinders:** #{FOCUSED_WAYFINDER}
 **Parallel authorization:** None"""
 
 
 def test_guard_allowed_is_exact_receipt() -> None:
     client = FakeClient(
-        control_body=CONTROL_348,
-        issues={348: issue(348, labels=("wayfinder:map",))},
+        control_body=CONTROL_FOCUSED,
+        issues={
+            FOCUSED_WAYFINDER: issue(
+                FOCUSED_WAYFINDER,
+                labels=("wayfinder:map",),
+            )
+        },
     )
-    result = guard(client, 348)
+    result = guard(client, FOCUSED_WAYFINDER)
     assert result.allowed is True
     assert result.render() == (
         "PROJECT DELIVERY GUARD: ALLOWED\n"
-        "Wayfinder: #348\n"
-        "Focused set: #348"
+        f"Wayfinder: #{FOCUSED_WAYFINDER}\n"
+        f"Focused set: #{FOCUSED_WAYFINDER}"
     )
 
 
 def test_guard_fails_closed_on_duplicate_control_issue() -> None:
     client = FakeClient(
-        control_body=CONTROL_348,
+        control_body=CONTROL_FOCUSED,
         controls=2,
-        issues={348: issue(348, labels=("wayfinder:map",))},
+        issues={
+            FOCUSED_WAYFINDER: issue(
+                FOCUSED_WAYFINDER,
+                labels=("wayfinder:map",),
+            )
+        },
     )
-    result = guard(client, 348)
+    result = guard(client, FOCUSED_WAYFINDER)
     assert result.allowed is False
     assert result.reason == "invalid control state"
 
 
 def test_guard_rejects_unfocused_wayfinder() -> None:
     client = FakeClient(
-        control_body=CONTROL_348,
+        control_body=CONTROL_FOCUSED,
         issues={
-            348: issue(348, labels=("wayfinder:map",)),
-            349: issue(349, labels=("wayfinder:map",)),
+            FOCUSED_WAYFINDER: issue(
+                FOCUSED_WAYFINDER,
+                labels=("wayfinder:map",),
+            ),
+            UNFOCUSED_WAYFINDER: issue(
+                UNFOCUSED_WAYFINDER,
+                labels=("wayfinder:map",),
+            ),
         },
     )
-    result = guard(client, 349)
+    result = guard(client, UNFOCUSED_WAYFINDER)
     assert result.allowed is False
     assert result.reason == "not focused"
 
 
 def test_reconcile_removes_closed_focused_wayfinder_and_reads_back() -> None:
     client = FakeClient(
-        control_body=CONTROL_348,
-        issues={348: issue(348, state="closed", labels=("wayfinder:map",))},
+        control_body=CONTROL_FOCUSED,
+        issues={
+            FOCUSED_WAYFINDER: issue(
+                FOCUSED_WAYFINDER,
+                state="closed",
+                labels=("wayfinder:map",),
+            )
+        },
     )
     changed, focused = reconcile(client)
     assert changed is True
@@ -111,11 +138,16 @@ def test_reconcile_removes_closed_focused_wayfinder_and_reads_back() -> None:
 
 
 def test_reconcile_removes_open_map_with_open_map_blocker() -> None:
-    blocker = issue(347, labels=("wayfinder:map",))
+    blocker = issue(BLOCKING_WAYFINDER, labels=("wayfinder:map",))
     client = FakeClient(
-        control_body=CONTROL_348,
-        issues={348: issue(348, labels=("wayfinder:map",))},
-        blockers={348: [blocker]},
+        control_body=CONTROL_FOCUSED,
+        issues={
+            FOCUSED_WAYFINDER: issue(
+                FOCUSED_WAYFINDER,
+                labels=("wayfinder:map",),
+            )
+        },
+        blockers={FOCUSED_WAYFINDER: [blocker]},
     )
     changed, focused = reconcile(client)
     assert changed is True
@@ -124,8 +156,8 @@ def test_reconcile_removes_open_map_with_open_map_blocker() -> None:
 
 def test_reconcile_rejects_non_wayfinder_focus() -> None:
     client = FakeClient(
-        control_body=CONTROL_348,
-        issues={348: issue(348, labels=())},
+        control_body=CONTROL_FOCUSED,
+        issues={FOCUSED_WAYFINDER: issue(FOCUSED_WAYFINDER, labels=())},
     )
     with pytest.raises(DeliveryStateError, match="not a canonical Wayfinder"):
         reconcile(client)

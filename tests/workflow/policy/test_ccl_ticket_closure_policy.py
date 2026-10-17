@@ -1,6 +1,6 @@
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[3]
 IMPLEMENT = (
     ROOT / ".agents/skills/implement-ticket/SKILL.md"
 ).read_text(encoding="utf-8")

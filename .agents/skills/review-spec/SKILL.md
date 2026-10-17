@@ -216,23 +216,6 @@ Continuity rules:
 For `OBL-*`, CCL addresses are derived from the exact current Spec cell. Do not duplicate a
 second hand-authored semantic statement in the finding.
 
-### Legacy ledger migration
-
-A historical v1 table / Root Blocker state is migration input only.
-
-On the next fresh review:
-
-1. preserve prior `RF-*` IDs when current axis/classification/cell identity makes continuity
-   unambiguous;
-2. require the current reviewer to establish an exact v2 falsifier/evidence row;
-3. mark historical rows no longer current as resolved/scope-retired/owner-overridden only
-   with valid current evidence/authority;
-4. persist the new v2 ledger;
-5. do not synthesize or retain Root Blockers as current remediation authority.
-
-If continuity is ambiguous, keep the historical record as history and allocate a new
-current finding ID rather than guessing.
-
 ## 6. Review remediation contract boundary
 
 Open Blocking findings classified:

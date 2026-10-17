@@ -14,9 +14,7 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures" / "ccl"
 
 def _transaction() -> dict:
     return json.loads(
-        (FIXTURES / "351-recommendation-withholding.json").read_text(
-            encoding="utf-8"
-        )
+        (FIXTURES / "demo-recording.json").read_text(encoding="utf-8")
     )
 
 
@@ -26,12 +24,10 @@ def _manifest() -> dict:
         "obligations": [
             {
                 "obligation_id": "OBL-001",
-                "source_ref": "Decision #351",
+                "source_ref": "Decision #102",
                 "ccl": [
-                    "investment-intelligence.recommendation-withholding@1#"
-                    "withholding.persistence",
-                    "investment-intelligence.recommendation-withholding@1#"
-                    "withholding.not-recommendation",
+                    "workflow-demo.recording@1#record.persistence",
+                    "workflow-demo.recording@1#record.not-command",
                 ],
             }
         ],
@@ -41,7 +37,7 @@ def _manifest() -> dict:
 def _body(manifest: dict, transaction: dict) -> str:
     return (
         manifest_comment(manifest, [transaction])
-        + "\n## Problem Statement\n\nNeed withholding behavior.\n\n"
+        + "\n## Problem Statement\n\nNeed durable workflow-record behavior.\n\n"
         + render_section(manifest, [transaction])
         + "\n## Implementation Decisions\n\nImplement OBL-001.\n"
     )
@@ -54,12 +50,11 @@ def test_valid_manifest_and_generated_section_are_accepted() -> None:
     validate_spec_body(_body(manifest, transaction), [transaction])
 
 
-def test_351_reason_taxonomy_cannot_be_added_as_spec_contract() -> None:
+def test_unknown_taxonomy_cannot_be_added_as_spec_contract() -> None:
     transaction = _transaction()
     manifest = _manifest()
     manifest["obligations"][0]["ccl"].append(
-        "investment-intelligence.recommendation-withholding@1#"
-        "withholding.reason-taxonomy"
+        "workflow-demo.recording@1#record.reason-taxonomy"
     )
 
     with pytest.raises(CclValidationError, match="unknown CCL assertion"):
@@ -90,8 +85,8 @@ def test_ccl_annotations_do_not_appear_in_spec_projection() -> None:
     transaction = _transaction()
     rendered = render_section(_manifest(), [transaction])
 
-    assert "insufficient Evidence" not in rendered
-    assert "reason" not in rendered.lower()
+    assert "sample-only explanation" not in rendered
+    assert "add no contract semantics" not in rendered
 
 
 def test_manifest_is_machine_managed_provenance_comment() -> None:

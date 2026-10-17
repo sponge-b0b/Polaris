@@ -17,16 +17,16 @@ from tests.workflow.tooling.test_spec_contract import (
 
 
 def _ticket_body(contract_hash: str) -> str:
-    return f'''Parent Spec: #358
-Spec branch: spec-358
+    return f'''Parent Spec: #201
+Spec branch: spec-201
 Ticket baseline: Pending
 Spec Contract Hash: {contract_hash}
 
 ## Contract cells
 
 - `OBL-001` — exact CCL: `{REF_PERSIST}`, `{REF_DISTINCT}`
-- `IMP-001` — Persist through the established repository seam.
-- `TEST-001` — Prove withholding is distinct from a Recommendation.
+- `IMP-001` — Persist through the established workflow repository seam.
+- `TEST-001` — Prove the workflow record is distinct from a command.
 
 ## Acceptance
 
@@ -51,7 +51,9 @@ def test_ticket_contract_hash_changes_when_assigned_cell_changes() -> None:
     contract = build_contract(BODY)
     coverage = _coverage(contract)
     first = build_ticket_contract(contract, coverage, "T1")
-    changed = build_contract(BODY.replace("established repository seam", "new seam"))
+    changed = build_contract(
+        BODY.replace("established workflow repository seam", "new workflow seam")
+    )
     changed_coverage = _coverage(changed)
     second = build_ticket_contract(changed, changed_coverage, "T1")
     assert first["ticket_contract_hash"] != second["ticket_contract_hash"]
@@ -61,7 +63,7 @@ def test_ticket_contract_hash_changes_when_exclusion_changes() -> None:
     contract = build_contract(BODY)
     first = build_ticket_contract(contract, _coverage(contract), "T1")
     changed = build_contract(
-        BODY.replace("public withholding-reason taxonomy", "closed reason taxonomy")
+        BODY.replace("public workflow-record taxonomy", "closed workflow taxonomy")
     )
     second = build_ticket_contract(changed, _coverage(changed), "T1")
     assert first["ticket_contract_hash"] != second["ticket_contract_hash"]
@@ -78,7 +80,8 @@ def test_ticket_body_rejects_missing_assigned_cell() -> None:
     contract = build_contract(BODY)
     ticket = build_ticket_contract(contract, _coverage(contract), "T1")
     body = _ticket_body(contract["spec_contract_hash"]).replace(
-        "- `TEST-001` — Prove withholding is distinct from a Recommendation.\n", ""
+        "- `TEST-001` — Prove the workflow record is distinct from a command.\n",
+        "",
     )
     with pytest.raises(SpecContractError, match="Contract cells do not match"):
         validate_ticket_body(body, ticket)

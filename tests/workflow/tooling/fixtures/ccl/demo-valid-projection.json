@@ -1,0 +1,15 @@
+{
+  "schema": "polaris.ccl-projection/v1",
+  "claims": [
+    {
+      "reference": "workflow-demo.recording@1#record.not-command",
+      "asserted": {
+        "kind": "distinctness",
+        "subject": "workflow_record",
+        "constraint": {
+          "target": "workflow_command"
+        }
+      }
+    }
+  ]
+}

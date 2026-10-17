@@ -1,0 +1,21 @@
+{
+  "schema": "polaris.ccl-projection/v1",
+  "claims": [
+    {
+      "reference": "workflow-demo.recording@1#record.reason-taxonomy",
+      "asserted": {
+        "kind": "vocabulary",
+        "subject": "workflow_record",
+        "constraint": {
+          "name": "reason_category",
+          "closure": "closed",
+          "members": [
+            "alpha",
+            "beta",
+            "gamma"
+          ]
+        }
+      }
+    }
+  ]
+}

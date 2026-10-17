@@ -1,9 +1,0 @@
-{
-  "schema": "polaris.ccl-authority-check/v1",
-  "contract_id": "portfolio-risk.projected-consequence",
-  "assertion_id": "alternative.consequence-presence",
-  "source_claims": [
-    {"source_id": "decision-352-resolution", "role": "governing", "normalized": {"kind": "relationship", "subject": "r3_material_increase_hold_reduce_alternative", "constraint": {"relation": "has_projected_portfolio_consequence", "target": "projected_portfolio_consequence", "presence": "required"}}},
-    {"source_id": "adr-0008", "role": "governing", "normalized": {"kind": "relationship", "subject": "r3_material_increase_hold_reduce_alternative", "constraint": {"relation": "has_projected_portfolio_consequence", "target": "projected_portfolio_consequence", "presence": "optional"}}}
-  ]
-}

@@ -1,0 +1,33 @@
+{
+  "schema": "polaris.ccl-authority-check/v1",
+  "contract_id": "workflow-demo.relationship",
+  "assertion_id": "record.related-presence",
+  "source_claims": [
+    {
+      "source_id": "decision-103-resolution",
+      "role": "governing",
+      "normalized": {
+        "kind": "relationship",
+        "subject": "workflow_record",
+        "constraint": {
+          "relation": "has_related_record",
+          "target": "related_record",
+          "presence": "required"
+        }
+      }
+    },
+    {
+      "source_id": "adr-demo-0001",
+      "role": "governing",
+      "normalized": {
+        "kind": "relationship",
+        "subject": "workflow_record",
+        "constraint": {
+          "relation": "has_related_record",
+          "target": "related_record",
+          "presence": "optional"
+        }
+      }
+    }
+  ]
+}

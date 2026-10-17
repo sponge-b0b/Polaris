@@ -18,8 +18,10 @@ CONTRACT = {
             "cell": "OBL-001",
             "kind": "material-contract",
             "cell_hash": "h-obl",
-            "requirement": "Exact CCL assertions: x@1#a",
-            "ccl": ["x@1#a"],
+            "requirement": (
+                "Exact CCL assertions: workflow-demo.recording@1#record.persistence"
+            ),
+            "ccl": ["workflow-demo.recording@1#record.persistence"],
         },
         {
             "cell": "IMP-001",
@@ -47,7 +49,7 @@ CONTRACT = {
 
 LEDGER = {
     "schema": "polaris.review-findings/v2",
-    "spec": "#358",
+    "spec": "#201",
     "spec_contract_hash": "spec-hash",
     "findings": [
         {
@@ -57,7 +59,7 @@ LEDGER = {
             "classification": "implementation-defect",
             "cells": [{"cell": "OBL-001", "cell_hash": "h-obl"}],
             "standard_refs": [],
-            "falsifier": "Withholding is persisted as a Recommendation.",
+            "falsifier": "Workflow record is persisted as a command.",
             "evidence": "Observed on current candidate.",
             "owner": "$to-tickets",
             "status": "open",
@@ -153,17 +155,17 @@ def test_unrelated_spec_cell_change_changes_preservation_contract() -> None:
 
 def test_ticket_body_is_exact_projection() -> None:
     remediation = build_remediation_contract(CONTRACT, LEDGER, ["RF-1"])
-    body = f"""Parent Spec: #358
+    body = f"""Parent Spec: #201
 Spec Contract Hash: spec-hash
 Review Remediation Contract Hash: {remediation['remediation_contract_hash']}
 
 ## Review findings
 
-- `RF-1` — implementation-defect — Withholding is persisted as a Recommendation.
+- `RF-1` — implementation-defect — Workflow record is persisted as a command.
 
 ## Contract cells
 
-- `OBL-001` — exact CCL: `x@1#a`
+- `OBL-001` — exact CCL: `workflow-demo.recording@1#record.persistence`
 
 ## Preservation guardrails
 

@@ -4,14 +4,8 @@ import pytest
 
 from scripts.spec_contract import SpecContractError, build_contract, validate_coverage
 
-REF_PERSIST = (
-    "investment-intelligence.recommendation-withholding@1#"
-    "withholding.persistence"
-)
-REF_DISTINCT = (
-    "investment-intelligence.recommendation-withholding@1#"
-    "withholding.not-recommendation"
-)
+REF_PERSIST = "workflow-demo.recording@1#record.persistence"
+REF_DISTINCT = "workflow-demo.recording@1#record.not-command"
 
 BODY = f'''<!-- spec-contract-ccl:v1
 {{
@@ -19,7 +13,7 @@ BODY = f'''<!-- spec-contract-ccl:v1
   "obligations": [
     {{
       "obligation_id": "OBL-001",
-      "source_ref": "Decision #351",
+      "source_ref": "Decision #102",
       "ccl": ["{REF_PERSIST}", "{REF_DISTINCT}"]
     }}
   ]
@@ -33,13 +27,13 @@ Explanation only.
 Generated elsewhere.
 
 ## Implementation Decisions
-- `IMP-001` — Persist through the established repository seam.
+- `IMP-001` — Persist through the established workflow repository seam.
 
 ## Testing Decisions
-- `TEST-001` — Prove withholding is distinct from a Recommendation.
+- `TEST-001` — Prove the workflow record is distinct from a command.
 
 ## Out of Scope
-- `EXC-001` — Defining a public withholding-reason taxonomy.
+- `EXC-001` — Defining a public workflow-record taxonomy.
 '''
 
 
@@ -74,7 +68,10 @@ def test_explanatory_prose_does_not_change_contract_hash() -> None:
 
 
 def test_private_plan_change_changes_contract_hash() -> None:
-    changed = BODY.replace("established repository seam", "new adapter seam")
+    changed = BODY.replace(
+        "established workflow repository seam",
+        "new workflow adapter seam",
+    )
     assert (
         build_contract(BODY)["spec_contract_hash"]
         != build_contract(changed)["spec_contract_hash"]
@@ -82,7 +79,7 @@ def test_private_plan_change_changes_contract_hash() -> None:
 
 
 def test_ccl_revision_change_changes_contract_hash() -> None:
-    changed = BODY.replace("@1#withholding.persistence", "@2#withholding.persistence")
+    changed = BODY.replace("@1#record.persistence", "@2#record.persistence")
     assert (
         build_contract(BODY)["spec_contract_hash"]
         != build_contract(changed)["spec_contract_hash"]
@@ -100,8 +97,8 @@ def test_requires_stable_plan_ids() -> None:
 
 def test_contract_hash_tracks_exclusion() -> None:
     changed = BODY.replace(
-        "public withholding-reason taxonomy",
-        "closed withholding-reason taxonomy",
+        "public workflow-record taxonomy",
+        "closed workflow-record taxonomy",
     )
     assert (
         build_contract(BODY)["spec_contract_hash"]

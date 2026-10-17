@@ -17,15 +17,15 @@ def _load(name: str) -> dict:
 
 
 def _accepted_wayfinder_transaction() -> dict:
-    transaction = _load("351-recommendation-withholding.json")
+    transaction = _load("demo-recording.json")
     transaction = copy.deepcopy(transaction)
     transaction["origin"]["mode"] = "wayfinder-decision"
-    transaction["origin"]["wayfinder"] = {"map": 348, "decision": 351}
+    transaction["origin"]["wayfinder"] = {"map": 101, "decision": 102}
     transaction["acceptance"] = {
         "proposal_hash": transaction["proposal_hash"],
         "artifact": {
             "kind": "github_issue_comment",
-            "ref": "https://github.com/sponge-b0b/Polaris/issues/351#ccl-acceptance",
+            "ref": "issue:102#comment:3",
         },
     }
     return transaction
@@ -38,7 +38,7 @@ def _adr(transaction: dict) -> str:
         f"ccl_proposal: {transaction['proposal_hash']}\n"
         f"ccl_transaction: {transaction_path(transaction)}\n"
         "---\n\n"
-        "# Persist Recommendation Withholding\n\n"
+        "# Persist Workflow Record\n\n"
         "## Context\n\n"
         "The decision needs durable historical meaning.\n\n"
         "## Decision\n\n"

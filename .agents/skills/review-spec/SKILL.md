@@ -151,12 +151,10 @@ current authority.
 
 ## 5. Structured finding continuity ledger v2
 
-Maintain exactly one active review-ledger comment. For compatibility with
-`$spec-merge-cleanup`, retain the historical outer marker while embedding the canonical v2
-JSON payload:
+Maintain exactly one active review-ledger comment whose canonical v2 JSON payload is the
+only current finding/remediation state:
 
 ```markdown
-<!-- review-spec-finding-ledger:v1 -->
 <!-- review-spec-finding-ledger:v2
 {
   "schema": "polaris.review-findings/v2",
@@ -342,7 +340,8 @@ directly:
 $to-tickets - Spec Review: <Feature Name> (<Review URL>)
 ```
 
-Do **not** invoke `$review-spec-remediation`; Root Blocker synthesis is retired.
+There is no intermediate remediation-synthesis workflow; `$to-tickets` consumes the v2
+finding ledger directly.
 
 Cell-routing defects hand off to `$to-tickets` on their decomposition owner. Contract or
 planning gaps hand off to `$to-specs` / semantic owner.
@@ -367,16 +366,9 @@ On PASS persist:
 **Unaccounted prior findings:** 0
 **Unresolved continuity cells:** 0
 **Unresolved decomposition defects:** 0
-**Root blockers:** satisfied/owner-overridden/scope-retired
-**Candidate new roots:** 0
 **Review coverage:** complete
 **Unchecked coverage cells:** 0
 ```
-
-The two Root-blocker fields are **legacy receipt transport only** until
-`$spec-merge-cleanup`'s historical parser is separately retired. No live Root Blocker
-ledger is required or authorized; on a valid v2 PASS these compatibility fields carry no
-semantic state.
 
 Before receipt persistence re-read candidate, verification receipt, deterministic contract,
 v2 coverage, and finding ledger. Any stale identity blocks Exit.

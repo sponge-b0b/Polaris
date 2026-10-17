@@ -1,0 +1,113 @@
+{
+  "acceptance": null,
+  "origin": {
+    "mode": "existing-authority",
+    "sources": [
+      {
+        "content_sha256": "a0a5ed0a266a4a7e1dfc264a1dfc9c28f3f7d52511b3a099521861b52e86cb1e",
+        "kind": "github_issue_comment",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/350#issuecomment-5883593322",
+        "role": "governing",
+        "source_id": "decision-350-resolution"
+      },
+      {
+        "content_sha256": "596b8a76007b0582f62fa62e0ec44aef907f68f67a570c6b6e8fdb81db713169",
+        "kind": "github_issue_comment",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/351#issuecomment-5883743931",
+        "role": "governing",
+        "source_id": "decision-351-resolution"
+      },
+      {
+        "content_sha256": "095f1ff0b99ef30bfb81009434322bc5a603bfb4aa8d92e833d0b73f3943dcb7",
+        "kind": "github_issue_comment",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/355#issuecomment-5884135913",
+        "role": "governing",
+        "source_id": "decision-355-resolution"
+      },
+      {
+        "content_sha256": "8016e2c211c53447c693f1ae4e07516f341a881314b1c7f2c561db188a511808",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0006-evidence-assemble-decision-context-from-durable-evidence-bindings.md",
+        "role": "constraint",
+        "source_id": "adr-0006"
+      },
+      {
+        "content_sha256": "3629c72f113d7aad57b76aab09575dd5df962975bc01615fab7ac1e003ac91f0",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0007-investment-intelligence-persist-material-judgments-not-reasoning-traces.md",
+        "role": "constraint",
+        "source_id": "adr-0007"
+      },
+      {
+        "content_sha256": "b00191f3358a836cf91b179ef35b2eb9d1813b8ee4ca051a22b747344d81732a",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0011-platform-compose-r3-decision-memory-from-domain-owned-facts.md",
+        "role": "constraint",
+        "source_id": "adr-0011"
+      },
+      {
+        "content_sha256": "c0b9ee75558ac2e35e58fa2084e4ec142852e337f57e0932b9dcc713e9b5ca54",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0012-evidence-freeze-r3-identity-binding-and-reconstruction.md",
+        "role": "constraint",
+        "source_id": "adr-0012"
+      }
+    ]
+  },
+  "proposal_hash": "sha256:a6aebd4710649af8fd0775ad274bb6b22815d7f9d999708eaf83d6bc063b3b49",
+  "revisions": [
+    {
+      "assertions": [
+        {
+          "assertion_id": "facts.domain-owned",
+          "authority": {
+            "source_ids": [
+              "decision-355-resolution",
+              "adr-0011",
+              "adr-0012"
+            ]
+          },
+          "constraint": {
+            "expression": "R3 persists durable business facts directly under their owning domain semantics and composes Durable Decision Memory through Application queries. No monolithic DecisionRecord, generic event store, workflow archive, report-owned model, generic Claim graph, or generic Evidence graph is canonical business truth. Material history is append-only, cross-domain references are typed, transaction boundaries are atomic only where partial commit would make the business statement false or unreconstructable, and long-running external/model work remains outside store transactions. Current/historical reconstruction preserves what was known then separately from what is known now.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "r3_durable_decision_memory"
+        },
+        {
+          "assertion_id": "facts.external-authority",
+          "authority": {
+            "source_ids": [
+              "decision-350-resolution",
+              "decision-351-resolution",
+              "adr-0006",
+              "adr-0007",
+              "adr-0011"
+            ]
+          },
+          "constraint": {
+            "expression": "External specialist systems retain factual authority; Polaris owns its observation, evidentiary use, interpretation, and derived decision meaning. Prompts, provider drafts and retries, hidden reasoning traces, debate topology, and workflow identities remain technical process detail, not canonical business judgment or business identity.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "r3_business_fact_authority"
+        }
+      ],
+      "contract_id": "platform.r3-domain-owned-facts",
+      "display": {
+        "summary": "Canonical business truth remains domain-owned and distinct from workflow, report, provider, and external factual authority.",
+        "title": "R3 Domain-Owned Facts and Authority Boundaries"
+      },
+      "operation": "create",
+      "owner": "platform",
+      "revision": 1,
+      "scope": {
+        "release": [
+          "R3"
+        ]
+      },
+      "supersedes_revision": null
+    }
+  ],
+  "schema": "polaris.ccl/v1"
+}

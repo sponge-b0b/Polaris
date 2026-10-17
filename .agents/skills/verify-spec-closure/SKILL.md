@@ -1,425 +1,237 @@
 ---
 name: verify-spec-closure
-description: Independently certify or reject the semantic Spec contract at the exact stable HEAD prepared by `$verify-spec`. This is a fresh non-mutating leaf verifier; `$verify-spec` retains orchestration, gates, repairs, and receipt persistence.
+description: Independently certify whether one exact stable implementation candidate satisfies the frozen deterministic CCL-backed Spec contract; never redefine the contract universe.
 compatibility: product=codex product=claude-code system=python system=git system=gh network=required
 disable-model-invocation: true
 ---
 
 # Verify Spec Closure
 
-Independently certify or reject semantic completion of the exact stable Spec candidate prepared by `$verify-spec`.
+`$verify-spec-closure` is the fresh non-mutating independent implementation-conformance
+verifier dispatched by `$verify-spec`.
 
-This skill exists to prevent `$verify-spec` from authorizing its own semantic PASS after it has also selected gates, interpreted failures, repaired the candidate, and assembled proof evidence.
-
-It is not `$review-spec`:
-
-* `$verify-spec-closure` asks whether the integrated candidate satisfies the authoritative Spec contract;
-* `$review-spec` remains the later independent Standards / Spec / Architecture adversarial review and convergence layer.
-
-## Conditional Claim Discipline
-
-This section is authoritative for any manifest cell whose requirement contains a material condition, trigger, phase, future event, or other predicate controlling when its consequent applies.
-
-Preserve the source condition exactly. Do not silently transform:
+Its independence is adversarial **proof independence**, not semantic-authority
+independence.
 
 ```text
-when X occurs, Y must happen
+Frozen deterministic Spec cells
+        ↓
+independent falsifiers / evidence
+        ↓
+PASS or FAIL
 ```
 
-into:
+The verifier never reconstructs the contract from prose, ADRs, wiki pages, ticket prose,
+or implementation shape.
+
+## Invocation integrity
+
+Run only in a genuinely fresh, non-mutating verifier context.
+
+Receive from `$verify-spec`:
+
+* Spec identity and exact body/hash;
+* fixed baseline, branch, exact stable HEAD;
+* exact deterministic `$spec-contract` result;
+* complete ordered cells and `cell_hash` values;
+* exact CCL addresses for every `OBL-*`;
+* current valid `ticket-coverage-manifest:v2` and routed tickets;
+* concise implementation/evidence pointers;
+* terminal parent technical/delegated gate results;
+* prior unresolved verifier findings on retry, when applicable.
+
+Verify those transport identities before semantic work. Any candidate mutation during the
+run invalidates the attempt; emit neither PASS nor FAIL.
+
+Do not mutate repository/tracker/Git state, invoke remediation, or delegate.
+
+## Contract boundary
+
+The exact supplied cell universe is authoritative for this attempt:
 
 ```text
-build a mechanism now that guarantees Y for every future X
+OBL-*  material semantic contract, exact CCL addresses
+IMP-*  private/mechanical implementation obligations
+TEST-* explicit proof obligations
+EXC-*  exclusion guardrails
 ```
 
-unless the originating Spec itself requires that present mechanism/pre-provisioning.
+Do not:
 
-For every materially conditional cell, record concise proof state:
+* add/remove a cell;
+* infer hidden obligations from narrative prose;
+* rebuild a Source Unit Inventory;
+* derive `ARCHSRC-*` / `NORM-*` rows;
+* reopen architecture/Decision prose to change an OBL meaning;
+* treat implementation behavior as evidence that the contract "must have meant" more.
+
+If current evidence appears to require behavior absent from the supplied contract,
+classify it as a **contract-gap candidate** and report it separately. It blocks PASS only
+when current durable authority proves the gap; the verifier still may not manufacture the
+missing cell.
+
+## Per-cell independent proof
+
+For every supplied cell, create concise proof state:
 
 ```text
-Condition/trigger: <exact authoritative trigger>
-Current trigger state: active | inactive | ambiguous
-Trigger evidence: <current evidence>
-Deferred routing evidence: <durable destination/owner | None>
+Cell: <ID>
+Cell hash: <hash>
+Predicate: <what exact cell requires>
+Falsifier: <concrete state that would make it false>
+Evidence: <current candidate evidence>
+State: proven | violated | unproven | not-applicable
 ```
 
-Apply these rules:
+This is an auditable result summary, not private chain-of-thought.
 
-* `active` → certify the consequent normally; current behavior must satisfy the cell;
-* `inactive` → current implementation of the consequent is not required unless the source explicitly requires pre-provisioning;
-* an inactive cell may be `not-applicable` for the current candidate only when the originating source establishes the condition and durable decomposition/lifecycle evidence preserves a future destination/owner for the obligation;
-* the preferred routing evidence is the parent Spec's current `Ticket Coverage Manifest` row with a `deferred-conditional` disposition; equivalent durable authority is acceptable only when it clearly names the future lifecycle/verification destination;
-* `inactive` without durable future routing is `unproven`, not silently complete, because the obligation would otherwise escape by omission;
-* `ambiguous` trigger state is `unproven`;
-* when the trigger later becomes active, any prior inactive/not-applicable proof is stale by definition and may not be reused;
-* the verifier must not invent CI, automation, project policy, a new workflow owner, or another durable mechanism merely to make an inactive conditional cell provable.
+### OBL-* material-contract cells
 
-This extends `not-applicable`; it does not weaken Out-of-Scope handling. A conditional inactive disposition still requires exact originating-Spec authority plus durable routing evidence.
+Load the typed CCL assertion(s) named by the cell and preserve their exact strength.
 
-## Invocation Integrity
+Derive implementation/runtime falsifiers appropriate to the assertion kind. Examples:
 
-Execute only in one genuinely fresh non-mutating verifier subagent dispatched by the `$verify-spec` parent at a stable exact HEAD.
+* required relationship missing on a production path;
+* optional relationship incorrectly assumed required;
+* forbidden relationship accepted;
+* persistence marked durable but lost across the required durable boundary;
+* closed vocabulary emits an unlisted value;
+* distinct semantic concepts collapse into one meaning;
+* required invariant can be violated by an accepted path.
 
-The verifier:
+Do not change required/optional/forbidden, open/closed vocabulary, cardinality, temporal,
+authority, persistence, or other typed meaning while deriving falsifiers.
 
-* did not implement or repair the candidate;
-* receives the immutable Spec contract handoff, its invocation-local `CONTRACT_HANDOFF_DIGEST`, exact baseline/branch/HEAD, ownership, and already-executed gate/test evidence;
-* independently proves semantic cells rather than accepting parent proof conclusions;
-* may read/search/inspect and run narrowly necessary non-mutating checks;
-* must not edit repository/tracker/Git state, invoke remediation, or delegate.
+### IMP-* cells
 
-Candidate mutation or verifier mutation invalidates the run. Do not emit PASS/FAIL from an invalid run.
+Prove the private/mechanical obligation is actually realized in the integrated candidate.
+A private alternative is acceptable only when the cell itself permits equivalent mechanics
+or the parent has already reconciled the planning cell. The verifier does not rewrite it.
 
-`CONTRACT_HANDOFF_DIGEST` is SHA-256 of the exact ephemeral handoff bytes supplied by `$verify-spec` for this certification transaction. It is transport binding only: it is not semantic identity, is not persisted as contract authority, and must never be compared across independent `$spec-contract` builds.
+### TEST-* cells
 
-## Cumulative Retry Semantics
+Prove the required test/proof exists and is capable of falsifying the assigned behavior.
+A passing test that cannot fail when the contract is false is `unproven`.
 
-This section is authoritative for Attempt 2 or later after a valid saturated `SPEC CLOSURE: FAIL`. It supersedes later wording that can be read as requiring a fresh verifier to rebuild an unchanged semantic universe, or as permitting reuse of an old verdict instead of obtaining a fresh one.
+### EXC-* cells
 
-A genuinely fresh verifier is independent from candidate authorship, parent repair, and prior verifier execution; it is **not** a blank-slate verifier.
+Check that the candidate does not introduce the excluded behavior where the candidate can
+materially affect that exclusion. `not-applicable` is allowed only with concrete evidence
+that the candidate cannot touch the excluded boundary.
 
-Every retry still requires a fresh isolated `$spec-contract` build for the exact current stable HEAD before this verifier is dispatched. Never reuse a prior `CONTRACT_HANDOFF`, `CONTRACT_HANDOFF_DIGEST`, or prior verdict across a candidate mutation. The parent may supply prior retry state only **after** the fresh current contract build has returned validly; prior retry state must never be exposed to or used by the fresh contract builder.
+## Production-path and negative proof
 
-For Attempt 2 or later, recover the exact prior saturated verifier result and its `Cumulative Spec Retry State` before reconstructing semantic state. Compare the current fresh structural contract identity and current mutable authority with the prior retry bindings. When the governing Spec body/structural contract and relevant authority remain unchanged, reuse rather than rediscover:
+For observable/persisted/routed/enforced behavior, inspect the actual canonical production
+composition needed to realize it. Component capability alone is insufficient.
 
-* stable manifest-cell identities and authoritative obligation mappings;
-* architecture/design decomposition construction already saturated by an independent prior verifier;
-* domain-construction manifests, membership predicates, authoritative source sets, member inventories, and independently recoverable closure criteria;
-* prior out-of-domain boundary observations;
-* every prior finding and exact falsifier;
-* explicit proof-dependency mappings sufficient to determine which prior dispositions a repair invalidated.
+For negative/fail-closed behavior, inspect meaningful falsifying states at the boundary
+that owns rejection. Do not prove `cannot` using only well-formed success-path examples.
 
-Freshness does not invalidate those authority-derived artifacts merely because a different verifier actor is running.
+Use parent test/gate results as evidence of exactly what they mechanically establish. Do
+not rerun broad parent gates merely to duplicate them; run only narrow non-mutating checks
+needed to resolve a cell.
 
-A prior cell, nested-member, decomposition, or domain-membership **disposition** is reusable only when all material inputs to that proof remain unchanged, including:
+## Cross-cell composition
 
-* governing authority and current structural contract identity;
-* candidate-dependent evidence inputs;
-* implementation/composition surface on which the proof depends;
-* relevant runtime, tracker, configuration, dependency, and conditional-trigger state.
+After per-cell proof, perform one bounded integration sweep for interactions between exact
+cells/tickets:
 
-Determine invalidation from the actual candidate delta plus the proof dependencies preserved in the prior retry state. Re-prove every cell/domain/member whose predicate could materially be affected by the repair or its blast radius. When uncertainty remains, invalidate and re-prove the smallest semantic surface that resolves the uncertainty.
+* two cells individually pass but compose inconsistently;
+* one ticket satisfies its cell by violating another exact cell;
+* production wiring omits a capability proven only in isolation;
+* an exclusion is violated by integration even though individual tickets passed;
+* current ticket coverage points to stale/incorrect implemented ownership.
 
-Every prior finding is a mandatory regression target. Attempt N+1 must explicitly classify each earlier unresolved finding as:
+Composition may falsify existing cells. It does not create new ones.
+
+## Decomposition/contract drift classifications
+
+Report separately from implementation findings:
 
 ```text
-closed | still-open | superseded-by-explicit-authority-change
+cell-routing-defect
+    exact current cell missing/duplicated/stale/misrouted in v2 coverage or ticket body
+
+contract-gap candidate
+    durable current authority appears to require material behavior absent from OBL/CCL
+
+planning-cell-gap candidate
+    required private/test/exclusion planning appears absent from IMP/TEST/EXC
 ```
 
-Candidate mutation alone can never make a prior finding disappear. `closed` requires direct current evidence against the exact prior falsifier plus any materially adjacent state exposed by the repair. `superseded-by-explicit-authority-change` requires exact durable authority identifying the change; a different implementation or verifier opinion is not supersession.
+Do not solve these inside the verifier.
 
-After reconciling prior findings, independently sweep the repair blast radius and every acceptance/decomposition obligation whose proof was invalidated. The final verdict remains a verdict over the **whole current Spec candidate**. Reusing unchanged semantic construction is evidence economy, not partial certification.
+## Retry continuity
 
-If prior durable retry state lacks enough authority, construction, inventory, or proof-dependency detail for safe reuse, reconstruct only the missing or ambiguous state. Do not rebuild an unchanged universe merely because the verifier actor is fresh, and do not pretend reuse is valid when the durable state is insufficient.
-
-On Attempt 2 or later, the Section 4 saturation witness additionally requires:
+For a retry after a prior valid FAIL, every prior finding is mandatory until classified:
 
 ```text
-Prior-attempt findings: <n>
-closed: <n>
-still-open: <n>
-superseded-by-explicit-authority-change: <n>
-Reused prior dispositions with unresolved invalidation: 0
+closed
+still-open
+superseded-by-explicit-contract-change
 ```
 
-A PASS requires `still-open: 0`. A FAIL may retain prior findings as `still-open`, but must carry them forward together with every new independently actionable finding.
+A different implementation or different verifier opinion is not supersession.
 
-Every valid saturated FAIL that can lead to another attempt must also return this compact durable state:
+Reuse prior evidence only when the exact cell hash and all proof inputs remain valid.
+The final verdict is always over the whole current candidate.
 
-```text
-Cumulative Spec Retry State:
-Prior candidate HEAD: <sha>
-Prior Spec body hash: <hash>
-Prior Spec contract hash: <hash>
-Authority identity: <durable authority/source identities proving the acceptance/decomposition boundary>
-Manifest identity: <stable cell/source-unit identities sufficient to reconcile a fresh current contract>
-Architecture/decomposition state: <stable obligation/manifest identities and closure state sufficient for reuse>
-Domain construction state: <stable ND identities plus authority, membership predicate, generation/closure mechanism, and recoverable member inventory/criterion>
-Candidate-dependent proof dependencies: <cell/ND/member groups -> implementation/evidence/runtime/tracker/configuration dependencies>
-Reusable prior dispositions: <cell/ND/member groups whose dependencies were unchanged at the end of this attempt>
-Mandatory falsifiers for next attempt: <finding IDs / exact falsifiers>
-```
+## Saturation and verdict
 
-Counts alone are insufficient. When reuse depends on a finite member inventory, preserve that inventory itself or an independently recoverable deterministic identity/manifest for it.
+Continue after the first failure until every supplied cell is dispositioned and the
+bounded composition sweep is complete.
 
-> **Spec verifier attempts are cumulative in integrated evidence and adversarial knowledge, but independent in verdict. Rebuild the current contract binding; do not rediscover an unchanged semantic universe. Re-certify the candidate.**
-
-## 1. Recover and Bind the Spec Contract
-
-Require exact:
-
-* Spec issue and body identity/hash;
-* fixed baseline;
-* `spec-<n>` branch;
-* stable candidate HEAD;
-* deterministic `$spec-contract` manifest, deterministic V2 structural identity rows, and contract hash;
-* invocation-local `CONTRACT_HANDOFF_DIGEST` for the exact handoff bytes supplied by the parent;
-* Spec-owned/Mixed/inherited ownership classifications;
-* current architecture impact/authority needed by manifest cells;
-* the current parent-Spec `Ticket Coverage Manifest`, including the Architecture/Design Obligation Disposition Manifest and exact relevant ticket `Architecture obligations` mappings;
-* executed deterministic/delegated gate evidence and acceptance-test evidence supplied by `$verify-spec`.
-
-The manifest is the outer acceptance universe. Do not add or remove originating Spec obligations locally.
-
-A newly discovered originating-Spec obligation absent from the deterministic contract is a contract defect and invalidates certification; return it to `$verify-spec` rather than silently expanding the manifest.
-
-## Architecture / Design Decomposition Integrity
-
-Before certifying Spec cells, independently challenge the complete bounded architecture/design decomposition used by the integrated candidate.
-
-Re-derive materially applicable architecture/design obligations from the exact governing sources supplied by `$verify-spec`; do not accept the parent's manifest counts or dispositions as semantic proof. Compare the independently derived set with the current parent-Spec Architecture/Design Obligation Disposition Manifest and relevant ticket `Architecture obligations` mappings.
-
-Record:
+Before any terminal verdict require:
 
 ```text
-Architecture/design obligations: <n>
-Manifest rows: <n>
-Missing: <n>
-Ambiguous: <n>
-Misrouted: <n>
-Implementation obligations without durable ticket coverage: <n>
-Ticket mappings inconsistent with manifest: <n>
-```
-
-A missing, ambiguous, or misrouted architecture/design obligation is an independently actionable finding with:
-
-```text
-Finding classification: decomposition-defect
-Finding owner: $to-tickets
-Governing source: <exact durable source + section>
-Missing/misrouted obligation: <requirement>
-Current manifest state: absent | incomplete | misrouted
-```
-
-Continue the bounded semantic sweep so the parent receives the complete independently observable failure set. The finding blocks PASS; the leaf remains non-mutating and does not edit tickets or manifests.
-
-## 2. Per-Cell Semantic Certification
-
-Independently disposition every manifest cell:
-
-```text
-Spec cell: <US-* | ID-* | TD-* | OOS-* | other stable cell>
-Claim: <exact manifest requirement>
-Domain: <authoritative domain>
-Domain authority: <durable source(s) defining membership>
-Membership predicate: <what makes a candidate part of this domain>
-Nested domains: <None | domain construction manifests>
-Predicate: <what must be true>
-Falsifier: <concrete state that makes the claim false>
-Evidence: <current evidence excluding the falsifier>
-State: <unchecked | proven | violated | unproven | not-applicable>
-```
-
-This is concise proof state, not private reasoning.
-
-### Exact entailment
-
-A proof may cover multiple cells only when the same predicate/evidence genuinely entails every mapped requirement.
-
-Do not map a narrower externally visible claim to a broader upstream architectural fact unless the evidence proves the externally visible claim itself.
-
-Do not infer operational behavior from component capability when canonical production composition is material.
-
-Ask for each cell:
-
-> Could every cited check pass while this exact Spec requirement is still false?
-
-If yes, it is not proven.
-
-### Authoritative domain membership
-
-Before proving any material cell whose domain can produce finite, discoverable, alternate, sibling, or adversarial candidates, bind the boundary that determines which candidates belong:
-
-```text
-Domain authority: <durable source(s) that define the boundary>
-Membership predicate: <what makes a candidate a member>
-```
-
-Derive membership from durable authority such as the exact manifest requirement, normative definitions, explicit enumerations, and authoritative composition/ownership boundaries. Do not derive it from changed files, implementation structure, existing tests, known defects, lexical similarity, subsystem proximity, or verifier intuition.
-
-Discovery may reveal a candidate. Discovery does not create authority.
-
-If a material candidate's membership cannot be resolved from current authority, the candidate is `ambiguous` and the affected cell/domain remains `unproven`; do not silently widen or narrow the claim.
-
-### Nested Universe Closure
-
-For `all`, `every`, `none`, `only`, `complete`, `highest practical`, all profiles, all surfaces, all consumers, or equivalent finite/discoverable domains, materialize and close the nested domain.
-
-Examples:
-
-* profile × applicable rendering/transport seam;
-* semantic contract transition × consumer/composition path;
-* external response shape × constructor/adapter/schema/transport producer;
-* authoritative presentation owner × all required sinks;
-* workflow invariant × entry/re-entry/fallback path.
-
-Each nested domain carries its own authority, membership predicate, and Domain Construction Manifest:
-
-```text
-Domain: ND-<n>
-Authority: <durable source>
-Membership predicate: <predicate>
-Expected / closure criterion: <n | criterion>
-Generated: <n>
-Inspected: <n>
-Dispositioned: <n>
-Remaining authoritative members: 0
-Construction complete: yes
-Sweep complete: yes
-```
-
-For a finite domain, expected/generated/inspected/dispositioned counts must reconcile exactly. For a discoverable/open-world domain, the declared exhaustive mechanism must satisfy its closure criterion.
-
-Passing tests over selected files do not establish a different semantic matrix. `unchecked = 0` over an incompletely constructed domain is not proof.
-
-A parent Spec cell becoming `violated` does not close, waive, or disposition the rest of its nested domain. Continue generating, inspecting, and dispositioning every remaining authoritative member so the same run accumulates all independently observable failures.
-
-When the nested universe cannot be established exhaustively, mark the cell `unproven`.
-
-### Production-path proof
-
-If the Spec claim says behavior is observable, emitted, persisted, enforced, routed, or available in the application, inspect the canonical production path required for that behavior.
-
-A class supporting telemetry is not proof that the production DI path wires telemetry. A renderer receiving metadata upstream is not proof that it exposes that metadata externally.
-
-Apply this principle generically to the relevant composition mechanism.
-
-### Negative/fail-closed proof
-
-For negative obligations, derive meaningful falsifying states and inspect/test the responsibility of the boundary being certified.
-
-Do not certify `cannot bypass` using only well-formed canonical-path examples. Do not make thin transports rerun upstream policy when their responsibility is only to refuse an inconsistent or non-presentable result.
-
-## 3. Use Parent Gate Evidence Without Trusting Parent Conclusions
-
-The `$verify-spec` parent owns execution of deterministic/delegated gates, service preflight, acceptance tests, observed-failure disposition, and repair.
-
-Treat those native terminal results as evidence of exactly what they mechanically establish.
-
-Do not rerun broad Ruff/Mypy/pytest/dedup/wiki gates merely to duplicate `$verify-spec`.
-
-Run only narrow non-mutating inspection/checks needed to determine semantic entailment or close a bounded domain not established by existing evidence.
-
-A parent assertion that a cell is proven is not evidence.
-
-## 4. Completeness and Failure Saturation
-
-Continue the bounded Spec scan after semantic failures so the parent receives all independently observable closure defects in one certification attempt.
-
-A first falsifier changes **verdict polarity** to FAIL; it does not establish **verification completion**. PASS and FAIL require the same universe-construction and sweep-saturation gates. A violated parent cell remains open for search until every authoritative nested member and sibling has been generated and dispositioned.
-
-Before either verdict require:
-
-```text
-Manifest cells: <n>
+Contract cells: <n>
 proven: <n>
 not-applicable: <n>
 violated: <n>
 unproven: <n>
 unchecked: 0
-Nested domains required: <n>
-Domain construction manifests complete: <n>/<n>
-Nested domains closed: <n>
-Open nested domains: 0
-Generated authoritative members: <n>
-Inspected authoritative members: <n>
-Dispositioned authoritative members: <n>
-Remaining authoritative members: 0
-Violated cells with incomplete domain sweep: 0
-Domain-membership candidates: <n>
-in-domain: <n>
-out-of-domain: <n>
-ambiguous membership: 0
-Undispositioned domain candidates: 0
-Independent actionable findings: <n>
-Unexplored authoritative siblings: 0
-Unproven material assumptions: 0
-Architecture/design missing obligations: 0
-Architecture/design ambiguous obligations: 0
-Architecture/design misrouted obligations: 0
-Architecture implementation obligations without durable ticket coverage: 0
+Composition sweep: complete
+Open prior findings: <n>
+Cell-routing defects: <n>
+Proven contract gaps: <n>
+Proven planning-cell gaps: <n>
+Candidate mutation during verification: no
 ```
 
-Preserve a compact Domain Membership Manifest for inspected candidates:
+`PASS` requires:
 
 ```text
-Candidate: <surface/path/member>
-Parent: <Spec cell | nested-domain cell>
-Domain authority: <durable source>
-Membership predicate: <predicate>
-Disposition: in-domain | out-of-domain | ambiguous
-Evidence / authority: <why the disposition follows>
+violated = 0
+unproven = 0
+unchecked = 0
+open prior findings = 0
+cell-routing defects = 0
+proven contract gaps = 0
+proven planning-cell gaps = 0
 ```
 
-Apply dispositions mechanically:
-
-* `in-domain` → the candidate becomes part of the cell/nested-domain sweep and must be dispositioned before verdict;
-* `out-of-domain` → preserve the observation, but it does not become a Spec obligation merely because it is adjacent, similar, or hypothetically exploitable;
-* `ambiguous` → the affected cell/domain remains `unproven`; do not silently broaden durable authority.
-
-`not-applicable` requires exact originating-Spec authority, normally an Out of Scope or explicit exclusion cell.
-
-Every independently actionable defect discovered during the saturated sweep must appear as a finding even when several findings violate the same Spec cell. Derivative cell failures may reference one root defect rather than duplicating it, but they do not replace independently actionable findings.
-
-Any `violated`, `unproven`, `unchecked`, incomplete domain construction, incomplete nested sweep, ambiguous/undispositioned domain candidate, unexplored authoritative sibling, or unproven material assumption blocks PASS. Any incomplete construction or sweep also blocks FAIL; return an invalid/incomplete certification result rather than a partial failure set.
-
-## 5. Verdict
-
-Return one semantic verdict only after Section 4 saturation is complete.
-
-Every consumable verdict must echo the exact `CONTRACT_HANDOFF_DIGEST` received from `$verify-spec`. A missing or changed digest makes the result invalid/incomplete rather than PASS or FAIL.
-
-### PASS
+Return exactly one:
 
 ```text
 SPEC CLOSURE: PASS
-Spec: #<n>
-Baseline: <sha>
-Branch: spec-<n>
-HEAD: <sha>
-Spec body hash: <hash>
-Spec contract hash: <hash>
-Contract handoff digest: <sha256>
-Manifest: <n>; proven <n>; not-applicable <n>; violated 0; unproven 0; unchecked 0
-Nested domains: <n>; closed <n>; open 0
-Domain construction: <n>/<n> complete; remaining authoritative members 0
-Domain membership: <n>; in-domain <n>; out-of-domain <n>; ambiguous 0
-Independent actionable findings: 0
-Coverage:
-- <cell IDs grouped only when identical evidence truly entails each claim> — <compact evidence>
 ```
 
-### FAIL
+or
 
 ```text
 SPEC CLOSURE: FAIL
-Spec: #<n>
-Baseline: <sha>
-Branch: spec-<n>
-HEAD: <sha>
-Spec body hash: <hash>
-Spec contract hash: <hash>
-Contract handoff digest: <sha256>
-Manifest: <n>; proven <n>; not-applicable <n>; violated <n>; unproven <n>; unchecked 0
-Nested domains: <n>; closed <n>; open <n>
-Domain construction: <n>/<n> complete; remaining authoritative members 0
-Domain membership: <n>; in-domain <n>; out-of-domain <n>; ambiguous 0
-Independent actionable findings: <n>
-Findings:
-1. <cell / exact requirement / falsifier or missing proof / current evidence / correction needed>
-...
 ```
 
-Do not emit PASS or FAIL when construction/saturation is incomplete. Return an invalid/incomplete certification result to `$verify-spec` instead.
+On FAIL include all independently actionable findings in concise form:
 
-Return the verdict to `$verify-spec`. Do not repair or persist a Spec Verification Receipt.
+```text
+Finding: VC-<n>
+Classification: implementation-defect | test/proof-defect | cell-routing-defect |
+                contract-gap | planning-cell-gap
+Cells: <exact IDs | None>
+Falsifier: <concrete failing state>
+Evidence: <current evidence>
+Owner: $verify-spec | $to-tickets | $to-specs / semantic owner
+```
 
-## 6. Binding and Reuse
-
-Certification applies only to the exact baseline, Spec body hash, Spec contract hash, branch, HEAD, authoritative mutable inputs, and exact contract handoff bytes certified. Echo `CONTRACT_HANDOFF_DIGEST` unchanged in the verdict so the parent can bind finalization to those same bytes.
-
-The digest is invocation-local transport binding only. It does not replace `SPEC_CONTRACT_HASH`, does not become durable contract identity, and must never be compared across independent `$spec-contract` builds.
-
-Any repository repair changes HEAD and makes prior semantic certification stale. Mutable architecture/tracker authority changes may also invalidate affected cells.
-
-Reuse is legal only when an already-independent certifier established an explicit invalidation boundary and deterministic fail-closed delta analysis proves the proof object and evidence remain valid. Otherwise recertify.
+Do not repair failures.

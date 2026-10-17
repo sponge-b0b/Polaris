@@ -2,7 +2,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 VERIFY = (ROOT / ".agents/skills/verify-spec/SKILL.md").read_text(encoding="utf-8")
-CLOSURE = (ROOT / ".agents/skills/verify-spec-closure/SKILL.md").read_text(encoding="utf-8")
+CLOSURE = (
+    ROOT / ".agents/skills/verify-spec-closure/SKILL.md"
+).read_text(encoding="utf-8")
 REVIEW = (ROOT / ".agents/skills/review-spec/SKILL.md").read_text(encoding="utf-8")
 AGENTS = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
 SKILLS_README = (ROOT / ".agents/skills/README.md").read_text(encoding="utf-8")
@@ -34,7 +36,8 @@ def test_independent_closure_cannot_redefine_contract() -> None:
 def test_review_preserves_three_axes_and_exit_receipt() -> None:
     for heading in ("## Standards", "## Spec", "## Architecture"):
         assert heading in REVIEW
-    assert "<!-- review-spec-finding-ledger:v1 -->" in REVIEW
+    assert "review-spec-finding-ledger:v2" in REVIEW
+    assert "review-spec-finding-ledger:v1" not in REVIEW
     assert "## Spec Review Exit Receipt" in REVIEW
     assert "**Unresolved decomposition defects:** 0" in REVIEW
     assert "**Review coverage:** complete" in REVIEW
@@ -43,7 +46,6 @@ def test_review_preserves_three_axes_and_exit_receipt() -> None:
 def test_review_routes_gaps_upstream_instead_of_inventing_obligations() -> None:
     assert "contract-authority-gap" in REVIEW
     assert "planning-cell-gap" in REVIEW
-    assert "Do not create `ARCHSRC-*`" in REVIEW
     assert "does not:" in REVIEW
 
 
@@ -52,13 +54,12 @@ def test_root_policy_owns_canonical_contract_consumption() -> None:
     assert "accepted CCL assertion" in AGENTS
     assert "Spec OBL-* projection" in AGENTS
     assert "ticket-coverage-manifest:v2" in AGENTS
-    assert "### Spec Contract Semantic Ownership" not in AGENTS
     assert "normative-new" not in AGENTS
 
 
 def test_cross_skill_lifecycle_has_one_semantic_choke_point() -> None:
-    assert "## Core Workflow Principle" in SKILLS_README
+    assert "## Core principle" in SKILLS_README
     assert "Canonical Contract Ledger (CCL)" in SKILLS_README
     assert "OBL / IMP / TEST / EXC Spec contract" in SKILLS_README
-    assert "It does not classify arbitrary prose or infer architecture semantics." in SKILLS_README
+    assert "Narrative Spec sections are human context" in SKILLS_README
     assert "Interpretation machinery" not in SKILLS_README

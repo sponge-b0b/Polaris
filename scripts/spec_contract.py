@@ -1,4 +1,4 @@
-"""Build a deterministic contract manifest from one CCL-backed Polaris Spec."""
+"""Build deterministic Spec and ticket contracts from one CCL-backed Polaris Spec."""
 
 from __future__ import annotations
 
@@ -68,6 +68,7 @@ def _extract_ccl_manifest(body: str) -> dict[str, Any]:
 def _section(body: str, title: str) -> str:
     heading = re.search(rf"(?m)^##\s+{re.escape(title)}\s*$", body)
     _need(heading is not None, f"Spec: missing ## {title}")
+    assert heading is not None
     tail = body[heading.end() :]
     next_heading = re.search(r"(?m)^##\s+", tail)
     end = next_heading.start() if next_heading else len(tail)
@@ -119,8 +120,7 @@ def _material_cells(manifest: dict[str, Any]) -> list[dict[str, Any]]:
         _need(isinstance(obligation, dict), f"{where}: expected object")
         cell_id = obligation.get("obligation_id")
         _need(
-            isinstance(cell_id, str)
-            and _OBL_ID.fullmatch(cell_id) is not None,
+            isinstance(cell_id, str) and _OBL_ID.fullmatch(cell_id) is not None,
             f"{where}: invalid obligation_id",
         )
         _need(cell_id not in seen, f"Spec: duplicate contract cell {cell_id}")
@@ -153,7 +153,11 @@ def _material_cells(manifest: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _cell_hash(cell: dict[str, Any]) -> str:
     if cell["kind"] == "material-contract":
-        semantic = {"cell": cell["cell"], "kind": cell["kind"], "ccl": cell["ccl"]}
+        semantic = {
+            "cell": cell["cell"],
+            "kind": cell["kind"],
+            "ccl": cell["ccl"],
+        }
     else:
         semantic = {
             "cell": cell["cell"],
@@ -181,45 +185,20 @@ def build_contract(body: str) -> dict[str, Any]:
     body_hash = _sha256_bytes(body.encode("utf-8"))
     identity_rows = [[cell["cell"], cell["kind"], cell["cell_hash"]] for cell in cells]
     contract_hash = _sha256_bytes(_CONTRACT_DOMAIN + _canonical(identity_rows))
-    compatibility_manifest = [
-        {
-            "cell": cell["cell"],
-            "source": cell["source"],
-            "requirement": cell["requirement"],
-        }
-        for cell in cells
-    ]
-    source_units = [
-        [f"SU-{index:04d}", cell["cell_hash"], "normative-new", [cell["cell"]]]
-        for index, cell in enumerate(cells, start=1)
-    ]
-    reverse_manifest = [
-        [cell["cell"], [f"SU-{index:04d}"]]
-        for index, cell in enumerate(cells, start=1)
-    ]
     return {
+        "schema": "polaris.spec-contract/v1",
         "spec_body_hash": body_hash,
         "spec_contract_hash": contract_hash,
-        "source_counts": {
-            "user_stories": 0,
-            "implementation_decisions": sum(
-                c["kind"] == "implementation" for c in cells
-            ),
-            "testing_decisions": sum(c["kind"] == "testing" for c in cells),
-            "out_of_scope": sum(c["kind"] == "exclusion" for c in cells),
-            "other_normative": sum(c["kind"] == "material-contract" for c in cells),
-        },
-        "manifest": compatibility_manifest,
         "cells": cells,
-        "contract_identity": {
-            "source_units": source_units,
-            "manifest": reverse_manifest,
-        },
     }
 
 
 def validate_coverage(contract: dict[str, Any], coverage: dict[str, Any]) -> None:
     """Validate exhaustive deterministic ticket coverage for one Spec contract."""
+    _need(
+        contract.get("schema") == "polaris.spec-contract/v1",
+        "contract: wrong schema",
+    )
     _need(
         coverage.get("schema") == "polaris.ticket-coverage/v2",
         "coverage: wrong schema",
@@ -233,7 +212,6 @@ def validate_coverage(contract: dict[str, Any], coverage: dict[str, Any]) -> Non
     exclusions = coverage.get("exclusions")
     _need(isinstance(routes, list), "coverage.routes: expected list")
     _need(isinstance(exclusions, list), "coverage.exclusions: expected list")
-
     seen: set[str] = set()
     for row in routes:
         _need(isinstance(row, dict), "coverage.routes: invalid row")
@@ -254,12 +232,10 @@ def validate_coverage(contract: dict[str, Any], coverage: dict[str, Any]) -> Non
             f"coverage: stale cell hash {cell_id}",
         )
         _need(
-            isinstance(row["destination"], str)
-            and row["destination"].strip(),
+            isinstance(row["destination"], str) and row["destination"].strip(),
             f"coverage.routes: missing destination for {cell_id}",
         )
         seen.add(cell_id)
-
     for row in exclusions:
         _need(isinstance(row, dict), "coverage.exclusions: invalid row")
         _need(
@@ -279,7 +255,6 @@ def validate_coverage(contract: dict[str, Any], coverage: dict[str, Any]) -> Non
             f"coverage: stale cell hash {cell_id}",
         )
         seen.add(cell_id)
-
     missing = set(cells) - seen
     _need(not missing, "coverage: missing cells " + ", ".join(sorted(missing)))
 
@@ -303,9 +278,7 @@ def build_ticket_contract(
     ]
     _need(assigned_ids, f"ticket: no cells routed to {destination}")
     assigned = [cells[cell_id] for cell_id in assigned_ids]
-    exclusions = [
-        cell for cell in contract["cells"] if cell["kind"] == "exclusion"
-    ]
+    exclusions = [cell for cell in contract["cells"] if cell["kind"] == "exclusion"]
     identity = {
         "spec_contract_hash": contract["spec_contract_hash"],
         "destination": destination,
@@ -316,9 +289,7 @@ def build_ticket_contract(
         "schema": "polaris.ticket-contract/v1",
         "spec_contract_hash": contract["spec_contract_hash"],
         "destination": destination,
-        "ticket_contract_hash": _sha256_bytes(
-            _TICKET_DOMAIN + _canonical(identity)
-        ),
+        "ticket_contract_hash": _sha256_bytes(_TICKET_DOMAIN + _canonical(identity)),
         "assigned_cells": assigned,
         "exclusion_guardrails": exclusions,
     }
@@ -402,9 +373,7 @@ def main() -> int:
     try:
         if args.command in {"check-coverage", "build-ticket", "check-ticket"}:
             contract = json.loads(Path(args.contract).read_text(encoding="utf-8"))
-            coverage_value = json.loads(
-                Path(args.coverage).read_text(encoding="utf-8")
-            )
+            coverage_value = json.loads(Path(args.coverage).read_text(encoding="utf-8"))
             _need(isinstance(contract, dict), "contract: expected object")
             _need(isinstance(coverage_value, dict), "coverage: expected object")
             if args.command == "check-coverage":

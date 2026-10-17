@@ -6,31 +6,29 @@ compatibility: product=codex product=claude-code network=none
 
 # To ADR Doc
 
-`$to-adr-doc` owns ADR format, numbering, lifecycle, historical immutability, and the ADR-side projection of accepted Canonical Contract Ledger (CCL) semantics.
+`$to-adr-doc` owns ADR format, numbering, lifecycle, historical immutability, and the
+ADR-side projection of accepted Canonical Contract Ledger (CCL) semantics.
 
-ADRs live in:
+ADRs live in `docs/adr/`.
 
-```text
-docs/adr/
-```
+An ADR explains **why** a consequential decision was made. When material software semantics
+are represented by CCL, the ADR does not independently restate or reinterpret **what** was
+decided.
 
-An ADR explains **why** a consequential decision was made. For new material software semantics backed by CCL, it does not independently restate or reinterpret **what** was decided.
-
-## When to Create an ADR
+## Qualification
 
 Create an ADR only when all three are true:
 
-1. **Hard to reverse** — later change has meaningful migration/cost;
-2. **Surprising without context** — a future contributor could reasonably ask why;
-3. **Real trade-off** — meaningful alternatives existed and one was deliberately selected.
+1. hard to reverse — later change has meaningful cost;
+2. surprising without context — future contributors could reasonably ask why;
+3. real trade-off — meaningful alternatives existed and one was deliberately selected.
 
 Routine implementation choices do not need ADRs.
 
-## Two ADR Forms
+## CCL-backed accepted ADR
 
-### CCL-backed accepted ADR
-
-Use for a newly accepted material software decision whose semantics are represented by an accepted CCL transaction.
+Use for an accepted material software decision whose semantics are represented by an
+accepted CCL transaction.
 
 Required frontmatter:
 
@@ -48,67 +46,57 @@ Required body:
 # <Short decision title>
 
 ## Context
-
 <why this decision was necessary>
 
 ## Decision
-
 <exact machine-managed CCL projection>
 
 ## Rationale
-
-<why this semantic contract was chosen over material alternatives>
+<why this contract was chosen over material alternatives>
 ```
 
-Optional:
+`## Considered Options` and `## Consequences` are optional.
 
-```markdown
-## Considered Options
-
-## Consequences
-```
-
-For a CCL-backed ADR, the entire `## Decision` section is machine-managed. Generate it only with:
+Generate the entire `## Decision` section only with:
 
 ```bash
 python -m scripts.ccl_adr render-decision <accepted-transaction.json>
 ```
 
-After writing the ADR, require:
+Then require:
 
 ```bash
 python -m scripts.ccl_adr check-adr <adr-path> <accepted-transaction.json>
 ```
 
-Do not add prose before, after, or inside the generated Decision block.
+Do not add prose inside the generated Decision block.
 
-`Context`, `Rationale`, `Considered Options`, and `Consequences` are explanatory/history surfaces. They may describe implications and trade-offs but must not introduce a material requirement, cardinality, vocabulary, ownership rule, lifecycle, failure mode, or other semantic contract absent from the linked CCL transaction.
+Context/Rationale/Options/Consequences are explanation/history only. They may not introduce
+material requirements, cardinality, vocabulary, ownership, lifecycle, failure, or other
+semantics absent from the linked CCL transaction. If explanatory prose reveals a missing
+semantic requirement, return to the semantic owner.
 
-If explanatory prose reveals a missing semantic requirement, stop and return to the semantic decision owner. Do not silently add it to the ADR.
+## Historical and non-CCL ADRs
 
-### Legacy / non-CCL ADR
+Accepted historical ADRs remain immutable history. Do not rewrite them solely because the
+current workflow uses CCL.
 
-Existing ADRs created before CCL retain their historical form and lifecycle. Do not rewrite them solely to look modern.
+A genuinely non-semantic architecture record may remain unbacked when no material software
+contract is created or changed. Do not use that form to bypass CCL for a material semantic
+decision.
 
-A genuinely non-semantic architecture record may also remain unbacked when no material software contract is being created or changed.
-
-Do not use the legacy form as an escape hatch for a new material software decision that should be CCL-backed.
-
-## Why the Decision Projection Is Generated
-
-The CCL transaction is the exact accepted semantic payload. The ADR Decision section is a deterministic human-readable projection so humans and not-yet-migrated downstream workflows can still inspect the contract without creating a second independently authored version.
-
-For CCL-backed ADRs:
+## Why Decision is generated
 
 ```text
 CCL typed assertions = frozen semantic contract
-ADR Decision section = deterministic projection
+ADR Decision section = deterministic human-readable projection
 ADR Context/Rationale = explanation/history
 ```
 
-If the generated projection does not match the transaction, the ADR is invalid.
+The generated projection exists for human readability and durable rationale linkage, not
+as a second machine authority. If it does not match the transaction, the ADR is invalid.
 
-## Status
+## Status lifecycle
 
 Allowed statuses:
 
@@ -132,125 +120,54 @@ deprecated -> superseded by ADR-NNNN
 
 `rejected` and `superseded` are terminal.
 
-A Wayfinder decision already accepted through an exact CCL proposal may create its ADR directly as `accepted` in the same atomic authority transaction. It does not need a temporary proposed ADR merely to replay an already-completed human semantic gate.
+A Wayfinder decision accepted through an exact CCL proposal may create its ADR directly as
+`accepted` in the same authority transaction. A proposed ADR remains legal for exploratory
+narrative work, but proposed prose is not accepted CCL authority.
 
-A proposed ADR is still legal for exploratory narrative work, but proposed prose is not accepted CCL authority.
+## Accepted-content immutability
 
-## Accepted Content Immutability
+Once accepted, rejected, deprecated, or superseded, historical decision/rationale content
+is immutable except narrow Realization Maintenance.
 
-Once accepted, rejected, deprecated, or superseded, historical decision/rationale content is immutable except for narrow Realization Maintenance below.
+For a CCL-backed ADR, never manually edit `ccl_proposal`, `ccl_transaction`, or the
+generated `## Decision` block. Semantic change requires a new CCL revision and, when
+qualified, a successor ADR. Never mutate old history to make it agree with a later
+contract.
 
-For a CCL-backed accepted ADR, never manually edit:
+## Reconsideration
 
-* `ccl_proposal`;
-* `ccl_transaction`;
-* the generated `## Decision` block.
-
-Changing semantic meaning requires a new CCL revision. If that later decision deserves an ADR, create a successor ADR and supersede/deprecate the earlier ADR as appropriate.
-
-Never mutate an old ADR to make history agree with a later contract.
-
-## Reconsidering Decisions
-
-### Rejected direction becomes viable
-
-Create a new ADR referencing the rejection and explain what changed. The rejected ADR remains historical.
-
-### Accepted decision is replaced
-
-Create the successor decision/CCL revision first. Create the successor ADR when qualified, then transition the old ADR to:
-
-```text
-superseded by ADR-NNNN
-```
-
-### Accepted decision is retired without replacement
-
-Use:
-
-```text
-deprecated
-```
-
-Retiring CCL semantics remains owned by `$contract-ledger`; ADR status alone does not rewrite CCL history.
+* rejected direction becomes viable → create a new ADR explaining what changed;
+* accepted decision replaced → create successor CCL/ADR, then mark old ADR superseded;
+* accepted decision retired without replacement → mark ADR deprecated; CCL retirement
+  remains owned by `$contract-ledger`.
 
 ## Realization Maintenance
 
-An accepted realization-required ADR may receive narrow maintenance after current-state evidence establishes implementation realization.
+Permitted maintenance is limited to explanatory realization/reference wording that does
+not alter semantic meaning. For CCL-backed ADRs it must never alter CCL frontmatter or the
+generated Decision block. Invoke `$wiki-sync` after allowed maintenance.
 
-Permitted maintenance is limited to explanatory realization/reference wording that does not alter semantic meaning.
+## Numbering and naming
 
-For a CCL-backed ADR, Realization Maintenance must never alter its CCL frontmatter or generated Decision block.
+Use globally sequential ADR numbers. Apply `wiki/_schema.md` naming rules. Do not invent
+entity IDs.
 
-Do not use Realization Maintenance to:
+## Wiki synchronization
 
-* change Context/Rationale trade-offs;
-* add or remove semantic requirements;
-* reinterpret the historical contract through later implementation;
-* mark ambiguous/partial realization complete;
-* change ADR status except through the normal lifecycle.
+If the Living Entity Wiki exists, invoke `$wiki-sync` after ADR creation, substantive edit
+of a proposed ADR, allowed Realization Maintenance, or status change.
 
-After Realization Maintenance, invoke `$wiki-sync`.
+For CCL-backed ADRs pass the linked CCL transaction/contract identities. `$wiki-sync`
+never rewrites CCL or historical ADR semantics to force agreement.
 
-## Numbering
+## Parent-owned contribution
 
-Use globally sequential ADR numbers. Inspect `docs/adr/` and increment the highest numeric prefix.
+When an authorized parent already owns an isolated canonical-main authority transaction,
+consume the exact accepted CCL transaction, create/update only qualified ADR paths,
+generate/check the Decision projection, invoke required wiki synchronization, and return
+without committing independently.
 
-## Naming
-
-Apply `wiki/_schema.md` naming rules.
-
-With an active entity registry:
-
-```text
-000X-<entity-id>-<slug>.md
-```
-
-For genuinely cross-cutting architecture:
-
-```text
-000X-platform-<slug>.md
-```
-
-Before wiki bootstrap:
-
-```text
-000X-<slug>.md
-```
-
-Do not invent entity IDs.
-
-## Living Entity Wiki Synchronization
-
-If the Living Entity Wiki exists, invoke `$wiki-sync` after:
-
-* creating an ADR;
-* substantively editing a proposed ADR;
-* applying allowed Realization Maintenance;
-* changing ADR status.
-
-For CCL-backed ADRs, pass both the ADR path and linked CCL transaction/contract identities so derived knowledge can preserve exact semantic provenance.
-
-`$wiki-sync` owns derived entity consequences and source-conflict reporting. It must not rewrite CCL or historical ADR semantics to force agreement.
-
-## Parent-owned Atomic Contribution
-
-When invoked by `$wayfinder` or another authorized parent that already owns an isolated canonical-main authority transaction:
-
-1. consume the exact accepted CCL transaction contributed by `$contract-ledger`;
-2. create/update only the qualified ADR paths;
-3. generate the Decision section through `scripts/ccl_adr.py`;
-4. run `check-adr` before returning;
-5. invoke required `$wiki-sync` composition as prescribed;
-6. do not commit or push independently.
-
-Return the exact ADR paths and projection-check result to the parent.
-
-## Standalone Commit Ownership
-
-When not inside another workflow, follow the repository's ordinary persistence policy. `$to-adr-doc` does not require a standalone commit merely because it ran.
-
-## Return Contract
+## Return
 
 For a CCL-backed ADR:
 
@@ -264,17 +181,6 @@ CCL projection check: PASS
 Wiki sync: <result | not-applicable>
 ```
 
-For legacy lifecycle maintenance, report the ordinary ADR path/status transition and any wiki-sync result.
-
-## Out of Scope
-
-`$to-adr-doc` does not:
-
-* make the semantic decision;
-* create/revise CCL semantics;
-* choose between conflicting authorities;
-* write Specs or tickets;
-* independently determine implementation realization;
-* classify/move non-ADR documents.
-
-Those responsibilities remain with their owning workflows.
+`$to-adr-doc` does not make semantic decisions, create/revise CCL semantics, choose between
+conflicting authorities, write Specs/tickets, or independently determine implementation
+realization.

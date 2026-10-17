@@ -79,12 +79,18 @@ workflows.
 
 Resolve governance from the Parent Spec's local provenance markers.
 
-For a Wayfinder-managed Spec:
+For a Wayfinder-managed Spec, use the executable Project Delivery boundary:
 
-1. invoke `$project-delivery-management reconcile`;
-2. after reconciliation completes, invoke `$project-delivery-management guard <Wayfinder>`
-   for every current governor;
-3. require at least one fresh exact ALLOWED result:
+```bash
+python -m scripts.project_delivery reconcile --repo <owner/repo>
+python -m scripts.project_delivery guard \
+  --repo <owner/repo> \
+  --wayfinder <issue-number>
+```
+
+Run `reconcile` once for the current repository, require a zero exit status, then run
+`guard` once for every current governor. Require at least one fresh zero-exit guard with
+this exact stdout shape:
 
 ```text
 PROJECT DELIVERY GUARD: ALLOWED
@@ -94,16 +100,17 @@ Focused set: <exact set>
 
 ### Guard invocation discipline
 
-The project-delivery check is a required composed skill boundary, not an algorithm for
-`$to-tickets` to reproduce.
+`scripts.project_delivery` is the required composed execution boundary. `$to-tickets`
+does not implement Project Delivery control-state discovery, reconciliation, frontier
+eligibility, or guard classification.
 
 `$to-tickets` must not independently discover the Project Delivery Management singleton,
-parse or infer the focused Wayfinder set, derive Wayfinder frontier eligibility, or classify
-a guard result. Those responsibilities stay inside `$project-delivery-management`.
-
-Do not substitute any of the following for the required invocation:
+parse or infer the focused Wayfinder set, derive Wayfinder frontier eligibility, reconcile
+focus, or classify a guard result. Do not substitute any of the following for the required
+commands:
 
 * `gh search issues` queries;
+* direct `gh api` / GraphQL reads of the Project Delivery singleton or Wayfinder frontier;
 * issue title/body searches for `project-delivery:management`;
 * Project-board fields;
 * remembered singleton issue numbers;
@@ -111,15 +118,15 @@ Do not substitute any of the following for the required invocation:
 * an inline recreation of the delivery-guard algorithm.
 
 Direct GitHub reads needed for Spec/ticket lifecycle work remain allowed, but they do not
-satisfy the project-delivery guard.
+satisfy Project Delivery reconciliation or guard requirements.
 
-If `reconcile` or `guard` fails, returns ambiguous/incomplete state, or cannot produce the
-exact result format owned by `$project-delivery-management`, stop with the guard blocked.
-Do not fall back to heuristic searches or declare ALLOWED independently.
+If either command is unavailable, exits non-zero, returns ambiguous/incomplete state, or
+cannot produce its owned exact result format, stop with the guard blocked. Do not fall back
+to heuristic searches or declare ALLOWED independently.
 
-Preserve the exact fresh ALLOWED lines as the **delivery guard receipt** for the current run.
-A paraphrase such as "delivery check passed" or "guard is ALLOWED" is not the receipt and
-must not be used at the approval boundary.
+Preserve the exact fresh ALLOWED stdout lines as the **delivery guard receipt** for the
+current run. A paraphrase such as "delivery check passed" or a manually reconstructed exact
+string is not the receipt and must not be used at the approval boundary.
 
 Independent Specs never acquire a Wayfinder.
 
@@ -407,6 +414,9 @@ Missing mappings: 0
 Duplicate mappings: 0
 ATTENTION: COMPLETE
 ```
+
+The three Project Delivery lines must be copied verbatim from the successful current-run
+`scripts.project_delivery guard` stdout. `$to-tickets` must not generate them itself.
 
 For an Independent ordinary Spec, omit only the three project-delivery guard lines. For
 Spec Review mode, substitute the exact remediation-ledger/contract receipts required by

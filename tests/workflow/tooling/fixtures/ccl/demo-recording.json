@@ -1,0 +1,105 @@
+{
+  "schema": "polaris.ccl/v1",
+  "proposal_hash": "sha256:df7ee6abf2de387704f6d21709c6204a8b62fac876490bfb19eb1ec8d6d68783",
+  "origin": {
+    "mode": "wayfinder-decision",
+    "wayfinder": {
+      "map": 101,
+      "decision": 102
+    },
+    "sources": [
+      {
+        "source_id": "decision-102-resolution",
+        "kind": "github_issue_comment",
+        "role": "governing",
+        "ref": "issue:102#comment:1",
+        "content_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      {
+        "source_id": "decision-102-analysis",
+        "kind": "github_issue_comment",
+        "role": "rationale",
+        "ref": "issue:102#comment:2",
+        "content_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+      }
+    ]
+  },
+  "acceptance": {
+    "proposal_hash": "sha256:df7ee6abf2de387704f6d21709c6204a8b62fac876490bfb19eb1ec8d6d68783",
+    "artifact": {
+      "kind": "migration_fixture",
+      "ref": "decision-102-resolution"
+    }
+  },
+  "revisions": [
+    {
+      "contract_id": "workflow-demo.recording",
+      "revision": 1,
+      "operation": "create",
+      "supersedes_revision": null,
+      "owner": "workflow-demo",
+      "scope": {
+        "release": [
+          "test"
+        ]
+      },
+      "display": {
+        "title": "Workflow Record",
+        "summary": "The demo workflow durably records one result without conflating it with a command."
+      },
+      "assertions": [
+        {
+          "assertion_id": "record.persistence",
+          "kind": "persistence",
+          "subject": "workflow_record",
+          "constraint": {
+            "mode": "durable"
+          },
+          "authority": {
+            "source_ids": [
+              "decision-102-resolution"
+            ]
+          },
+          "display": {
+            "description": "The workflow record is durable."
+          }
+        },
+        {
+          "assertion_id": "record.not-command",
+          "kind": "distinctness",
+          "subject": "workflow_record",
+          "constraint": {
+            "target": "workflow_command"
+          },
+          "authority": {
+            "source_ids": [
+              "decision-102-resolution"
+            ]
+          }
+        },
+        {
+          "assertion_id": "record.not-event",
+          "kind": "distinctness",
+          "subject": "workflow_record",
+          "constraint": {
+            "target": "workflow_event"
+          },
+          "authority": {
+            "source_ids": [
+              "decision-102-resolution"
+            ]
+          }
+        }
+      ],
+      "annotations": {
+        "examples": [
+          "sample-only explanation",
+          "another explanatory example"
+        ],
+        "notes": [
+          "Examples are explanatory only and add no contract semantics."
+        ]
+      }
+    }
+  ]
+}

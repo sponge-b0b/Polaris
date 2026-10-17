@@ -38,7 +38,7 @@ Receive and bind:
 * Implementation Evidence Index;
 * terminal technical-check evidence;
 * prior unresolved verifier findings on retry;
-* remediation root/finding compatibility state when applicable.
+* exact `polaris.review-remediation-contract/v1` when mode is remediation.
 
 Recompute/read enough durable state to ensure these identities are still exact. Candidate
 mutation, contract/coverage mutation, verifier mutation/delegation, or ambiguous durable
@@ -76,14 +76,38 @@ with matching `cell_hash`, and the current published ticket body must still vali
 against the deterministic ticket contract. A mismatch is `cell-routing-defect`, not an
 invitation to guess intended scope.
 
-### Remediation compatibility
+### Review remediation contract
 
-For an existing Spec Review remediation ticket, the frozen root/finding may add the exact
-falsifier/preservation/proof obligation required to close that review finding only when
-every executable change remains mapped to exact current parent-Spec cells.
+For a current Review Remediation Ticket, the complete closure contract is the exact
+`polaris.review-remediation-contract/v1` supplied by `$implement-ticket`.
 
-Root/finding compatibility state cannot establish new product/domain/architecture
-semantics. If it would need to, report `contract-authority-gap`.
+It contains:
+
+* the exact current parent Spec Contract Hash;
+* selected open Blocking `RF-*` findings;
+* each finding's immutable `finding_hash` and frozen falsifier;
+* exact current affected Spec cells/hashes;
+* applicable Standards references;
+* every other current parent-Spec cell as a preservation guardrail.
+
+Do not synthesize a Root Blocker, broaden a finding into a sibling/domain invariant, or
+mine prior review prose for additional obligations.
+
+For each selected finding, independently prove that its exact falsifier is no longer true
+on the candidate and that any explicit Standards reference is satisfied.
+
+For each preservation guardrail, determine whether the candidate can materially affect
+that cell:
+
+* yes -> prove the current cell remains satisfied;
+* no -> `not-applicable` with concrete candidate evidence.
+
+A finding classified `cell-routing-defect`, `planning-cell-gap`, or
+`contract-authority-gap` is not review-remediation owned and must never be certified as a
+remediation ticket contract.
+
+A legacy Root Blocker ticket/checkpoint is historical evidence only. It must be normalized
+through current `$review-spec` + `$to-tickets` before a new certification attempt.
 
 ## 3. Per-cell independent proof
 
@@ -264,8 +288,8 @@ Unresolved design/contract gaps: 0
 Findings: None
 ```
 
-For remediation also bind the exact Root/Finding identity and return its compatible
-preservation/proof disposition.
+For remediation also bind the exact Review Remediation Contract Hash and selected RF
+identities and return their preservation/proof disposition.
 
 ### FAIL
 

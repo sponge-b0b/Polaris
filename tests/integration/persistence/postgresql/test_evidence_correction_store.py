@@ -69,19 +69,23 @@ from polaris.infrastructure.persistence.postgresql.schema import (
     evidence_observation_corrections,
     evidence_support_versions,
 )
-from tests.binding_support import BINDING_ID, binding_command, binding_service
-from tests.configuration_support import (
-    SECOND_VERSION_ID,
-    requirement_assignment_for_key,
-    requirement_key,
-    requirement_version,
+from tests.application.evidence.binding_support import (
+    BINDING_ID,
+    binding_command,
+    binding_service,
 )
-from tests.evidence_support import (
+from tests.application.evidence.evidence_support import (
     OBSERVATION_ID,
     SECOND_OBSERVATION_ID,
     SECOND_OPERATION_ID,
     evidence_command,
     evidence_service,
+)
+from tests.domain.configuration.configuration_support import (
+    SECOND_VERSION_ID,
+    requirement_assignment_for_key,
+    requirement_key,
+    requirement_version,
 )
 
 from .conftest import PostgresTestTarget, postgres_row_counts, postgres_store

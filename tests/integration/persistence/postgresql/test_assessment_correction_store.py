@@ -63,15 +63,23 @@ from polaris.infrastructure.persistence.postgresql.schema import (
 from polaris.infrastructure.persistence.postgresql.sufficiency_codec import (
     sufficiency_assessment_values,
 )
-from tests.binding_support import BINDING_ID, binding_command, binding_service
-from tests.configuration_support import (
+from tests.application.evidence.binding_support import (
+    BINDING_ID,
+    binding_command,
+    binding_service,
+)
+from tests.application.evidence.evidence_support import (
+    OBSERVATION_ID,
+    evidence_command,
+    evidence_service,
+)
+from tests.domain.configuration.configuration_support import (
     ROOT_VERSION_ID,
     SECOND_VERSION_ID,
     requirement_key,
     requirement_version,
 )
-from tests.evidence_support import OBSERVATION_ID, evidence_command, evidence_service
-from tests.sufficiency_support import derived_assessment
+from tests.domain.evidence.sufficiency_support import derived_assessment
 
 from .conftest import PostgresTestTarget, postgres_row_counts, postgres_store
 

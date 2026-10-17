@@ -25,9 +25,20 @@ from polaris.infrastructure.persistence.postgresql import (
     PostgresEvidenceSufficiencyStore,
     PostgresHistoricalEvidenceStore,
 )
-from tests.binding_support import BINDING_ID, binding_command, binding_service
-from tests.configuration_support import requirement_key, requirement_version
-from tests.evidence_support import OBSERVATION_ID, evidence_command, evidence_service
+from tests.application.evidence.binding_support import (
+    BINDING_ID,
+    binding_command,
+    binding_service,
+)
+from tests.application.evidence.evidence_support import (
+    OBSERVATION_ID,
+    evidence_command,
+    evidence_service,
+)
+from tests.domain.configuration.configuration_support import (
+    requirement_key,
+    requirement_version,
+)
 
 from .conftest import PostgresTestTarget, postgres_store
 

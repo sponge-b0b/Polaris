@@ -22,7 +22,7 @@ from polaris.infrastructure.persistence.postgresql.schema import (
     evidence_observation_command_receipts,
     evidence_observations,
 )
-from tests.evidence_support import (
+from tests.application.evidence.evidence_support import (
     ACQUIRED_AT,
     MISSING_OBSERVATION_ID,
     OBSERVATION_ID,

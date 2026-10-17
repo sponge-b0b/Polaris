@@ -50,7 +50,7 @@ from polaris.infrastructure.persistence.postgresql import (
 from polaris.infrastructure.persistence.postgresql.schema import (
     evidence_sufficiency_assessments,
 )
-from tests.binding_support import (
+from tests.application.evidence.binding_support import (
     BINDING_ID,
     BINDING_OPERATION_ID,
     SECOND_BINDING_ID,
@@ -59,18 +59,18 @@ from tests.binding_support import (
     binding_command,
     binding_service,
 )
-from tests.configuration_support import (
-    RequirementResolutionStub,
-    requirement_assignment_for_key,
-    requirement_key,
-    requirement_version,
-)
-from tests.evidence_support import (
+from tests.application.evidence.evidence_support import (
     OBSERVATION_ID,
     SECOND_OBSERVATION_ID,
     SECOND_OPERATION_ID,
     evidence_command,
     evidence_service,
+)
+from tests.domain.configuration.configuration_support import (
+    RequirementResolutionStub,
+    requirement_assignment_for_key,
+    requirement_key,
+    requirement_version,
 )
 
 from .conftest import PostgresTestTarget, postgres_row_counts, postgres_store

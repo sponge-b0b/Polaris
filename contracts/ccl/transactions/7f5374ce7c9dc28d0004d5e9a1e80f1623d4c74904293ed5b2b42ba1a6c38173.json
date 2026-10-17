@@ -1,0 +1,317 @@
+{
+  "schema": "polaris.ccl/v1",
+  "proposal_hash": "sha256:7f5374ce7c9dc28d0004d5e9a1e80f1623d4c74904293ed5b2b42ba1a6c38173",
+  "origin": {
+    "mode": "existing-authority",
+    "sources": [
+      {
+        "source_id": "decision-352-resolution",
+        "kind": "github_issue_comment",
+        "role": "governing",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/352#issuecomment-5883921345",
+        "content_sha256": "4c419928cb5888fe9288590fe1eb93d9d33c2533ed27600eee6d0a761c5543e3"
+      },
+      {
+        "source_id": "decision-352-conflict-resolution",
+        "kind": "github_issue_comment",
+        "role": "governing",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/352#issuecomment-6231731367",
+        "content_sha256": "5400d9f3071ddce28bae50b6a111e949d29ab11feb8fccd4d139930d0725269e"
+      },
+      {
+        "source_id": "adr-0008-amended",
+        "kind": "adr_markdown",
+        "role": "constraint",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/8d832adbfa4b7c37d4bf97b494504f8ae80e1b08/docs/adr/0008-portfolio-risk-ground-r3-recommendations-in-projected-consequences.md",
+        "content_sha256": "809b112c74857ccec4f937d31f6557355c84762b58456ac5e203ea60378ea1ee"
+      },
+      {
+        "source_id": "decision-364-final-resolution",
+        "kind": "github_issue_comment",
+        "role": "governing",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/364#issuecomment-6096295388",
+        "content_sha256": "0e663e8b4a0ca3fead187e16d650672c753008852a7aa134d5cf5677f3179ad2"
+      },
+      {
+        "source_id": "adr-0012",
+        "kind": "adr_markdown",
+        "role": "constraint",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0012-evidence-freeze-r3-identity-binding-and-reconstruction.md",
+        "content_sha256": "c0b9ee75558ac2e35e58fa2084e4ec142852e337f57e0932b9dcc713e9b5ca54"
+      },
+      {
+        "source_id": "adr-0015",
+        "kind": "adr_markdown",
+        "role": "constraint",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0015-evidence-complete-r3-target-and-context-version-basis.md",
+        "content_sha256": "35d5661e2da092cca050b22b2f991130361d8aa1f2eac1a5212411ed1bc14f97"
+      },
+      {
+        "source_id": "adr-0016",
+        "kind": "adr_markdown",
+        "role": "constraint",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0016-evidence-attest-r3-temporal-current-basis-meaning.md",
+        "content_sha256": "0b69132fcd5676f48683952384e210c18a8848f4e8d343567886223bdd81db27"
+      }
+    ]
+  },
+  "acceptance": null,
+  "revisions": [
+    {
+      "contract_id": "portfolio-risk.r3-decision-semantics",
+      "revision": 1,
+      "operation": "create",
+      "supersedes_revision": null,
+      "owner": "portfolio-risk",
+      "scope": {
+        "release": [
+          "R3"
+        ]
+      },
+      "assertions": [
+        {
+          "assertion_id": "state.decision-grade",
+          "kind": "invariant",
+          "subject": "actual_portfolio_state",
+          "constraint": {
+            "modality": "required",
+            "expression": "At every material R3 judgment boundary, Polaris persists or reconstructs a decision-grade actual Portfolio State for the scoped Portfolio. Preserve canonical PortfolioId, as-of time, authoritative source provenance for externally owned Portfolio facts, capital or net-asset basis needed to interpret Exposure and Allocation, materially relevant cash or liquidity, current SPY Position quantity/value where applicable, current SPY Exposure and Allocation, and only additional Portfolio facts materially required for the R3 decision."
+          },
+          "authority": {
+            "source_ids": [
+              "decision-352-resolution",
+              "adr-0008-amended"
+            ]
+          }
+        },
+        {
+          "assertion_id": "state.external-authority",
+          "kind": "invariant",
+          "subject": "actual_portfolio_state",
+          "constraint": {
+            "modality": "required",
+            "expression": "The retained Portfolio State is a decision-grade representation and does not transfer external books-and-records authority to Polaris."
+          },
+          "authority": {
+            "source_ids": [
+              "decision-352-resolution",
+              "adr-0008-amended"
+            ]
+          }
+        },
+        {
+          "assertion_id": "consequence.material-content",
+          "kind": "invariant",
+          "subject": "projected_portfolio_consequence",
+          "constraint": {
+            "modality": "required",
+            "expression": "A durable Projected Portfolio Consequence preserves the Decision Alternative, source Portfolio State identity and as-of boundary, explicit Investment Horizon, scenario and material assumption basis, projected SPY Exposure or Allocation change, projected cash or liquidity effect where material, material economic benefits and adverse possibilities, material Portfolio Risk changes, attribution, and uncertainty or unresolved components where precision is unsupported."
+          },
+          "authority": {
+            "source_ids": [
+              "decision-352-resolution",
+              "adr-0008-amended"
+            ]
+          }
+        },
+        {
+          "assertion_id": "consequence.hypothetical",
+          "kind": "invariant",
+          "subject": "projected_portfolio_consequence",
+          "constraint": {
+            "modality": "required",
+            "expression": "Projected Portfolio State and Projected Portfolio Consequence are hypothetical decision facts. Later actual Portfolio State or Outcome does not rewrite them."
+          },
+          "authority": {
+            "source_ids": [
+              "decision-352-resolution",
+              "adr-0008-amended"
+            ]
+          }
+        },
+        {
+          "assertion_id": "risk.assessment",
+          "kind": "invariant",
+          "subject": "portfolio_risk_assessment",
+          "constraint": {
+            "modality": "required",
+            "expression": "R3 persists attributable, time-specific Portfolio Risk Assessments for actual Portfolio State and material projected states where Risk is decision-relevant. Preserve the State or projection being assessed, Investment Horizon, scenario or basis, materially used Evidence, assumptions, uncertainty, attribution, formation time where applicable, and the material Risk dimensions used."
+          },
+          "authority": {
+            "source_ids": [
+              "decision-352-resolution",
+              "adr-0008-amended"
+            ]
+          }
+        },
+        {
+          "assertion_id": "risk.minimum-dimensions",
+          "kind": "invariant",
+          "subject": "portfolio_risk_assessment",
+          "constraint": {
+            "modality": "required",
+            "expression": "For the first SPY slice, represent only Risk dimensions materially needed to distinguish increase, hold, or reduce. Depending on materiality these include SPY Exposure or concentration, horizon-relative downside or drawdown sensitivity, liquidity or cash-buffer effect, market or volatility sensitivity, and Portfolio-objective shortfall."
+          },
+          "authority": {
+            "source_ids": [
+              "decision-352-resolution",
+              "adr-0008-amended"
+            ]
+          }
+        },
+        {
+          "assertion_id": "risk.no-universal-score",
+          "kind": "invariant",
+          "subject": "portfolio_risk_assessment",
+          "constraint": {
+            "modality": "required",
+            "expression": "A single generic Risk Score may be retained as one measure but cannot be the universal Portfolio Risk semantic."
+          },
+          "authority": {
+            "source_ids": [
+              "decision-352-resolution",
+              "adr-0008-amended"
+            ]
+          }
+        },
+        {
+          "assertion_id": "risk.prefinality",
+          "kind": "invariant",
+          "subject": "recommendation_formation",
+          "constraint": {
+            "modality": "required",
+            "expression": "Portfolio Risk participates before Recommendation finality. Recommendation formation consumes the Investment View and Decision Alternatives together with actual Portfolio State, alternative-relative Projected Portfolio Consequences, and Portfolio Risk Assessments. Portfolio Risk is not an approval, Admissibility result, authority act, or post-hoc veto."
+          },
+          "authority": {
+            "source_ids": [
+              "decision-352-resolution",
+              "adr-0008-amended"
+            ]
+          }
+        },
+        {
+          "assertion_id": "risk.unresolved",
+          "kind": "invariant",
+          "subject": "portfolio_risk_support",
+          "constraint": {
+            "modality": "required",
+            "expression": "If a material Portfolio State fact, Projected Portfolio Consequence, or Portfolio Risk cannot be established with adequate support, the semantic result remains unknown or indeterminate as appropriate. Polaris may withhold a Recommendation rather than manufacture precision."
+          },
+          "authority": {
+            "source_ids": [
+              "decision-352-resolution",
+              "adr-0008-amended"
+            ]
+          }
+        },
+        {
+          "assertion_id": "history.reconstructable",
+          "kind": "invariant",
+          "subject": "portfolio_risk_history",
+          "constraint": {
+            "modality": "required",
+            "expression": "Actual Portfolio State, Projected Portfolio Consequences, Portfolio Risk Assessments, and recognized uncertainty are historical facts or judgments. Later market movement, improved models, or later Outcomes do not destructively rewrite them."
+          },
+          "authority": {
+            "source_ids": [
+              "decision-352-resolution",
+              "adr-0008-amended"
+            ]
+          }
+        },
+        {
+          "assertion_id": "authority.external-facts",
+          "kind": "invariant",
+          "subject": "portfolio_fact_authority",
+          "constraint": {
+            "modality": "required",
+            "expression": "External operational Portfolio facts retain external factual authority. Polaris owns their Portfolio decision meaning and the derived projections and Risk assessments."
+          },
+          "authority": {
+            "source_ids": [
+              "decision-352-resolution",
+              "adr-0008-amended"
+            ]
+          }
+        },
+        {
+          "assertion_id": "boundary.r3",
+          "kind": "invariant",
+          "subject": "portfolio_risk_r3_scope",
+          "constraint": {
+            "modality": "required",
+            "expression": "R3 does not introduce full portfolio analytics, generic simulation infrastructure, execution or broker state, or R4 Formal Constraint, Admissibility, Approval, or governance machinery."
+          },
+          "authority": {
+            "source_ids": [
+              "decision-352-resolution",
+              "decision-352-conflict-resolution",
+              "adr-0008-amended"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "contract_id": "portfolio-risk.r3-evidence-ownership",
+      "revision": 1,
+      "operation": "create",
+      "supersedes_revision": null,
+      "owner": "portfolio-risk",
+      "scope": {
+        "release": [
+          "R3"
+        ]
+      },
+      "assertions": [
+        {
+          "assertion_id": "targets.versioned",
+          "kind": "invariant",
+          "subject": "portfolio_risk_evidence_target",
+          "constraint": {
+            "modality": "required",
+            "expression": "Projected Portfolio Consequence and Portfolio Risk Assessment are admitted Evidence judgment target families. Each carries its family-specific typed root identity and a positive root-local JudgmentRevision issued and preserved by Portfolio & Risk. A root starts at revision 1; one atomic owner commit advances it once when that root's current interpreted assertion, support or provenance, validity, or applicability changes. Correction of the same attributable judgment retains the root; a new material judgment, reassessment, or superseding judgment receives a new root at revision 1. Historical (T,K) reads use owner history at that boundary rather than the present-day revision."
+          },
+          "authority": {
+            "source_ids": [
+              "decision-364-final-resolution",
+              "adr-0012",
+              "adr-0015"
+            ]
+          }
+        },
+        {
+          "assertion_id": "context.versions",
+          "kind": "invariant",
+          "subject": "portfolio_risk_evidence_context",
+          "constraint": {
+            "modality": "required",
+            "expression": "When materially selected for an exact R3 Evidence basis, Portfolio & Risk contributes typed positive root-local revisions for PortfolioBoundaryId, actual PortfolioStateId, ProjectedPortfolioStateId, InvestmentMandateId, and InvestmentStrategyId. A revision begins at 1 and advances once per owner commit changing current interpreted content, applicability, support or provenance, validity, or relationship meaning; a new attributable fact or fresh as-of Portfolio State receives a new root. The complete Mandate revision covers applicable Investment Objective and Investment Principle membership, content, temporal applicability, and exact dependent member references. External source and as-of provenance remain attached to canonical Portfolio State."
+          },
+          "authority": {
+            "source_ids": [
+              "decision-364-final-resolution",
+              "adr-0015"
+            ]
+          }
+        },
+        {
+          "assertion_id": "context.selection-and-role",
+          "kind": "invariant",
+          "subject": "portfolio_risk_evidence_context",
+          "constraint": {
+            "modality": "required",
+            "expression": "Protect exact selected Portfolio facts and typed current-selection or absence guards. Future-only, unrelated, or display-only Portfolio changes do not stale the exact basis unless they enter a protected dependency. A materially used positive Portfolio context identity, revision, or lawfully attested as-of meaning change maps to EVIDENCE_SUPPORT_CHANGED with exact typed changed references even when the Evidence support epoch is unchanged; a broken selection guard additionally maps to NEGATIVE_PREDICATE_BROKEN. An exact Projected Portfolio Consequence or Portfolio Risk Assessment target change maps to TARGET_CHANGED."
+          },
+          "authority": {
+            "source_ids": [
+              "decision-364-final-resolution",
+              "adr-0015",
+              "adr-0016"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -26,7 +26,7 @@ from polaris.infrastructure.persistence.postgresql.schema import (
     evidence_requirement_definitions,
     evidence_requirement_set_versions,
 )
-from tests.configuration_support import (
+from tests.domain.configuration.configuration_support import (
     RECORDED_AT,
     ROOT_VERSION_ID,
     SECOND_VERSION_ID,

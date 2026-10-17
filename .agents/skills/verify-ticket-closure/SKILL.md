@@ -106,9 +106,6 @@ A finding classified `cell-routing-defect`, `planning-cell-gap`, or
 `contract-authority-gap` is not review-remediation owned and must never be certified as a
 remediation ticket contract.
 
-A legacy Root Blocker ticket/checkpoint is historical evidence only. It must be normalized
-through current `$review-spec` + `$to-tickets` before a new certification attempt.
-
 ## 3. Per-cell independent proof
 
 For every assigned cell record concise auditable proof state:
@@ -288,8 +285,8 @@ Unresolved design/contract gaps: 0
 Findings: None
 ```
 
-For remediation also bind the exact Review Remediation Contract Hash and selected RF
-identities and return their preservation/proof disposition.
+For remediation also bind the exact Review Remediation Contract Hash and selected RF identities and return their
+preservation/proof disposition.
 
 ### FAIL
 

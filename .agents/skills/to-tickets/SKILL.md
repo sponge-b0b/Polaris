@@ -7,19 +7,22 @@ disable-model-invocation: true
 
 # To Tickets
 
-`$to-tickets` owns executable ticket slicing.
+`$to-tickets` owns deterministic ticket realization from frozen upstream planning.
 
-It never decides material semantics. It consumes either:
+It never decides material semantics or ticket grouping. It consumes either:
 
 ```text
 ordinary Spec
     deterministic OBL / IMP / TEST / EXC contract
+    deterministic spec-execution-topology/v1
 
 Spec Review
     deterministic review-findings/v2 + current Spec contract
 ```
 
-and creates the smallest coherent execution slices with explicit human approval.
+and projects the exact upstream-owned execution units into tickets with explicit human
+approval. Ordinary ticket count, cell grouping, and dependency edges are not model choices
+in this workflow.
 
 ## 1. Resolve source mode
 
@@ -30,10 +33,13 @@ Require:
 * exactly one valid `spec-contract-ccl:v1`;
 * exact generated Canonical Contract Obligations;
 * stable `IMP-*`, `TEST-*`, `EXC-*`;
+* exactly one valid `spec-execution-topology:v1`;
 * `Implementation readiness: pass`;
 * no open native Spec blocker.
 
-Build/validate the exact current Spec contract and current v2 coverage when present.
+Build/validate the exact current Spec contract. Derive ordinary coverage and dependencies
+from the Spec-owned execution topology; never infer a replacement partition from prose or
+from existing tickets. If topology is missing or invalid, stop and route `$to-specs`.
 
 ### Spec Review
 
@@ -186,119 +192,92 @@ EXC-*  exclusion guardrail; never positive implementation work
 Do not build Source Unit, `NORM-*`, `ARCHSRC-*`, or architecture-prose obligation
 universes.
 
-## 4. Ordinary ticket slicing
+## 4. Ordinary deterministic decomposition
 
-Draft vertical slices:
+The Parent Spec owns the atomic execution partition through exactly one
+`spec-execution-topology:v1` marker. `$to-tickets` must not draft, merge, split, or reorder
+those units. Stable `EU-001` maps to `T1`, `EU-002` to `T2`, and so on.
+
+Derive the only admissible ordinary decomposition:
+
+```bash
+python -m scripts.spec_contract derive-decomposition \
+  <spec-issue-json> <contract.json> <coverage.json> <dependencies.json>
+```
+
+Require current-run receipts beginning with:
 
 ```text
-Alias: T<n>
-Title: <imperative outcome>
-Cells: <OBL/IMP/TEST IDs>
-CCL: <exact union from OBL cells>
-Depends on: <aliases | None>
-Reason: <compact execution/dependency reason>
+TICKET DECOMPOSITION: DERIVED
+Execution Topology Hash: <hash>
+Atomic execution units: <n>
 ```
 
-Rules:
+The derived `ticket-coverage/v2` and `ticket-dependencies/v1` files are authoritative for
+the proposal. The model may create a concise human-readable title and reason for each
+derived ticket, but it must not change the alias, exact cell set, or dependency set.
 
-* every non-EXC cell routes exactly once;
-* EXC cells remain parent guardrails;
-* one ticket may own multiple related cells;
-* one cell has exactly one execution owner;
-* dependencies express real execution prerequisites only;
-* a missing material choice routes upstream rather than entering ticket prose.
+### Atomic-unit invariant
 
-### Execution-closure rule
+Each execution unit is an upstream planning assertion that its cells form one smallest
+coherent executable responsibility. Therefore:
 
-After drafting routes, mechanically inspect every current `IMP-*` and `TEST-*` requirement
-for explicit references to current contract cells. Literal IDs and same-prefix ranges such
-as `OBL-007 through OBL-009` are execution prerequisites, not explanatory prose.
+* every non-EXC cell appears in exactly one unit;
+* every unit contains at least one material `OBL-*`;
+* one unit becomes exactly one ordinary ticket;
+* two units must never be merged merely because one ticket could technically implement
+  both;
+* one unit must never be split merely to reduce ticket size;
+* unit dependencies become the exact native ticket prerequisites;
+* explicit `IMP-*` / `TEST-*` cell references must resolve within the same unit or a
+  transitively upstream unit.
 
-For every explicit current-cell reference, the referenced cell must be either:
+If the topology is missing, incomplete, contradictory, over-merged, or otherwise appears
+wrong, `$to-tickets` does not repair it. Stop and route the decomposition defect to
+`$to-specs`, which owns planning partition. `$attention` may expose such a defect but cannot
+replace the upstream topology.
 
-* owned by the same proposed ticket; or
-* owned by a ticket that is transitively upstream in the proposed dependency graph.
+## 5. Ordinary deterministic validation
 
-A plan cell must never depend on a current cell owned by a downstream or unrelated ticket.
-The dependency graph must cover every proposed destination, contain only proposed
-destinations, and be acyclic.
-
-Do not infer new semantic dependencies from narrative prose. This gate uses only explicit
-current contract-cell references already present in deterministic `IMP-*` / `TEST-*`
-requirements plus the proposed native dependency graph.
-
-Run `$attention` before approval. Attention may expose a missing cell/bad slice but cannot
-create semantics.
-
-## 5. Ordinary deterministic coverage and execution closure
-
-Build coverage:
-
-```json
-{
-  "schema": "polaris.ticket-coverage/v2",
-  "spec_contract_hash": "<hash>",
-  "routes": [
-    {"cell": "OBL-001", "cell_hash": "<hash>", "destination": "T1"}
-  ],
-  "exclusions": [
-    {"cell": "EXC-001", "cell_hash": "<hash>"}
-  ]
-}
-```
-
-Run:
+Before approval, validate that the proposal remains an exact projection of the upstream
+topology:
 
 ```bash
-python -m scripts.spec_contract check-coverage \
-  <contract.json> <coverage.json>
-```
-
-Require `TICKET COVERAGE: VALID`.
-
-Then build the proposed dependency graph separately so persisted
-`ticket-coverage-manifest:v2` semantics remain unchanged:
-
-```json
-{
-  "schema": "polaris.ticket-dependencies/v1",
-  "spec_contract_hash": "<hash>",
-  "tickets": [
-    {"destination": "T1", "depends_on": []},
-    {"destination": "T2", "depends_on": ["T1"]}
-  ]
-}
-```
-
-Run:
-
-```bash
-python -m scripts.spec_contract check-execution \
-  <contract.json> <coverage.json> <dependencies.json>
+python -m scripts.spec_contract check-decomposition \
+  <spec-issue-json> <contract.json> <coverage.json> <dependencies.json>
 ```
 
 Require exact current-run receipts:
 
 ```text
+TICKET DECOMPOSITION: VALID
+Execution Topology Hash: <hash>
+Atomic execution units: <n>
+TICKET COVERAGE: VALID
+Missing mappings: 0
+Duplicate mappings: 0
 TICKET EXECUTION CLOSURE: VALID
 Dependency graph: VALID
 ```
 
-`check-execution` deterministically expands explicit same-prefix cell ranges and rejects a
-plan cell whose referenced current cell is neither same-ticket nor transitively upstream.
-It also rejects missing/extra dependency destinations, unknown prerequisites,
-self-dependencies, and dependency cycles.
+`check-decomposition` fails closed if a proposed partition over-merges independent atomic
+units, splits an atomic unit, changes a topology-owned dependency, omits/duplicates cells,
+or violates execution closure. It also rejects missing/extra destinations, unknown
+prerequisites, self-dependencies, and cycles.
 
-Existing v2 coverage state reconciles mechanically:
+Existing v2 coverage state reconciles mechanically against the newly derived exact
+partition:
 
 ```text
-same ID + same hash      unchanged
-same ID + new hash       changed
-current-only ID          new
-manifest-only ID         removed
+same ID + same hash + same derived destination    unchanged
+same ID + new hash or destination                 changed
+current-only ID                                   new
+manifest-only ID                                  removed
 ```
 
-Closed tickets remain immutable history. Changed/new work gets an open/new owner.
+Closed tickets remain immutable history. Changed/new work gets a current open owner; do
+not rewrite a closed ticket to force it into the new topology. Live-WIP reslicing uses the
+recovery rule below.
 
 ## 6. Review remediation slicing
 
@@ -422,7 +401,9 @@ A `decomposition-defects:v1` report is a falsifier candidate.
 
 For ordinary current Specs:
 
-* if the alleged work corresponds to an exact current cell, reconcile its destination;
+* if an exact current cell is routed contrary to the Spec execution topology, reject the
+  proposal and derive the topology-owned destination;
+* if the topology itself groups/splits work incorrectly, route `$to-specs`;
 * if material behavior is absent from OBL, route `$to-specs` / semantic owner;
 * if private/test work is absent from IMP/TEST, route `$to-specs`;
 * never create `ARCHSRC-*`.
@@ -461,6 +442,9 @@ Wayfinder: #<n>
 Focused set: <exact set>
 SPEC CONTRACT: VALID
 Semantic prose classification performed: 0
+TICKET DECOMPOSITION: VALID
+Execution Topology Hash: <hash>
+Atomic execution units: <n>
 TICKET COVERAGE: VALID
 Missing mappings: 0
 Duplicate mappings: 0
@@ -471,9 +455,9 @@ ATTENTION: COMPLETE
 
 The three Project Delivery lines must be copied verbatim from the successful current-run
 `scripts.project_delivery guard` stdout. `$to-tickets` must not generate them itself.
-The execution-closure and dependency-graph lines must be copied from the successful
-current-run `scripts.spec_contract check-execution` stdout; prose reasoning is not a
-substitute.
+The decomposition, topology, coverage, execution-closure, and dependency-graph lines must
+be copied from successful current-run `scripts.spec_contract check-decomposition` stdout;
+prose reasoning is not a substitute.
 
 For an Independent ordinary Spec, omit only the three project-delivery guard lines. For
 Spec Review mode, substitute the exact remediation-ledger/contract receipts required by
@@ -504,14 +488,14 @@ For every substantive proposal show:
 * dependencies;
 * new/update/preserve/supersede status.
 
-Also show the relevant contract hash(es), exact zero missing/duplicate mappings, successful
-execution closure/dependency-graph validation, and that no semantic decomposition agents
-were used.
+Also show the relevant contract hash(es), Execution Topology Hash, atomic-unit count, exact
+zero missing/duplicate mappings, successful decomposition/execution/dependency validation,
+and that no semantic decomposition agents were used.
 
 Ask for one approval of the complete substantive delta only after the mandatory receipt
-block is complete. If the proposal changes materially, revalidate affected deterministic
-contracts, coverage, execution closure, regenerate the receipt block from the new current
-run, and ask again.
+block is complete. If the proposal changes materially, revalidate the deterministic contract and exact
+topology-derived decomposition, regenerate the receipt block from the new current run, and
+ask again.
 
 ## 11. Publication/readback
 
@@ -531,10 +515,11 @@ After mutation:
 * validate remediation ticket body against its exact remediation contract;
 * require branch/baseline/provenance equality with approved proposal.
 
-For ordinary Specs, persist exactly one current `ticket-coverage-manifest:v2`, then rerun
-`check-coverage`. Reconstruct `polaris.ticket-dependencies/v1` from the native dependency
-readback and rerun `check-execution` against the persisted coverage. Publication is not
-complete unless both deterministic checks still pass.
+For ordinary Specs, persist exactly one current `ticket-coverage-manifest:v2`. Reconstruct
+`polaris.ticket-dependencies/v1` from native dependency readback and rerun
+`check-decomposition` against the current Parent Spec body and persisted coverage.
+Publication is not complete unless the readback remains an exact projection of the current
+execution topology.
 
 For review remediation, do not create a second parent coverage manifest.
 
@@ -547,7 +532,9 @@ An open ticket is actionable when:
 * no native blocker is open;
 * no unresolved/routed architecture blocker makes it inadmissible;
 * project-delivery guard is ALLOWED when Wayfinder-managed;
-* its ordinary/remediation deterministic contract validates current.
+* its ordinary/remediation deterministic contract validates current;
+* for ordinary tickets, its route and prerequisites still match the current Spec execution
+  topology.
 
 Emit one copy-ready line per actionable ticket:
 
@@ -568,3 +555,4 @@ Do not invoke implementation implicitly.
 * revise CCL;
 * rewrite closed historical tickets;
 * create a Wayfinder for an Independent Spec.
+* choose ordinary ticket count, cell grouping, or dependency topology.

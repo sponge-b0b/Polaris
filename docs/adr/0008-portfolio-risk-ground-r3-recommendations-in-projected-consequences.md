@@ -27,7 +27,7 @@ At every material R3 judgment boundary, Polaris persists or reconstructs a **dec
 
 The retained Portfolio State is a decision-grade representation and does not transfer external books-and-records authority to Polaris.
 
-Each material increase / hold-no-action / reduce Decision Alternative may have an attributable **Projected Portfolio Consequence** and, when materially useful, a Projected Portfolio State. The durable projected consequence preserves:
+Each material increase / hold-no-action / reduce Decision Alternative **must have** an attributable **Projected Portfolio Consequence**. A Projected Portfolio State remains optional and is used only when materially useful. The durable projected consequence preserves:
 
 - the Decision Alternative;
 - source Portfolio State identity and as-of boundary;

@@ -7,8 +7,7 @@ disable-model-invocation: true
 
 # Contract Ledger
 
-`$contract-ledger` is the **sole writer** for Canonical Contract Ledger (CCL)
-transactions:
+`$contract-ledger` is the sole writer for Canonical Contract Ledger (CCL) transactions:
 
 ```text
 contracts/ccl/transactions/
@@ -22,12 +21,8 @@ scripts/ccl.py
 scripts/ccl_ledger.py
 ```
 
-The CCL records material semantics. It does not plan projects, write Specs,
-decompose tickets, implement code, or perform review.
-
-No existing lifecycle skill is implicitly migrated by this skill's existence.
-Until explicit integration, invoke `$contract-ledger` only when the human or an
-already-authorized parent workflow requests it.
+The CCL records material semantics. It does not plan projects, write Specs, decompose
+tickets, implement code, or perform review.
 
 ## Invariants
 
@@ -35,20 +30,15 @@ already-authorized parent workflow requests it.
 * semantic change creates a new full-snapshot revision;
 * `retire` is terminal in CCL v1;
 * typed assertions are semantic authority;
-* `display` / `annotations` are non-authoritative and excluded from the
-  proposal hash;
+* `display` / `annotations` are non-authoritative and excluded from the proposal hash;
 * absence of an assertion never authorizes downstream semantic invention;
-* one transaction may revise several coupled contracts atomically, but never
-  more than one revision of the same contract;
-* every assertion is addressed as
-  `<contract-id>@<revision>#<assertion-id>`.
+* one transaction may revise several coupled contracts atomically, but never more than one
+  revision of the same contract;
+* every assertion is addressed as `<contract-id>@<revision>#<assertion-id>`.
 
-Never edit, replace, rename, or delete an accepted transaction to change its
-meaning.
+Never edit, replace, rename, or delete an accepted transaction to change its meaning.
 
 ## Modes
-
-Resolve exactly one mode.
 
 ### `lookup`
 
@@ -62,32 +52,30 @@ python -m scripts.ccl_ledger lookup \
   [--assertion <assertion-id>]
 ```
 
-When an exact CCL address exists, consume it rather than reinterpreting source
-prose.
+When an exact CCL address exists, consume it instead of reinterpreting source prose.
 
 ### `existing-authority`
 
-Register semantics already fixed completely by current durable authority.
+Register semantics already fixed completely by current durable governing/constraint
+authority.
 
-No new semantic choice or human decision is legal here. Every proposed
-assertion must be entailed at exactly the proposed strength by current
-governing/constraint authority.
+No new semantic choice or human decision is legal here. Every proposed assertion must be
+entailed at exactly the proposed strength.
 
 Illegal strengthening includes:
 
-* `may` -> `must`;
-* examples -> required/closed taxonomy;
-* optional -> required relationship/cardinality;
-* general durability -> invented required public field;
-* open vocabulary -> closed enum;
-* unspecified dimension -> chosen default.
+* `may` → `must`;
+* examples → required/closed taxonomy;
+* optional → required relationship/cardinality;
+* general durability → invented required public field;
+* open vocabulary → closed enum;
+* unspecified dimension → chosen default.
 
 If normalization requires any such choice, return `CCL ADMISSION: UNSUPPORTED`.
 
 ### `owner-decision`
 
-Resolve one bounded independent semantic coupling group through explicit human
-acceptance.
+Resolve one bounded independent semantic coupling group through explicit human acceptance.
 
 Legal only when all are true:
 
@@ -100,27 +88,19 @@ Project partition/dependency planning required: no
 One acceptance transaction can completely close the choice: yes
 ```
 
-Otherwise return:
+Otherwise return `CCL DECISION REQUIRES WAYFINDER`.
 
-```text
-CCL DECISION REQUIRES WAYFINDER
-```
-
-A durable source artifact must exist to host the decision/acceptance receipt.
-Do not use conversational acceptance as the only durable authority.
+A durable source artifact must host the proposal and acceptance receipt. Conversational
+acceptance alone is not durable authority.
 
 ### `wayfinder-decision`
 
-Support, but never replace, a Wayfinder decision.
+Support, but never replace, a Wayfinder decision. Prepare the exact typed semantic
+revisions, proposal hash, and generated human-readable rendering before the human gate.
+After the Wayfinder records acceptance of that exact hash, validate/persist the accepted
+transaction. `$contract-ledger` never chooses the Wayfinder answer.
 
-Before the Wayfinder yes/no gate, prepare the exact typed semantic revisions,
-proposal hash, and generated human-readable rendering.
-
-After Wayfinder durably records acceptance of that exact hash, validate and
-persist the final transaction. `$contract-ledger` never chooses the Wayfinder
-answer.
-
-## Authority Admission
+## Authority admission
 
 For every proposed assertion establish:
 
@@ -133,13 +113,10 @@ Normalized claim: <typed claim | unsupported>
 Entailment: exact | unsupported
 ```
 
-Only `governing` and `constraint` sources establish material semantics.
-Rationale/evidence may explain them but cannot strengthen them.
+Only governing/constraint sources establish material semantics. Rationale/evidence may
+explain them but cannot strengthen them.
 
-For `existing-authority`, any `unsupported` assertion blocks admission.
-
-When applicable governing/constraint sources normalize differently for the same
-coordinate, use the deterministic authority check and return:
+When governing/constraint sources normalize differently at the same coordinate, return:
 
 ```text
 CCL SOURCE CONFLICT
@@ -151,105 +128,47 @@ Routing owner: <governing semantic owner>
 
 Do not choose a winner.
 
-A later owner/Wayfinder decision may deliberately resolve such a conflict. The
-accepted new decision then becomes governing authority for the new CCL
-revision; conflicting older sources remain history, not equivalent current
-authority.
+## Proposal and human gate
 
-## Proposal and Human Gate
+CCL revisions are complete snapshots, not semantic patches. The semantic proposal is the
+exact `revisions` payload and deterministic hash. Human-facing prose is a generated view.
 
-CCL revisions are complete snapshots, not semantic patches.
+For `owner-decision` and `wayfinder-decision`, human acceptance binds the exact proposal
+hash. Approval of nearby prose is never approval of a different hash.
 
-The semantic proposal is the exact `revisions` payload and its deterministic
-hash. Human-facing prose is a generated view of those typed semantics.
+`existing-authority` has no new human semantic gate because it is registration, not a new
+decision.
 
-For `owner-decision` and `wayfinder-decision`, the human accepts the **exact
-proposal hash**.
-
-For `owner-decision`:
-
-1. persist a compact proposal on the durable source artifact;
-2. include the proposal hash and generated rendering;
-3. state recommendation and material alternatives;
-4. ask whether the owner approves that exact semantic proposal;
-5. `no` means revise, rehash, persist the new proposal, and ask again;
-6. `yes` means durably record acceptance before CCL persistence.
-
-Approval of nearby prose is never approval of a different proposal hash.
-
-`existing-authority` has no new human gate because it is registration, not a
-new decision.
-
-## Ledger Admission
+## Ledger admission
 
 Before writing:
 
 ```bash
 python -m scripts.ccl_ledger validate-ledger contracts/ccl/transactions
-
 python -m scripts.ccl_ledger admit \
-  contracts/ccl/transactions \
-  <candidate.json>
+  contracts/ccl/transactions <candidate.json>
 ```
 
-Admission deterministically requires:
+Admission requires valid hash-derived filenames, unique proposal hashes, one revision per
+contract per transaction, revision 1 = `create`, contiguous revisions, exact immediate
+`supersedes_revision`, and no revision after `retire`.
 
-* individually valid transactions and hash-derived filenames;
-* unique proposal hashes;
-* at most one revision per contract in one transaction;
-* revision 1 is `create`;
-* contiguous revisions thereafter;
-* exact immediate `supersedes_revision`;
-* no revision after `retire`.
-
-`ALREADY-PRESENT` is idempotent success. Never rewrite its metadata.
-
-Malformed accepted history is `CCL LEDGER CORRUPTION`; stop rather than
-normalizing it.
+`ALREADY-PRESENT` is idempotent success. Malformed accepted history is
+`CCL LEDGER CORRUPTION`; stop rather than normalizing it.
 
 ## Persistence
 
 CCL authority is canonical on `main`.
 
-### Direct
+When this skill owns persistence, use a clean isolated worktree from frozen current
+`origin/main`, validate candidate + ledger, create only the admitted transaction file,
+commit under repository policy, recheck canonical-main concurrency, push without force,
+read back, rerun ledger validation, and prove the caller checkout unchanged.
 
-When this skill owns persistence:
-
-1. preserve the caller checkout;
-2. fetch/freeze `origin/main`;
-3. use a clean isolated worktree at that exact base;
-4. validate the candidate and current ledger;
-5. create the transaction only with:
-
-   ```bash
-   python -m scripts.ccl_ledger persist \
-     contracts/ccl/transactions \
-     <candidate.json>
-   ```
-
-6. stage only the returned transaction path;
-7. commit through repository conventional-commit policy;
-8. fetch and require `origin/main` still equals the frozen base;
-9. push normally, never force;
-10. fetch/read back `main` and rerun `validate-ledger`;
-11. prove the caller checkout remained unchanged.
-
-If `main` moved, discard only the isolated candidate state and rebuild
-admission from the new canonical base.
-
-### Parent-owned atomic contribution
-
-A future parent workflow may explicitly request contribution when it already
-owns a clean isolated canonical-main worktree and needs one atomic authority
-commit.
-
-Then `$contract-ledger` performs semantic/ledger admission and creates only the
-CCL transaction file. It returns the exact path/hash/revisions and does not
-commit or push. The parent owns its existing commit/concurrency/readback
-transaction.
-
-The parent may commit the file, but it may not construct or alter CCL
-transaction semantics itself.
+When an authorized parent already owns an isolated canonical-main authority transaction,
+`$contract-ledger` may contribute the exact admitted transaction file and return its
+path/hash/revisions without committing. The parent may commit that file but may not alter
+its semantic payload.
 
 ## Return
 
@@ -264,7 +183,7 @@ Path: <transaction path>
 Ledger validation: PASS
 ```
 
-Unsupported semantic registration:
+Unsupported registration:
 
 ```text
 CCL ADMISSION: UNSUPPORTED
@@ -279,18 +198,5 @@ Hard non-semantic failure:
 CCL HARD BLOCKER
 Reason: <ledger corruption | persistence/concurrency/tool failure>
 ```
-
-Do not turn a persistence/integrity failure into a product decision.
-
-## Non-Goals
-
-Do not:
-
-* create Specs/tickets or implementation work;
-* maintain consumer mappings;
-* use implementation precedent as missing semantic authority;
-* automatically migrate historical architecture;
-* make Wayfinder mandatory for decision-complete Independent work;
-* reopen accepted semantics because another wording is imaginable.
 
 Keep the CCL boring: one typed semantic truth, immutable revisions, one writer.

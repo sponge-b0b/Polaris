@@ -1,0 +1,164 @@
+{
+  "schema": "polaris.ccl/v1",
+  "proposal_hash": "sha256:ab8e6b5401ded9d9cbc2ad8ec2c566130e9c0fc7ac4a46245be9fca484fc1f81",
+  "origin": {
+    "mode": "existing-authority",
+    "sources": [
+      {
+        "source_id": "decision-364-final-resolution",
+        "kind": "github_issue_comment",
+        "role": "governing",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/364#issuecomment-6096295388",
+        "content_sha256": "0e663e8b4a0ca3fead187e16d650672c753008852a7aa134d5cf5677f3179ad2"
+      },
+      {
+        "source_id": "adr-0012",
+        "kind": "adr_markdown",
+        "role": "constraint",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0012-evidence-freeze-r3-identity-binding-and-reconstruction.md",
+        "content_sha256": "c0b9ee75558ac2e35e58fa2084e4ec142852e337f57e0932b9dcc713e9b5ca54"
+      },
+      {
+        "source_id": "adr-0015",
+        "kind": "adr_markdown",
+        "role": "constraint",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0015-evidence-complete-r3-target-and-context-version-basis.md",
+        "content_sha256": "35d5661e2da092cca050b22b2f991130361d8aa1f2eac1a5212411ed1bc14f97"
+      },
+      {
+        "source_id": "adr-0016",
+        "kind": "adr_markdown",
+        "role": "constraint",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0016-evidence-attest-r3-temporal-current-basis-meaning.md",
+        "content_sha256": "0b69132fcd5676f48683952384e210c18a8848f4e8d343567886223bdd81db27"
+      }
+    ]
+  },
+  "acceptance": null,
+  "revisions": [
+    {
+      "contract_id": "governance-authority.r3-evidence-ownership",
+      "revision": 1,
+      "operation": "create",
+      "supersedes_revision": null,
+      "owner": "governance-authority",
+      "scope": {
+        "release": [
+          "R3"
+        ]
+      },
+      "assertions": [
+        {
+          "assertion_id": "targets.versioned",
+          "kind": "invariant",
+          "subject": "governance_authority_evidence_target",
+          "constraint": {
+            "modality": "required",
+            "expression": "Human Investment Decision is an admitted R3 Evidence judgment target family. Each target carries its family-specific typed root identity and a positive root-local JudgmentRevision issued and preserved by Governance & Authority. A root starts at revision 1; one atomic owner commit advances it once when that root's current interpreted assertion, support or provenance, validity, or applicability changes. Correction of the same attributable human judgment retains the root; a new or superseding human act receives a new root at revision 1. Historical (T,K) reads use owner history at that boundary, and ClaimCatalogVersion remains a separate dependency."
+          },
+          "authority": {
+            "source_ids": [
+              "decision-364-final-resolution",
+              "adr-0012",
+              "adr-0015"
+            ]
+          }
+        },
+        {
+          "assertion_id": "context.authority-regime-version",
+          "kind": "invariant",
+          "subject": "governance_authority_evidence_context",
+          "constraint": {
+            "modality": "required",
+            "expression": "When an Investment Authority Regime materially affects an exact R3 Evidence basis, Governance & Authority supplies the typed pair (InvestmentAuthorityRegimeId, positive root-local revision). The revision begins at 1 and advances once per owner commit changing current power or scope meaning, applicability, support or provenance, validity, or relationship meaning. Preserve historical interpretation and the exact authority selection or absence guard; unavailable, contested, invalid, or indeterminate authority does not become permission."
+          },
+          "authority": {
+            "source_ids": [
+              "decision-364-final-resolution",
+              "adr-0015",
+              "adr-0016"
+            ]
+          }
+        },
+        {
+          "assertion_id": "context.selection-and-role",
+          "kind": "invariant",
+          "subject": "governance_authority_evidence_context",
+          "constraint": {
+            "modality": "required",
+            "expression": "Protect the exact materially used authority context and typed current-selection or absence guards. A lawful materially used Authority Regime identity, revision, or attested as-of meaning change maps to EVIDENCE_SUPPORT_CHANGED with exact typed changed references; a broken selection or absence guard additionally maps to NEGATIVE_PREDICATE_BROKEN. An exact Human Investment Decision target change maps to TARGET_CHANGED. Missing or invalid owner meaning remains a distinct no-basis or authority failure, and stale-basis comparison never grants Human-Investment-Decision power or ordinary-work authority."
+          },
+          "authority": {
+            "source_ids": [
+              "decision-364-final-resolution",
+              "adr-0015",
+              "adr-0016"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "contract_id": "learning.r3-evidence-ownership",
+      "revision": 1,
+      "operation": "create",
+      "supersedes_revision": null,
+      "owner": "learning",
+      "scope": {
+        "release": [
+          "R3"
+        ]
+      },
+      "assertions": [
+        {
+          "assertion_id": "targets.versioned",
+          "kind": "invariant",
+          "subject": "learning_evidence_target",
+          "constraint": {
+            "modality": "required",
+            "expression": "Decision Evaluation and Lesson are admitted R3 Evidence judgment target families. Each carries its family-specific typed root identity and a positive root-local JudgmentRevision issued and preserved by Learning. A root starts at revision 1; one atomic owner commit advances it once when that root's current interpreted assertion, support or provenance, validity, or applicability changes. Correction of the same attributable judgment retains the root; a new Evaluation, reassessment, or successor Lesson receives a new root at revision 1. Historical (T,K) reads use owner history at that boundary, and ClaimCatalogVersion remains a separate dependency."
+          },
+          "authority": {
+            "source_ids": [
+              "decision-364-final-resolution",
+              "adr-0012",
+              "adr-0015"
+            ]
+          }
+        },
+        {
+          "assertion_id": "outcome.context-not-target",
+          "kind": "invariant",
+          "subject": "learning_evidence_context",
+          "constraint": {
+            "modality": "required",
+            "expression": "Outcome is a canonical Learning context fact rather than an R3 Evidence judgment target. When materially used in an exact R3 Evidence basis, Learning supplies the typed pair (OutcomeId, positive root-local revision). The revision begins at 1 and advances once per owner commit changing current interpreted content, applicability, support or provenance, validity, or relationship meaning; a later attributable Outcome observation is a new root. Historical judgment-time Evidence remains separate from retrospective later Evidence."
+          },
+          "authority": {
+            "source_ids": [
+              "decision-364-final-resolution",
+              "adr-0012",
+              "adr-0015"
+            ]
+          }
+        },
+        {
+          "assertion_id": "context.selection-and-role",
+          "kind": "invariant",
+          "subject": "learning_evidence_context",
+          "constraint": {
+            "modality": "required",
+            "expression": "Protect materially used Outcome context and typed selection or absence guards without projecting later knowledge into an earlier judgment boundary. A lawful materially used Outcome identity, revision, or attested as-of meaning change maps to EVIDENCE_SUPPORT_CHANGED with exact typed changed references; a broken selection or absence guard additionally maps to NEGATIVE_PREDICATE_BROKEN. An exact Decision Evaluation or Lesson target change maps to TARGET_CHANGED. Missing, incomplete, contested, not-yet-effective, unavailable, or invalid owner meaning remains a distinct no-basis outcome rather than hindsight substitution."
+          },
+          "authority": {
+            "source_ids": [
+              "decision-364-final-resolution",
+              "adr-0015",
+              "adr-0016"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

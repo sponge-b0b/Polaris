@@ -1,10 +1,8 @@
 from pathlib import Path
-import sys
-
-ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT))
 
 from scripts.spec_contract import build_contract
+
+ROOT = Path(__file__).resolve().parents[3]
 
 LIFECYCLE_FILES = [
     ROOT / "AGENTS.md",

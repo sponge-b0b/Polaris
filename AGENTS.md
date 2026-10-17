@@ -148,9 +148,8 @@ This is a repository-wide supersession rule.
 * neither marker → Independent;
 * malformed/contradictory/ambiguous Spec-local provenance → governance drift, fail closed.
 
-`$to-specs` owns keeping Spec-local governance provenance correct. The temporary
-`$to-remediation-specs` helper may repair only unambiguous forward/local provenance; it
-is not a semantic owner.
+`$to-specs` owns keeping Spec-local governance provenance correct and fails closed on
+ambiguous or contradictory provenance.
 
 Downstream workflows must not reverse-search unrelated Wayfinders/Project history merely
 to prove an unmarked Spec Independent. Independent Specs never acquire a Wayfinder simply
@@ -178,6 +177,15 @@ run the smallest check that resolves the uncertainty.
 
 A helper returning a still-valid passing result must return that evidence to its parent;
 the parent does not rerun it merely to satisfy duplicate phase wording.
+
+### Permanent Workflow / Out-of-Band Transition Rule
+
+Permanent skills describe current lifecycle behavior only. One-time repository transition,
+conversion, backfill, legacy-format adoption, or checkpoint-upgrade procedures are executed
+out of band and must not be embedded as compatibility paths in lifecycle skills.
+
+Historical artifacts may remain immutable evidence, but current skills consume only current
+canonical schemas and fail closed on unsupported historical workflow state.
 
 ### Canonical Contract Consumption
 
@@ -235,8 +243,7 @@ Spec Review remediation uses structured `review-spec-finding-ledger:v2` state. O
 Blocking implementation/test/standards findings may be grouped only for execution slicing;
 each resulting `review-remediation-contract/v1` binds exact RF identities, frozen
 falsifiers, exact current affected cells/Standards authority, and every other current Spec
-cell as a preservation guardrail. Root Blockers are historical compatibility only and do
-not create current remediation semantics.
+cell as a preservation guardrail. Review findings are the only current remediation identity.
 
 ### Non-Semantic Workflow-Policy Synchronization
 
@@ -301,13 +308,12 @@ For a Review Remediation Ticket, derive one deterministic
 `polaris.review-remediation-contract/v1` from the exact current Spec contract plus selected
 open `RF-*` rows in the v2 finding ledger. It binds the selected finding hashes/falsifiers,
 affected cells, Standards references, and every other current Spec cell as a preservation
-guardrail. Neither implementation nor verification may synthesize a Root Blocker or
-broaden a finding into a sibling/domain invariant.
+guardrail. Neither implementation nor verification may broaden a review finding into a
+sibling/domain invariant or create a second remediation identity.
 
-New closure attempts use `implement-ticket-closure-checkpoint:v3`, binding the exact
-ordinary Ticket Contract Hash or Review Remediation Contract Hash plus candidate identity.
-Older v2/root checkpoints are historical compatibility state and cannot certify a
-changed/current candidate.
+Closure attempts use `implement-ticket-closure-checkpoint:v3`, binding the exact ordinary
+Ticket Contract Hash or Review Remediation Contract Hash plus candidate identity. No other
+checkpoint schema is current closure authority.
 
 ### Domain Vocabulary
 
@@ -505,7 +511,7 @@ boundaries are:
 1. Spec completion — `$spec-merge-cleanup` reconstructs and batch-syncs the completed
    lineage;
 2. explicit human-requested board reconciliation;
-3. separately authorized bootstrap/migration.
+3. separately authorized administrative reconstruction.
 
 Do not create pending-update shadow state. `$project-delivery-management` persists
 canonical focus/dependency truth immediately but does not imply board refresh.

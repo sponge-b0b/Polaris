@@ -168,8 +168,59 @@ Require every material-contract row to have exact CCL, every specifiable item to
 Spec candidate, and zero unclassified items. `implementation-equivalent` is legal only
 when remaining private choices cannot alter material external/downstream semantics.
 
-Invoke `$attention` before publication. Attention may identify a missing planning item or
-CCL gap; it does not create authority.
+## Cross-Spec ownership integrity
+
+When one planning source yields multiple current Specs, the accepted partition is a
+correctness boundary, not merely descriptive prose.
+
+Before publishing or reconciling any open Spec, and again before frontier handoff:
+
+1. recover the exact current sibling Spec partition from the durable planning source;
+2. inspect the current sibling Specs and native dependency graph;
+3. classify every projected `OBL-*` in the candidate Spec as either:
+   * `owned` — this Spec implements/certifies the asserted behavior; or
+   * `consumed-boundary` — another Spec owns the provider capability and this Spec needs
+     the exact assertion only to constrain its own behavior;
+4. inspect every `IMP-*` and `TEST-*` against that classification and the accepted
+   partition.
+
+A consumed-boundary projection is legal only when the current Spec has a role-narrow
+implementation or proof responsibility that can be completed without implementing the
+provider capability. Cross-Spec CCL reference alone does not transfer ownership.
+
+Fail the ownership check if any of the following is true:
+
+* a Spec projects a sibling's complete capability merely because the integrated outcome
+  depends on it;
+* an `IMP-*` or `TEST-*` tells the current Spec to implement or certify behavior assigned
+  to a sibling;
+* two sibling Specs are assigned the same executable ownership rather than distinct
+  provider/consumer roles;
+* an upstream Spec requires completion-time proof of behavior that can only be implemented
+  by a downstream Spec that is natively blocked by the upstream Spec;
+* prose, CCL projection, planning cells, exclusions, and native dependency direction
+  disagree about who owns the work.
+
+Shared/cross-cutting assertions may appear in more than one Spec only when each occurrence
+has a distinct role-narrow local responsibility. Do not use a sibling's whole contract as
+a substitute for that local responsibility.
+
+For an open Spec whose accepted partition changed or whose prior projection violated the
+partition:
+
+* reconcile the same Spec in place;
+* retire no-longer-current `OBL/IMP/TEST/EXC` IDs without reusing them;
+* preserve closed ticket/history artifacts;
+* update native dependencies only when the accepted prerequisite relation itself requires
+  it.
+
+If the planning source already fixes the partition, ownership drift is a `$to-specs`
+projection defect and `$to-specs` repairs it. If the partition itself is unresolved or
+contradictory, fail closed and route to `$wayfinder`.
+
+Invoke `$attention` over the bounded sibling set before publication. Attention may identify
+a missing planning item, ownership conflict, bad role classification, or CCL gap; it does
+not create authority.
 
 ## Concrete implementability
 
@@ -226,6 +277,11 @@ Use:
 Use one independently routable item per planning bullet. If a stable planning section has
 no items, write exactly `None.`. Never hide material semantics inside `IMP-*` or `TEST-*`.
 
+When the planning source defines sibling capability ownership, make the relevant provider,
+consumer, composition, and acceptance boundaries explicit in the Spec's human-readable
+scope or exclusions. This is explanatory context; the accepted planning source remains the
+authority.
+
 ## Dependencies and frontier
 
 After publishing/reconciling the complete currently specifiable set, establish every known
@@ -244,6 +300,8 @@ truth. Reject self-dependency, incomplete blocker graphs, and cycles.
 The frontier is every open handled Spec with zero open native blockers and a valid current
 CCL projection. Wayfinder-managed frontier Specs additionally require an ALLOWED current
 governor guard.
+
+Do not hand off a Spec whose Cross-Spec ownership integrity check is unresolved.
 
 ## Human handoff
 
@@ -264,6 +322,7 @@ If none are actionable, report exact blockers/unfocused reasons. Never invoke
 * Wayfinder-managed changed semantic decision → governing Wayfinder decision;
 * downstream architecture blocker → `$architecture-remediation`;
 * CCL source conflict → governing semantic owner;
+* cross-Spec ownership drift with a fixed accepted partition → `$to-specs` itself;
 * projection defect → `$to-specs` itself.
 
 `$to-specs` never infers material semantics from prose, runs a second semantic certifier,

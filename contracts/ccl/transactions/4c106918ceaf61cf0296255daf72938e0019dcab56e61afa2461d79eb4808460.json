@@ -1,0 +1,116 @@
+{
+  "acceptance": null,
+  "origin": {
+    "mode": "existing-authority",
+    "sources": [
+      {
+        "content_sha256": "596b8a76007b0582f62fa62e0ec44aef907f68f67a570c6b6e8fdb81db713169",
+        "kind": "github_issue_comment",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/351#issuecomment-5883743931",
+        "role": "governing",
+        "source_id": "decision-351-resolution"
+      },
+      {
+        "content_sha256": "3629c72f113d7aad57b76aab09575dd5df962975bc01615fab7ac1e003ac91f0",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0007-investment-intelligence-persist-material-judgments-not-reasoning-traces.md",
+        "role": "constraint",
+        "source_id": "adr-0007"
+      }
+    ]
+  },
+  "proposal_hash": "sha256:4c106918ceaf61cf0296255daf72938e0019dcab56e61afa2461d79eb4808460",
+  "revisions": [
+    {
+      "annotations": {
+        "examples": [
+          "insufficient Evidence",
+          "stale required Evidence",
+          "unresolved material conflict",
+          "material Investment Uncertainty",
+          "unresolved Portfolio consequence / Risk",
+          "another explicitly supported analytical insufficiency"
+        ],
+        "notes": [
+          "Examples are explanatory only and do not define a reason taxonomy or cardinality."
+        ]
+      },
+      "assertions": [
+        {
+          "assertion_id": "withholding.persistence",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007"
+            ]
+          },
+          "constraint": {
+            "mode": "durable"
+          },
+          "display": {
+            "description": "Recommendation withholding is a durable judgment."
+          },
+          "kind": "persistence",
+          "subject": "recommendation_withholding"
+        },
+        {
+          "assertion_id": "withholding.not-recommendation",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007"
+            ]
+          },
+          "constraint": {
+            "target": "investment_recommendation"
+          },
+          "kind": "distinctness",
+          "subject": "recommendation_withholding"
+        },
+        {
+          "assertion_id": "withholding.not-hold",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007"
+            ]
+          },
+          "constraint": {
+            "target": "hold_recommendation"
+          },
+          "kind": "distinctness",
+          "subject": "recommendation_withholding"
+        },
+        {
+          "assertion_id": "withholding.not-no-attempt",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007"
+            ]
+          },
+          "constraint": {
+            "target": "recommendation_formation_not_attempted"
+          },
+          "kind": "distinctness",
+          "subject": "recommendation_withholding"
+        }
+      ],
+      "contract_id": "investment-intelligence.recommendation-withholding",
+      "display": {
+        "summary": "Polaris may durably record that it cannot responsibly form a current Investment Recommendation.",
+        "title": "Recommendation Withholding"
+      },
+      "operation": "revise",
+      "owner": "investment-intelligence",
+      "revision": 2,
+      "scope": {
+        "release": [
+          "R3"
+        ]
+      },
+      "supersedes_revision": 1
+    }
+  ],
+  "schema": "polaris.ccl/v1"
+}

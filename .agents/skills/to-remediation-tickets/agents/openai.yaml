@@ -1,5 +1,0 @@
-interface:
-  display_name: "To Remediation Tickets"
-  short_description: "Compatibility redirect to current ticketing"
-policy:
-  allow_implicit_invocation: false

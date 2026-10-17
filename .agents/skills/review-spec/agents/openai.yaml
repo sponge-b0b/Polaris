@@ -1,5 +1,5 @@
 interface:
   display_name: "Review Spec"
-  short_description: "Review the implementation of a spec"
+  short_description: "Review a verified deterministic spec contract"
 policy:
   allow_implicit_invocation: false

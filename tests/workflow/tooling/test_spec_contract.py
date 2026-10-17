@@ -5,7 +5,10 @@ import pytest
 from scripts.spec_contract import (
     SpecContractError,
     build_contract,
+    build_execution_topology,
+    derive_decomposition,
     validate_coverage,
+    validate_decomposition,
     validate_execution_closure,
 )
 
@@ -67,6 +70,50 @@ Generated elsewhere.
 
 ## Out of Scope
 - `EXC-001` — Widening the synthetic contract.
+'''
+
+TOPOLOGY_BODY = '''<!-- spec-contract-ccl:v1
+{
+  "schema": "polaris.spec-ccl/v1",
+  "obligations": [
+    {"obligation_id":"OBL-001","source_ref":"Decision #201","ccl":["demo@1#a"]},
+    {"obligation_id":"OBL-002","source_ref":"Decision #201","ccl":["demo@1#b"]},
+    {"obligation_id":"OBL-003","source_ref":"Decision #201","ccl":["demo@1#c"]}
+  ]
+}
+-->
+<!-- spec-execution-topology:v1
+{
+  "schema": "polaris.spec-execution-topology/v1",
+  "units": [
+    {"unit_id":"EU-001","cells":["OBL-001","IMP-001","TEST-001"],"depends_on":[]},
+    {
+      "unit_id":"EU-002",
+      "cells":["OBL-002","IMP-002","TEST-002"],
+      "depends_on":["EU-001"]
+    },
+    {"unit_id":"EU-003","cells":["OBL-003","TEST-003"],"depends_on":["EU-002"]}
+  ]
+}
+-->
+
+## Problem Statement
+Synthetic deterministic-decomposition fixture.
+
+## Canonical Contract Obligations
+Generated elsewhere.
+
+## Implementation Decisions
+- `IMP-001` — Implement OBL-001.
+- `IMP-002` — Implement OBL-001 through OBL-002.
+
+## Testing Decisions
+- `TEST-001` — Prove OBL-001.
+- `TEST-002` — Prove OBL-002.
+- `TEST-003` — Prove OBL-003.
+
+## Out of Scope
+- `EXC-001` — Other work.
 '''
 
 
@@ -223,7 +270,6 @@ def test_execution_closure_accepts_same_or_upstream_current_cell_references() ->
         contract,
         {"T1": [], "T2": ["T1"], "T3": ["T2"]},
     )
-
     assert validate_execution_closure(contract, coverage, dependencies) == 4
 
 
@@ -243,7 +289,6 @@ def test_execution_closure_rejects_downstream_cell_hidden_inside_range() -> None
         contract,
         {"T1": [], "T2": ["T1"], "T3": ["T2"]},
     )
-
     with pytest.raises(
         SpecContractError,
         match=r"IMP-002 in T2 references OBL-009 in T3",
@@ -264,7 +309,6 @@ def test_execution_closure_requires_dependency_plan_for_every_destination() -> N
         },
     )
     dependencies = _dependencies(contract, {"T1": [], "T2": ["T1"]})
-
     with pytest.raises(
         SpecContractError,
         match="ticket set does not match coverage destinations",
@@ -288,6 +332,153 @@ def test_execution_closure_rejects_dependency_cycle() -> None:
         contract,
         {"T1": ["T3"], "T2": ["T1"], "T3": ["T2"]},
     )
-
     with pytest.raises(SpecContractError, match="cycle detected"):
         validate_execution_closure(contract, coverage, dependencies)
+
+
+def test_decomposition_derives_each_atomic_unit_as_one_ticket() -> None:
+    contract = build_contract(TOPOLOGY_BODY)
+    topology, coverage, dependencies, checked = derive_decomposition(
+        TOPOLOGY_BODY,
+        contract,
+    )
+    assert [unit["unit_id"] for unit in topology["units"]] == [
+        "EU-001",
+        "EU-002",
+        "EU-003",
+    ]
+    route = {row["cell"]: row["destination"] for row in coverage["routes"]}
+    assert route["OBL-001"] == "T1"
+    assert route["OBL-002"] == "T2"
+    assert route["OBL-003"] == "T3"
+    assert dependencies["tickets"] == [
+        {"destination": "T1", "depends_on": []},
+        {"destination": "T2", "depends_on": ["T1"]},
+        {"destination": "T3", "depends_on": ["T2"]},
+    ]
+    assert checked >= 1
+
+
+def test_decomposition_rejects_overmerged_valid_partition() -> None:
+    contract = build_contract(TOPOLOGY_BODY)
+    _, coverage, dependencies, _ = derive_decomposition(TOPOLOGY_BODY, contract)
+    for row in coverage["routes"]:
+        if row["destination"] == "T3":
+            row["destination"] = "T2"
+    dependencies["tickets"] = [
+        {"destination": "T1", "depends_on": []},
+        {"destination": "T2", "depends_on": ["T1"]},
+    ]
+    with pytest.raises(
+        SpecContractError,
+        match="coverage does not match atomic execution topology",
+    ):
+        validate_decomposition(TOPOLOGY_BODY, contract, coverage, dependencies)
+
+
+def test_decomposition_rejects_split_atomic_unit() -> None:
+    contract = build_contract(TOPOLOGY_BODY)
+    _, coverage, dependencies, _ = derive_decomposition(TOPOLOGY_BODY, contract)
+    for row in coverage["routes"]:
+        if row["cell"] == "TEST-002":
+            row["destination"] = "T9"
+    dependencies["tickets"].append(
+        {"destination": "T9", "depends_on": ["T1"]}
+    )
+    with pytest.raises(
+        SpecContractError,
+        match="coverage does not match atomic execution topology",
+    ):
+        validate_decomposition(TOPOLOGY_BODY, contract, coverage, dependencies)
+
+
+def test_decomposition_fails_closed_without_topology() -> None:
+    start = TOPOLOGY_BODY.index("<!-- spec-execution-topology:v1")
+    end = TOPOLOGY_BODY.index("-->", start) + 3
+    body = TOPOLOGY_BODY[:start] + TOPOLOGY_BODY[end:]
+    contract = build_contract(body)
+    with pytest.raises(
+        SpecContractError,
+        match="expected exactly one spec-execution-topology:v1 manifest",
+    ):
+        derive_decomposition(body, contract)
+
+
+def test_topology_must_cover_every_executable_cell() -> None:
+    changed = TOPOLOGY_BODY.replace(
+        '"cells":["OBL-003","TEST-003"]',
+        '"cells":["OBL-003"]',
+    )
+    contract = build_contract(changed)
+    with pytest.raises(SpecContractError, match="missing executable cells TEST-003"):
+        build_execution_topology(changed, contract)
+
+
+def test_topology_unit_requires_material_obligation() -> None:
+    changed = TOPOLOGY_BODY.replace(
+        '{"unit_id":"EU-003","cells":["OBL-003","TEST-003"],"depends_on":["EU-002"]}',
+        '{"unit_id":"EU-003","cells":["OBL-003"],"depends_on":["EU-002"]},'
+        '{"unit_id":"EU-004","cells":["TEST-003"],"depends_on":["EU-003"]}',
+    )
+    contract = build_contract(changed)
+    with pytest.raises(SpecContractError, match="requires at least one OBL"):
+        build_execution_topology(changed, contract)
+
+
+def test_topology_rejects_dependency_cycle() -> None:
+    changed = TOPOLOGY_BODY.replace(
+        '{"unit_id":"EU-001","cells":["OBL-001","IMP-001","TEST-001"],"depends_on":[]}',
+        (
+            '{"unit_id":"EU-001","cells":["OBL-001","IMP-001","TEST-001"],'
+            '"depends_on":["EU-003"]}'
+        ),
+    )
+    contract = build_contract(changed)
+    with pytest.raises(SpecContractError, match="cycle detected"):
+        build_execution_topology(changed, contract)
+
+
+def test_topology_rejects_noncanonical_or_zero_unit_identity() -> None:
+    for invalid in ("EU-000", "EU-0001", "EU-1"):
+        changed = TOPOLOGY_BODY.replace("EU-001", invalid)
+        contract = build_contract(changed)
+        with pytest.raises(SpecContractError, match="unit_id: invalid|EU-000"):
+            build_execution_topology(changed, contract)
+
+
+def test_topology_rejects_invalid_dependency_identity_cleanly() -> None:
+    changed = TOPOLOGY_BODY.replace(
+        '"depends_on":["EU-001"]',
+        '"depends_on":["not-a-unit"]',
+        1,
+    )
+    contract = build_contract(changed)
+    with pytest.raises(SpecContractError, match="invalid unit id not-a-unit"):
+        build_execution_topology(changed, contract)
+
+
+def test_topology_change_preserves_material_contract_hash() -> None:
+    contract = build_contract(TOPOLOGY_BODY)
+    first = build_execution_topology(TOPOLOGY_BODY, contract)
+    changed = TOPOLOGY_BODY.replace(
+        '{"unit_id":"EU-003","cells":["OBL-003","TEST-003"],"depends_on":["EU-002"]}',
+        '{"unit_id":"EU-003","cells":["OBL-003","TEST-003"],"depends_on":["EU-001"]}',
+    )
+    revised_contract = build_contract(changed)
+    revised = build_execution_topology(changed, revised_contract)
+    assert contract["spec_contract_hash"] == revised_contract["spec_contract_hash"]
+    assert contract["spec_body_hash"] != revised_contract["spec_body_hash"]
+    assert first["topology_hash"] != revised["topology_hash"]
+
+
+def test_topology_still_enforces_plan_cell_execution_closure() -> None:
+    changed = TOPOLOGY_BODY.replace(
+        "- `IMP-002` — Implement OBL-001 through OBL-002.",
+        "- `IMP-002` — Implement OBL-001 through OBL-003.",
+    )
+    contract = build_contract(changed)
+    with pytest.raises(
+        SpecContractError,
+        match=r"IMP-002 in T2 references OBL-003 in T3",
+    ):
+        derive_decomposition(changed, contract)

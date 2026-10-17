@@ -146,6 +146,95 @@ by `$spec-contract`; changing one intentionally changes downstream planning iden
 Problem/Solution prose, User Stories, Architecture Impact explanation, and Further Notes
 are human context. They do not create ticket cells merely because they sound normative.
 
+## Stable execution topology
+
+For every implementation-ready software Spec, `$to-specs` also owns exactly one
+machine-managed execution-topology comment:
+
+```text
+<!-- spec-execution-topology:v1
+{
+  "schema": "polaris.spec-execution-topology/v1",
+  "units": [
+    {
+      "unit_id": "EU-001",
+      "cells": ["OBL-001", "IMP-001", "TEST-001"],
+      "depends_on": []
+    },
+    {
+      "unit_id": "EU-002",
+      "cells": ["OBL-002", "IMP-002", "TEST-002"],
+      "depends_on": ["EU-001"]
+    }
+  ]
+}
+-->
+```
+
+This topology is durable **planning authority**, not material semantic authority. It records
+the finest coherent execution partition that downstream ticketing must project exactly.
+
+Core invariants:
+
+* `EU-*` IDs are stable canonical identities (`EU-001` through `EU-999`); never renumber a
+  surviving unit merely for presentation;
+* every current non-EXC `OBL/IMP/TEST` cell appears in exactly one execution unit;
+* no `EXC-*` appears in an execution unit;
+* every execution unit contains at least one material `OBL-*` so each ticket remains a
+  vertical material-outcome slice rather than a mechanics-only task;
+* unit dependencies name only current execution units, are acyclic, and represent genuine
+  execution prerequisites;
+* an `IMP-*` or `TEST-*` cell that explicitly references another current cell must be in the
+  same unit as that cell or in a unit transitively downstream of it;
+* topology must not duplicate material semantics or infer new obligations from prose.
+
+### Finest-coherent partition invariant
+
+The desired topology is the **finest independently executable partition**, not the fewest
+possible tickets.
+
+Do not merge two execution units merely because one implementation agent could perform both
+in one ticket. Keep responsibilities separate whenever each can be completed and proved as
+a non-empty material-outcome slice under the frozen Spec contract and their relationship can
+be represented by dependency edges.
+
+Merge cells into one unit only when separating them would make at least one side not
+independently completable/provable under the frozen contract, would create a mechanics-only
+unit with no material obligation, or would violate an explicit same-commit/atomic execution
+requirement already present in planning authority.
+
+This rule is generic. Do not encode product names, current issue numbers, current Spec IDs,
+or one-off examples as topology policy.
+
+### Topology reconciliation
+
+For an existing open Spec, topology is reconciled in place with the rest of the projection:
+
+* unchanged unit responsibility → preserve its `EU-*` identity;
+* changed cells within the same atomic responsibility → update that unit in place;
+* newly independent responsibility → allocate a new unused `EU-*`;
+* responsibility removed from current work → remove it from current topology without
+  reusing its identity for a different responsibility;
+* ambiguous split/merge responsibility → fail closed rather than silently renumbering or
+  guessing.
+
+A topology-only amendment changes the Spec body and topology hash but does not change the
+material Spec Contract Hash unless the underlying `OBL/IMP/TEST/EXC` cell semantics also
+change.
+
+Before any `$to-tickets` handoff, build the current Spec contract and require deterministic
+topology derivation:
+
+```bash
+python -m scripts.spec_contract build <spec-issue-json> <contract.json>
+python -m scripts.spec_contract derive-decomposition \
+  <spec-issue-json> <contract.json> <coverage.json> <dependencies.json>
+```
+
+Require `TICKET DECOMPOSITION: DERIVED`, an Execution Topology Hash, complete exact coverage,
+and valid execution closure. Missing or invalid topology means the Spec is not ticketing
+ready and is a `$to-specs` projection defect; never ask `$to-tickets` to infer a fallback.
+
 ## Planning Source Partition
 
 Build one working partition over the complete current planning source:
@@ -182,7 +271,9 @@ Before publishing or reconciling any open Spec, and again before frontier handof
    * `consumed-boundary` — another Spec owns the provider capability and this Spec needs
      the exact assertion only to constrain its own behavior;
 4. inspect every `IMP-*` and `TEST-*` against that classification and the accepted
-   partition.
+   partition;
+5. inspect every execution unit against the same ownership classification and ensure no
+   unit crosses a sibling ownership boundary merely to reduce ticket count.
 
 A consumed-boundary projection is legal only when the current Spec has a role-narrow
 implementation or proof responsibility that can be completed without implementing the
@@ -198,8 +289,8 @@ Fail the ownership check if any of the following is true:
   provider/consumer roles;
 * an upstream Spec requires completion-time proof of behavior that can only be implemented
   by a downstream Spec that is natively blocked by the upstream Spec;
-* prose, CCL projection, planning cells, exclusions, and native dependency direction
-  disagree about who owns the work.
+* prose, CCL projection, planning cells, execution topology, exclusions, and native
+  dependency direction disagree about who owns the work.
 
 Shared/cross-cutting assertions may appear in more than one Spec only when each occurrence
 has a distinct role-narrow local responsibility. Do not use a sibling's whole contract as
@@ -210,6 +301,7 @@ partition:
 
 * reconcile the same Spec in place;
 * retire no-longer-current `OBL/IMP/TEST/EXC` IDs without reusing them;
+* reconcile the execution topology under the stable-unit rules above;
 * preserve closed ticket/history artifacts;
 * update native dependencies only when the accepted prerequisite relation itself requires
   it.
@@ -219,8 +311,8 @@ projection defect and `$to-specs` repairs it. If the partition itself is unresol
 contradictory, fail closed and route to `$wayfinder`.
 
 Invoke `$attention` over the bounded sibling set before publication. Attention may identify
-a missing planning item, ownership conflict, bad role classification, or CCL gap; it does
-not create authority.
+a missing planning item, ownership conflict, bad role classification, CCL gap, or invalid
+execution partition; it does not create authority.
 
 ## Concrete implementability
 
@@ -241,6 +333,7 @@ Use:
 ```markdown
 <governance/provenance markers>
 <spec-contract-ccl:v1 manifest>
+<spec-execution-topology:v1 manifest>
 
 ## Problem Statement
 <explanation>
@@ -276,6 +369,8 @@ Use:
 
 Use one independently routable item per planning bullet. If a stable planning section has
 no items, write exactly `None.`. Never hide material semantics inside `IMP-*` or `TEST-*`.
+Then group those exact current cells into stable execution units under the finest-coherent
+partition invariant above; do not let `$to-tickets` rediscover the grouping.
 
 When the planning source defines sibling capability ownership, make the relevant provider,
 consumer, composition, and acceptance boundaries explicit in the Spec's human-readable
@@ -297,11 +392,12 @@ Ownership remains:
 Never use Project fields, publication order, priority, or handoff order as dependency
 truth. Reject self-dependency, incomplete blocker graphs, and cycles.
 
-The frontier is every open handled Spec with zero open native blockers and a valid current
-CCL projection. Wayfinder-managed frontier Specs additionally require an ALLOWED current
-governor guard.
+The frontier is every open handled Spec with zero open native blockers, a valid current CCL
+projection, and a valid current execution topology. Wayfinder-managed frontier Specs
+additionally require an ALLOWED current governor guard.
 
-Do not hand off a Spec whose Cross-Spec ownership integrity check is unresolved.
+Do not hand off a Spec whose Cross-Spec ownership integrity or execution topology check is
+unresolved.
 
 ## Human handoff
 
@@ -323,6 +419,7 @@ If none are actionable, report exact blockers/unfocused reasons. Never invoke
 * downstream architecture blocker → `$architecture-remediation`;
 * CCL source conflict → governing semantic owner;
 * cross-Spec ownership drift with a fixed accepted partition → `$to-specs` itself;
+* missing/invalid/ambiguous execution topology → `$to-specs` itself;
 * projection defect → `$to-specs` itself.
 
 `$to-specs` never infers material semantics from prose, runs a second semantic certifier,

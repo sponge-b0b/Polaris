@@ -35,7 +35,7 @@ from polaris.domain.evidence import (
     MinimumEligibleEvidence,
 )
 from polaris.domain.evidence.bindings import EvidenceRole
-from tests.configuration_support import (
+from tests.domain.configuration.configuration_support import (
     CLAIM_ID,
     ROOT_VERSION_ID,
     SECOND_VERSION_ID,

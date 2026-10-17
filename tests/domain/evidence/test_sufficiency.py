@@ -23,8 +23,11 @@ from polaris.domain.evidence.sufficiency import (
     evaluate_evidence_sufficiency,
 )
 from polaris.domain.evidence.sufficiency_requirements import MinimumEligibleEvidence
-from tests.configuration_support import requirement_key, requirement_version
-from tests.sufficiency_support import (
+from tests.domain.configuration.configuration_support import (
+    requirement_key,
+    requirement_version,
+)
+from tests.domain.evidence.sufficiency_support import (
     ASSESSMENT_EFFECTIVE_AT,
     ASSESSMENT_KNOWN_AT,
     interpreted_binding,

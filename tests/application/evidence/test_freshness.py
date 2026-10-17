@@ -26,7 +26,7 @@ from polaris.domain.evidence.freshness import (
     EvidenceFreshnessUnavailableAuthority,
 )
 from polaris.domain.evidence.judgments import EvidenceUse
-from tests.configuration_support import (
+from tests.domain.configuration.configuration_support import (
     EFFECTIVE_AT,
     RECORDED_AT,
     ROOT_VERSION_ID,

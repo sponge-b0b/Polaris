@@ -47,8 +47,11 @@ from polaris.domain.evidence.sufficiency import (
     EvidenceSufficiencyBasisGuards,
     EvidenceSufficiencyResult,
 )
-from tests.configuration_support import requirement_version
-from tests.sufficiency_support import derived_assessment, interpreted_binding
+from tests.domain.configuration.configuration_support import requirement_version
+from tests.domain.evidence.sufficiency_support import (
+    derived_assessment,
+    interpreted_binding,
+)
 
 NOW = datetime(2026, 9, 29, 14, 5, tzinfo=UTC)
 CORRECTION_UUID = UUID("50000000-0000-4000-8000-000000000001")

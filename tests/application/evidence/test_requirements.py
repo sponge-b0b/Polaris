@@ -21,7 +21,7 @@ from polaris.domain.configuration import (
     SufficiencyRequirementApplicabilityState,
 )
 from polaris.domain.evidence import EvidenceUse
-from tests.configuration_support import (
+from tests.domain.configuration.configuration_support import (
     EFFECTIVE_AT,
     RECORDED_AT,
     ROOT_VERSION_ID,

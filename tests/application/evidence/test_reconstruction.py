@@ -90,13 +90,16 @@ from polaris.domain.evidence import (
 from polaris.domain.evidence.bindings import EvidenceAvailability, EvidenceRole
 from polaris.domain.evidence.freshness import EvidenceFreshnessBasisReference
 from polaris.domain.evidence.sufficiency import EvidenceSufficiencyResult
-from tests.configuration_support import (
+from tests.domain.configuration.configuration_support import (
     SECOND_VERSION_ID,
     requirement_assignment_for_key,
     requirement_key,
     requirement_version,
 )
-from tests.sufficiency_support import derived_assessment, interpreted_binding
+from tests.domain.evidence.sufficiency_support import (
+    derived_assessment,
+    interpreted_binding,
+)
 
 BOUNDARY = datetime(2026, 9, 29, 14, 4, tzinfo=UTC)
 

@@ -44,12 +44,12 @@ from polaris.domain.evidence.sufficiency import (
     EvidenceSufficiencyBasisGuards,
     EvidenceSufficiencyResult,
 )
-from tests.configuration_support import (
+from tests.domain.configuration.configuration_support import (
     SECOND_VERSION_ID,
     requirement_key,
     requirement_version,
 )
-from tests.sufficiency_support import (
+from tests.domain.evidence.sufficiency_support import (
     ASSESSMENT_EFFECTIVE_AT,
     ASSESSMENT_KNOWN_AT,
     interpreted_binding,

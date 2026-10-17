@@ -40,7 +40,7 @@ from polaris.domain.evidence.observations import (
     EvidenceBindingId,
     EvidenceObservationId,
 )
-from tests.binding_support import (
+from tests.application.evidence.binding_support import (
     BINDING_ID,
     SECOND_BINDING_ID,
     SECOND_BINDING_OPERATION_ID,
@@ -48,11 +48,11 @@ from tests.binding_support import (
     binding_command,
     binding_service,
 )
-from tests.configuration_support import (
+from tests.application.evidence.evidence_support import OBSERVATION_ID
+from tests.domain.configuration.configuration_support import (
     RequirementResolutionStub,
     requirement_version,
 )
-from tests.evidence_support import OBSERVATION_ID
 
 CLAIM_ID = UUID("00000000-0000-4000-8000-000000000421")
 SECOND_CLAIM_ID = UUID("00000000-0000-4000-8000-000000000422")

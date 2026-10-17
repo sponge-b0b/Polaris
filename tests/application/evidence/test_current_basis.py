@@ -136,13 +136,16 @@ from polaris.domain.evidence.sufficiency import (
 from tests.application.decisions.test_memory import _future_relationship_owner
 from tests.application.evidence.test_context_versions import _OWNER_FAMILY_CASES
 from tests.application.evidence.test_reconstruction import _decision
-from tests.configuration_support import (
+from tests.domain.configuration.configuration_support import (
     SECOND_VERSION_ID,
     requirement_assignment_for_key,
     requirement_key,
     requirement_version,
 )
-from tests.sufficiency_support import derived_assessment, interpreted_binding
+from tests.domain.evidence.sufficiency_support import (
+    derived_assessment,
+    interpreted_binding,
+)
 
 AT = datetime(2026, 9, 29, 14, 4, tzinfo=UTC)
 

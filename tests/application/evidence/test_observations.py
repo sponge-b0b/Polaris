@@ -19,7 +19,7 @@ from polaris.application.evidence import (
 )
 from polaris.domain.decisions import OperationId
 from polaris.domain.evidence import EvidenceObservation, EvidenceObservationId
-from tests.evidence_support import (
+from tests.application.evidence.evidence_support import (
     MISSING_OBSERVATION_ID,
     OBSERVATION_ID,
     SECOND_OBSERVATION_ID,

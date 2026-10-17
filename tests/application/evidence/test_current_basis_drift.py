@@ -64,7 +64,7 @@ from tests.application.evidence.test_current_basis import (
     _read_later,
     _selected_alternative,
 )
-from tests.configuration_support import (
+from tests.domain.configuration.configuration_support import (
     SECOND_VERSION_ID,
     requirement_key,
     requirement_version,

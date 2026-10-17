@@ -4,6 +4,8 @@ ROOT = Path(__file__).resolve().parents[1]
 VERIFY = (ROOT / ".agents/skills/verify-spec/SKILL.md").read_text(encoding="utf-8")
 CLOSURE = (ROOT / ".agents/skills/verify-spec-closure/SKILL.md").read_text(encoding="utf-8")
 REVIEW = (ROOT / ".agents/skills/review-spec/SKILL.md").read_text(encoding="utf-8")
+AGENTS = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+SKILLS_README = (ROOT / ".agents/skills/README.md").read_text(encoding="utf-8")
 
 
 def test_verification_consumes_finite_contract_cells() -> None:
@@ -43,3 +45,20 @@ def test_review_routes_gaps_upstream_instead_of_inventing_obligations() -> None:
     assert "planning-cell-gap" in REVIEW
     assert "Do not create `ARCHSRC-*`" in REVIEW
     assert "does not:" in REVIEW
+
+
+def test_root_policy_owns_canonical_contract_consumption() -> None:
+    assert "### Canonical Contract Consumption" in AGENTS
+    assert "accepted CCL assertion" in AGENTS
+    assert "Spec OBL-* projection" in AGENTS
+    assert "ticket-coverage-manifest:v2" in AGENTS
+    assert "### Spec Contract Semantic Ownership" not in AGENTS
+    assert "normative-new" not in AGENTS
+
+
+def test_cross_skill_lifecycle_has_one_semantic_choke_point() -> None:
+    assert "## Core Workflow Principle" in SKILLS_README
+    assert "Canonical Contract Ledger (CCL)" in SKILLS_README
+    assert "OBL / IMP / TEST / EXC Spec contract" in SKILLS_README
+    assert "It does not classify arbitrary prose or infer architecture semantics." in SKILLS_README
+    assert "Interpretation machinery" not in SKILLS_README

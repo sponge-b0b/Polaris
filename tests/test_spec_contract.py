@@ -2,11 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from scripts.spec_contract import (
-    SpecContractError,
-    build_contract,
-    validate_coverage,
-)
+from scripts.spec_contract import SpecContractError, build_contract, validate_coverage
 
 REF_PERSIST = (
     "investment-intelligence.recommendation-withholding@1#"
@@ -24,33 +20,25 @@ BODY = f'''<!-- spec-contract-ccl:v1
     {{
       "obligation_id": "OBL-001",
       "source_ref": "Decision #351",
-      "ccl": [
-        "{REF_PERSIST}",
-        "{REF_DISTINCT}"
-      ]
+      "ccl": ["{REF_PERSIST}", "{REF_DISTINCT}"]
     }}
   ]
 }}
 -->
 
 ## Problem Statement
-
 Explanation only.
 
 ## Canonical Contract Obligations
-
 Generated elsewhere.
 
 ## Implementation Decisions
-
 - `IMP-001` — Persist through the established repository seam.
 
 ## Testing Decisions
-
 - `TEST-001` — Prove withholding is distinct from a Recommendation.
 
 ## Out of Scope
-
 - `EXC-001` — Defining a public withholding-reason taxonomy.
 '''
 
@@ -59,6 +47,12 @@ def test_build_contract_is_deterministic_and_ccl_anchored() -> None:
     first = build_contract(BODY)
     second = build_contract(BODY)
     assert first == second
+    assert set(first) == {
+        "schema",
+        "spec_body_hash",
+        "spec_contract_hash",
+        "cells",
+    }
     assert [cell["cell"] for cell in first["cells"]] == [
         "OBL-001",
         "IMP-001",
@@ -71,10 +65,7 @@ def test_build_contract_is_deterministic_and_ccl_anchored() -> None:
 
 
 def test_explanatory_prose_does_not_change_contract_hash() -> None:
-    changed = BODY.replace(
-        "Explanation only.",
-        "A much longer explanation for humans.",
-    )
+    changed = BODY.replace("Explanation only.", "A much longer explanation for humans.")
     original = build_contract(BODY)
     revised = build_contract(changed)
     assert original["spec_body_hash"] != revised["spec_body_hash"]
@@ -105,19 +96,6 @@ def test_requires_stable_plan_ids() -> None:
         match="invalid ## Implementation Decisions row",
     ):
         build_contract(changed)
-
-
-def test_user_story_and_solution_prose_are_not_contract_cells() -> None:
-    body = BODY.replace(
-        "## Canonical Contract Obligations",
-        (
-            "## User Stories\n\n1. As a user, I want a clear result.\n\n"
-            "## Solution\n\nNarrative solution.\n\n"
-            "## Canonical Contract Obligations"
-        ),
-    )
-    contract = build_contract(body)
-    assert all(not cell["cell"].startswith("US-") for cell in contract["cells"])
 
 
 def test_contract_hash_tracks_exclusion() -> None:

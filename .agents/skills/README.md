@@ -1,533 +1,453 @@
 # Skills
 
-This directory contains the agent skills used to plan, implement, verify, review, and maintain Polaris work.
+This directory contains the agent skills used to plan, specify, decompose, implement,
+verify, review, and complete Polaris work.
 
-This README documents **cross-skill architecture and governance**. It explains how skills compose, where human control belongs, how lifecycle ownership moves, how the lifecycle may loop, and which invariants must remain true across skill boundaries.
+This README owns **cross-skill architecture and lifecycle governance**. Individual
+`SKILL.md` files own their bounded executable procedures. Root `AGENTS.md` supplies
+repository-wide policy and supersession rules.
 
-Individual `SKILL.md` files remain authoritative for their own executable procedure. Do not duplicate detailed commands, templates, or skill-specific algorithms here.
+If these layers materially disagree, treat the disagreement as a workflow defect. Do not
+pick whichever wording is convenient.
 
-If this README and a `SKILL.md` disagree, treat that as a workflow defect to reconcile rather than guessing which behavior to follow, except where this README or `AGENTS.md` explicitly marks a repository-wide supersession rule for older narrower wording.
+## Core Workflow Principle
 
-## Sources of Authority
+Polaris interprets material semantics once and then transports exact contract identity
+through the delivery lifecycle.
+
+```text
+requirements / current authority
+          ↓
+semantic decision boundary
+          ↓
+Canonical Contract Ledger (CCL)
+          ↓
+$to-specs projection
+          ↓
+OBL / IMP / TEST / EXC Spec contract
+          ↓
+$to-tickets decomposition
+          ↓
+implementation
+          ↓
+verification / review against the same frozen contract
+```
+
+Natural-language reasoning, ADR rationale, Spec explanation, ticket prose, implementation
+shape, verification findings, and review findings may explain or falsify the contract.
+They do not silently redefine it.
+
+## Sources of Workflow Authority
 
 Use these layers for different concerns:
 
 ```text
+AGENTS.md
+    repository-wide operating policy and supersession rules
+
 .agents/skills/README.md
-    cross-skill architecture, lifecycle, conventions, and invariants
+    cross-skill lifecycle architecture and ownership
 
 .agents/skills/<skill>/SKILL.md
-    executable behavior and responsibility of one skill
+    bounded executable procedure of one skill
 
 .agents/skills/<skill>/agents/openai.yaml
-    Codex-specific metadata and invocation policy when present
-
-other platform-specific metadata
-    platform-specific discovery or invocation controls
+    platform-specific discovery/invocation metadata
 ```
 
-Invocation metadata controls whether a platform may discover or select a skill automatically. It does **not**, by itself, determine whether a cross-skill transition is a Human Handoff.
-
-## Governing Workflow-Boundary Rule
-
-> **A Human Handoff is required only when the current workflow intentionally ends and the human should choose, authorize, or initiate the next lifecycle stage.**
-
-Classify every cross-skill transition as one of these four cases:
-
-| Transition | Required behavior |
-| --- | --- |
-| **Internal composition** | Parent invokes the named child directly. |
-| **Ordinary return** | Child returns its result and the caller resumes directly. |
-| **In-skill HITL** | Current skill asks the user for a decision and then continues itself. |
-| **Lifecycle / user-control boundary** | Current skill halts and emits an explicit Human Handoff. |
-
-Do not create Human Handoffs merely because the target skill disables implicit invocation.
+Invocation metadata does not determine lifecycle ownership or whether a Human Handoff is
+required.
 
 ## Workflow Stability and Change Control
 
-Polaris product delivery takes priority over continual workflow refinement.
+Product delivery normally takes priority over workflow refinement. The workflow is frozen
+by default during ordinary product delivery.
 
-> **The existence of a workflow imperfection is not sufficient reason to change the workflow.**
+Workflow architecture changes require explicit human authorization, including changes to:
 
-During active product delivery, the current skill workflow is **frozen by default**. Agents must execute the established lifecycle rather than continuously audit, optimize, harden, simplify, or redesign it.
+* lifecycle stages or Human Handoff boundaries;
+* semantic authority or contract ownership;
+* verifier/reviewer independence boundaries;
+* mandatory durable governance artifacts;
+* decomposition or remediation ownership.
 
-A workflow change may interrupt active delivery only for a concrete **STOP-FIX defect**. A STOP-FIX defect must be reproducible from durable current state and establish at least one of these conditions:
+The current CCL migration is an explicitly authorized workflow redesign. Do not use that
+authorization as permission for unrelated cleanup or product changes.
 
-* the authorized lifecycle cannot continue as written;
-* durable repository or tracker state may be corrupted, lost, or made contradictory;
-* work is routed to the wrong lifecycle owner or authorization boundary;
-* the workflow materially permits implementation or certification contrary to the authoritative product, Spec, architecture, or acceptance contract.
+## Cross-Skill Transition Types
 
-The following are **not** STOP-FIX defects by themselves:
+Classify every cross-skill transition as exactly one of:
 
-* an instruction could be clearer, shorter, more elegant, or less repetitive;
-* a skill consumes more tokens or time than desired but still completes correctly;
-* another verifier, helper, artifact, abstraction, or rule might theoretically make the workflow safer;
-* an agent notices a possible future edge case that has not occurred;
-* a downstream verifier/reviewer catches a defect that the normal remediation lifecycle can correct;
-* a skill has adjacent cleanup, naming, formatting, or consistency opportunities;
-* a new agent would have structured the workflow differently.
+| Transition | Behavior |
+| --- | --- |
+| Internal composition | Parent invokes the named child and resumes from its result. |
+| Ordinary return | Child returns to its caller without a new human boundary. |
+| In-skill HITL | Current owner asks the human for a decision and then continues. |
+| Lifecycle/user-control boundary | Current workflow stops and emits a Human Handoff. |
 
-When a STOP-FIX defect is established:
+A disabled implicit-invocation flag does not by itself create a Human Handoff.
 
-1. repair the reproduced failure with the **smallest sufficient delta**;
-2. preserve unrelated skill behavior and existing ownership boundaries;
-3. do not add adjacent hardening, generalized redesign, cleanup, or speculative prevention;
-4. return to product delivery immediately after the defect is closed;
-5. do not perform a follow-on audit looking for similar or neighboring workflow improvements.
+## Canonical Semantic Boundary
 
-Downstream detection is not automatic evidence that an upstream skill must change. If `$verify-ticket-closure`, `$verify-spec`, `$review-spec`, or another established downstream boundary catches a defect and the normal lifecycle can remediate it, treat that as the workflow functioning as designed unless one of the STOP-FIX conditions above is independently proven.
+### CCL ownership
 
-Workflow architecture changes require **explicit human authorization before mutation**, including:
+`$contract-ledger` is the sole CCL transaction writer and owns:
 
-* adding or removing semantic subagents/verifiers;
-* changing lifecycle stages or Human Handoff boundaries;
-* changing lifecycle ownership or routing authority;
-* introducing a new mandatory durable governance artifact or ledger;
-* replacing an established verification model with a different one.
+* CCL schema/integrity;
+* stable contract IDs and immutable revisions;
+* proposal hashes;
+* provenance and acceptance binding;
+* ledger admission and persistence;
+* exact contract/assertion lookup.
 
-An agent may report a demonstrated workflow problem and recommend such a change, but may not implement it merely because it appears safer, cleaner, faster, or more rigorous.
+It does not independently invent product/architecture decisions.
 
-Non-blocking workflow observations are deferred. Do not create mandatory workflow-maintenance work, debt ledgers, or follow-up tickets during active product delivery unless the human explicitly asks for them. At a natural delivery boundary, the human may choose to review repeated observations; no maintenance pass is automatic.
-
-Do not perform a proactive "one last" skill audit before continuing product work. The frozen workflow is allowed to be imperfect. Stability, predictability, and delivery progress are the governing goals.
-
-## Invocation Semantics
-
-Polaris distinguishes **automatic skill selection** from **delegated workflow composition**.
-
-When a human explicitly authorizes a parent workflow and that workflow explicitly prescribes a named child skill as part of its procedure, the child may be invoked as internal composition.
-
-Example:
+New or registered CCL state has one provenance mode:
 
 ```text
-Human invokes $to-tickets
-    ↓
-$to-tickets explicitly invokes $github-issue-dependencies
-    ↓
-valid internal composition
+existing-authority
+owner-decision
+wayfinder-decision
 ```
 
-This is different from an agent independently deciding that another skill seems useful.
+`existing-authority` registers semantics already exactly determined by current authority.
+It is not a design path.
 
-For Codex, `policy.allow_implicit_invocation: false` is treated as a restriction on model-initiated automatic selection, not as a universal requirement for a new human authorization at every prescribed child edge.
+`owner-decision` resolves one bounded independent semantic coupling group through explicit
+human acceptance.
 
-For cross-platform portability, individual skills may also carry platform-specific invocation controls such as `disable-model-invocation: true`. Preserve those controls, but determine Human Handoffs from lifecycle semantics rather than metadata alone.
+`wayfinder-decision` records a decision reached through a Wayfinder when broader/coupled
+planning is required.
 
-## Pre-Workflow Intake Boundary
+Every new/changed material semantic decision binds the human acceptance to the exact CCL
+proposal hash. Accepted revisions are immutable.
 
-The public Polaris Project may contain **Ideas & Intake** items before formal delivery work begins.
+### Wayfinder remains optional
 
-Intake is an operational planning layer, not a skill lifecycle stage and not an architecture authority.
+`$wayfinder` is the orchestration workflow for substantial planning fog, coupled semantic
+decisions, cross-domain planning, research/prototyping needed for a decision, or project
+partitioning.
 
-An Intake item means only:
+A bounded Independent planning source does not acquire a Wayfinder merely because it uses
+CCL. `$to-specs` may consume existing CCL or invoke `$contract-ledger existing-authority`;
+one bounded unresolved decision routes to owner-decision; broader coupled work routes to
+`$wayfinder`.
 
-> This concept is ready to be discussed publicly, but Polaris has not yet committed to architecture, scope, specification, or implementation.
+## CCL-Backed Spec Contract
 
-Keep rough or private brainstorming outside the public Project until it is ready to be exposed.
+`$to-specs` owns the transition from decision-complete planning into an implementation
+Spec and owns in-place reconciliation of that Spec when its governing contract changes.
 
-Promotion from Intake to formal work is an explicit human decision:
+For a software Spec, material semantics are represented only by:
 
 ```text
-Ideas & Intake
-    ↓ HUMAN promotion
-$wayfinder
+OBL-* -> exact contract-id@revision#assertion-id set
 ```
 
-`$wayfinder` is the normal formal entry point when the idea requires architectural discovery or durable design decisions.
-
-Do not mutate an informal Intake item into architecture authority merely because it was promoted. The resulting Wayfinder map and decisions become the durable planning artifacts.
-
-## Skill Lifecycle
-
-### Lifecycle Model
-
-The Polaris delivery lifecycle is a **state machine, not a forward-only pipeline**.
-
-The happy path is intentionally simple, but implementation, verification, review, or specification may discover a genuine architecture blocker and route the work through `$architecture-remediation` according to the parent Spec's actual governance. Wayfinder-managed work re-enters its existing Wayfinder; an intentionally Independent Spec remediates the bounded architecture in place without inventing a Wayfinder. Review blockers may create a remediation loop that repeats ticketing, implementation, verification, and review until the review Exit Gate passes.
-
-Important invariants:
-
-* lifecycle state may move backward or revisit an earlier stage;
-* a closed GitHub issue does not necessarily mean its parent lifecycle is complete; for example, a closed ticket may still leave its Spec active;
-* normal Wayfinder completion closes the map as the durable marker that its delivery scope is complete under the current known state, and authoritative re-entry may reopen that completed map; a Wayfinder closed as `superseded` / `not_planned` is instead a terminal historical retirement and must not be silently reactivated merely because similar work is later required;
-* every reviewed Spec has exactly one conventional Spec Review issue as the durable owner of review/remediation state and the final Spec Review Exit Receipt; remediation state itself is conditional;
-* internal helper skills do not become separate lifecycle stages merely because they are named skills;
-* durable tracker/repository state, not conversational memory or Project-board position, determines correctness-critical workflow state.
-
-### Project Delivery Management
-
-`$project-delivery-management` coordinates intentional delivery WIP across independent Wayfinder lineages without replacing their lifecycle owners.
-
-Keep two questions separate:
-
-> **Dependency determines what may proceed. Focus determines what Polaris will proceed with now.**
-
-Cross-skill invariants:
-
-* canonical Wayfinders are discovered from `wayfinder:map`; there is no duplicate map registry;
-* the Wayfinder frontier is the set of open canonical maps with no open direct native blockers;
-* project focus is durable, explicit human intent owned by the single `project-delivery:management` control issue; it is never inferred from Project fields, Priority, assignees, issue ordering, activity, branches, or conversation state;
-* charting a new Wayfinder is allowed while another map is focused, but substantive advancement of a Wayfinder-managed lineage is guarded before mutation;
-* cross-Wayfinder semantic dependencies belong on the narrowest authoritative artifact whose lifecycle completion satisfies the prerequisite; `$project-delivery-management` owns cross-lineage semantics and delegates native relationship mechanics to `$github-issue-dependencies`;
-* Wayfinder-to-Wayfinder blockers are reserved for true whole-map prerequisites and must never encode project WIP preference;
-* `$to-specs` may publish all currently specifiable Specs. The Spec dependency frontier is open Specs with no open native blockers; a Wayfinder-managed Spec is actionable only when at least one current governing Wayfinder is focused;
-* intentionally Independent Specs remain outside Wayfinder focus management and follow their ordinary Spec lifecycle directly;
-* multiple independent actionable Specs inside one focused Wayfinder are allowed; do not create a separate active-Spec queue or WIP state;
-* authoritative transitions happen before project-delivery reconciliation. Reconciliation may remove completed or directly ineligible focus but never chooses a replacement;
-* a map that remains frontier-eligible but has only lower-level blocked work stays focused-but-stalled rather than acquiring a synthetic map blocker;
-* the GitHub Project remains a downstream projection of these facts and never becomes workflow authority.
-
-### Complete Delivery Lifecycle
+Stable downstream planning cells are:
 
 ```text
-Ideas & Intake                         public Project only; not formal skill state
-    ↓ HUMAN promotion
-$wayfinder
-    ↺ in-skill HITL / additional Wayfinder decisions as required
-    ↓ route clear
-    ↓ HUMAN
+IMP-*  private/mechanical implementation planning
+TEST-* explicit proof/test planning
+EXC-*  exclusions / decomposition guardrails
+```
+
+Problem Statement, Solution, User Stories, Architecture Impact explanation, and Further
+Notes are human-readable context. They do not create hidden ticket/acceptance obligations.
+
+`$spec-contract` deterministically derives the finite `OBL/IMP/TEST/EXC` contract universe
+and hashes. It does not classify arbitrary prose or infer architecture semantics.
+
+### Existing Spec reconciliation
+
+For an existing Wayfinder-managed Spec, `$to-specs` computes the desired current CCL
+projection/planning cells and amends the same Spec in place when needed while preserving:
+
+* issue identity;
+* original source/remediation provenance;
+* branch/fixed baseline;
+* existing ticket history;
+* native dependencies;
+* Spec Review lineage.
+
+`$to-remediation-specs` is temporary compatibility composition only. It may recover and
+repair unambiguous Wayfinder handoff/provenance links. It does not interpret CCL or amend
+Spec semantics.
+
+## Ticket Decomposition
+
+For an ordinary CCL-backed Spec, `$to-tickets` decomposes the deterministic Spec contract.
+It does not rediscover architecture from ADR/wiki/code prose.
+
+Every executable cell routes exactly once; exclusions are preserved separately.
+Deterministic routing is persisted in:
+
+```text
+<!-- ticket-coverage-manifest:v2 -->
+```
+
+with exact `cell + cell_hash + destination` identity.
+
+Human approval remains the execution-slicing control point for substantive ticket changes.
+The human chooses vertical execution boundaries; deterministic coverage proves no current
+cell was lost, duplicated, or silently altered.
+
+### Existing ordinary tickets
+
+Current v2 state reconciles mechanically:
+
+```text
+same ID + same hash       -> unchanged cell
+same ID + different hash  -> changed cell
+current-only ID            -> new cell
+manifest-only ID           -> removed cell
+```
+
+Closed tickets remain immutable historical evidence. New current work is mapped to an
+open/current owner or a new ticket rather than rewriting history.
+
+A narrative-only Spec edit that leaves the Spec Contract Hash/cell hashes unchanged does
+not require ticket-semantic reslicing.
+
+### Legacy ticket compatibility
+
+For an ordinary Spec with legacy ticket state but no current v2 mapping,
+`$to-remediation-tickets` may be used once as a compatibility mapper. Its output is
+admissible only when every current executable obligation maps to exact current Spec cells.
+
+### Spec Review remediation compatibility
+
+A conventional Spec Review remains a temporary compatibility source for
+`$to-remediation-tickets` until review remediation itself is normalized to a deterministic
+finding/cell delta.
+
+Compatibility Root Blocker state must not create new semantics. Every executable
+remediation obligation must map to exact current Spec cells plus a frozen review finding
+falsifier/preservation requirement.
+
+## Implementation
+
+All tickets for one Spec share the same Spec branch and fixed Spec baseline. Each ticket
+owns its own Ticket baseline; new tickets begin `Pending`, and `$implement-ticket` pins the
+exact pre-mutation candidate when implementation begins.
+
+`$implement-ticket` consumes the exact assigned Spec cells and inherited CCL addresses.
+It may choose implementation-equivalent private mechanics but may not make a missing
+material semantic decision.
+
+Before independent ticket closure verification, the parent carries a concise
+Implementation Evidence Index. It does not run a duplicate semantic certification pass.
+
+`$verify-ticket-closure` independently proves the frozen ticket contract. Independence is
+proof independence, not authority to broaden the ticket/Spec/CCL universe.
+
+## Integrated Spec Verification
+
+After all current implementation tickets are complete, `$verify-spec` owns integrated
+candidate verification and repair.
+
+It:
+
+1. rebuilds the deterministic current Spec contract;
+2. validates `ticket-coverage-manifest:v2` mechanically;
+3. runs applicable technical/repository checks;
+4. repairs implementation/test defects when current contract already fixes the answer;
+5. routes cell/decomposition gaps to `$to-tickets` and contract/planning gaps upstream;
+6. stabilizes one exact candidate HEAD;
+7. dispatches one fresh non-mutating `$verify-spec-closure` verifier;
+8. persists a passing Spec Verification Receipt only for the exact passing candidate.
+
+`$verify-spec-closure` independently derives falsifiers/evidence for every frozen cell and
+performs bounded cross-cell composition proof. It may falsify implementation but may not
+add/remove/reinterpret contract cells.
+
+## Independent Spec Review
+
+`$review-spec` reviews the exact verified candidate through one fresh reviewer across
+three independent axes:
+
+```text
+Standards
+Spec
+Architecture
+```
+
+The reviewer challenges implementation and architecture realization against the same
+frozen Spec cells/CCL semantics. It does not reconstruct a parallel semantic domain from
+prose.
+
+A review finding is classified into the smallest owning category, including:
+
+```text
+implementation/test/standards defect -> review remediation
+cell-routing defect                  -> $to-tickets
+contract/planning gap                -> $to-specs / semantic owner
+```
+
+Every reviewed Spec has exactly one conventional `Spec Review: ...` issue. That issue owns
+one cumulative `review-spec-finding-ledger:v1` and the final Spec Review Exit Receipt.
+
+A prior verification PASS never suppresses a concrete current in-contract falsifier; it
+is provenance only.
+
+## Review Finding Continuity
+
+Open findings survive until explicitly dispositioned. A new reviewer's silence does not
+close them.
+
+Stable review finding identity is preserved across re-review. Resolution requires current
+evidence against the exact prior falsifier; owner override/scope retirement requires
+explicit durable authority.
+
+When the deterministic contract changes, reconcile prior findings by exact changed cell
+identity/hash rather than by prose similarity.
+
+Review PASS requires zero open Blocking findings, zero unresolved routing/contract gaps,
+zero unaccounted prior findings, complete cell coverage, and a current passing verification
+receipt for the reviewed candidate.
+
+## Architecture / Contract Escalation
+
+When downstream work discovers missing or contradictory material semantics, do not repair
+that by interpretation in ticketing/implementation/verification/review.
+
+Route based on the smallest semantic owner:
+
+```text
+semantics already fixed but unregistered
+    -> $contract-ledger existing-authority
+
+one bounded Independent decision
+    -> $contract-ledger owner-decision
+
+Wayfinder-governed or coupled decision
+    -> governing $wayfinder / semantic decision domain
+
+CCL source conflict
+    -> exact governing semantic owner; no local choice
+```
+
+`$architecture-remediation` remains the lifecycle routing/disposition owner for genuine
+downstream architecture blockers, preserving the parent Spec's established governance
+mode. It does not become a second semantic compiler.
+
+## Project Delivery Management
+
+`$project-delivery-management` coordinates intentional delivery WIP across independent
+Wayfinder lineages without replacing lifecycle owners.
+
+Keep these questions separate:
+
+> **Dependency determines what may proceed. Focus determines what Polaris chooses to
+> proceed with now.**
+
+Key invariants:
+
+* canonical Wayfinders are discovered from durable map identity; there is no duplicate
+  map registry;
+* project focus is explicit durable human intent, never inferred from Project fields,
+  issue activity, ordering, branches, or assignees;
+* Wayfinder-managed substantive advancement is guarded by project-delivery focus;
+* Independent Specs remain outside Wayfinder focus;
+* native `blocked by` relationships remain execution-dependency truth;
+* same-lineage Spec dependencies are owned by `$to-specs`;
+* cross-Wayfinder semantic dependencies are owned by `$project-delivery-management` at
+  the narrowest authoritative artifact;
+* focus preference never becomes a synthetic dependency.
+
+A focused Wayfinder whose lower-level work is blocked may remain focused-but-stalled.
+
+## GitHub Project Tracking
+
+The public GitHub Project is an eventually consistent operational projection, not
+workflow authority.
+
+Routine lifecycle transitions do not synchronize the Project.
+
+Authorized projection boundaries are:
+
+1. Spec completion through `$spec-merge-cleanup`, which reconstructs/batch-syncs the
+   complete completed lineage;
+2. explicit human-requested board reconciliation;
+3. separately authorized bootstrap/migration.
+
+Do not create pending projection-debt registries. Project drift never rewrites semantic
+workflow state.
+
+## Complete Delivery Lifecycle
+
+```text
+Ideas / Intake
+    ↓ HUMAN promotion when formal planning is needed
+$wayfinder OR bounded Independent semantic path
+    ↓ decision-complete CCL
 $to-specs
-    ├─ internal → $to-remediation-specs when an existing Wayfinder-managed Spec must be reconciled
-    ├─ unresolved architecture → HUMAN → owning architecture path
-    └─ Spec ready
-           ↓ HUMAN
+    ↓ CCL-backed Spec
 $to-tickets
-    ├─ internal → $to-remediation-tickets when existing tickets or review remediation exist
-    ├─ architecture-blocked remediation → HUMAN → owning review/architecture path
-    └─ implementation frontier ready
-           ↓ HUMAN
+    ↓ HUMAN-approved deterministic ticket decomposition
 $implement-ticket
-    ├─ ordinary ticket complete; frontier remains
-    │      ↓ HUMAN
-    │   $implement-ticket                 next fresh ticket session
-    │
-    ├─ all implementation tickets complete
-    │      ↓ HUMAN
-    │   $verify-spec
-    │
-    ├─ unresolved architecture
-    │      ↓ HUMAN
-    │   $architecture-remediation
-    │      ├─ Wayfinder-managed
-    │      │      ↓ HUMAN
-    │      │   $wayfinder
-    │      │      ↓ HUMAN after route clear
-    │      │   $to-specs → $to-tickets → $implement-ticket
-    │      │
-    │      └─ Independent Spec
-    │             ↺ in-skill HITL / bounded design closure
-    │             ↓ amend existing Spec in place
-    │             ↓ HUMAN
-    │          $to-tickets → $implement-ticket
-    │
-    └─ Spec Review remediation ticket
-           ↓ HUMAN authorization
-       fresh verifier subagent executes $verify-root-closure
-           ├─ FAIL / invalidated attempt
-           │      ↓ ordinary return
-           │   $implement-ticket resumes, fixes, reproves
-           │      ↓ HUMAN authorization again
-           │   fresh $verify-root-closure attempt
-           │
-           └─ PASS
-                  ↓ ordinary return
-              $implement-ticket finalizes commit/push/evidence/reconciliation/closure
-                  ├─ remediation frontier remains → HUMAN → $implement-ticket
-                  └─ remediation complete → HUMAN → $verify-spec
-
+    ↺ HUMAN selects next frontier ticket while tickets remain
+    ↓ all current implementation tickets complete
 $verify-spec
-    ├─ verification-owned failure → repair and rerun inside $verify-spec
-    ├─ unresolved architecture → HUMAN → $architecture-remediation → governance-specific return path
-    └─ passing Spec Verification Receipt
+    ↺ repair implementation-owned failures
+    ├─ cell-routing defect -> HUMAN -> $to-tickets
+    ├─ contract/planning gap -> HUMAN -> semantic owner / $to-specs
+    └─ PASS receipt
            ↓ HUMAN
 $review-spec
-    ├─ zero Blocking findings and zero unresolved decomposition defects
-    │      ├─ create or reuse the one conventional Spec Review issue
-    │      ├─ persist Spec Review Exit Receipt on that review issue
-    │      └─ HUMAN → $spec-merge-cleanup
-    │
-    ├─ architecture/design decomposition defect
-    │      ├─ persist/update the canonical decomposition-defect record
-    │      ├─ current owner = parent Spec until active Spec Review remediation exists
-    │      ├─ current owner = active conventional Spec Review once remediation exists
-    │      └─ HUMAN → $to-tickets <current owner> → $implement-ticket → $verify-spec → $review-spec
-    │
-    ├─ Blocking findings; no new architecture decision required
-    │      ├─ create or reuse the Spec Review issue
-    │      ├─ internal → $review-spec-remediation
-    │      └─ HUMAN → $to-tickets → $implement-ticket → $verify-spec → $review-spec
-    │
-    └─ Blocking architecture finding with a new decision required
+    ├─ in-contract Blocking findings
+    │      -> conventional Spec Review remediation
+    │      -> HUMAN -> $to-tickets -> $implement-ticket -> $verify-spec -> $review-spec
+    ├─ cell-routing defect
+    │      -> HUMAN -> $to-tickets
+    ├─ contract/planning gap
+    │      -> HUMAN -> $to-specs / semantic owner
+    └─ PASS Exit Receipt
            ↓ HUMAN
-       $architecture-remediation
-           ├─ Wayfinder-managed → HUMAN → $wayfinder → $to-specs → $to-tickets → ...
-           └─ Independent Spec → in-place Spec remediation → HUMAN → $to-tickets → ...
-
 $spec-merge-cleanup
-    ├─ validate current Spec Review Exit Receipt
-    ├─ merge or directly close the Spec
-    ├─ close the conventional Spec Review issue
-    ├─ clean the Spec branch when applicable
-    ├─ reconcile every governing Wayfinder
-    └─ reconstruct + batch-sync the completed Spec lineage to the GitHub Project
-           └─ close Wayfinder only when no unresolved decision/fog remains
-              and all governed Derived/Remediation Specs are complete
-           ↓
-       Spec lifecycle complete
+    ↓ merge/close, cleanup, Wayfinder reconciliation, final Project projection
+Spec lifecycle complete
 ```
 
-The diagram describes lifecycle ownership only. Each named skill remains authoritative for its detailed gates, mutation rules, receipts, and handoff text.
+This is a state machine, not a forward-only pipeline. Valid blockers can route work
+backward through the owning contract/decomposition stage.
 
-### Specification Creation and Reconciliation
+## Spec Completion
 
-`$to-specs` owns the transition from decision-complete planning into implementation specification.
+`$spec-merge-cleanup` is the normal completion owner after a current Spec Review Exit
+Receipt passes.
 
-When a Wayfinder source already has an in-progress derived or remediation Spec, `$to-specs` invokes `$to-remediation-specs` internally rather than creating a duplicate Spec.
+It owns:
 
-`$to-remediation-specs` preserves the original Spec identity, source provenance, branch/baseline lineage, tickets, and review lineage while applying the decision delta in place.
-
-If accepted architecture does not determine the durable semantics required to amend a Wayfinder-managed Spec, specification stops and returns to its governing architecture path rather than inventing architecture inside the Spec. Independent-Spec architecture remediation is owned by `$architecture-remediation` after a downstream lifecycle discovers the gap; it amends that existing Spec in place and then returns through `$to-tickets`.
-
-### Ticket Creation and Reconciliation
-
-`$to-tickets` owns the transition from a Spec or Spec Review remediation source into executable ticket work.
-
-When an existing Spec already has ticket lineage, or the source is a Spec Review, `$to-tickets` invokes `$to-remediation-tickets` internally.
-
-Formal Implementation Tickets and Review Remediation Tickets are created or reconciled only through this ticketing lifecycle. A lifecycle owner that discovers additional executable work must route that work back through `$to-tickets` rather than create an ad-hoc formal ticket. `$to-remediation-tickets` remains internal composition and `$github-issue-dependencies` remains the mechanical owner for native relationship publication.
-
-Remediation ticketing is root-driven rather than symptom-driven. Closed tickets are historical evidence and are not reopened or rewritten to represent newly required work.
-
-All tickets for one Spec share the same Spec branch and fixed Spec baseline. Each ticket owns its own immutable Ticket baseline after `$implement-ticket` replaces `Pending` before first mutation.
-
-#### Live-WIP Ticket Reslicing
-
-Ticket reconciliation may discover that current accepted authority requires splitting or reassigning work **after an existing ticket has already accumulated uncommitted implementation WIP on the shared Spec branch**. That local candidate is lifecycle state even though it is not tracker authority.
-
-Do not create a deadlock by publishing a new prerequisite with ordinary `Ticket baseline: Pending` semantics while the newly blocked source ticket owns dirty WIP that must remain preserved.
-
-When a substantive existing-ticket reconciliation creates a new prerequisite or otherwise moves implementation ownership out of an already-started open ticket:
-
-1. detect whether the affected source ticket has active local WIP or another nonterminal implementation candidate on the shared Spec branch;
-2. if no active WIP exists, ordinary ticket publication/baseline rules apply;
-3. if active WIP exists, the approved proposal must classify the transition as a **live-WIP reslice** and persist exactly one machine-managed recovery record on the newly created destination/prerequisite ticket:
-
-```markdown
-<!-- ticket-reslice-recovery:v1 -->
-## Ticket Reslice Recovery
-
-**Status:** pending-prerequisite | prerequisite-complete | source-reconciled
-**Source ticket:** #<existing active ticket>
-**Destination ticket:** #<new prerequisite/remediation ticket>
-**Shared branch:** <spec branch>
-**Source ticket baseline:** <full SHA>
-**Reslice branch anchor:** <full remote branch SHA at publication>
-**Recovery mode:** isolated-worktree
-```
-
-4. the source ticket's pinned baseline remains immutable; the destination ticket may remain `Pending` until its own implementation entry;
-5. `$implement-ticket` for the destination must protect the dirty source checkout, create an isolated worktree at the frozen/current remote Spec-branch tip, pin the destination baseline there, and implement/verify/commit from the isolated worktree;
-6. donor WIP may be **read/copied only after explicit path/hunk ownership classification** against the reconciled ticket contracts. Destination-owned changes may be transplanted; source-owned changes stay protected; ambiguous/shared ownership blocks transplantation until resolved from durable authority;
-7. after the prerequisite closes, `$implement-ticket` for the source ticket resumes in an isolated worktree based on the current remote Spec branch and may transplant only the remaining source-owned WIP. It must not require the protected dirty caller checkout to be cleaned, stashed, reset, or committed first;
-8. the protected caller checkout is fingerprinted before and after every isolation/transplant operation. Any unexpected mutation is a hard blocker;
-9. completion of the prerequisite updates the same recovery record to `prerequisite-complete`; completion/reconciliation of the source updates it to `source-reconciled`.
-
-This is a recovery/isolation mechanism, not permission to blur ticket semantics. Each ticket is independently certified against its own contract, and the source/destination ownership split published by `$to-tickets` remains authoritative.
-
-### Review and Remediation Loop
-
-`$review-spec` owns independent review and parent reconciliation.
-
-Every reviewed Spec has exactly one conventional **Spec Review issue** as the durable owner of review state. `$review-spec` creates it before the first semantic review dispatch when none exists and reuses it across clean review, remediation, and re-review. Do not create one issue per pass. The issue owns one cumulative `<!-- review-spec-finding-ledger:v1 -->` Review Finding Continuity Ledger; unresolved Blocking findings remain there until an explicit terminal disposition is durably proven.
-
-Clean first review:
-
-```text
-$review-spec
-    ↓ zero Blocking findings and zero unresolved decomposition defects
-create or reuse the one conventional Spec Review issue
-    ↓
-persist/validate the cumulative Review Finding Continuity Ledger
-    ↓
-persist Spec Review Exit Receipt on that review issue
-    ↓ HUMAN
-$spec-merge-cleanup
-```
-
-The conventional Spec Review issue remains the durable review owner even when no remediation is required.
-
-When any downstream verifier or review discovers that current governing architecture/design contains a material implementation obligation absent from or misrouted by the current Architecture/Design Obligation Disposition Manifest, that condition is a **decomposition defect** owned by `$to-tickets`. Historical ticket/Spec certification remains provenance; it does not suppress the missing upstream obligation and does not need to be rewritten before the missing work is decomposed correctly.
-
-When architecture-conforming Blocking findings remain:
-
-```text
-$review-spec
-    ↓ create or reuse Spec Review issue
-    ↓ persist durable review-remediation input
-$review-spec-remediation
-    ↓ synthesize/update durable Root Blocker remediation state
-    ↓ HUMAN
-$to-tickets
-    ↓
-$implement-ticket
-    ↓
-$verify-spec
-    ↓
-$review-spec
-```
-
-`$review-spec-remediation` is internal composition, not a separate human-authorized lifecycle stage.
-
-The same Spec Review issue is reused across remediation/re-review cycles. Do not create a new review issue for every review pass.
-
-The **Pending Review Remediation** packet remains intentionally durable even though the transition into `$review-spec-remediation` is internal. It provides an explicit, recoverable contract between independent review/reconciliation and remediation synthesis.
-
-The review loop ends only when the review Exit Gate passes and `$review-spec` persists a current **Spec Review Exit Receipt** on the one conventional Spec Review issue.
-
-### Review Finding Continuity
-
-Clean proof and unresolved findings are dual durable state:
-
-```text
-review-spec-proof-reuse:v1
-    clean/N/A proof survives until its certified invalidation boundary is crossed
-
-review-spec-finding-ledger:v1
-    validated Blocking findings survive until an explicit terminal disposition is proven
-```
-
-A changed Spec Contract or a fresh review that does not rediscover a finding never erases a prior nonterminal finding by itself. Re-review must classify every open finding against its own invalidation boundary: unchanged findings carry forward; changed/ambiguous findings receive a bounded continuity review cell; every prior row receives an explicit current state.
-
-Before PASS require zero unaccounted prior findings, zero unresolved continuity cells, and zero open Blocking finding rows. The deterministic Exit renderer consumes the exact current finding ledger and refuses to emit PASS otherwise. The final Exit Receipt is owned by the conventional Spec Review and is cryptographically bound to the exact finding-ledger body; `$spec-merge-cleanup` consumes that review-owned receipt, never a parent-Spec copy.
-
-### Decomposition Defect Routing
-
-Architecture/design decomposition is owned by `$to-tickets`; discovery may occur later.
-
-Use one canonical machine-managed record on the artifact that is currently the public `$to-tickets` source:
-
-```text
-<!-- decomposition-defects:v1 -->
-```
-
-Ownership is deterministic:
-
-* before an active conventional Spec Review owns remediation, the record lives on the parent Spec and the Human Handoff targets that parent Spec: `$to-tickets - <Parent Spec Title> (<Spec URL>)`;
-* once an active conventional Spec Review owns the remediation lifecycle, the record lives on that Spec Review and the Human Handoff targets that review: `$to-tickets - <Spec Review Title> (<Spec Review URL>)`;
-* the parent Spec remains the durable owner of the current `Ticket Coverage Manifest` and its Architecture/Design Obligation Disposition Manifest even when the defect record lives on a Spec Review.
-
-`$verify-ticket-closure`, `$verify-spec`, and `$review-spec` may discover a decomposition defect, but none may create or rewrite implementation-ticket scope directly. The discovering lifecycle parent persists or updates the canonical record with a stable `DD-*` identity, exact governing source, missing/misrouted obligation, current manifest/ticket state, discovery provenance, and `Status: unresolved`, then stops at the Human Handoff to `$to-tickets`.
-
-`$to-tickets` independently validates each unresolved `DD-*` against current architecture/design authority and the current parent-Spec manifest. A report is a falsifier candidate, not ticketing authority. Confirmed defects reconcile the manifest and active ticket coverage forward; rejected reports receive an explicit terminal disposition. Closed historical tickets are never rewritten merely to make the past appear complete.
-
-### Architecture Escalation and Re-entry
-
-When a workflow cannot continue without a new or changed durable architectural choice:
-
-```text
-active lifecycle owner
-    ↓ HUMAN
-$architecture-remediation
-    ↓
-resolve parent Spec governance mode
-```
-
-`$architecture-remediation` has two valid modes.
-
-**Wayfinder-managed Spec:** recover the exact existing governing Wayfinder. The remediation workflow remains routing-only for that mode: reopen the same map when authoritative re-entry requires it, create/reuse one decision ticket per independent architectural decision, and hand resolution to `$wayfinder`. It never creates a replacement map.
-
-**Independent Spec:** do not invent a Wayfinder. `$architecture-remediation` owns the bounded in-place architecture-resolution lifecycle for the existing Spec: perform owner-guided HITL for unresolved durable choices, run bounded design-completeness closure, persist architecture authority/docs/wiki, amend the existing Spec, persist remediation provenance, and hand off to `$to-tickets` so existing tickets are reconciled before implementation resumes.
-
-A Spec is not converted from Independent to Wayfinder-managed merely because implementation discovers architecture. Creating a new Wayfinder is a separate planning decision for genuinely new destination scope, not an automatic remediation prerequisite.
-
-Do not treat missing realization of already accepted architecture as a new architecture decision. The owning skill decides whether the blocker is implementation work or genuinely unresolved architecture.
-
-For Wayfinder-managed work, if the governing Wayfinder was previously closed by normal lifecycle completion, authoritative re-entry reopens it before unresolved decision work is created or resumed. Reopening restores eligibility evaluation; it does not restore or infer project focus. A Wayfinder retired as `superseded` / `not_planned` is historical and is not reopened by this ordinary re-entry path; new work must use a current artifact and may reference the superseded lineage as prior research/provenance.
-
-Mode-specific return paths are:
-
-```text
-Wayfinder-managed:
-$architecture-remediation
-    ↓ HUMAN
-$wayfinder
-    ↓ HUMAN after route clear
-$to-specs
-    ↓ internal $to-remediation-specs when an existing Spec is affected
-    ↓ HUMAN
-$to-tickets
-    ↓ HUMAN
-$implement-ticket
-
-Independent Spec:
-$architecture-remediation
-    ↺ in-skill owner decisions + bounded closure
-    ↓ amend existing Spec in place
-    ↓ HUMAN
-$to-tickets
-    ↓ HUMAN
-$implement-ticket
-```
-
-Do **not** jump directly back to the previously blocked implementation ticket when an architectural decision changes or invalidates its Spec/remediation obligation. The Spec and ticket contracts must first be reconciled against the new authority.
-
-This architecture re-entry path may originate from `$implement-ticket`, `$verify-spec`, `$review-spec`, `$to-remediation-specs`, or another lifecycle owner that encounters a genuine unresolved durable choice.
-
-### Independent Root Closure Verification
-
-`$verify-root-closure` is a special independent certification path for **Spec Review remediation tickets only**:
-
-```text
-$implement-ticket
-    ↓ HUMAN authorization
-fresh verifier subagent executes $verify-root-closure
-    ↓ verifier result
-$implement-ticket resumes
-```
-
-The human invocation authorizes independent verification. It does not transfer implementation ownership to the verifier and does not authorize the `$implement-ticket` main agent to certify its own work.
-
-`$verify-root-closure` is a non-mutating leaf workflow. `$implement-ticket` fingerprints candidate repository state before dispatch and again after the verifier returns. Any repository-state change during verification invalidates the verifier result; the attempt is neither `PASS` nor `FAIL`.
-
-A valid `FAIL` is **non-terminal**:
-
-```text
-$verify-root-closure FAIL
-    ↓ ordinary return
-$implement-ticket fixes all actionable in-scope findings
-    ↓ rebuild proof
-    ↓ HUMAN authorization
-fresh verifier attempt
-```
-
-Every independent verification attempt requires fresh human authorization.
-
-After a valid `PASS`, `$implement-ticket` remains the lifecycle owner. `PASS` alone is not ticket completion. `$implement-ticket` commits and pushes the verified candidate, persists Root Closure Evidence on the remediation ticket, reconciles the verified root state into the parent Spec Review's canonical Root Blocker Ledger and cumulative acceptance state, and only then closes the ticket.
-
-When additional remediation tickets remain, the human selects the next frontier ticket. When remediation is complete, the Spec returns through `$verify-spec` and `$review-spec` again.
-
-### Spec Completion
-
-`$spec-merge-cleanup` is the only normal completion path after `$review-spec` passes its Exit Gate.
-
-It requires the exact current **Spec Review Exit Receipt** and owns:
-
-* merge or direct Spec closure;
+* merge/direct Spec closure;
 * branch cleanup when applicable;
 * closure of the conventional Spec Review issue;
-* reconciliation of every current Wayfinder governing the completing Spec;
-* reconstruction and one-batch GitHub Project reconciliation of the completed Spec lineage.
+* reconciliation of every governing Wayfinder;
+* final completed-lineage Project projection.
 
-Once review reaches a persistence point, a missing or duplicate conventional Spec Review issue is workflow drift; cleanup must fail closed rather than infer review authority.
+The Exit Receipt remains on the conventional Spec Review; verification receipts remain on
+the parent Spec.
 
-A Wayfinder effort is reconciled as complete only when no unresolved Wayfinder decision/fog remains and every currently governed Derived and Remediation Spec is complete. Normal lifecycle closure is the durable delivery-complete marker; `superseded` / `not_planned` closure is a distinct historical retirement and must never be treated as successful delivery completion. Provenance failure must not be guessed.
+A candidate-semantic mutation after review invalidates completion authority. A proven
+non-semantic policy-only synchronization may preserve the semantic anchor under root
+`AGENTS.md`.
+
+## Live-WIP Ticket Reslicing
+
+When existing-ticket reconciliation moves/prerequisites work after a ticket has active
+uncommitted WIP, preserve that WIP rather than forcing stash/reset/commit merely to make a
+new prerequisite publishable.
+
+Use the established `ticket-reslice-recovery:v1` isolated-worktree recovery model. The
+reconciled exact Spec cells determine semantic ownership; WIP transplantation is allowed
+only after path/hunk ownership is classified against the new ticket contract. Ambiguous
+ownership blocks transplantation.
+
+This recovery mechanism does not change semantic contract ownership.
 
 ## Tracker Relationship Semantics
 
-Use tracker hierarchy for **decomposition**, not for every lifecycle handoff.
-
-Good parent/sub-issue relationships include:
+Use hierarchy for decomposition:
 
 ```text
 Wayfinder Map
@@ -540,420 +460,129 @@ Spec Review
     └─ Review Remediation Ticket
 ```
 
-A Wayfinder-to-Spec relationship is normally **planning provenance / lifecycle handoff**, not decomposition. Preserve it through the canonical Wayfinder/Spec provenance metadata rather than forcing it into parent/sub-issue hierarchy.
+Wayfinder→Spec is normally lifecycle provenance, not parent/sub-issue decomposition.
 
-Likewise, promotion from an Intake item to Wayfinder is a lifecycle/provenance transition, not automatically a parent/sub-issue relationship.
-
-Use blocking/dependency relationships for actual execution dependencies. Same-lineage dependency semantics remain with the existing lifecycle owner. `$project-delivery-management` owns semantics for dependencies crossing Wayfinder lineages and places them at the narrowest authoritative consumer/blocker artifacts; it delegates only native relationship mechanics to `$github-issue-dependencies`.
-
-Do not infer lifecycle authority merely from hierarchy or dependency edges. Do not create dependencies to represent focus, priority, queue order, or WIP preference.
-
-## GitHub Project Tracking
-
-The public Polaris GitHub Project is an **operational projection** of the workflow, not a correctness authority or workflow engine. It is intentionally **eventually consistent during active delivery**.
-
-The Project may expose fields such as:
-
-* Artifact Type;
-* Delivery State;
-* Workflow State;
-* Next Skill;
-* Work Status;
-* Intake State;
-* Priority;
-* Area;
-* Root Blocker;
-* Completed On.
-
-Cross-skill rules:
-
-* **Workflow State is a state machine, not a stage number.** Items may move backward or revisit a prior state when the skill lifecycle loops.
-* **GitHub issue Open/Closed is not generally equivalent to Polaris workflow state.** Ticket closure may still leave its parent Spec active. A Wayfinder closed by normal lifecycle completion is a delivery-complete marker that may be reversed by authoritative re-entry; a Wayfinder closed `superseded` / `not_planned` is a distinct terminal historical disposition and is not completion.
-* **Superseded is terminal non-completion.** Formal artifacts retired by newer product or architecture authority project `Workflow State=Superseded`, `Work Status=Done`, `Next Skill=None`, `Delivery State=Superseded`, and no `Completed On`; never normalize them to `Complete` / `Released`.
-* **Next Skill names the next human lifecycle/HITL entry point.** Internal helpers such as `$to-remediation-specs`, `$to-remediation-tickets`, and `$review-spec-remediation` should not be presented as separate user-controlled board stages.
-* **Project-delivery authorization overlays, rather than replaces, lifecycle routing.** Eligible-unfocused Wayfinder Maps use `Next Skill=$project-delivery-management`; Wayfinder-managed descendants preserve the lifecycle `Next Skill` for `In Focus`, `Eligible`, and `Denied`, while lifecycle-owned `None` remains `None`. `Delivery State` carries project-delivery authorization independently of `Workflow State` and `Next Skill`.
-* **Intentionally Independent Specs and descendants are not enrolled into Wayfinder delivery focus merely because they enter architecture remediation.** Their lifecycle projection remains governed by the Spec/ticket workflow itself.
-* **Durable tracker/repository artifacts remain authoritative.** Project fields are derived from the same receipts, baselines, provenance, blocker ledgers, issue relationships, focused-set state, and issue state used by the skills; they may lag those authorities until an authorized projection boundary.
-* **Routine lifecycle work does not synchronize the Project.** `$wayfinder`, `$to-specs`, `$to-tickets`, `$implement-ticket`, `$verify-spec`, `$review-spec`, `$architecture-remediation`, and internal `$project-delivery-management` transitions persist authoritative state and continue without invoking `$project-tracking`.
-* **Mandatory projection happens at the Spec completion boundary.** `$spec-merge-cleanup` reconstructs the complete completed-Spec lineage from authoritative state and invokes `$project-tracking` once for that whole set. It must not depend on earlier board membership or field freshness.
-* **Explicit human-requested reconciliation is the mid-Spec escape hatch.** When the human explicitly asks for the board to be refreshed, reconstruct the requested authoritative artifact universe and synchronize it in one batch. A focus/dependency operation alone is not an implicit board-refresh request.
-* **Do not persist projection debt.** Never create a pending-update queue, flag, label, ledger, or comment stream. Missing rows and stale fields are projection lag, not workflow authority.
-* **Project drift must not change semantic workflow state.** If Project metadata disagrees with durable workflow evidence, repair the projection at an authorized boundary rather than changing the underlying lifecycle to match the board.
-* **Area and Priority are presentation metadata, not workflow authority.** A reconciliation owner supplies either only when it independently owns an intentional presentation change; otherwise `$project-tracking` preserves the current Project value verbatim, including blank.
-* **Project synchronization failure is projection drift, not semantic rollback.** Report it and preserve the authoritative tracker/repository result; a later authorized reconciliation reconstructs the board from durable state.
-* A lightweight auto-add label such as `workflow:tracked` may provide discovery/safety-net behavior, but labels and auto-add rules do not determine lifecycle correctness.
-
-Do not configure generic issue-closed automation to mean `Workflow State = Complete` or `Work Status = Done` for Polaris.
-
-## Skill Roles
-
-Use role classification to reason about composition without maintaining a brittle catalog of every invocation edge.
-
-### Lifecycle Owners
-
-Lifecycle owners control a major phase and own transitions into the next phase. Examples include:
-
-```text
-$wayfinder
-$to-specs
-$to-tickets
-$implement-ticket
-$verify-spec
-$review-spec
-$spec-merge-cleanup
-$architecture-remediation
-```
-
-### Project-Level Coordination Owner
-
-```text
-$project-delivery-management
-```
-
-This owner is not an additional lifecycle stage. Human invocations make discretionary focus choices; lifecycle owners invoke its guard/reconcile/dependency operations only where their own contracts prescribe internal composition.
-
-### Internal Composition and Helper Skills
-
-Helpers perform part of an already-authorized parent workflow and normally return their result to that parent. Examples include remediation helpers, tracker relationship helpers, architecture reviewers, wiki/document helpers, formatting, targeted verification, database migration support, and code-analysis utilities.
-
-Examples include:
-
-```text
-$to-remediation-specs
-$to-remediation-tickets
-$github-issue-dependencies
-$review-spec-remediation
-$review-architecture
-$wiki-sync
-$wiki-lint
-$database-migrations
-$format-code
-$verify-code
-$deduplicate-code
-$project-tracking
-```
-
-`$project-tracking` is an internal helper but has an intentionally narrow invocation cadence: mandatory from `$spec-merge-cleanup`, explicit human-requested reconciliation, or separately authorized bootstrap/migration. It is not routine internal composition for every lifecycle mutation.
-
-A helper should not jump directly into another lifecycle owner unless its contract explicitly owns that transition. Prefer returning structured state to the parent so the lifecycle owner performs any required Human Handoff.
-
-### Independent Verifier
-
-```text
-$verify-root-closure
-```
-
-Independent verification must remain isolated from implementation.
-
-### Interactive / HITL Utilities
-
-Interactive utilities may ask the user questions while remaining inside the current workflow. Examples include `$grilling`, `$domain-modeling`, and `$prototype`.
-
-HITL inside a skill is not automatically a lifecycle handoff.
+Use native blocking/dependency relationships only for actual execution prerequisites,
+never focus/priority/queue preference.
 
 ## Human Handoff Convention
 
-Use a Human Handoff only at an intentional lifecycle or fresh-session boundary.
+A Human Handoff occurs only when the current workflow intentionally stops and the human
+must select/authorize/initiate the next lifecycle stage.
 
-### Canonical Human Handoff Format
-
-Every copy-ready cross-skill Human Handoff that invokes a skill against a durable tracker artifact MUST use exactly:
+For a skill targeting a durable tracker artifact, the copy-ready line is:
 
 ```text
 $<skill-name> - <Artifact Title> (<Artifact URL>)
 ```
 
-Rules:
+Use the artifact's exact current title/URL. Keep evidence/rationale outside the command.
+Emit one complete line per independently actionable artifact.
 
-* use the artifact's actual current tracker title and canonical URL;
-* never substitute a bare issue number, issue ID, slug, or URL-only target;
-* keep the invocation line limited to the skill and target artifact;
-* put blocker summaries, evidence, rationale, warnings, and other context outside the invocation line;
-* when several artifacts are independently actionable, emit one complete invocation line per artifact;
-* the artifact named in the handoff must be the artifact the receiving skill is expected to consume, not merely a related parent or provenance artifact;
-* internal composition, ordinary returns, in-skill HITL, and commands whose defined grammar inherently requires an action/subcommand are not artifact Human Handoffs and are not rewritten into this form;
-* schematic lifecycle diagrams may use bare skill names because they describe topology rather than copy-ready user commands.
+### Fresh-session durability
 
-The canonical format governs only the copy-ready invocation line. Preserve the owning skill's Human Handoff presentation around it, including status emoji, success/warning heading, explanatory text, the `Please run:` line, and any supporting blocker/evidence detail required by that workflow.
+Every Human Handoff must survive total chat/context loss. Before handoff, persist every
+correctness-critical blocker, contract identity, provenance, or reason on durable
+repository/tracker state that the destination can recover from the invoked artifact.
 
-A prose sentence that merely names the next skill does not satisfy a required Human Handoff.
+Do not require the human to restate prior findings or copy surrounding prose into the next
+session.
 
-### Fresh-Session Durability Gate
-
-Every Human Handoff is a fresh-session boundary. The user may clear all conversational context before invoking the next skill.
-
-Before emitting a Human Handoff, the current lifecycle owner must prove that the destination can recover every correctness-critical reason, blocker, binding, and required input from the copy-ready invocation plus durable repository/tracker state. Prior chat, prose elsewhere in the current response, local scratch files, and agent memory are not recoverable handoff state.
-
-If the invoked durable artifact does not already contain enough information, persist the missing transition context on its authoritative source/destination artifact before presenting the handoff, then read it back and verify it. The handoff command must identify a durable artifact by title and URL when available. A concise summary in surrounding prose may help the human, but it is supplemental and must never be the only source of correctness-critical transition state.
-
-Do not require the human to copy explanatory prose, restate a prior finding, remember why the workflow stopped, or reconstruct evidence in the fresh session.
-
-#### Durable architecture-blocker report
-
-Any lifecycle owner that stops because an existing Spec, Implementation Ticket, Spec Review, or other formal artifact requires a new or changed durable architecture/design choice before it can continue must persist exactly one active machine-managed blocker report on the artifact handed to `$architecture-remediation` before emitting that Human Handoff.
-
-Use:
-
-```markdown
-<!-- architecture-blocker:v1 -->
-## Architecture Blocker
-
-**Status:** unresolved | routed | resolved
-**Source workflow:** `$<skill>`
-**Source artifact:** <#n title + URL>
-**Parent Spec:** <#n | None>
-
-### Blockers
-1. **Question/conflict:** <exact unresolved durable choice>
-   - **Evidence:** <durable source / concrete seam evidence>
-   - **Material consequence:** <what materially differs if implementation chooses>
-   - **Blocked obligation:** <exact requirement/acceptance obligation>
-   - **Governing authority:** <applicable ADR/doc/contract references>
-
-### Disposition
-<None while unresolved | routing/resolution references>
-```
-
-The marker is single-record state for the source artifact: maintain zero or one active comment containing `<!-- architecture-blocker:v1 -->`; update that comment in place rather than creating competing active reports.
-
-Status ownership is staged and fail-closed:
-
-* `unresolved` means the producing lifecycle has proven a durable architecture/design gap and `$architecture-remediation` must consume it;
-* `routed` means `$architecture-remediation` has durably bound the blocker to its governing decision path, but the blocker is **not yet implementation-ready terminal state**;
-* `resolved` means current durable authority directly determines every blocker question and the disposition names that exact controlling authority/remediation receipt.
-
-For Wayfinder-managed remediation, `$architecture-remediation` owns `unresolved → routed`. After the governing decision becomes accepted and the affected Spec is reconciled, `$to-tickets` is the downstream finalization owner for `routed → resolved` while reconciling the existing ticket universe. That finalization is legal only when current accepted authority directly answers every persisted blocker question, the parent Spec has consumed the governing decision state, and the ticket is classified `design-ready` under the complete architecture-readiness sweep. `$to-tickets` must preserve the original blocker questions/evidence/provenance, update the same managed comment in place with the exact controlling authority, and require exact readback. It may not change `unresolved → routed`, invent authority, suppress a blocker, or mark a report resolved merely because a ticket body was rewritten.
-
-For Independent-Spec remediation, `$architecture-remediation` retains `unresolved → resolved` ownership after its bounded authority/Spec/receipt closure.
-
-A ticket carrying `unresolved` or `routed` architecture-blocker state is not admissible to implementation. Before any `$implement-ticket` mutation, the marker must be absent or durably `resolved`; a stale `routed` marker returns through `$to-tickets` reconciliation rather than being ignored.
-
-When a helper discovers the blocker, it returns structured blocker state to its lifecycle-owning parent; the parent persists the report and owns the Human Handoff.
-
-`$architecture-remediation` is the routing/disposition owner for blocker reports handed to it; `$to-tickets` has only the narrow downstream finalization authority above. A producer may include a concise blocker summary in surrounding prose, but the report—not the prior session—is the recoverable blocker authority.
-
-For a pre-Spec handoff directly back to an existing Wayfinder rather than `$architecture-remediation`, apply the same durability rule: the invoked Wayfinder map/decision must durably contain the unresolved question or receive an equivalent persisted blocker record before the handoff.
-
-A handoff should:
-
-1. state why the current lifecycle is stopping;
-2. identify the next skill;
-3. provide a copy-ready invocation using durable titles/URLs when available;
-4. stop after the handoff;
-5. avoid alternative continuation that bypasses the boundary.
-
-Typical structure:
-
-```text
-⚠️ <why the current lifecycle must stop>
-
-Please run:
-
-$next-skill - <Durable Artifact Title> (<URL>)
-```
-
-Do not add a Human Handoff solely because the target has `allow_implicit_invocation: false` or another platform-specific invocation gate.
-
-## Return Semantics
-
-Returning from an invoked child to its caller is ordinary workflow continuation and requires no Human Handoff.
-
-Examples:
-
-```text
-$to-tickets
-    ↓
-$to-remediation-tickets
-    ↓ result
-$to-tickets resumes
-```
-
-```text
-$review-spec
-    ↓
-$review-spec-remediation
-    ↓ result
-$review-spec resumes or propagates the child's terminal lifecycle result
-```
-
-Avoid handoff ping-pong such as:
-
-```text
-parent → HUMAN → child → HUMAN → parent
-```
-
-when the child is only performing internal work for the parent.
-
-## Durable Workflow State
-
-Correctness-critical state must survive fresh sessions and agent context loss.
-
-Prefer durable repository or tracker artifacts over conversational memory whenever later workflow stages depend on exact state.
-
-Examples include:
-
-* Wayfinder source/remediation provenance and Spec handoff metadata;
-* Architecture Blocker report at unresolved-architecture Human Handoffs;
-* Independent Architecture Remediation Receipt on an Independent Spec;
-* Spec baseline metadata;
-* Ticket branch and Ticket baseline;
-* Spec Verification Receipt;
-* Spec Review Exit Receipt;
-* Root Blocker Ledger;
-* cumulative acceptance matrix;
-* Pending Review Remediation packet;
-* Root Closure Evidence;
-* Root Closure Reconciliation.
-
-A durable intermediate artifact may remain valuable even when both producing and consuming skills are internal composition.
-
-Do not remove durable state merely because a former Human Handoff was removed. First determine whether the artifact also provides recovery, isolation, exact-state binding, auditability, or provenance.
-
-GitHub Project fields are intentionally **not** correctness-critical durable authority. They are an eventually consistent operational view over the artifacts above and may legitimately lag until an authorized projection boundary.
+Architecture/blocker/decomposition records remain governed by their owning skill. A
+handoff is not durable if the destination must ask “what problem caused this?”
 
 ## Parent / Child Ownership
 
-Use these defaults unless a skill explicitly establishes a different contract:
+Defaults:
 
-* **Parent owns lifecycle routing.** A helper reports state upward; the lifecycle owner decides whether to continue, stop, or issue a Human Handoff.
-* **Child owns its bounded procedure.** The parent should not duplicate the child's internal algorithm.
-* **Return is ordinary control flow.** A child result resumes the parent without new authorization.
-* **Parent owns commit scope when declared.** Repository-writing child skills contribute their mutations to the parent's commit when the parent workflow establishes commit ownership.
-* **Children do not invent lifecycle transitions.** If a helper detects a condition requiring an upstream or sideways lifecycle change, return that condition to the parent unless the helper explicitly owns the transition.
+* parent owns lifecycle routing;
+* child owns its bounded procedure;
+* internal child results return normally to the parent;
+* commit/mutation ownership follows the parent contract when declared;
+* helpers do not invent sideways lifecycle transitions.
 
-Example:
+A parent may not substitute its own reconstructed answer when its procedure explicitly
+requires an actual child result.
 
-```text
-$to-remediation-tickets detects architecture-blocked root
-    ↓
-returns architecture-blocked result
-    ↓
-$to-tickets owns the Human Handoff to the appropriate review lifecycle
-```
+## Independent Verification Boundary
 
-## Verification Independence
+Independent verification protects implementation correctness, not semantic ambiguity.
 
-Independent verification must not collapse into implementation.
+A fresh verifier/reviewer may:
 
-For `$verify-root-closure` specifically:
+* derive adversarial falsifiers for exact frozen cells;
+* inspect production composition;
+* independently validate evidence;
+* reject a candidate that violates the contract;
+* surface a proven upstream contract/routing gap.
 
-* the verifier is fresh;
-* the verifier is non-mutating;
-* it does not delegate;
-* it does not repair failures;
-* it returns a consolidated verdict only after its bounded scan;
-* repository state is deterministically fingerprinted before and after dispatch;
-* any mutation invalidates the attempt rather than becoming verifier-owned implementation.
+It may not:
 
-A failed verifier result returns implementation ownership to `$implement-ticket`; it does not create a new lifecycle owner or terminate an otherwise actionable remediation ticket.
+* invent a new contract member;
+* strengthen/weaken CCL;
+* reinterpret examples/rationale into a taxonomy/cardinality/state;
+* replace an unresolved upstream decision with verifier judgment.
 
-The exact fingerprint algorithm and dispatch protocol belong in `$implement-ticket` and `$verify-root-closure`; do not duplicate them here.
-
-## Adding or Modifying Skills
-
-Before adding or changing a cross-skill edge, answer these questions in order:
-
-1. **Who owns the current lifecycle stage?**
-2. **Is the target performing internal composition or starting a new lifecycle stage?**
-3. **Does the human make a meaningful decision, authorization, or selection at this edge?**
-4. If **yes**, use a Human Handoff.
-5. If **no**, invoke the child directly.
-6. **Does the child return to its caller?** If yes, resume the caller directly.
-7. **Can this workflow legitimately re-enter an earlier lifecycle state?** Model that loop explicitly rather than assuming forward-only progression.
-8. **Does correctness require durable state across sessions?** Persist it before relying on transient context.
-9. **Who owns repository/tracker mutations and commits?** Keep ownership explicit.
-10. **Who owns lifecycle routing when the child detects a blocker?** Prefer the parent lifecycle owner.
-11. **Does the change preserve reviewer/verifier independence?** Never trade independence for convenience.
-12. **Is this an authorized Project projection boundary?** Routine lifecycle transitions defer Project synchronization. Only `$spec-merge-cleanup`, an explicit human-requested board reconciliation, or separately authorized bootstrap/migration should invoke `$project-tracking`.
-13. **Does the transition preserve the durable artifact ownership contract?** In particular, reuse the one conventional Spec Review issue across clean review, remediation, and re-review rather than omitting it or creating one issue per pass.
-14. **Does this transition respect the parent Spec's governance mode?** Never create or require a Wayfinder solely because an intentionally Independent Spec encountered architecture remediation.
-15. **Can the destination recover the complete transition after total session loss?** If not, persist the missing handoff state before presenting the command.
-
-When changing an existing skill, preserve unrelated behavior. Cross-skill governance changes should be lean and surgical.
+Dispatch is never a verdict. Parent admission requires an actual terminal result bound to
+the exact frozen candidate/contract identity.
 
 ## Anti-Patterns
 
-Avoid these patterns:
-
-### Linear Pipeline Assumption
+### Semantic archaeology
 
 ```text
-wayfinder → specs → tickets → implementation → verification → review
-```
-
-is the happy path, not a guarantee that work can only move forward.
-
-Architecture discovery and review remediation may legitimately loop back through earlier lifecycle owners.
-
-### Synthetic Wayfinder for an Independent Spec
-
-```text
-Independent Spec
-    ↓ architecture blocker
-create Wayfinder only because remediation expects one
-```
-
-This is invalid. Architecture remediation must preserve the Spec's established governance mode. Chart a new Wayfinder only when the owner is starting a genuinely new planning effort/destination, not as a compatibility shim for an Independent Spec.
-
-### Duplicate or Parent-Owned Spec Review State
-
-Every reviewed Spec uses exactly one conventional `Spec Review:` issue as the durable owner of review/remediation state and the final Exit Receipt.
-
-Do not create one review issue per pass, omit the conventional review issue on a clean review, or persist the final Exit Receipt on the parent Spec.
-
-### Project Board as Workflow Authority
-
-Do not use Project fields, board columns, labels, or generic automation as proof that a receipt, baseline, blocker, approval, verification, or lifecycle transition exists.
-
-Reconcile Project state from durable workflow artifacts only at an authorized projection boundary. Do not create shadow state merely to track that the board is stale.
-
-### GitHub Open / Closed as Lifecycle State
-
-Do not infer `Complete`, `Superseded`, `Ready to Spec`, `Ready to Verify`, or another workflow state solely from whether an issue is open or closed.
-
-Issue state and Polaris lifecycle state answer different questions. Normal Wayfinder completion closure is a specific delivery-complete marker established by its owning lifecycle; `superseded` / `not_planned` closure is a distinct historical retirement and must not be conflated with completion or ordinary re-entry.
-
-### Provenance as Hierarchy
-
-Do not force every Wayfinder→Spec or Intake→Wayfinder handoff into parent/sub-issue hierarchy. Use hierarchy for decomposition and preserve lifecycle provenance through its owning durable metadata.
-
-### Metadata-Driven Handoffs
-
-```text
-allow_implicit_invocation=false
-    ⇒ Human Handoff
-```
-
-This is not a valid lifecycle rule by itself.
-
-### Handoff Ping-Pong
-
-```text
-parent → HUMAN → helper → HUMAN → parent
-```
-
-when the helper is simply part of the parent's work.
-
-### Child-Owned Sideways Routing
-
-```text
-helper detects blocker
+CCL exists
     ↓
-helper independently jumps to unrelated lifecycle owner
+downstream skill rereads Decision/ADR/wiki prose
+    ↓
+invents or changes contract meaning
 ```
 
-Prefer returning the blocker to the parent lifecycle owner.
+Invalid. Consume exact CCL/Spec cells or report a gap/conflict.
 
-### Conversational State as Durable Authority
+### Hidden prose obligations
 
-Do not rely on prior-session memory for branch identity, baselines, review findings, closure state, blocker provenance, handoff reasons, or other correctness-critical workflow inputs when durable recovery is possible.
+Narrative wording outside `OBL/IMP/TEST/EXC` is not a secret ticket/verification cell.
+Reconcile the Spec if it actually needs to be contractual.
 
-A Human Handoff that requires the destination to ask “what finding prompted this?” is a workflow defect: the producing lifecycle owner failed the Fresh-Session Durability Gate.
+### Synthetic Wayfinder
 
-### README Procedure Duplication
+Do not create a Wayfinder solely because an Independent Spec reaches architecture
+remediation or CCL registration.
 
-Do not copy detailed commands, templates, acceptance algorithms, or skill-specific procedures into this README. Link responsibility to the owning skill instead.
+### Project board as authority
 
-### Automatic Lifecycle Continuation
+Do not use Project fields/columns/labels to prove receipts, approvals, blockers, focus,
+verification, review, or semantic state.
 
-Do not automatically continue into a stage intentionally designed for user selection, authorization, independent review, certification, merge/cleanup, or another fresh-session boundary.
+### GitHub open/closed as complete lifecycle state
+
+Issue state alone does not establish Polaris workflow completion/supersession/verification.
+Use owning receipts/contracts/provenance.
+
+### Handoff ping-pong
+
+Do not turn internal composition into `parent → HUMAN → child → HUMAN → parent`.
+
+### Conversational state as authority
+
+Correctness-critical transition state belongs in durable contract/receipt/blocker records,
+not chat memory.
+
+## Adding or Modifying Skills
+
+Before changing a cross-skill edge answer:
+
+1. Who owns the current lifecycle stage?
+2. Is the target internal composition or a new lifecycle stage?
+3. Is a human decision/authorization required at this edge?
+4. What exact durable contract/state crosses the boundary?
+5. Can the destination recover after total session loss?
+6. Does the change preserve CCL as the sole material semantic IR?
+7. Does independent verification remain implementation-conformance independent without
+   becoming a second semantic authority?
+8. Does the change preserve Independent Spec governance?
+9. Is Project synchronization occurring only at an authorized projection boundary?
+10. Is the actual structural mutation exactly within the human-authorized delta?
+
+Prefer deleting duplicated interpretation machinery over adding another guard around it.

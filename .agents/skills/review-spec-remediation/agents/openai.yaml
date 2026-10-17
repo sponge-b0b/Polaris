@@ -1,5 +1,5 @@
 interface:
   display_name: "Review Spec Remediation"
-  short_description: "The remediation loop of spec review findings."
+  short_description: "Compatibility redirect to current review"
 policy:
   allow_implicit_invocation: false

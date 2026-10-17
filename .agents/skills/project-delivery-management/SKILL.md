@@ -27,6 +27,32 @@ Recover every correctness-critical input from the explicit invocation and durabl
 state. Conversation state, Project fields, priority, issue ordering, branch activity, and
 recent activity are never delivery authority.
 
+## Executable reconcile / guard boundary
+
+Reconciliation and guard classification are executable repository behavior owned by:
+
+```bash
+python -m scripts.project_delivery reconcile --repo <owner/repo>
+python -m scripts.project_delivery guard --repo <owner/repo> --wayfinder <issue-number>
+```
+
+These commands are the sole runtime implementation of singleton discovery, current-state
+parsing, focused-map validation, direct map-blocker reads, deterministic reconciliation,
+and `PROJECT DELIVERY GUARD` classification.
+
+The policy below defines the semantics those commands must implement. It is not permission
+for a caller—or for an agent executing this skill—to reproduce the algorithm with ad hoc
+`gh` commands. If the executable boundary is unavailable, fails, or returns malformed
+output, fail closed. Do not reconstruct an equivalent result manually.
+
+`reconcile` exits successfully only after a valid no-op or a verified deterministic
+mutation/readback. `guard` exits successfully only for `ALLOWED`; a `BLOCKED` guard is a
+non-zero result and never changes focus.
+
+Human focus operations and cross-Wayfinder dependency operations remain owned by this
+skill as described below; this executable boundary currently owns only `reconcile` and
+`guard`.
+
 ## Canonical control artifact
 
 Require exactly one open GitHub issue labeled exactly:
@@ -82,6 +108,9 @@ reconcile
 
 Every focus-changing operation names exact Wayfinder issue numbers or URLs.
 
+For `reconcile`, use the executable command defined above rather than reimplementing the
+operation inline.
+
 ### Internal composition
 
 A lifecycle owner may invoke:
@@ -99,16 +128,20 @@ parallel focus, broaden parallel authorization, or invent a dependency.
 Deterministic removal of completed or directly ineligible focused maps is reconciliation,
 not a discretionary focus choice.
 
+For `guard` and `reconcile`, internal composition means invoking the executable commands
+above and consuming their exact output/exit status.
+
 ### Caller boundary
 
-Lifecycle callers consume this skill's result; they do not reproduce its control-state or
-guard algorithm inline. Singleton discovery, focus validation, Wayfinder-frontier
-derivation, and guard classification belong to `$project-delivery-management` while the
-invocation is active.
+Lifecycle callers consume this skill's executable result; they do not reproduce its
+control-state or guard algorithm inline. Singleton discovery, focus validation,
+Wayfinder-frontier derivation, reconciliation, and guard classification belong to
+`scripts.project_delivery` for these operations.
 
-A caller must not compensate for a failed invocation by performing independent `gh search`,
-body/title matching, Project queries, or remembered-state checks and then declaring an
-ALLOWED result itself. A failed, incomplete, or ambiguous invocation is a blocked guard.
+A caller must not compensate for a failed command by performing independent `gh search`,
+`gh api`, GraphQL, body/title matching, Project queries, or remembered-state checks and
+then declaring an ALLOWED result itself. A failed, incomplete, ambiguous, or malformed
+command result is a blocked guard.
 
 ## Canonical Wayfinder frontier
 
@@ -158,7 +191,13 @@ After mutation, re-read the singleton and require exact intended state.
 
 ## Guard
 
-`guard <Wayfinder>` requires:
+Execute:
+
+```bash
+python -m scripts.project_delivery guard --repo <owner/repo> --wayfinder <issue-number>
+```
+
+The command requires:
 
 1. a valid canonical singleton/current focus;
 2. target is a current canonical Wayfinder map;
@@ -166,7 +205,7 @@ After mutation, re-read the singleton and require exact intended state.
 4. target is frontier-eligible;
 5. target belongs to the current focused set.
 
-Return exactly:
+Successful output is exactly:
 
 ```text
 PROJECT DELIVERY GUARD: ALLOWED
@@ -174,7 +213,7 @@ Wayfinder: #<n>
 Focused set: <exact set>
 ```
 
-or:
+A blocked command emits:
 
 ```text
 PROJECT DELIVERY GUARD: BLOCKED
@@ -182,7 +221,8 @@ Wayfinder: #<n>
 Reason: <not frontier-eligible | not focused | invalid control state | unreadable blockers>
 ```
 
-A blocked guard never changes focus.
+and exits non-zero. A blocked guard never changes focus. No caller may synthesize either
+receipt itself.
 
 ## Cross-Wayfinder dependencies
 
@@ -232,19 +272,26 @@ Before adding `consumer blocked-by blocker`:
 
 `dependency ensure` re-reads the current edge immediately before mutation, treats an exact
 existing edge as idempotent success, delegates one exact add to
-`$github-issue-dependencies`, verifies it, then runs deterministic focus reconciliation.
+`$github-issue-dependencies`, verifies it, then runs deterministic focus reconciliation via
+`scripts.project_delivery reconcile`.
 
 `dependency remove` requires durable authority that the prerequisite no longer applies or
 was established in error. Closed blocker state alone is not removal authority. Re-read the
-edge, treat absence as idempotent success, delegate one exact removal, verify it, then run
-focus reconciliation.
+edge, treat absence as idempotent success, delegate one exact removal, verify it, then runs
+deterministic focus reconciliation via `scripts.project_delivery reconcile`.
 
 A newly added map-level blocker may force a focused map out of focus. Report that release
 and valid explicit human focus choices; never auto-select a replacement.
 
 ## Reconcile
 
-`reconcile` applies only consequences forced by current canonical state:
+Execute:
+
+```bash
+python -m scripts.project_delivery reconcile --repo <owner/repo>
+```
+
+The command applies only consequences forced by current canonical state:
 
 * remove closed Wayfinders from focus;
 * remove focused Wayfinders with an open direct map blocker;
@@ -255,7 +302,15 @@ and valid explicit human focus choices; never auto-select a replacement.
 Reconciliation never adds focus, chooses a replacement, or changes dependencies merely to
 preserve focus.
 
-Re-read and verify the singleton after mutation.
+It must re-read and verify the singleton after mutation. Successful output is:
+
+```text
+PROJECT DELIVERY RECONCILE: NOOP | UPDATED
+Focused set: <exact set>
+```
+
+Invalid or unreadable state exits non-zero. Do not reproduce reconciliation with direct
+GitHub reads/writes outside the executable boundary.
 
 ## Deferred Project projection
 

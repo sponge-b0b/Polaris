@@ -1,0 +1,56 @@
+{
+  "schema": "polaris.ccl/v1",
+  "proposal_hash": "sha256:edb0b2232fad940c550e3e228e70a12d43e5640dab5f221a729836c2703d354d",
+  "origin": {
+    "mode": "existing-authority",
+    "sources": [
+      {
+        "source_id": "decision-352-conflict-resolution",
+        "kind": "github_issue_comment",
+        "role": "governing",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/352#issuecomment-6231731367",
+        "content_sha256": "5400d9f3071ddce28bae50b6a111e949d29ab11feb8fccd4d139930d0725269e"
+      },
+      {
+        "source_id": "adr-0008-amended",
+        "kind": "adr_markdown",
+        "role": "constraint",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/8d832adbfa4b7c37d4bf97b494504f8ae80e1b08/docs/adr/0008-portfolio-risk-ground-r3-recommendations-in-projected-consequences.md",
+        "content_sha256": "809b112c74857ccec4f937d31f6557355c84762b58456ac5e203ea60378ea1ee"
+      }
+    ]
+  },
+  "acceptance": null,
+  "revisions": [
+    {
+      "contract_id": "portfolio-risk.r3-projected-consequence",
+      "revision": 1,
+      "operation": "create",
+      "supersedes_revision": null,
+      "owner": "portfolio-risk",
+      "scope": {"release": ["R3"]},
+      "assertions": [
+        {
+          "assertion_id": "consequence.required",
+          "kind": "invariant",
+          "subject": "projected_portfolio_consequence",
+          "constraint": {
+            "modality": "required",
+            "expression": "Every material R3 increase, hold-no-action, and reduce Decision Alternative has an attributable Projected Portfolio Consequence."
+          },
+          "authority": {"source_ids": ["decision-352-conflict-resolution", "adr-0008-amended"]}
+        },
+        {
+          "assertion_id": "projected-state.optional",
+          "kind": "invariant",
+          "subject": "projected_portfolio_state",
+          "constraint": {
+            "modality": "required",
+            "expression": "A full Projected Portfolio State is optional and is used only when materially useful; requiring a Projected Portfolio Consequence does not require an exhaustive simulated Portfolio snapshot."
+          },
+          "authority": {"source_ids": ["decision-352-conflict-resolution", "adr-0008-amended"]}
+        }
+      ]
+    }
+  ]
+}

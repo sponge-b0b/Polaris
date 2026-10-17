@@ -12,6 +12,7 @@ from typing import Any
 _CCL_MARKER = "spec-contract-ccl:v1"
 _CONTRACT_DOMAIN = b"POLARIS-SPEC-CONTRACT-V3\0"
 _CELL_DOMAIN = b"POLARIS-SPEC-CELL-V1\0"
+_TICKET_DOMAIN = b"POLARIS-TICKET-CONTRACT-V1\0"
 _OBL_ID = re.compile(r"^OBL-[0-9]{3,}$")
 _PLAN_ITEM = re.compile(
     r"^- `(?P<id>(?P<prefix>IMP|TEST|EXC)-[0-9]{3,})` — (?P<text>\S(?:.*\S)?)$"
@@ -283,6 +284,75 @@ def validate_coverage(contract: dict[str, Any], coverage: dict[str, Any]) -> Non
     _need(not missing, "coverage: missing cells " + ", ".join(sorted(missing)))
 
 
+def build_ticket_contract(
+    contract: dict[str, Any],
+    coverage: dict[str, Any],
+    destination: str,
+) -> dict[str, Any]:
+    """Build one deterministic ordinary-ticket contract from Spec coverage."""
+    _need(
+        isinstance(destination, str) and destination.strip(),
+        "ticket: missing destination",
+    )
+    validate_coverage(contract, coverage)
+    cells = {cell["cell"]: cell for cell in contract["cells"]}
+    assigned_ids = [
+        row["cell"]
+        for row in coverage["routes"]
+        if row["destination"] == destination
+    ]
+    _need(assigned_ids, f"ticket: no cells routed to {destination}")
+    assigned = [cells[cell_id] for cell_id in assigned_ids]
+    exclusions = [
+        cell for cell in contract["cells"] if cell["kind"] == "exclusion"
+    ]
+    identity = {
+        "spec_contract_hash": contract["spec_contract_hash"],
+        "destination": destination,
+        "assigned": [[cell["cell"], cell["cell_hash"]] for cell in assigned],
+        "exclusions": [[cell["cell"], cell["cell_hash"]] for cell in exclusions],
+    }
+    return {
+        "schema": "polaris.ticket-contract/v1",
+        "spec_contract_hash": contract["spec_contract_hash"],
+        "destination": destination,
+        "ticket_contract_hash": _sha256_bytes(
+            _TICKET_DOMAIN + _canonical(identity)
+        ),
+        "assigned_cells": assigned,
+        "exclusion_guardrails": exclusions,
+    }
+
+
+def _ticket_contract_lines(ticket_contract: dict[str, Any]) -> list[str]:
+    lines: list[str] = []
+    for cell in ticket_contract["assigned_cells"]:
+        cell_id = cell["cell"]
+        if cell["kind"] == "material-contract":
+            refs = ", ".join(f"`{ref}`" for ref in cell["ccl"])
+            lines.append(f"- `{cell_id}` — exact CCL: {refs}")
+        else:
+            lines.append(f"- `{cell_id}` — {cell['requirement']}")
+    return lines
+
+
+def validate_ticket_body(body: str, ticket_contract: dict[str, Any]) -> None:
+    """Require a published ticket body to be an exact projection of its route."""
+    hashes = re.findall(r"(?m)^Spec Contract Hash:\s*(\S+)\s*$", body)
+    _need(len(hashes) == 1, "ticket body: expected one Spec Contract Hash")
+    _need(
+        hashes[0] == ticket_contract["spec_contract_hash"],
+        "ticket body: stale Spec Contract Hash",
+    )
+    section = _section(body, "Contract cells")
+    actual = [line.strip() for line in section.splitlines() if line.strip()]
+    expected = _ticket_contract_lines(ticket_contract)
+    _need(
+        actual == expected,
+        "ticket body: Contract cells do not match routed contract",
+    )
+
+
 def _load_issue_body(path: Path) -> str:
     value = json.loads(path.read_text(encoding="utf-8"))
     _need(
@@ -317,19 +387,44 @@ def main() -> int:
     coverage = sub.add_parser("check-coverage")
     coverage.add_argument("contract")
     coverage.add_argument("coverage")
+    ticket = sub.add_parser("build-ticket")
+    ticket.add_argument("contract")
+    ticket.add_argument("coverage")
+    ticket.add_argument("destination")
+    ticket.add_argument("ticket_body")
+    ticket.add_argument("output")
+    check_ticket = sub.add_parser("check-ticket")
+    check_ticket.add_argument("contract")
+    check_ticket.add_argument("coverage")
+    check_ticket.add_argument("destination")
+    check_ticket.add_argument("ticket_body")
     args = parser.parse_args()
     try:
-        if args.command == "check-coverage":
-            contract = json.loads(
-                Path(args.contract).read_text(encoding="utf-8")
-            )
+        if args.command in {"check-coverage", "build-ticket", "check-ticket"}:
+            contract = json.loads(Path(args.contract).read_text(encoding="utf-8"))
             coverage_value = json.loads(
                 Path(args.coverage).read_text(encoding="utf-8")
             )
             _need(isinstance(contract, dict), "contract: expected object")
             _need(isinstance(coverage_value, dict), "coverage: expected object")
-            validate_coverage(contract, coverage_value)
-            print("TICKET COVERAGE: VALID")
+            if args.command == "check-coverage":
+                validate_coverage(contract, coverage_value)
+                print("TICKET COVERAGE: VALID")
+                return 0
+            ticket_contract = build_ticket_contract(
+                contract, coverage_value, args.destination
+            )
+            ticket_body = Path(args.ticket_body).read_text(encoding="utf-8")
+            validate_ticket_body(ticket_body, ticket_contract)
+            if args.command == "build-ticket":
+                _write(Path(args.output), ticket_contract)
+            print("TICKET CONTRACT: VALID")
+            print(f"Ticket Contract Hash: {ticket_contract['ticket_contract_hash']}")
+            print(f"Assigned cells: {len(ticket_contract['assigned_cells'])}")
+            print(
+                "Exclusion guardrails: "
+                f"{len(ticket_contract['exclusion_guardrails'])}"
+            )
             return 0
         current = build_contract(_load_issue_body(Path(args.issue_json)))
         if args.command == "build":

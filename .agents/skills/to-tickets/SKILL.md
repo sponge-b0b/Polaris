@@ -1,122 +1,119 @@
 ---
 name: to-tickets
-description: Decompose one CCL-backed Spec contract into implementation tickets with exhaustive deterministic cell coverage, explicit human approval, and exact publication readback.
+description: Decompose one deterministic Spec contract or structured Spec Review remediation contract into executable tickets with human-approved slicing and exact machine coverage.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
 
 # To Tickets
 
-`$to-tickets` owns the transition from an implementation-ready Spec contract into
-executable ticket work.
+`$to-tickets` owns executable ticket slicing.
 
-For an ordinary CCL-backed software Spec, this workflow is **decomposition only**:
+It never decides material semantics. It consumes either:
 
 ```text
-Spec contract cells
-        ↓
-vertical ticket slices
-        ↓
-exact exhaustive coverage
+ordinary Spec
+    deterministic OBL / IMP / TEST / EXC contract
+
+Spec Review
+    deterministic review-findings/v2 + current Spec contract
 ```
 
-It does not reconstruct material semantics from Spec prose, ADRs, wiki pages, code,
-Wayfinder analysis, or another model's interpretation. Material semantics arrive only
-through `OBL-*` cells whose payload is exact CCL addresses.
-
-## Session independence
-
-Recover correctness-critical state from the current Spec, repository, CCL, linked
-tickets, native relationships, and current Ticket Coverage Manifest. Chat/session memory
-is never authority.
+and creates the smallest coherent execution slices with explicit human approval.
 
 ## 1. Resolve source mode
 
 ### Ordinary Spec
 
-Use the parent Spec itself.
+Require:
 
-A software Spec is admissible to the CCL-backed path only when it has:
-
-* exactly one valid `spec-contract-ccl:v1` manifest;
-* an exact generated `## Canonical Contract Obligations` section;
-* stable-ID `IMP-*`, `TEST-*`, and `EXC-*` rows or exact `None.` in their controlled
-  sections;
+* exactly one valid `spec-contract-ccl:v1`;
+* exact generated Canonical Contract Obligations;
+* stable `IMP-*`, `TEST-*`, `EXC-*`;
 * `Implementation readiness: pass`;
 * no open native Spec blocker.
 
-If an active software Spec lacks that representation, stop and hand it back to
-`$to-specs` for projection migration. Do not reconstruct a legacy semantic manifest here.
+Build/validate the exact current Spec contract and current v2 coverage when present.
 
-### Spec Review compatibility path
+### Spec Review
 
-A `Spec Review: ...` source remains temporarily owned by `$to-remediation-tickets`
-because Root Blocker remediation has not yet been normalized into the CCL ticket-cell
-model.
+Resolve exactly one:
 
-Invoke that helper as internal composition and preserve its existing Root Blocker
-semantics. This compatibility path must not reinterpret or modify the parent Spec's
-`OBL-*` / CCL semantics. Any parent-Spec material contract change routes through
-`$to-specs` first.
-
-This path is temporary and is not a reason to retain legacy semantic reconstruction for
-ordinary Specs.
-
-## 2. Governance and project-delivery guard
-
-Resolve Spec governance from the Spec-local markers in `AGENTS.md`.
-
-For a Wayfinder-managed Spec, before branch/ticket mutation:
-
-1. invoke `$project-delivery-management reconcile`;
-2. invoke `guard <Wayfinder>` for every current Spec-local governor;
-3. require at least one exact `PROJECT DELIVERY GUARD: ALLOWED`.
-
-An Independent Spec never acquires a Wayfinder merely because ticketing begins.
-
-## 3. Establish the shared Spec branch and fixed baseline
-
-All initial and later implementation tickets for one Spec use the same branch:
-
-```text
-spec-<spec_issue_number>
+```markdown
+**Parent Spec:** #<spec>
 ```
 
-and the same fixed Spec baseline.
+Then recover:
 
-Before ticket publication require exactly one valid branch/baseline state:
+* current Parent Spec body/contract;
+* current Spec branch/baseline;
+* one active finding-ledger comment containing
+  `review-spec-finding-ledger:v2`;
+* current Review Remediation Ticket children;
+* current native dependencies.
 
-* the expected Spec branch exists or is created from the then-current default-branch
-  head before implementation mutation;
-* local/upstream identity resolves to the exact expected remote branch where local Git
-  is available;
-* GitHub Development linkage identifies that branch, or a pre-existing historical branch
-  satisfies the established compatibility evidence;
-* the parent Spec has exactly one durable `## Workspace Metadata` comment containing one
-  full 40-character `Baseline Commit Hash` and the exact branch;
-* the recorded baseline exists and is an ancestor of the current Spec branch;
-* an already-recorded valid baseline is immutable.
+Extract the v2 JSON and run:
 
-If branch/baseline state is ambiguous, stop before ticket mutation. Never initialize a
-Ticket baseline from the Spec baseline.
+```bash
+python -m scripts.review_remediation validate-ledger \
+  <spec-contract.json> <review-findings.json>
+```
 
-Every new ticket starts with:
+Require `REVIEW FINDING LEDGER: VALID`.
+
+Only current open Blocking findings classified as:
+
+```text
+implementation-defect
+standards-defect
+test/proof-defect
+```
+
+are eligible for Review Remediation Tickets.
+
+These are not converted into Root Blockers. `cell-routing-defect`,
+`planning-cell-gap`, and `contract-authority-gap` remain with their owning upstream
+workflows.
+
+A historical Root Blocker ledger/ticket is migration history only. Never slice new work
+from it.
+
+## 2. Governance and branch/baseline
+
+Resolve governance from the Parent Spec's local provenance markers.
+
+For a Wayfinder-managed Spec:
+
+1. invoke `$project-delivery-management reconcile`;
+2. invoke `guard <Wayfinder>` for every current governor;
+3. require at least one exact ALLOWED result.
+
+Independent Specs never acquire a Wayfinder.
+
+All tickets use:
+
+```text
+Spec branch: spec-<parent-spec>
+```
+
+and the Parent Spec's fixed baseline. New tickets use:
 
 ```text
 Ticket baseline: Pending
 ```
 
-`$implement-ticket` owns replacing `Pending` with its exact pre-mutation HEAD.
+`$implement-ticket` pins the exact pre-mutation ticket baseline.
 
-## 4. Build the deterministic current Spec contract
+Do not silently repair ambiguous branch/baseline/provenance state.
 
-Take one exact current Spec-body snapshot and require:
+## 3. Ordinary Spec contract
+
+Take one exact Spec-body snapshot:
 
 ```bash
 python -m scripts.ccl_spec check <spec-body-file> contracts/ccl/transactions
+python -m scripts.spec_contract build <spec-issue-json> <contract.json>
 ```
-
-Then invoke `$spec-contract` in build mode for the same body/baseline/branch/HEAD state.
 
 Require:
 
@@ -125,103 +122,58 @@ SPEC CONTRACT: VALID
 Semantic prose classification performed: 0
 ```
 
-Retain the exact handoff's:
+The complete ordinary denominator is the exact `cells` array.
 
-* `spec_body_hash`;
-* `spec_contract_hash`;
-* complete `cells` array;
-* every `cell_hash`;
-* every `OBL-*` CCL address set.
+Cell kinds:
 
-Do not run a second semantic builder, Source Unit classifier, Architecture/Design Source
-Inventory, `ARCHSRC-*` discovery pass, Ticket Semantic Carry Matrix, or independent
-semantic ticket-decomposition verifier.
+```text
+OBL-*  exact material CCL contract
+IMP-*  private/mechanical implementation obligation
+TEST-* exact proof/test obligation
+EXC-*  exclusion guardrail; never positive implementation work
+```
 
-The complete ordinary-Spec decomposition denominator is the exact deterministic cell
-universe returned by `$spec-contract`.
+Do not build Source Unit, `NORM-*`, `ARCHSRC-*`, or architecture-prose obligation
+universes.
 
-## 5. Cell semantics for decomposition
+## 4. Ordinary ticket slicing
 
-Use cell kinds exactly as supplied.
-
-### `material-contract` (`OBL-*`)
-
-Ticket acceptance carries the exact cell ID and exact CCL addresses. Do not paraphrase a
-CCL assertion into a stronger/weaker ticket requirement.
-
-### `implementation` (`IMP-*`)
-
-Private/mechanical implementation plan. It is ticketable but cannot override any CCL
-assertion.
-
-### `testing` (`TEST-*`)
-
-Explicit proof/test work. Assign it to the ticket that can most directly prove the
-behavior, or to a dedicated test ticket only when independently executable work genuinely
-requires one.
-
-### `exclusion` (`EXC-*`)
-
-Never create implementation work for an exclusion. Carry it in the parent coverage
-manifest and, where materially relevant, in ticket guardrails.
-
-If an `IMP-*` or `TEST-*` cell appears to require new material semantics absent from the
-`OBL-*` CCL set, ticketing stops. The defect is in the Spec projection/planning contract,
-not permission for `$to-tickets` to design architecture.
-
-## 6. Draft vertical ticket slices
-
-Prefer the smallest set of tracer-bullet tickets that delivers coherent vertical
-behavior.
-
-A proposed ticket records:
+Draft vertical slices:
 
 ```text
 Alias: T<n>
 Title: <imperative outcome>
 Cells: <OBL/IMP/TEST IDs>
-CCL: <union of exact CCL addresses from assigned OBL cells>
-Depends on: <ticket aliases | None>
-Reason for slice: <compact execution/dependency reason>
+CCL: <exact union from OBL cells>
+Depends on: <aliases | None>
+Reason: <compact execution/dependency reason>
 ```
 
 Rules:
 
-* every non-exclusion contract cell is owned by exactly one ticket destination;
-* a ticket may own multiple related cells;
-* do not split one cell semantically across several tickets; choose one owning ticket and
-  use native ticket dependencies for prerequisite ordering;
-* do not create one ticket per field/type/test merely because the cell list is granular;
-* do not delegate a material contract decision to implementation;
-* code discovery may identify the likely implementation seam, but code never adds a
-  semantic cell;
-* no ticket may contain an `OBL-*`, `IMP-*`, or `TEST-*` absent from the exact current
-  Spec contract.
+* every non-EXC cell routes exactly once;
+* EXC cells remain parent guardrails;
+* one ticket may own multiple related cells;
+* one cell has exactly one execution owner;
+* dependencies express real execution prerequisites only;
+* a missing material choice routes upstream rather than entering ticket prose.
 
-Run `$attention` on the proposed slices before approval. Attention may identify a missing
-Spec/CCL cell, bad vertical boundary, or overlooked dependency. It cannot authorize a new
-semantic obligation.
+Run `$attention` before approval. Attention may expose a missing cell/bad slice but cannot
+create semantics.
 
-## 7. Deterministic coverage proof
+## 5. Ordinary deterministic coverage
 
-Materialize the proposal as:
+Build:
 
 ```json
 {
   "schema": "polaris.ticket-coverage/v2",
-  "spec_contract_hash": "<current hash>",
+  "spec_contract_hash": "<hash>",
   "routes": [
-    {
-      "cell": "OBL-001",
-      "cell_hash": "<current cell hash>",
-      "destination": "T1"
-    }
+    {"cell": "OBL-001", "cell_hash": "<hash>", "destination": "T1"}
   ],
   "exclusions": [
-    {
-      "cell": "EXC-001",
-      "cell_hash": "<current cell hash>"
-    }
+    {"cell": "EXC-001", "cell_hash": "<hash>"}
   ]
 }
 ```
@@ -229,215 +181,262 @@ Materialize the proposal as:
 Run:
 
 ```bash
-python -m scripts.spec_contract check-coverage <contract.json> <coverage.json>
+python -m scripts.spec_contract check-coverage \
+  <contract.json> <coverage.json>
 ```
 
-Require exact `TICKET COVERAGE: VALID`.
+Require `TICKET COVERAGE: VALID`.
 
-This replaces the former semantic decomposition-certifier boundary for ordinary
-CCL-backed Specs. Coverage completeness is now finite and deterministic because the
-semantic denominator was frozen upstream.
-
-## 8. Existing ordinary-Spec ticket reconciliation
-
-### Current v2 coverage exists
-
-When the parent has one current `ticket-coverage-manifest:v2`, compare the current exact
-cell universe to its persisted `cell + cell_hash` routes.
-
-Classify mechanically:
+Existing v2 state reconciles mechanically:
 
 ```text
-unchanged cell  = same ID + same cell_hash
-changed cell    = same ID + different cell_hash
-new cell        = current ID absent from manifest
-removed cell    = manifest ID absent from current contract
+same ID + same hash      unchanged
+same ID + new hash       changed
+current-only ID          new
+manifest-only ID         removed
 ```
 
-Then reconcile executable ownership:
+Closed tickets remain immutable history. Changed/new work gets an open/new owner.
 
-* unchanged cell whose owning ticket remains valid → preserve mapping;
-* changed/new cell → map through the current approved proposal to an existing open ticket
-  or a new ticket;
-* removed cell on an open ticket → remove that current obligation; if the ticket has no
-  remaining current work, propose it for superseded closure;
-* closed tickets remain immutable historical evidence and are never rewritten/reopened;
-* if a changed/new current cell requires work after its historical ticket closed, create
-  or reuse a current open owner.
+If linked legacy ordinary tickets exist without v2 coverage, `$to-tickets` itself proposes
+a fresh mapping from the **current exact cells**. Old ticket prose is historical execution
+context, not semantic authority. Preserve matching open tickets where current exact cells
+can be assigned safely; otherwise create/update current tickets after human approval.
+`$to-remediation-tickets` is not required for current ordinary reconciliation.
 
-A purely narrative Spec edit that changes only `SPEC_BODY_HASH` while
-`SPEC_CONTRACT_HASH` and every cell/hash remain unchanged requires no ticket-semantic
-reconciliation.
+## 6. Review remediation slicing
 
-### Legacy ticket/manifest state
+For a Spec Review, the executable denominator is the set of current open
+review-remediation-owned `RF-*` findings, not Root Blockers.
 
-If linked implementation tickets exist but no current v2 coverage exists, use
-`$to-remediation-tickets` only as a one-time legacy mapping compatibility helper.
-
-Its returned proposal is admissible only when every current executable obligation maps to
-an exact current `$spec-contract` cell and no returned architecture/prose-derived
-obligation exists outside that cell universe. After owner approval/publication, persist
-v2 coverage. Future ordinary-Spec reconciliation is deterministic from v2 state.
-
-If the legacy helper cannot map old state cleanly onto exact current cells, stop and route
-the parent Spec through `$to-specs`; do not preserve an unexplained legacy semantic row.
-
-## 9. Decomposition-defect reports
-
-A downstream `decomposition-defects:v1` report is a falsifier candidate, not ticketing
-authority.
-
-For an ordinary CCL-backed Spec:
-
-* if alleged missing work corresponds to an exact current cell, reconcile its ticket
-  destination;
-* if it alleges material behavior absent from current `OBL-*`, return to `$to-specs` /
-  the semantic owner;
-* if it alleges only private/test work absent from `IMP-*`/`TEST-*`, return to
-  `$to-specs` for planning-contract reconciliation;
-* never create `ARCHSRC-*` obligations from the report.
-
-Keep the durable report identity/status lifecycle intact until existing terminal
-resolution rules are satisfied.
-
-## 10. Human approval
-
-Human approval remains the execution-slicing control point even though coverage is
-deterministic.
-
-Before requesting approval show, for each proposed ticket:
-
-* title;
-* exact cells;
-* exact inherited CCL addresses;
-* dependencies;
-* whether it is new, updated, preserved, or proposed superseded.
-
-Also show:
+A proposed remediation slice records:
 
 ```text
-Spec Contract Hash: <hash>
-Contract cells: <n>
-Routed executable cells: <n>/<n>
-Exclusions preserved: <n>/<n>
-Missing/duplicate/stale cells: 0
-Independent semantic decomposition agents used: 0
+Alias: R<n>
+Title: <imperative repair outcome>
+Findings: <RF IDs>
+Affected cells: <union of exact finding cell refs>
+Standards refs: <union>
+Depends on: <aliases | None>
+Reason: <execution/dependency reason>
 ```
 
-Ask for one approval of the complete substantive ticket delta.
+Grouping is execution-only. Never synthesize an invariant broader than the selected
+falsifiers.
 
-If the exact proposal changes afterward, rerun affected deterministic coverage checks and
-request approval again. Do not silently add semantic work during publication.
+For each proposed group run:
 
-A zero-semantic-delta reconciliation that changes only stale manifest identity metadata
-may proceed without a new decomposition approval after deterministic proof/readback.
+```bash
+python -m scripts.review_remediation build \
+  <spec-contract.json> \
+  <review-findings.json> \
+  "RF-1,RF-2" \
+  <remediation-contract.json>
+```
 
-## 11. Publish tickets
+Require exact:
 
-Use the configured GitHub tracker and ordinary Spec hierarchy.
+```text
+REVIEW REMEDIATION CONTRACT: VALID
+```
 
-Each implementation ticket body contains at least:
+`polaris.review-remediation-contract/v1` contains:
+
+* exact Spec Contract Hash;
+* selected `RF-*` + `finding_hash`;
+* frozen finding falsifiers;
+* exact affected current cells/hashes;
+* exact Standards refs;
+* every other current Parent Spec cell as a preservation guardrail.
+
+A standards-only finding may have no affected Spec cell, but it must carry exact Standards
+authority; then all current Spec cells are preservation guardrails.
+
+### Existing remediation tickets
+
+A current open Review Remediation Ticket is reusable only when its exact selected RF set,
+Spec Contract Hash, and Review Remediation Contract Hash match the current proposal.
+
+If an open historical Root Blocker ticket lacks a normalized review-remediation contract:
+
+* do not reinterpret its RB invariant;
+* preserve it as history;
+* propose superseded closure when its old execution scope is no longer the current
+  normalized owner;
+* create/update normalized RF-backed remediation tickets for current open findings.
+
+Closed remediation tickets remain immutable historical evidence. If the finding is open
+again/currently violated, new executable work gets a current ticket.
+
+## 7. Review remediation ticket body
+
+Publish each normalized Review Remediation Ticket under the conventional Spec Review native
+parent:
 
 ```markdown
 Parent Spec: #<spec>
+Remediation parent: Spec Review #<review>
 Spec branch: spec-<spec>
 Ticket baseline: Pending
 Spec Contract Hash: <hash>
+Review Remediation Contract Hash: <hash>
+
+## Review findings
+
+- `RF-1` — implementation-defect — <exact frozen falsifier>
+- `RF-2` — standards-defect — <exact frozen falsifier>
 
 ## Contract cells
 
-- `OBL-001` — exact CCL: `<contract@revision#assertion>`, ...
-- `IMP-001` — <exact private/mechanical requirement text>
-- `TEST-001` — <exact test requirement text>
+- `OBL-001` — exact CCL: `<contract@revision#assertion>`
+- `TEST-001` — <exact current requirement>
+```
+
+Use `None.` when there are no affected cells.
+
+Then include:
+
+```markdown
+## Preservation guardrails
+
+- `IMP-002` — `<cell_hash>`
+- `EXC-001` — `<cell_hash>`
 
 ## Acceptance
 
-- Implement/prove the assigned cells without changing their CCL semantics.
-- Preserve applicable parent `EXC-*` exclusions.
-
-## Dependencies
-
-<None or exact ticket references>
+- Make every selected review falsifier false on the current candidate.
+- Satisfy every selected exact Standards reference.
+- Preserve every current guardrail in the remediation contract.
 ```
 
-For `OBL-*`, cite exact CCL addresses rather than re-authoring semantic prose. A
-human-readable rendering may be included only as a generated/explanatory projection.
+Use `None.` only when there are genuinely zero preservation cells.
 
-Parent every ordinary implementation ticket under the Spec using the native hierarchy
-mechanism. Publish native `blocked by` edges only for actual execution prerequisites.
-Reject self-dependency and cycles.
+After publication extract the current ledger JSON and validate the exact ticket body:
 
-Re-read every created/updated ticket and native relationship and require exact agreement
-with the approved proposal.
-
-## 12. Persist Ticket Coverage Manifest v2
-
-Maintain exactly one active parent comment:
-
-```text
-<!-- ticket-coverage-manifest:v2
-{
-  "schema": "polaris.ticket-coverage/v2",
-  "spec_body_hash": "...",
-  "spec_contract_hash": "...",
-  "routes": [
-    {
-      "cell": "OBL-001",
-      "cell_hash": "...",
-      "destination": "#401"
-    }
-  ],
-  "exclusions": [
-    {
-      "cell": "EXC-001",
-      "cell_hash": "..."
-    }
-  ]
-}
--->
+```bash
+python -m scripts.review_remediation validate-ticket \
+  <spec-contract.json> \
+  <review-findings.json> \
+  <ticket-body-file> \
+  <remediation-contract.json>
 ```
 
-Use issue numbers/URLs after publication, not proposal aliases.
+Require exact hash/readback.
 
-Before successful return:
+Review remediation tickets do not modify `ticket-coverage-manifest:v2`; that manifest
+continues to describe the original ordinary Spec decomposition. Remediation contracts are
+bound independently to the same current Spec Contract Hash.
 
-1. rebuild the exact current `$spec-contract`;
-2. run `check-coverage` against the persisted v2 manifest;
-3. re-read every ticket and native dependency;
-4. require exact current cell IDs/hashes and approved destinations;
-5. require zero unknown/missing/duplicate routes.
+## 8. Decomposition-defect input
 
-The v2 manifest is decomposition state, not semantic authority. CCL + Spec cells remain the
-contract source.
+A `decomposition-defects:v1` report is a falsifier candidate.
 
-## 13. Implementation frontier and handoff
+For ordinary current Specs:
 
-An open implementation ticket is actionable when:
+* if the alleged work corresponds to an exact current cell, reconcile its destination;
+* if material behavior is absent from OBL, route `$to-specs` / semantic owner;
+* if private/test work is absent from IMP/TEST, route `$to-specs`;
+* never create `ARCHSRC-*`.
 
-* its parent Spec remains open and implementation-ready;
-* its body matches its current v2 cell mapping;
-* `Ticket baseline` is `Pending` or a valid pinned SHA under implementation rules;
-* it has no open native blocker;
-* no unresolved/routed architecture-blocker record makes it inadmissible;
-* project-delivery guard is allowed when the parent Spec is Wayfinder-managed.
+For a Spec Review, a `cell-routing-defect` finding follows the same route and is not turned
+into a Review Remediation Ticket.
 
-Emit one copy-ready line per independently actionable frontier ticket:
+## 9. Live-WIP reslicing
+
+Before changing ownership/dependencies of an already-started ticket, inspect current
+implementation state.
+
+If a proposed reslice can move/precede work already present in active WIP, use the
+established `ticket-reslice-recovery:v1` isolated-worktree mechanism:
+
+* protect donor checkout;
+* preserve pinned source baseline;
+* attribute donor hunks/paths before transplant;
+* never stash/reset/clean protected donor state;
+* native dependencies determine actionability;
+* second closer terminalizes exact source/destination completion commits.
+
+This recovery metadata never changes ticket contract semantics.
+
+## 10. Human approval
+
+For every substantive proposal show:
+
+### Ordinary
+
+* ticket title;
+* exact cells;
+* exact CCL addresses;
+* dependencies;
+* new/update/preserve/supersede status.
+
+### Review remediation
+
+* ticket title;
+* exact `RF-*`;
+* exact affected cells;
+* exact frozen falsifiers;
+* Standards refs;
+* preservation-guardrail count;
+* dependencies;
+* new/update/preserve/supersede status.
+
+Also show the relevant contract hash(es), exact zero missing/duplicate mappings, and that no
+semantic decomposition agents were used.
+
+Ask for one approval of the complete substantive delta. If the proposal changes
+materially, revalidate affected deterministic contracts and ask again.
+
+## 11. Publication/readback
+
+Ordinary tickets are native children of the Parent Spec.
+
+Review Remediation Tickets are native children of the conventional Spec Review and retain
+`Parent Spec` for branch/lifecycle provenance.
+
+Publish native `blocked by` edges only for actual execution prerequisites. Reject
+self-dependency/cycles.
+
+After mutation:
+
+* reread every created/updated ticket;
+* reread native hierarchy/dependencies;
+* validate ordinary ticket body against its exact route;
+* validate remediation ticket body against its exact remediation contract;
+* require branch/baseline/provenance equality with approved proposal.
+
+For ordinary Specs, persist exactly one current `ticket-coverage-manifest:v2`, then rerun
+`check-coverage`.
+
+For review remediation, do not create a second parent coverage manifest.
+
+## 12. Frontier handoff
+
+An open ticket is actionable when:
+
+* Parent Spec remains open/current;
+* branch/baseline metadata is valid;
+* no native blocker is open;
+* no unresolved/routed architecture blocker makes it inadmissible;
+* project-delivery guard is ALLOWED when Wayfinder-managed;
+* its ordinary/remediation deterministic contract validates current.
+
+Emit one copy-ready line per actionable ticket:
 
 ```text
 $implement-ticket - <Ticket Title> (<Ticket URL>)
 ```
 
-Do not invoke implementation implicitly. The user chooses the next fresh-session ticket.
+Do not invoke implementation implicitly.
 
 ## Non-goals
 
-For ordinary CCL-backed Specs, `$to-tickets` does not:
+`$to-tickets` does not:
 
-* infer material semantics from arbitrary prose;
-* reopen ADRs/wiki/docs to rediscover contract meaning;
-* create Architecture/Design Source Inventories or `ARCHSRC-*` cells;
-* run a semantic challenger/certifier over ticket decomposition;
-* create new Spec obligations;
-* change CCL;
+* infer semantics from review/root/Spec prose;
+* create Root Blockers;
+* build architecture/source-unit universes;
+* create `ARCHSRC-*` or `NORM-*`;
+* revise CCL;
 * rewrite closed historical tickets;
 * create a Wayfinder for an Independent Spec.

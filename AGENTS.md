@@ -231,9 +231,12 @@ realization against the same frozen cells. It may surface:
 
 A verifier/reviewer must never repair a gap by adding a new semantic obligation itself.
 
-Legacy Spec Review remediation may temporarily retain Root Blocker compatibility state,
-but every executable remediation obligation must map to exact current Spec cells and the
-frozen finding falsifier. Compatibility state does not create semantics.
+Spec Review remediation uses structured `review-spec-finding-ledger:v2` state. Open
+Blocking implementation/test/standards findings may be grouped only for execution slicing;
+each resulting `review-remediation-contract/v1` binds exact RF identities, frozen
+falsifiers, exact current affected cells/Standards authority, and every other current Spec
+cell as a preservation guardrail. Root Blockers are historical compatibility only and do
+not create current remediation semantics.
 
 ### Non-Semantic Workflow-Policy Synchronization
 
@@ -262,21 +265,49 @@ is the authorized delivery tip. Otherwise ordinary exact-candidate invalidation 
 `$verify-ticket-closure` independently certifies closure. The parent must not perform a
 second semantic-certification workflow merely to dispatch the verifier.
 
-Before dispatch carry a concise Implementation Evidence Index:
+For every ordinary CCL-backed ticket, derive one deterministic
+`polaris.ticket-contract/v1` from the exact current Spec contract, current
+`ticket-coverage-manifest:v2`, and this ticket's destination. That contract contains:
+
+* the exact assigned `OBL-*`, `IMP-*`, and `TEST-*` cells plus their `cell_hash` values;
+* exact inherited CCL addresses for `OBL-*`;
+* every current parent `EXC-*` as an exclusion guardrail;
+* one deterministic Ticket Contract Hash.
+
+The published ticket body must validate as an exact human-readable projection of the
+assigned cells. Neither implementation nor verification may recover alternative scope by
+interpreting ticket/Spec/ADR/wiki prose. A route/body/hash mismatch returns to
+`$to-tickets`; a missing planning cell returns to `$to-specs`; a missing material semantic
+choice returns to the owning semantic/architecture workflow.
+
+Before dispatch the parent carries only a concise Implementation Evidence Index:
 
 ```text
+Ticket Contract Hash: <hash>
 Candidate state: <identity>
 Changed/implemented surfaces: <compact groups>
-Evidence: <ticket cell/criterion group -> implementation/evidence pointer>
+Evidence: <ticket cell group -> implementation/evidence pointer>
 Applicable technical checks: <check -> PASS + candidate identity>
 Known unresolved implementation failures: 0
 Known unresolved design/architecture blockers: 0
 ```
 
-For ordinary CCL-backed tickets, exact assigned Spec cells/CCL addresses are the ticket
-semantic contract. Remediation tickets may additionally carry current compatibility Root
-Blocker/finding preservation state. A verifier may independently prove those contracts;
-it may not invent a broader architecture universe.
+The implementation actor does not construct a Ticket Acceptance Universe or assign its
+own semantic PASS. `$verify-ticket-closure` derives independent falsifiers/evidence only
+for the frozen deterministic ticket contract. Independence is proof independence, not
+semantic-authority independence.
+
+For a Review Remediation Ticket, derive one deterministic
+`polaris.review-remediation-contract/v1` from the exact current Spec contract plus selected
+open `RF-*` rows in the v2 finding ledger. It binds the selected finding hashes/falsifiers,
+affected cells, Standards references, and every other current Spec cell as a preservation
+guardrail. Neither implementation nor verification may synthesize a Root Blocker or
+broaden a finding into a sibling/domain invariant.
+
+New closure attempts use `implement-ticket-closure-checkpoint:v3`, binding the exact
+ordinary Ticket Contract Hash or Review Remediation Contract Hash plus candidate identity.
+Older v2/root checkpoints are historical compatibility state and cannot certify a
+changed/current candidate.
 
 ### Domain Vocabulary
 

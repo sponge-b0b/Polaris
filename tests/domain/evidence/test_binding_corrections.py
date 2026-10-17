@@ -33,7 +33,7 @@ from polaris.domain.evidence.judgments import (
     ClaimSpecificEvidenceScope,
     EvidenceUse,
 )
-from tests.sufficiency_support import interpreted_binding
+from tests.domain.evidence.sufficiency_support import interpreted_binding
 
 ROOT = interpreted_binding().binding
 T = datetime(2026, 9, 29, 14, 5, tzinfo=UTC)

@@ -20,8 +20,11 @@ from polaris.domain.evidence import (
     EvidenceInterpretationState,
     InvalidEvidenceCorrectionHistory,
 )
-from tests.configuration_support import SECOND_VERSION_ID, requirement_version
-from tests.sufficiency_support import derived_assessment
+from tests.domain.configuration.configuration_support import (
+    SECOND_VERSION_ID,
+    requirement_version,
+)
+from tests.domain.evidence.sufficiency_support import derived_assessment
 
 
 def _correction(

@@ -133,19 +133,49 @@ projection of those assigned cells. A stale hash, missing/extra cell, changed CC
 or changed private/test requirement is a ticket/decomposition defect. Stop and return to
 `$to-tickets`; do not reconstruct intended meaning from ticket prose.
 
-### Spec Review remediation compatibility
+### Spec Review remediation ticket
 
-Until remediation ticketing is normalized in the next workflow cutover, an existing
-Review Remediation Ticket may carry its current Root Blocker/finding compatibility state.
+A current Review Remediation Ticket does not use Root Blocker semantics.
 
-That state may extend proof requirements only when:
+Recover the conventional Spec Review's one active v2 finding ledger and build the exact
+review remediation contract:
 
-* every executable change maps to exact current parent-Spec cells; and
-* the extra remediation requirement is the frozen review finding/root falsifier,
-  preservation obligation, or proof obligation needed to close that finding.
+```bash
+python -m scripts.review_remediation validate-ledger \
+  <spec-contract.json> <review-findings.json>
 
-Compatibility state may not create a new material product/domain/architecture contract.
-If it requires one, stop and route to the semantic owner.
+python -m scripts.review_remediation validate-ticket \
+  <spec-contract.json> \
+  <review-findings.json> \
+  <ticket-body-file> \
+  <review-remediation-contract.json>
+```
+
+Require:
+
+```text
+REVIEW FINDING LEDGER: VALID
+REVIEW REMEDIATION CONTRACT: VALID
+```
+
+`polaris.review-remediation-contract/v1` is the executable remediation contract. It binds:
+
+* exact current `SPEC_CONTRACT_HASH`;
+* exact open Blocking `RF-*` findings owned by review remediation;
+* each selected finding's immutable `finding_hash` and frozen falsifier;
+* exact current affected Spec cells/hashes;
+* exact applicable Standards references;
+* every other current parent-Spec cell as a preservation guardrail.
+
+A remediation ticket may group several findings for execution convenience. Grouping does
+not create a new semantic invariant, root, sibling universe, or architecture obligation.
+
+If a finding is a cell-routing defect, planning-cell gap, or contract-authority gap, it is
+not admissible to this remediation contract. Route it to its owning workflow instead.
+
+A historical Root Blocker ticket/checkpoint is compatibility history only. Before current
+implementation it must be normalized through `$review-spec` + `$to-tickets` into exact
+`RF-*` remediation state. Do not execute against an RB matrix.
 
 ## 4. Implement only the frozen ticket contract
 
@@ -221,8 +251,8 @@ Evidence rows are pointers for the independent verifier. They are not semantic P
 claims and need not be one row per predicate when cells share the same implementation
 surface.
 
-For remediation compatibility, also include the frozen Root Blocker/finding identity and
-preservation/proof pointers required by that root.
+For remediation, also include the exact Review Remediation Contract Hash, selected `RF-*`
+identities, frozen falsifiers, Standards references, and preservation/proof pointers.
 
 ## 6. Candidate identity
 
@@ -283,7 +313,8 @@ Persist at least:
 **Assigned cells:** <IDs>
 **CCL:** <exact inherited addresses | None>
 **Remediation parent:** <Spec Review #n | None>
-**Root/Finding:** <identity | None>
+**Review Remediation Contract Hash:** <hash | None>
+**Review findings:** <RF IDs | None>
 **Candidate state:** <TICKET_CLOSURE_STATE>
 **Attempt:** <n>
 
@@ -330,7 +361,7 @@ Pass only the exact durable inputs needed for certification:
 * current coverage identity;
 * Implementation Evidence Index;
 * applicable terminal technical-check evidence;
-* for remediation, the frozen root/finding compatibility state.
+* for remediation, the exact `polaris.review-remediation-contract/v1`.
 
 Do not pass an alternate prose-derived semantic universe.
 
@@ -356,8 +387,8 @@ finding by owner:
 * `planning-cell-gap` -> Human Handoff to `$to-specs`;
 * `contract-authority-gap` / material design gap -> Human Handoff to
   `$architecture-remediation` / governing semantic owner;
-* remediation compatibility root failure -> resume/root-route under current review
-  remediation ownership.
+* remediation finding violation -> resume implementation when implementation-owned;
+  route a newly proven contract/routing gap to its owning workflow.
 
 A contract/routing gap blocks local correction that depends on the missing authority.
 Preserve independent ordinary implementation findings, but do not guess the missing
@@ -369,7 +400,7 @@ checks, build a new evidence index, and dispatch a fresh attempt.
 ### PASS
 
 Require exact returned Ticket Contract Hash, branch, baseline, candidate state, mode, and
-root/finding identity when applicable.
+Review Remediation Contract Hash and selected finding identities when applicable.
 
 For the returned contract require:
 

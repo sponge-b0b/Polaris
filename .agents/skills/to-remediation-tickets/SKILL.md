@@ -1,568 +1,64 @@
 ---
 name: to-remediation-tickets
-description: Reconcile Spec Review or existing-Spec remediation into a root-complete ticket delta; remediation tickets are later certified by the common `$verify-ticket-closure` verifier.
+description: Compatibility route for historical remediation-ticket handoffs. Current ordinary and Spec Review ticket reconciliation is owned directly by `$to-tickets`.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
 
-# To Remediation Tickets
+# To Remediation Tickets — Compatibility Route
 
-## Integrated Authority
+`$to-remediation-tickets` is no longer a semantic decomposition owner.
 
-This `SKILL.md` is the single authoritative procedure for `$to-remediation-tickets`.
-
-The current hardening below supersedes only references in the preserved procedure that make `$verify-root-closure` a separate remediation certification authority. All other preserved procedure mechanics remain normative.
-
-## Common Closure Verifier
-
-Every remediation ticket produced by this workflow is ultimately certified by:
+Current ticketing uses:
 
 ```text
-$verify-ticket-closure
+ordinary Spec
+    -> $to-tickets deterministic OBL/IMP/TEST/EXC coverage
+
+Spec Review
+    -> $to-tickets deterministic review-findings/v2 remediation contracts
 ```
 
-not by a separate `$verify-root-closure` algorithm.
+Do not synthesize Root Blockers, acceptance matrices, semantic-consumer universes,
+`ARCHSRC-*`, or prose-derived obligations here.
 
-Interpret any preserved sentence of the form:
+## Historical invocation
 
-> an implementer and `$verify-root-closure` must be able to determine/prove root closure
+If invoked from an older handoff:
 
-as:
+1. recover the referenced source;
+2. preserve historical tracker artifacts unchanged;
+3. determine whether the source is an ordinary Spec or conventional Spec Review;
+4. return control to current `$to-tickets` with the same source.
 
-> the implementer must provide complete Proposed Closure Evidence and one fresh `$verify-ticket-closure` verifier must independently certify the combined ordinary + remediation acceptance universe.
-
-The remediation delta must still carry all existing:
-
-* Root Blocker ID and stable invariant;
-* remediation obligations;
-* verification-only obligations;
-* same-root preservation obligations;
-* production-path and negative/fail-closed proof requirements;
-* root-complete invariant sweep;
-* protected behavior needed for root closure.
-
-Those obligations extend the common ticket acceptance universe. They are not weakened or converted into ordinary implementation-only claims.
-
-## One Verdict
-
-Do not design or publish remediation tickets that require:
+Use:
 
 ```text
-ordinary ticket verifier PASS
-        ↓
-root verifier PASS/FAIL
+$to-tickets - <Source Title> (<Source URL>)
 ```
 
-The required lifecycle is:
+For a historical Spec Review lacking `review-spec-finding-ledger:v2`, route first to:
 
 ```text
-implementation + Proposed Closure Evidence
-        ↓
-$verify-ticket-closure
-  ordinary ticket obligations
-  + remediation/root obligations
-        ↓
-one TICKET CLOSURE: PASS | FAIL
+$review-spec - <Parent Spec Title> (<Parent Spec URL>)
 ```
 
-The historical `$verify-root-closure` skill exists only as a compatibility route for old handoffs and must not appear as the certification owner in newly proposed remediation tickets.
+so a fresh review can normalize current findings without laundering Root Blocker semantics.
 
-## Procedure
+For an ordinary legacy Spec with old tickets but no v2 coverage, current `$to-tickets`
+proposes a fresh human-approved mapping from exact current Spec cells. Old ticket prose is
+historical execution context only.
 
-Invoked by `$to-tickets` when:
+## No mutation
 
-* the source is a `Spec Review: ...` issue; or
-* an existing Spec already has linked implementation tickets.
+This compatibility route does not:
 
-Replace ordinary vertical slicing for this invocation.
+* create/update/close tickets;
+* create Root Blockers;
+* reinterpret legacy acceptance prose;
+* mutate Ticket Coverage Manifest;
+* mutate CCL;
+* publish dependencies.
 
-Return the delta to `$to-tickets`; do not publish here.
-
-## Session Independence
-
-Assume no prior conversational or agent-session state.
-
-Recover correctness-critical inputs from the invocation, repository, and durable tracker artifacts.
-
-Prior-session summaries are routing context only.
-
-If required durable state cannot be recovered, report the missing artifact rather than infer it.
-
-## 1. Resolve the Source
-
-### Spec Review
-
-Recover the original Spec from:
-
-```markdown
-**Parent Spec:** #<spec_issue_number>
-```
-
-The Spec Review remains the remediation source.
-
-The original Spec remains the branch owner.
-
-### Existing Spec
-
-Use the supplied Spec as source and parent.
-
-Do not create another Spec, branch, or Spec baseline.
-
-## 2. Recover Required State
-
-### Spec Review
-
-Recover the latest durable **Root Blocker Ledger** and complete cumulative acceptance matrix, including later review/remediation updates and any canonical resynthesis.
-
-Preserve:
-
-* stable `RB-*` IDs and invariants;
-* current root status;
-* affected semantic surfaces/reference kinds;
-* exit checks;
-* all active acceptance cells and their current statuses/evidence;
-* Owner Overrides;
-* `Architecture decision required`;
-* governing authority and routing.
-
-Treat legacy `closed` root status as `satisfied`.
-
-Acceptance cells are cumulative. Do not drop a cell merely because a later review update omitted it.
-
-Honor an explicit durable supersession, retirement, or Owner Override.
-
-For each unresolved root partition its active cells into:
-
-* **remediation obligations** — `open` or `regressed` cells requiring implementation;
-* **verification obligations** — `unproven` cells whose missing proof does not currently require implementation;
-* **preservation obligations** — `satisfied` cells that must remain satisfied while shared root surfaces change.
-
-`Architecture decision required: No` is ordinary remediation.
-
-If an unresolved root has `Architecture decision required: Yes`, halt ordinary remediation slicing for that root and return an **architecture-blocked remediation result** to `$to-tickets` containing:
-
-* Root Blocker ID and invariant;
-* the unresolved architecture question/conflict;
-* governing authority;
-* concise evidence and material consequence.
-
-Do not route directly to `$review-spec`; `$to-tickets` owns any lifecycle Human Handoff.
-
-Do not synthesize, broaden, split, renumber, or redefine roots here.
-
-### Existing Spec
-
-Treat the current Spec as required state.
-
-Do not reconstruct an older revision.
-
-Existing linked tickets represent previously sliced work.
-
-### Changed-Authority Semantic-Consumer Propagation Guard
-
-For an existing Spec, changed accepted architecture/design authority can alter the invariant of a semantic subject that later tickets **operate on** even when those tickets did not originally produce that subject and do not currently cite the changed source. Before returning any substantive remediation delta, prove that those downstream operation owners were evaluated.
-
-Run this guard whenever current reconciliation includes at least one of:
-
-* a changed or newly accepted architecture/design source unit;
-* a changed `ARCHSRC-*` obligation or destination;
-* an amended Spec predicate that changes the meaning/invariant of a durable domain/application/persistence subject;
-* a confirmed `decomposition-defects:v1` report.
-
-First identify each materially changed semantic subject/invariant from current authority, for example an assessment, binding, requirement version, correction, reconstructed view, persisted proof, public result, authority witness, or transaction boundary. Then inspect the complete active ticket reconciliation universe, not only the tickets already named by the changed architecture row.
-
-A ticket is a **semantic-consumer candidate** when its current contract creates, mutates, revises, corrects, retracts, reassesses, validates, interprets, reconstructs, replays, persists, serializes, migrates, exposes, authorizes, or otherwise makes a semantic claim about the changed subject. Explicit cross-ticket ownership/deferment language such as “correction interpretation remains owned by #N” is mandatory discovery evidence and must be followed to the current open owner.
-
-Native dependency edges, shared files, and source citations are discovery hints only. Absence of a dependency, common file, or explicit ADR citation is not proof that a consumer is unaffected.
-
-For every changed invariant × semantic-consumer candidate materialize one row:
-
-```text
-Changed obligation/source unit: <Spec cell | ARCHSRC-* | ARCSU-* | DD-*>
-Semantic subject/invariant: <exact changed meaning>
-Consumer ticket: #<n>
-Consumer operation: <create | mutate | correct | retract | reassess | validate | interpret | reconstruct | replay | persist | serialize | migrate | expose | authorize | other>
-Discovery evidence: <ticket clause / explicit ownership handoff / dependency / source relation>
-Invariant applicability: applies | does-not-apply | ambiguous
-Required carry: existing-obligation | add-Spec-cell-carry | add-ARCHSRC | new-active-ticket | none
-Reason/authority: <why this operation must or need not preserve the changed invariant>
-```
-
-Rules:
-
-* `applies` means the ticket can make, persist, return, or reinterpret a semantic statement whose correctness depends on the changed invariant; that ticket must carry the applicable current obligation in its durable contract;
-* a downstream correction/revision path is a consumer of the corrected entity's current invariant even when correction mechanics are governed by a separate ADR;
-* a reconstruction/replay/read path is a consumer when it determines current or historical meaning from the changed subject;
-* an opaque reference that neither interprets nor changes the subject may be `does-not-apply`, but only with positive authority/reason;
-* an explicit ownership handoff/deferment must terminate at a current destination and that destination must be evaluated; do not stop at the ticket that wrote the handoff;
-* a closed historical consumer is never rewritten. If current authority requires new executable behavior after closure, map the delta to an existing open owner or create a new active ticket;
-* `ambiguous` is a hard blocker. Do not guess semantic applicability from filenames, implementation shape, or convenience;
-* do not broaden into unrelated tickets merely because they mention the same noun. The consumer operation must materially touch the changed invariant.
-
-Before ticket reconciliation may be considered complete require:
-
-```text
-Changed semantic invariants assessed: <n>
-Semantic-consumer candidates: <n>
-Applicable semantic-consumer rows: <n>
-Applicable consumers with durable obligation carry: <n>/<n>
-Applicable consumers requiring ticket/manifest update: <n>
-Unmapped applicable consumers: 0
-Ambiguous consumer applicability: 0
-Explicit downstream ownership handoffs untraced: 0
-```
-
-Return this compact **Semantic-Consumer Impact Matrix** to `$to-tickets` with the remediation delta. It is decomposition evidence, not a new durable tracker artifact. `$to-tickets` remains the owner of the parent manifest, proposal, approval, and publication.
-
-### Decomposition Defect Input
-
-When `$to-tickets` invokes this remediation path with validated decomposition defects, consume the parent's independently validated `DD-*` set in addition to ordinary Root Blocker state.
-
-Do not independently turn an unvalidated defect report into ticket scope. `$to-tickets` must first classify the report against current architecture/design authority and the parent Spec Architecture/Design Obligation Disposition Manifest.
-
-For every confirmed decomposition defect supplied by `$to-tickets`:
-
-* preserve its stable `DD-*` identity and exact governing source;
-* carry the reconciled `ARCHSRC-*` obligation and required destination;
-* evaluate the changed obligation through the **Changed-Authority Semantic-Consumer Propagation Guard** before declaring its destination complete;
-* reuse/update an applicable open ticket or create a new remediation ticket;
-* never reopen or rewrite a closed historical ticket merely because its historical scope omitted the obligation;
-* include the mapped `ARCHSRC-*` IDs in every applicable consumer ticket's `## Architecture obligations` field;
-* return a complete `DD-* → ARCHSRC-* → ticket/destination` delta to `$to-tickets`.
-
-Before returning the remediation delta require:
-
-```text
-Confirmed decomposition defects supplied: <n>
-Decomposition defects dispositioned: <n>
-Unmapped decomposition defects: 0
-Ambiguous decomposition destinations: 0
-Architecture obligations without active ticket/authorized non-ticket destination: 0
-Semantic-consumer impact matrices complete: <n>/<n applicable changed obligations>
-Unmapped applicable semantic consumers: 0
-```
-
-## 3. Reconcile Existing Tickets
-
-Read relevant open and closed tickets, including body, acceptance criteria, dependencies, execution metadata, and closing context when needed.
-
-For each current requirement:
-
-* matching **open** ticket still covering the work → reuse;
-* matching **open** ticket whose pending work changed → update;
-* matching **closed** ticket whose obligation is currently satisfied → keep as historical evidence;
-* matching **closed** ticket but current state requires additional work → create a new ticket;
-* no matching ticket → create a new ticket.
-
-Never reopen or rewrite a closed ticket to represent new or remaining work.
-
-Before treating closed work as sufficient historical evidence, reconcile it with current durable root state when the obligation can still be violated.
-
-A closed ticket is historical evidence, not proof by itself and not active remediation coverage.
-
-For open tickets no longer required by an amended Spec, return them for closure as superseded.
-
-### Active Implementation / Live-WIP Reslice Guard
-
-Before returning a delta that creates a new prerequisite, moves implementation ownership between tickets, or adds a blocker to an already-started open ticket, inspect the affected existing ticket's implementation state.
-
-Treat an existing ticket as **already-started** when any of the following is true:
-
-* `Ticket baseline` is a full SHA and the shared Spec-branch caller checkout contains attributable dirty WIP for that ticket;
-* a durable nonterminal implementation/closure checkpoint exists for that ticket;
-* current local candidate evidence proves implementation began after the pinned baseline even though closure did not complete.
-
-For each proposed ownership/dependency change record:
-
-```text
-Source ticket: #<n>
-Already-started: yes | no
-Active local WIP: yes | no | unavailable
-Current pinned baseline: <SHA | Pending>
-Proposed moved/new prerequisite scope: <ticket/destination>
-WIP overlap with moved scope: yes | no | unknown
-Disposition: ordinary-reconciliation | live-WIP-reslice | hard-block
-```
-
-Rules:
-
-* if the source ticket is not already-started, ordinary reconciliation applies;
-* if it is already-started but the proposed delta does not move/precede any of its implementation ownership, ordinary reconciliation applies;
-* if the delta creates a new prerequisite or moves scope that may already exist in the source ticket's active WIP, classify `live-WIP-reslice`;
-* if local WIP presence/ownership cannot be inspected from the current execution context, return that uncertainty to `$to-tickets`; do not pretend the new ticket is ordinary greenfield work;
-* never require the source WIP to be committed, stashed, reset, or discarded merely to make the new prerequisite publishable.
-
-For each `live-WIP-reslice`, return a required recovery record contract to `$to-tickets` with:
-
-* source ticket ID;
-* destination/new prerequisite proposal identity;
-* shared Spec branch;
-* source ticket baseline;
-* current remote Spec-branch anchor used for publication;
-* `Recovery mode: isolated-worktree`.
-
-The destination ticket still carries ordinary semantic acceptance criteria. The recovery record is lifecycle metadata and does not transfer semantic ownership back to the source ticket.
-
-### Legacy Execution Metadata
-
-For every existing open ticket retained or updated by this remediation, inspect `Ticket baseline`.
-
-* valid full SHA → preserve exactly;
-* `Pending` → preserve;
-* missing → return an update adding `Ticket baseline: Pending`;
-* malformed or ambiguous → report the metadata defect rather than overwrite potentially meaningful state.
-
-A missing `Ticket baseline` makes the remediation delta non-empty even when implementation scope is otherwise current.
-
-`Pending` means the implementation-start baseline has not yet been pinned.
-
-Never choose or write the baseline SHA here.
-
-`$implement-ticket` owns replacing `Pending` with the exact pre-mutation `HEAD`.
-
-Do not modify closed tickets solely to normalize execution metadata.
-
-## 4. Root Blocker Reconciliation
-
-For each Root Blocker:
-
-* **open** → implementation/remediation remains; reuse an applicable open ticket or create one;
-* **regressed** → reuse active remediation or create a new `Regression:` ticket referencing relevant closed work;
-* **unproven** → determine whether implementation or verification owns the remaining obligation;
-* **satisfied** or **owner-overridden** → no remediation ticket is required.
-
-For `unproven`:
-
-* missing or incorrect implementation → reuse/create remediation;
-* implementation conforms and only proof remains missing → preserve as a verification obligation; do not invent implementation work.
-
-`unproven` does not itself require an implementation ticket.
-
-Never skip an `open` or `regressed` root merely because prior covering tickets are closed.
-
-### Same-Root Preservation
-
-When an unresolved root also contains satisfied cells, those cells remain part of its closure contract.
-
-Do not turn satisfied cells into new implementation work.
-
-Instead, carry them into every applicable remediation ticket as **preservation obligations**.
-
-The ticket must make clear that:
-
-* current remediation work closes the non-satisfied cells;
-* previously satisfied cells must remain satisfied;
-* changes to shared surfaces must not invalidate their existing proof;
-* root closure requires a final invariant sweep across the complete current root domain.
-
-If a root requires multiple remediation tickets, each ticket carries the preservation obligations applicable to surfaces it can affect, and the final root-closing ticket carries the complete preservation set.
-
-## 5. Mode-Specific Delta Rules
-
-### Spec Review
-
-Create the smallest **root-complete** remediation track.
-
-Prefer one ticket when one fresh implementation context can remediate and prove the root. Use multiple tickets only when independently necessary stages or dependencies require them.
-
-Each remediation ticket must carry:
-
-* exact `Architecture obligations` (`ARCHSRC-*` IDs or `None`) from the reconciled parent manifest;
-* applicable decomposition-defect provenance (`DD-*`) when the ticket exists because of a confirmed decomposition gap;
-* Root Blocker ID and stable invariant;
-* governing Architecture context when applicable;
-* affected semantic sibling surfaces/reference kinds;
-* current remediation obligations;
-* applicable verification obligations;
-* satisfied same-root cells as explicit preservation obligations;
-* production-path acceptance criteria;
-* required negative/fail-closed/regression proof;
-* root-complete invariant sweep required for closure.
-
-Do not slice directly from the latest finding bullets.
-
-Do not create one ticket per symptom when several symptoms share one root.
-
-Do not omit satisfied cells merely because they require no new implementation.
-
-A root-complete ticket is not complete unless the implementer can provide complete Proposed Closure Evidence and one fresh `$verify-ticket-closure` verifier can independently certify both:
-
-1. what must change; and
-2. what established same-root behavior must remain true.
-
-### Regression Naming
-
-Use a `Regression:` ticket only when durable root state establishes that previously satisfied behavior was actually broken later.
-
-A **missed prior finding**, root-definition gap, newly exposed child symptom, or incomplete prior closure is ordinary remediation unless current durable state explicitly classifies it as a regression.
-
-### Existing Spec
-
-Reconcile semantically, not by wording alone.
-
-If an amended requirement changes pending work, update the existing open ticket when it still naturally owns that work.
-
-If an amended requirement or architecture invariant changes the meaning of a subject that another open ticket consumes, apply the **Changed-Authority Semantic-Consumer Propagation Guard** and update every applicable consumer ticket even when its headline responsibility did not change.
-
-If a closed ticket satisfied the old requirement but the amended Spec now requires more, create an ordinary new ticket for the delta.
-
-Treat it as a regression only when previously required behavior actually broke.
-
-Return dependency changes when new work must block an existing open ticket.
-
-### Architecture Readiness Language
-
-When creating or updating Architecture context, scope readiness claims to current established knowledge.
-
-When applicable:
-
-> All architecture decisions currently required by this ticket are accepted; no known architecture blocker remains unresolved.
-
-Do not claim:
-
-* `no architecture decision remains unresolved`;
-* `architecture is fully resolved`;
-* `all architecture is settled`;
-* equivalent global/final assertions.
-
-Ticket readiness means no **known current architecture blocker** prevents implementation.
-
-`$implement-ticket` still owns halting on a newly discovered material architecture blocker.
-
-Replace stale absolute readiness language when updating an open ticket.
-
-## 6. Preserve Ticket Semantics
-
-Every new or updated ticket must follow `$to-tickets` rules, including:
-
-* tracer-bullet scope unless a wide-refactor exception applies;
-* applicable Architecture context;
-* scoped readiness language;
-* correct blocking edges;
-* the existing Spec's shared `Ticket branch`;
-* a durable `Ticket baseline`;
-* acceptance criteria proving required production behavior;
-* preservation obligations for satisfied cells of an unresolved Root Blocker.
-
-For new tickets:
-
-```text
-Ticket baseline: Pending
-```
-
-For existing open tickets:
-
-* preserve a valid pinned SHA;
-* preserve `Pending`;
-* add `Pending` when the field is missing.
-
-Never reset a pinned SHA to `Pending`.
-
-`$to-tickets` owns approval, publishing, parent-child links, dependencies, labels, and ticket metadata.
-
-`$implement-ticket` owns pinning `Pending` to the implementation-start `HEAD`.
-
-## 7. Return the Delta
-
-Return only actionable ticket changes:
-
-```text
-Architecture-blocked roots:
-- RB-<n>: <question/conflict> — <governing authority/evidence>
-
-Semantic-consumer propagation:
-- <changed obligation / semantic subject> → <consumer ticket> — <required carry/update>
-
-New tickets:
-- <ticket>
-  Root: RB-<n>
-  Remediation obligations:
-  - ...
-  Verification obligations:
-  - ...
-  Preservation obligations:
-  - ...
-  Root-complete sweep:
-  - ...
-
-Update open tickets:
-- ...
-
-Close as superseded:
-- ...
-
-Dependency changes:
-- ...
-
-Verification-only obligations:
-- RB-<n>: ...
-
-Skipped:
-- ...
-```
-
-Omit `Architecture-blocked roots` when none exist. Omit `Semantic-consumer propagation` only when the Changed-Authority Semantic-Consumer Propagation Guard is not applicable or proves zero applicable consumer updates.
-
-For Spec Review remediation, also report:
-
-* each unresolved Root Blocker;
-* whether implementation remediation remains required;
-* the open/new ticket covering required remediation;
-* preservation obligations carried into that ticket;
-* unproven evidence obligations that do not currently require implementation;
-* actual regressions and referenced closed tickets.
-
-Never report an `open` or `regressed` Root Blocker as skipped merely because prior covering tickets are closed.
-
-An empty delta is valid only when:
-
-* no current requirement needs new or changed implementation work;
-* no applicable semantic consumer requires changed obligation carry;
-* no `open` or `regressed` Root Blocker lacks active remediation coverage;
-* no retained open ticket requires metadata normalization;
-* any remaining `unproven` obligations require verification only.
-
-Before returning a proposed Spec Review remediation ticket, confirm that no satisfied active cell of the same unresolved root was silently discarded.
-
-If one was omitted from the ticket, the delta is incomplete.
-
-The returned ticket blocks and Semantic-Consumer Impact Matrix are the authoritative semantic input to `$to-tickets`' approval proposal. `$to-tickets` may improve presentation but must not condense, merge, reclassify, or omit any returned obligation or applicable consumer mapping.
-
-Return control to `$to-tickets` at its approval/publishing step.
-
-## Transition-Bound Root Delta Coverage
-
-For Spec Review remediation, the cumulative active Root Blocker acceptance matrix is a finite source universe. Before returning any ticket delta, materialize one **Root Delta Coverage** row for every active cell of every unresolved root:
-
-```text
-Root: RB-<n>
-Cell: <stable acceptance-cell ID>
-Current status: <open | regressed | unproven | satisfied | owner-overridden | scope-retired>
-Obligation type: <remediation | verification | preservation | retired>
-Ticket mapping: <open/new ticket identity | None>
-Reason/authority: <why the disposition and mapping are complete>
-```
-
-Required mapping:
-
-* `open` / `regressed` → `remediation` and active remediation-ticket coverage;
-* `unproven` → `verification` unless direct evidence establishes missing/incorrect implementation, in which case `remediation`;
-* `satisfied` on an unresolved same root → `preservation`, carried to every applicable remediation ticket and completely to the final root-closing ticket;
-* `owner-overridden` / durably `scope-retired` → `retired` with the exact durable authority; neither status may be inferred here.
-
-Every active cell appears exactly once. A cell may map to more than one ticket only when shared-surface preservation or staged remediation genuinely requires it, and the reason must state why. Closed historical tickets are evidence, not active remediation coverage.
-
-Before returning the delta require:
-
-```text
-Active root cells: <n>
-Root delta rows: <n>
-Missing cells: 0
-Unknown cells: 0
-Unclassified obligation types: 0
-Required remediation without active ticket coverage: 0
-Satisfied same-root cells omitted from preservation: 0
-Rows without reason/authority: 0
-```
-
-An empty remediation delta is legal only after this table proves that every active cell is verification-only, preserved without new work, or durably retired/overridden. Do not derive emptiness from absence of newly noticed symptoms.
+Its only current function is to preserve old entry points while routing them to the
+canonical owner.

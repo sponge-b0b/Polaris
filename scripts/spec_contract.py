@@ -399,6 +399,7 @@ def main() -> int:
         if args.command == "build":
             _write(Path(args.output), current)
             print("SPEC CONTRACT: VALID")
+            print("Semantic prose classification performed: 0")
             print(f"Spec Body Hash: {current['spec_body_hash']}")
             print(f"Spec Contract Hash: {current['spec_contract_hash']}")
         else:
@@ -417,6 +418,7 @@ def main() -> int:
                 "SPEC CONTRACT: STALE cell universe",
             )
             print("SPEC CONTRACT: VALID")
+            print("Semantic prose classification performed: 0")
     except (SpecContractError, json.JSONDecodeError, OSError) as exc:
         print(exc)
         return 1

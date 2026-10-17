@@ -29,15 +29,25 @@ recent activity are never delivery authority.
 
 ## Canonical control artifact
 
-Require exactly one open GitHub issue carrying:
+Require exactly one open GitHub issue labeled exactly:
 
 ```text
 project-delivery:management
 ```
 
-Discover across open and closed issues so a closed or duplicated control artifact cannot be
-bypassed. Zero, multiple, or closed matching issues are invalid current repository state and
-fail closed. Creation or repair of the control artifact is repository administration outside
+Discover the singleton by GitHub label metadata across open and closed issues. The label is
+the discovery key; issue title/body text is not. Use a label-filtered issue listing/API path
+with complete pagination, then verify exact label membership on every returned issue.
+
+Do **not** use GitHub search syntax, body/title matching, Project fields, remembered issue
+numbers, or a previously observed singleton as a substitute for canonical discovery. In
+particular, do not run ad hoc queries such as `gh search issues ... in:body` to locate the
+control artifact. If the available client path cannot prove complete label-filtered
+pagination, return invalid control state and fail closed rather than trying another
+heuristic discovery method.
+
+Zero, multiple, or closed matching issues are invalid current repository state and fail
+closed. Creation or repair of the control artifact is repository administration outside
 this runtime skill.
 
 The singleton body contains exactly one current-state block:
@@ -88,6 +98,17 @@ parallel focus, broaden parallel authorization, or invent a dependency.
 
 Deterministic removal of completed or directly ineligible focused maps is reconciliation,
 not a discretionary focus choice.
+
+### Caller boundary
+
+Lifecycle callers consume this skill's result; they do not reproduce its control-state or
+guard algorithm inline. Singleton discovery, focus validation, Wayfinder-frontier
+derivation, and guard classification belong to `$project-delivery-management` while the
+invocation is active.
+
+A caller must not compensate for a failed invocation by performing independent `gh search`,
+body/title matching, Project queries, or remembered-state checks and then declaring an
+ALLOWED result itself. A failed, incomplete, or ambiguous invocation is a blocked guard.
 
 ## Canonical Wayfinder frontier
 

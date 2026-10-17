@@ -1,360 +1,45 @@
 ---
 name: review-spec-remediation
-description: Internal continuation of `$review-spec` that maintains durable Root Blocker state, applies validated scope corrections without erasing history, and hands only active architecture-conforming remediation to `$to-tickets`.
+description: Compatibility route for historical review-remediation handoffs. Current review finding continuity is owned directly by `$review-spec`, and executable remediation is sliced by `$to-tickets`.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
 
-# Review Spec Remediation
+# Review Spec Remediation — Compatibility Route
 
-`$review-spec-remediation` is invoked only by `$review-spec` after a current **Pending Review Remediation** packet is persisted.
+`$review-spec-remediation` no longer owns a Root Blocker ledger, acceptance matrix, or
+semantic remediation state.
 
-It converts already validated review findings and scope corrections into durable remediation state.
-
-It does not review source, create new findings, fix implementation, or independently change finding scope/axis authority.
-
-## Decomposition Integrity Gate
-
-This skill consumes review findings already validated by `$review-spec`; it does not independently rediscover architecture/design obligations or repair ticket decomposition.
-
-Track separately:
+Current review state is:
 
 ```text
-Active ordinary Blocking findings: <n>
-Active decomposition defects: <n>
+review-spec-finding-ledger:v2
+    stable RF-* identities
+    exact current cell hashes
+    frozen falsifiers
+        ↓
+$to-tickets
+        ↓
+polaris.review-remediation-contract/v1
 ```
 
-For every current finding classified `decomposition-defect`:
+## Historical invocation
 
-* preserve the originating review axis/severity and exact governing source;
-* preserve the missing/incomplete/misrouted manifest/ticket evidence;
-* do not reinterpret it as a Root Blocker implementation symptom merely to pass it through ordinary remediation;
-* ensure the current conventional Spec Review's single `<!-- decomposition-defects:v1 -->` record contains one stable unresolved `DD-*` entry for it;
-* exclude that `DD-*` from ordinary implementation-root synthesis until `$to-tickets` independently validates/reconciles it.
+If invoked from an older Pending Review Remediation or Root Blocker handoff:
 
-Ordinary finality-surviving Blocking findings continue through the Root Blocker model and `$to-tickets` remediation delta normally. Decomposition defects do not suppress unrelated ordinary remediation; `$to-tickets #<Spec Review>` consumes both the Root Blocker delta and unresolved `DD-*` records in one source-owned reconciliation.
+1. recover the Parent Spec and conventional Spec Review;
+2. preserve the historical Root Blocker/matrix record as history;
+3. do not update or resynthesize it;
+4. route to a fresh `$review-spec` for current finding-ledger v2 normalization.
 
-A prior ticket/Spec certification is historical provenance, not authority to erase a current explicit architecture/design decomposition obligation.
-
-## Review Finding Continuity Gate
-
-`$review-spec-remediation` consumes the current `review-spec-finding-ledger:v1` alongside the exact Pending packet. It does not create, delete, or semantically rediscover findings.
-
-Require every current ordinary Blocking finding in the Pending packet to name one `RF-*` row whose current ledger state is `open` and whose routing is `ordinary-remediation`.
-
-Require exact accounting before any `$to-tickets` handoff:
+Return:
 
 ```text
-Open ordinary-remediation RF rows: <n>
-RF rows mapped to active Root Blockers: <n>
-Open ordinary RF rows without root mapping: 0
-Root mappings to unknown/terminal RF rows: 0
-Open decomposition-defect RF rows: <n>
+$review-spec - <Parent Spec Title> (<Parent Spec URL>)
 ```
 
-Rules:
-
-* every open ordinary-remediation `RF-*` must map to exactly one existing or newly synthesized stable Root Blocker in this invocation;
-* unrelated decomposition defects never defer, suppress, or prevent ordinary `RF-*` root synthesis;
-* open decomposition-defect rows remain outside Root Blocker synthesis and continue through the canonical `DD-*` / `$to-tickets` path;
-* satisfied/invalidated/owner-overridden/scope-retired finding rows cannot create active remediation roots;
-* persist the contributing `RF-*` IDs in Root Blocker evidence so later re-review can trace finding → root → remediation without conversational memory.
-
-If exact RF/root accounting cannot be established, return a remediation-state error to `$review-spec`; do not hand off an incomplete delta.
-
-## Invocation Preconditions
-
-Recover:
-
-* Spec Review issue;
-* exact `**Parent Spec:** #<n>` line;
-* latest Pending Review Remediation packet;
-* current `review-spec-finding-ledger:v1` comment;
-* current `HEAD`, branch, Spec baseline;
-* current passing verification receipt.
-
-Require the packet:
-
-* `Status: pending`;
-* `Reviewed HEAD == current HEAD`;
-* `Reviewed Baseline == current Spec baseline`;
-* branch matches;
-* `Spec Body Hash` and `Spec Contract Hash` match the passing verification receipt and the parent Spec's current Ticket Coverage Manifest.
-
-If stale/missing, return a remediation-state error to `$review-spec`.
-
-The packet is the sole current-review input. Do not re-mine historical review text or source code for findings.
-
-## Root Blocker Model
-
-Group accepted Blocking findings by the stable durable invariant they violate, not by file/subsystem/axis.
-
-Preserve existing `RB-*` IDs. Do not broaden an invariant merely to avoid a new root.
-
-Maintain:
-
-* invariant;
-* status;
-* affected semantic surface/reference families;
-* governing architecture when applicable;
-* exit checks;
-* current evidence;
-* cumulative acceptance obligations;
-* Owner Overrides;
-* Scope retirements.
-
-Architecture roots preserve:
-
-```text
-Architecture decision required: No
-Governing authority: <authority>
-Routing: existing-authority remediation
-```
-
-## Finding Reconciliation
-
-Classify each accepted current Blocking finding as exactly one:
-
-* **child symptom**;
-* **root-definition gap**;
-* **regression**;
-* **missed prior finding**;
-* **new root**.
-
-Use provenance supplied by `$review-spec`. Do not independently reclassify axis authority.
-
-A missed prior finding makes a root `open`, not `regressed`.
-
-### Root Definition Integrity
-
-A root-definition gap may expand affected semantic surfaces, exit checks, and acceptance obligations while preserving the same stable invariant **only when the current `$review-spec` semantic-domain-finality disposition permits that expansion**. A certified frozen domain under unchanged authority may not be enlarged by this clause.
-
-If the invariant itself would materially broaden, create a new root only when the current accepted finding is neither a non-actionable `domain-expansion` nor an unresolved `decomposition-defect` awaiting `$to-tickets` reconciliation.
-
-Do not let a root become an unlimited thematic container.
-
-## Cumulative Acceptance Matrix
-
-Carry every established cell with one state:
-
-```text
-satisfied
-open
-regressed
-unproven
-owner-overridden
-scope-retired
-domain-excluded
-```
-
-Omission from a later update does not remove a cell.
-
-A satisfied cell stays satisfied unless current accepted evidence violates the same semantic obligation or durable state explicitly supersedes/retires/overrides it.
-
-A new sibling manifestation adds/opens the narrow missing cell only when it survived the current `$review-spec` semantic-domain-finality gate. A domain-expansion observation becomes `domain-excluded`; a decomposition defect remains separate routing state until `$to-tickets` reconciles it.
-
-A root is active-satisfied only when every non-retired required cell is `satisfied`, `owner-overridden`, or `domain-excluded`.
-
-## Scope Correction
-
-`scope-retired` is a durable attribution correction, not an override and not a claim that the historical repository defect was false.
-
-Apply a scope correction only when the current Pending packet explicitly supplies it and its evidence establishes:
-
-1. the root/cell is inherited-only or otherwise not owned by this Spec;
-2. no current Spec Contract Manifest obligation requires it;
-3. no applicable Architecture Impact/current authority requires it for this Spec;
-4. retirement does not remove an active Spec-owned sibling obligation.
-
-Do not independently invent a scope correction.
-
-For a fully unrelated root:
-
-```text
-Status: scope-retired
-Scope-retirement reason: <ownership + no Spec/Architecture relationship>
-Historical finding preserved: yes
-```
-
-For a mixed root, mark only unrelated cells `scope-retired` and recompute the root from remaining active cells.
-
-Never use `scope-retired` simply because the violation pre-existed the Spec. Pre-existing behavior that violates an exact Spec/Architecture obligation remains active.
-
-Scope-retired roots/cells:
-
-* remain in historical review state;
-* do not count as active Blocking remediation;
-* do not go to `$to-tickets` for this Spec;
-* may name an external repository follow-up, but this skill does not create that work.
-
-## Architecture-Conformance Gate
-
-Before persisting a new root or materially changed active acceptance obligation, confirm remediation does not require an unresolved architectural choice.
-
-Use only current accepted Architecture findings, existing governing authority, and Spec Architecture Impact.
-
-If correction requires a new owner/path/boundary/dependency/lifecycle choice or conflicting-authority resolution, return a genuine architecture blocker to `$review-spec`.
-
-Do not create Architecture findings here.
-
-## Durable Ledger Format
-
-Use:
-
-```markdown
-## Root Blocker Ledger
-
-### RB-<n> — <stable name>
-Status: open | satisfied | regressed | unproven | owner-overridden | scope-retired
-Invariant: <stable invariant>
-Architecture decision required: No
-Governing authority: <authority>
-Routing: existing-authority remediation
-Affected surfaces/reference kinds: <semantic families>
-Exit checks: <root-complete proof>
-Current evidence:
-- <evidence>
-Scope-retirement reason: <when applicable>
-
-## Spec Acceptance Matrix
-
-| Root | Surface/reference kind | Production-path obligation | Status | Evidence |
-| --- | --- | --- | --- | --- |
-```
-
-Treat legacy `closed` as `satisfied`.
-
-Do not let helper/unit proof establish completion when an obligation requires a production path.
-
-## 1. First Remediation Pass
-
-When no ledger exists:
-
-1. synthesize every current open `ordinary-remediation` `RF-*` into stable roots with exact RF mapping;
-2. build initial cumulative matrix;
-3. apply architecture-conformance gate;
-4. persist the ledger/matrix.
-
-Scope corrections normally apply only to existing durable review state; ignore a correction for a nonexistent historical root/cell as malformed input.
-
-Preserve the exact `**Parent Spec:**` line.
-
-## 2. Recursive Remediation Pass
-
-When durable state exists:
-
-1. recover complete ledger/matrix;
-2. preserve every active prior obligation and every open ordinary-remediation `RF-*`;
-3. apply explicit Scope Corrections first;
-4. consume the current `$review-spec` decomposition-integrity and semantic-domain-finality disposition for every finding against a previously satisfied/closed root;
-5. reconcile only finality-surviving current Blocking findings;
-6. add root-definition-gap cells only when allowed by the finality gate;
-7. mark corrected out-of-domain historical/current observations `domain-excluded` rather than deleting them;
-8. update root status/evidence;
-9. apply architecture-conformance gate;
-10. require every open ordinary-remediation `RF-*` to map to exactly one active root;
-11. persist updated cumulative state.
-
-Do not resurrect historical findings unless they remain active cells or are independently validated in the current Pending packet.
-
-### Root Status
-
-Use:
-
-* **open** — active violated obligation;
-* **regressed** — previously satisfied behavior was broken later;
-* **unproven** — no known violation but required proof insufficient;
-* **satisfied** — all active obligations proven, overridden, retired, or domain-excluded;
-* **owner-overridden** — owner explicitly removes Blocking requirement;
-* **scope-retired** — no active obligation belongs to this Spec after validated attribution correction.
-
-A root with some scope-retired/domain-excluded cells and some active cells uses the active-cell-derived status.
-
-### Re-review History
-
-Append a concise dated section containing:
-
-* current independently validated findings by axis;
-* applied scope corrections;
-* decomposition-integrity and semantic-domain-finality results;
-* saturation result when present;
-* root updates;
-* matrix updates.
-
-Preserve historical sections; never rewrite them.
-
-## 3. Remediation Delta
-
-After state is current, compute only **active architecture-conforming Blocking remediation**.
-
-Exclude:
-
-* satisfied cells;
-* owner-overridden cells;
-* scope-retired cells/roots;
-* domain-excluded cells;
-* unresolved decomposition defects, which `$to-tickets` must validate/reconcile through the canonical `DD-*` record before they become ticket scope;
-* domain-expansion observations excluded from current implementation remediation.
-
-For each actionable root pass to `$to-tickets`:
-
-* stable ID/invariant;
-* current active status;
-* affected semantic families;
-* governing authority;
-* every active non-satisfied obligation;
-* satisfied preservation cells;
-* production-path/negative/fail-closed/regression proof;
-* root-complete invariant sweep constrained to the currently authoritative/frozen domain;
-* missed/regressed provenance;
-* current review saturation evidence when supplied.
-
-Do not slice latest symptom bullets directly.
-
-Do not create one ticket per symptom when one root-complete ticket can close the invariant.
-
-## 4. Return / Human Handoff
-
-Let:
-
-```text
-ACTIVE_BLOCKING_FINDINGS
-```
-
-mean current independently validated ordinary Blocking findings that remain active after validated scope corrections **and semantic-domain finality**; decomposition defects are tracked separately as required above.
-
-Active decomposition defects are tracked separately from ordinary Root Blocker findings. They do not block a `$to-tickets` handoff for unrelated active remediation; instead the same `$to-tickets #<Spec Review>` invocation consumes both categories.
-
-If no ordinary architecture-conforming remediation remains but one or more decomposition defects remain unresolved, still hand off to `$to-tickets #<Spec Review>`; do not mark the review clean and do not manufacture an implementation root from the decomposition defect before `$to-tickets` validates it.
-
-If active architecture-conforming remediation remains, halt using:
-
-> ⚠️ **Spec Review Failed with [X] Blocking Findings.**
->
-> I have created or updated the parent tracking issue:
-> **`Spec Review: <Feature Name> #<Issue_ID>`**.
->
-> Please run:
->
-> ```
-> $to-tickets Spec Review: <Feature Name> (<Issue URL>)
-> ```
->
-> `$to-tickets` should slice **Blocking remediation only** unless you explicitly want Advisory findings ticketed.
-
-`[X]` is the number of active current Blocking findings after scope/domain correction, not raw historical findings, roots, or cells.
-
-If Scope/Domain Corrections remove all active Blocking findings, return control to `$review-spec`; do not emit `$to-tickets`.
-
-## Owner Overrides
-
-Owner Override remains distinct from Scope retirement and Domain exclusion.
-
-For an explicit owner override:
-
-* persist scope/rationale;
-* mark applicable root/cell `owner-overridden`;
-* remove from Blocking counts;
-* suppress the unchanged finding later.
-
-Do not use Owner Override to repair attribution, decomposition, or semantic-domain-finality mistakes that meet Scope Correction, decomposition-defect, or domain-expansion rules.
+After `$review-spec` persists current open remediation-owned `RF-*` rows, it hands off
+directly to `$to-tickets`.
+
+This compatibility skill performs no repository/tracker mutation and emits no remediation
+ticket proposal.

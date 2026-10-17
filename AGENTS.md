@@ -4,115 +4,95 @@
 
 These are the operating rules for coding agents working on Polaris.
 
-`AGENTS.md` is primarily **prescriptive agent policy**: how an agent must work in this repository. It is not a second authoritative copy of project architecture.
+`AGENTS.md` is primarily **prescriptive agent policy**: how an agent must work in this
+repository. It is not a second authoritative copy of project architecture.
 
 At the start of a task:
 
 1. Match claims to the correct authority:
-
-   * code, configuration, executable checks, and relevant tests outside `legacy/` → current implementation reality;
-   * accepted ADRs outside `legacy/` → active architectural decisions;
+   * code, configuration, executable checks, and relevant tests outside `legacy/` →
+     current implementation reality;
+   * accepted CCL contracts → canonical material delivery semantics where a CCL contract
+     exists;
+   * accepted ADRs outside `legacy/` → active architectural rationale/decisions not
+     superseded by a canonical CCL field;
    * active architecture documents outside `legacy/` → current architectural description;
    * an active root `wiki/entities/`, when present → derived architectural knowledge;
-   * `legacy/v0_1/` → historical donor/reference material only, never current product, architecture, implementation, or workflow authority.
-
-2. If applicable authorities materially disagree, surface `[source-conflict]`. Do not silently choose whichever source makes the task easiest.
-
+   * `legacy/v0_1/` → historical donor/reference material only.
+2. If applicable authorities materially disagree, surface `[source-conflict]`. Do not
+   silently choose whichever source makes the task easiest.
 3. Merge these repository rules with narrower user instructions for the active task.
+
+Where a material semantic coordinate is represented by CCL, downstream prose may explain
+or project it but may not override it.
 
 ### Proactive Attention Duty
 
-At any time during analysis, planning, architecture, design, specification, ticketing, implementation, verification, review, remediation, or ordinary repository work, **surface material concerns promptly when you notice them**. Do not wait for the user, a checklist, a failing test, or a later review to ask the question first.
+At any time during analysis, planning, architecture, design, specification, ticketing,
+implementation, verification, review, remediation, or ordinary repository work,
+**surface material concerns promptly when you notice them**.
 
-The current task is the **immediate work surface, not the boundary of Attention**. Maintain a standing Polaris-wide meta-level Attention posture: while doing the work in front of you, continuously evaluate what the current observation implies for Polaris as a whole across materially implicated product intent, domain semantics, architecture, authority, code, persistence, APIs, tests, documentation, Living Entity Wiki knowledge, workflow skills, tracker/lifecycle/governance state, and upstream/downstream contracts.
-
-Material concerns include, when applicable:
-
-* likely correctness defects or missing failure boundaries;
-* unresolved product, domain, architecture, identity, lifecycle, authority, temporal, persistence, or public-contract choices;
-* ambiguous or misleading domain/public names;
-* accidental coupling, duplicate meaning, weak typing, unnecessary complexity, or a suspicious abstraction/representation choice;
-* behavior that passes current checks but appears inconsistent with authoritative intent;
-* incomplete proof, hidden assumptions, source conflict, scope leakage, or workflow/process defects;
-* architecture, domain language, code, persistence, APIs, docs, wiki, skills, tests, or tracker state no longer telling the same material story;
-* duplicate or competing sources of truth, stale authority, or assumptions invalidated by a later decision;
-* repeated local symptoms that indicate an earlier governing lifecycle, ownership, architecture, or workflow defect;
-* technically valid work that is materially wrong for Polaris as a product;
-* a materially better or safer approach or opportunity that the current path may be overlooking.
+The current task is the immediate work surface, not the boundary of Attention. Maintain a
+Polaris-wide meta-level Attention posture across materially implicated product intent,
+domain semantics, architecture, authority, code, persistence, APIs, tests, docs/wiki,
+workflow state, and upstream/downstream contracts.
 
 Use this materiality threshold:
 
-> **Would a competent architect who understood Polaris as a whole want this brought to their attention now?**
+> **Would a competent architect who understood Polaris as a whole want this brought to
+> their attention now?**
 
-If yes, surface it. If no, continue without distraction. Polaris-wide Attention is not a requirement to run a whole-repository audit after every edit; inspect the smallest broader surface necessary to test the material concern or consequence exposed by the current work.
+Material concerns include correctness defects, unresolved semantic/design choices,
+misleading vocabulary, weak/duplicated abstractions, hidden assumptions, source conflicts,
+workflow defects, stale/competing truth, scope leakage, missing proof, or a materially
+better/safer approach.
 
-Attention is **report-only authority**. Noticing or surfacing a concern does not authorize you to change product/design/architecture, expand scope, mutate repository/tracker state, override an owning workflow, or silently implement your preferred resolution.
+Attention is **report-only authority**. It does not authorize mutation, scope expansion,
+architecture changes, or lifecycle-owner override.
 
 When a concern appears:
 
-1. state the observation and why it matters;
-2. identify the governing authority when it is already known;
-3. determine whether it belongs to the current obligation, invalidates the current path, or is a broader Polaris concern that requires separate routing/deferment;
-4. if existing authority resolves it, follow that authority rather than redesigning it;
-5. if it exposes a material unresolved choice, use the owning workflow's fail-closed/routing rule rather than choosing for convenience;
-6. if it is valid but outside current scope, do not expand scope silently; use the established deferred-future-work capture policy when durable preservation is warranted.
+1. state the observation and material consequence;
+2. identify governing authority when known;
+3. determine whether it belongs to the current obligation, invalidates the current path,
+   or requires separate routing/deferment;
+4. follow existing authority when it resolves the question;
+5. if a material choice remains unresolved, use the owning workflow's fail-closed route;
+6. do not silently expand scope to fix unrelated concerns.
 
-Passing tests, satisfying an explicit checklist, or lacking authority to fix the concern does **not** excuse silence. The duty is to notice and speak up; change authority remains separate.
-
-`$attention` is the reusable report-only skill for deliberate Attention sweeps. Every formal sweep inherits the Polaris-wide scope above; a workflow-specific checkpoint profile is an additional lens, never a boundary. The following checkpoints are prescribed internal composition even when the owning skill does not restate the global invariant:
-
-* `$wayfinder` — before declaring the route clear or handing off downstream;
-* `$to-specs` — before publishing/amending a Spec as implementation-ready;
-* `$to-tickets` — before proposal-readiness certification/publication;
-* `$architecture-remediation` — before bounded closure and downstream handoff;
-* `$implement-ticket` — before first substantive mutation and again before freezing closure evidence;
-* `$verify-ticket-closure` — during the independent adversarial sweep;
-* `$verify-spec` — before integrated semantic certification is finalized;
-* `$review-spec` — before review exit/handoff.
-
-A formal Attention result does not create a new blocking authority. The owning workflow determines whether a surfaced concern is already resolved, blocking, deferred, or informational under its existing rules.
+Formal `$attention` checkpoints remain required at the boundaries named by their owning
+skills, including `$wayfinder`, `$to-specs`, `$to-tickets`, `$architecture-remediation`,
+`$implement-ticket`, `$verify-ticket-closure`, `$verify-spec`, and `$review-spec`.
 
 ### Collaborative Judgment
 
-Polaris agents are expected to contribute substantive engineering judgment, not merely execute instructions mechanically. Think broadly, challenge assumptions, surface material concerns, propose better alternatives, and give clear recommendations when warranted—even when those observations extend beyond the immediate task.
-
-The mandate boundary governs **mutation, not thought or discussion**. An agent should not suppress a material recommendation merely because implementing it would require separate authorization. Surface it, explain why it matters, recommend a direction, and discuss it with the owner before acting.
-
-The intended collaboration model is:
+Polaris agents contribute substantive engineering judgment rather than merely executing
+instructions mechanically:
 
 ```text
 think broadly → speak broadly → discuss material choices → act within the agreed mandate
 ```
 
-Attention therefore encourages initiative in analysis and recommendation while preserving explicit owner authority over material scope expansion, structural change, and repository mutation.
+The mandate boundary governs mutation, not thought or recommendation.
 
 ### Mandate Boundary and Structural Mutation Guard
 
-An instruction authorizes the smallest correct change necessary to satisfy that instruction. It does not implicitly authorize adjacent refactoring, cleanup, generalization, reorganization, or architectural improvement.
+An instruction authorizes the smallest correct change necessary to satisfy it. It does
+not implicitly authorize adjacent cleanup, refactoring, generalization, reorganization, or
+architecture work.
 
-Correctness, architecture, inside-out/bottom-up repair, earliest-owner placement, and similar engineering principles determine **how an authorized change should be implemented**. They do not expand the mandate or authorize otherwise-optional changes.
+Before broadening a repository mutation ask:
 
-Before broadening a repository mutation, apply this test:
+> **Can the explicit requirement be satisfied correctly without this additional structural
+> or design change?**
 
-> **Can the explicit requirement be satisfied correctly without this additional structural or design change?**
+If yes, the additional change needs explicit owner authorization.
 
-If **yes**, the additional change is optional and outside the current mandate unless the owner explicitly authorizes it.
+Material structural changes include creating/deleting/renaming/moving/splitting/merging
+canonical policy/process/architecture artifacts; introducing wrappers/base files/helper
+architectures or new organization conventions; or relocating authority/responsibility.
 
-Required participation in an already-authoritative **shared invariant** is not scope expansion merely because other components, command families, or surfaces also participate in that invariant. If the current authorized path cannot be correct without satisfying that established invariant, the smallest change necessary to make the current path conform is necessary correctness work.
-
-This does **not** authorize cleanup, harmonization, refactoring, or redesign of unaffected participants. If the shared invariant itself is missing, contradictory, or materially unresolved, treat that as an upstream design/authority gap rather than choosing a new cross-cutting rule during implementation.
-
-Treat the following as material structural changes when they affect canonical skill, process, governance, architecture, policy, or comparable authority artifacts:
-
-* creating or deleting an artifact;
-* renaming, moving, splitting, or merging an artifact;
-* introducing a wrapper, base file, delegation layer, helper architecture, or new organizational convention;
-* relocating authority or responsibility between artifacts;
-* otherwise changing artifact structure rather than only the authorized behavior within the existing structure.
-
-Before the first such mutation, compare the intended structural delta with the explicit mandate. Any unrequested structural change must be surfaced through Attention and must receive owner approval before mutation.
-
-Before committing or persisting repository-wide workflow/process/governance changes, reconcile the actual delta against the authorized delta:
+Before persisting repository-wide workflow/process/governance changes reconcile:
 
 ```text
 Authorized files/surfaces: <n>
@@ -121,243 +101,216 @@ Unauthorized structural additions/deletions/renames: 0
 Optional design changes performed without approval: 0
 ```
 
-Any mismatch blocks persistence until the extra change is removed or explicitly approved.
-
-This guard does not prohibit structural improvements. It separates **necessary correctness work** from **optional design improvement** and preserves owner authority over the latter.
+Required participation in an already-authoritative shared invariant is necessary
+correctness work, not scope expansion. If the shared invariant itself is unresolved,
+fail closed rather than invent it.
 
 ### Design-to-Implementation Boundary
 
 Implementation executes frozen design; it is not a design phase.
 
-Before implementation, every materially consequential product/domain/architecture/public/downstream contract must already be determined by authoritative durable sources. This includes, where applicable:
-
-* identity representation and generation semantics;
-* public domain/application type semantics and cross-component contracts;
-* cardinality and ownership;
-* lifecycle/state transitions and temporal interpretation;
-* authority/provenance meaning;
-* persistence-visible identity and reference contracts;
-* externally observable failure meaning;
-* any choice on which downstream components are expected to rely.
-
+Before implementation, every materially consequential product/domain/architecture/public/
+persistence/temporal/authority/failure/downstream contract must already be determined.
 Use this test:
 
-> Could two reasonable implementations satisfy the written requirement while establishing materially different public, product, domain, architecture, persistence, or downstream behavior/contracts?
+> Could two reasonable implementations satisfy the written requirement while establishing
+> materially different material behavior/contracts?
 
-If **yes**, the work is not implementation-ready. The choice must be resolved upstream; an implementation agent must not select one merely because it is convenient or conventional.
+If yes, work is not implementation-ready.
 
-Semantically equivalent private mechanics remain implementation-owned, including ordinary helper decomposition, local algorithms/data structures with no contract consequence, local variable names, formatting, and equivalent test mechanics.
+Semantically equivalent private mechanics remain implementation-owned.
 
 Workflow consequences:
 
-* `$wayfinder` must not declare a route clear while a material architecture/design choice remains unresolved;
-* `$to-specs` must require material design completeness, not merely architecture consistency or obligation coverage;
-* `$to-tickets` decomposes frozen design and must not delegate material design choices to implementation;
-* `$implement-ticket` must classify any material choice it encounters as `authorized contract`, `semantically equivalent mechanic`, or `design gap`; a `design gap` fails closed before that choice is implemented;
-* `$verify-ticket-closure` must reject a candidate that introduces an unowned material design/public contract even when explicit tests pass;
-* later integrated verification/review must surface cross-ticket design gaps that only become visible after composition.
+* `$wayfinder` may not declare route clear with unresolved material semantics;
+* `$to-specs` projects material semantics from exact CCL and owns stable private/test/
+  exclusion planning cells;
+* `$to-tickets` decomposes the frozen Spec contract and does not design semantics;
+* `$implement-ticket` must classify material questions as authorized contract,
+  implementation-equivalent mechanic, or design gap;
+* verifiers/reviewers may falsify implementation against frozen contracts but may not
+  redefine the contract universe.
 
 ### Spec Governance Mode
 
-Spec governance is **orthogonal to Spec validity and lifecycle state**. Every Spec, and every downstream artifact whose delivery governance derives from that Spec, resolves exactly one governance mode from **one bounded read of the parent Spec itself** before any Wayfinder- or project-delivery-dependent step:
+Spec governance is orthogonal to Spec validity/lifecycle. Every Spec resolves exactly one
+mode from one bounded read of the parent Spec:
 
 ```text
 Wayfinder-managed
 Independent
 ```
 
-This section is a repository-wide workflow supersession rule. It replaces narrower skill wording that requires exhaustive governance recovery, reverse Wayfinder-map reconciliation, Project Delivery history inspection, global issue/comment search, or another absence-proof merely to classify a Spec.
+This is a repository-wide supersession rule.
 
-Classification is mechanical:
+* valid `wayfinder-source` or `wayfinder-remediation` marker(s) → Wayfinder-managed with
+  exactly those governing maps;
+* neither marker → Independent;
+* malformed/contradictory/ambiguous Spec-local provenance → governance drift, fail closed.
 
-* if the Spec itself contains one or more valid `wayfinder-source` or `wayfinder-remediation` provenance markers, it is **Wayfinder-managed** and the governing Wayfinder set is the union of the Wayfinder IDs in those Spec-local markers;
-* if the Spec itself contains neither marker, it is **Independent**;
-* malformed, internally contradictory, or ambiguous Spec-local provenance fails closed as governance drift.
+`$to-specs` owns keeping Spec-local governance provenance correct. The temporary
+`$to-remediation-specs` helper may repair only unambiguous forward/local provenance; it
+is not a semantic owner.
 
-`$to-specs` and `$to-remediation-specs` own keeping the Spec-local `wayfinder-source` / `wayfinder-remediation` markers complete when they create or reconcile Wayfinder governance. Forward `Spec Handoff` metadata on Wayfinder maps remains useful to those producer/reconciliation workflows, but downstream lifecycle consumers must not reverse-search Wayfinder maps, Project Delivery records, unrelated issues, or comment histories to prove that an unmarked Spec is Independent.
+Downstream workflows must not reverse-search unrelated Wayfinders/Project history merely
+to prove an unmarked Spec Independent. Independent Specs never acquire a Wayfinder simply
+because they enter ticketing, implementation, verification, review, remediation, or
+completion.
 
-For the rest of the lifecycle:
+Native GitHub `blocked by` relationships remain dependency truth. For Spec dependencies:
 
-* any instruction to recover a governing Wayfinder, invoke `$project-delivery-management` `guard`/`reconcile`, require Wayfinder focus, or reconcile/close governing Wayfinders applies **only** after the parent Spec is classified Wayfinder-managed by the Spec-local read above;
-* an Independent Spec and its descendants never acquire, infer, or require a Wayfinder merely because they enter ticketing, implementation, verification, review, remediation, dependency handling, merge/cleanup, or Project reconciliation;
-* Independent Specs do not participate in Wayfinder focus. Their authoritative Project Delivery State is `independent` while open, subject to their ordinary lifecycle and native blockers;
-* if `$project-delivery-management` is invoked with an Independent Spec or a descendant whose only governing Spec is Independent, it must return `PROJECT DELIVERY: OUTSIDE OWNER` without mutation rather than treating the missing Wayfinder as ambiguous or creating one;
-* `$to-remediation-specs` is intentionally Wayfinder-only. It is not the remediation path for an Independent Spec. Independent architecture remediation is owned by `$architecture-remediation`, which amends the existing Spec in place and then returns through `$to-tickets` for ticket reconciliation;
-* native GitHub `blocked by` relationships remain the dependency truth for both governance modes. A closed blocker satisfies the existing edge; reopening it makes the edge blocking again.
-
-Spec dependency semantic ownership is:
-
-| Consumer Spec | Blocker Spec | Semantic owner |
+| Consumer | Blocker | Semantic owner |
 | --- | --- | --- |
-| Wayfinder-managed | Wayfinder-managed, same governing lineage | `$to-specs` |
-| Wayfinder-managed | Wayfinder-managed, different governing lineages | `$project-delivery-management` |
-| Independent | Independent | `$to-specs` |
-| Independent | Wayfinder-managed | `$to-specs` |
-| Wayfinder-managed | Independent | `$to-specs` |
+| Wayfinder-managed | same-lineage Wayfinder-managed | `$to-specs` |
+| Wayfinder-managed | different-lineage Wayfinder-managed | `$project-delivery-management` |
+| either endpoint Independent | any Spec | `$to-specs` |
 
-`$github-issue-dependencies` owns only the authorized native relationship mechanics. When either endpoint is Independent, `$to-specs` validates the exact Spec-level semantic prerequisite, lowest accurate placement, cycle safety, and complete native blocker graph before delegating the mutation. Never promote an Independent-involved Spec dependency to a synthetic Wayfinder dependency.
-
-A Wayfinder-managed Spec blocked by an Independent Spec remains governed by its existing Wayfinder; the narrower open Spec blocker makes the Spec non-actionable without making the Wayfinder itself dependent on or governed by the Independent Spec. If the map otherwise remains frontier-eligible, it may remain focused-but-stalled.
-
-Governance mode is revalidated at every fresh human lifecycle entry and whenever the Spec-local provenance markers change. Revalidation means rereading the parent Spec once; it is not permission to repeat repository archaeology.
+`$github-issue-dependencies` owns only native relationship mechanics.
 
 ### Candidate-Bound Verification Evidence Reuse
 
-Deterministic and technical proof is reusable while its exact inputs remain valid. Workflow phase changes, helper boundaries, wording such as "final verification", or another skill listing the same check do **not** by themselves invalidate an already-passing result.
+Deterministic/technical proof is reusable while exact candidate inputs, check scope/config,
+and material external prerequisites remain unchanged. Phase transitions alone do not
+invalidate a passing result.
 
-This section is a repository-wide workflow supersession rule for lifecycle skills and their internal helpers.
+After mutation rerun only checks whose input universe may have changed. When uncertain,
+run the smallest check that resolves the uncertainty.
 
-For each applicable check, retain enough working evidence to identify:
+A helper returning a still-valid passing result must return that evidence to its parent;
+the parent does not rerun it merely to satisfy duplicate phase wording.
+
+### Canonical Contract Consumption
+
+This is the repository-wide supersession rule for `$spec-contract`, `$to-tickets`,
+`$verify-spec`, `$verify-spec-closure`, `$review-spec`, and downstream consumers of a
+CCL-backed software Spec.
+
+The material semantic chain is:
 
 ```text
-Check: <ruff | mypy | pytest scope | migration lifecycle | architecture gate | other>
-Input/candidate identity: <exact repository candidate / affected path state>
-Scope/configuration: <command-relevant scope and configuration>
-External prerequisite state: <None | service/environment identity relevant to the check>
-Result: PASS | FAIL
+accepted CCL assertion
+        ↓
+Spec OBL-* projection
+        ↓
+Ticket/implementation/verification/review consumption
 ```
 
-Reuse a PASS when the candidate inputs, check scope/configuration, and material external prerequisites remain unchanged. Do not rerun a check solely because control moved from implementation to a helper, from a helper back to the parent, or from ordinary verification into a closure/finalization phase.
+`$spec-contract` is deterministic. Its complete contract-cell universe is:
 
-After a mutation, invalidate and rerun only checks whose input universe can materially be affected by that mutation. Examples:
+* `OBL-*` — material semantics; payload is exact CCL address set;
+* `IMP-*` — stable private/mechanical planning obligation;
+* `TEST-*` — stable proof/test obligation;
+* `EXC-*` — stable exclusion/guardrail.
 
-* changing Python production code normally invalidates applicable Ruff/Mypy and behavior tests covering that code;
-* changing only Markdown does not by itself invalidate PostgreSQL integration tests or Python type checks;
-* adding or changing one test invalidates the affected test scope and applicable formatting/lint/type checks for that test, not unrelated architecture/runtime proof;
-* changing migration/schema/adapter code invalidates the applicable database/migration proof;
-* changing a workflow/policy file does not by itself invalidate product-code tests unless an authoritative gate explicitly includes that file in its input universe.
+Problem/Solution/User Story/Architecture Impact/Further Notes prose is human context and
+never creates a hidden acceptance cell. If that prose reveals a missing material semantic
+requirement, route it to `$to-specs` / the semantic owner rather than interpreting it
+locally.
 
-When uncertain whether a mutation can affect a proof, rerun the smallest check that resolves the uncertainty. Independent semantic certification remains candidate-bound and is not replaced by technical evidence reuse.
+Do not rebuild Source Unit Inventories, classify arbitrary prose as normative/non-
+normative, invent `NORM-*` cells, or reconstruct architecture obligation universes from
+ADR/wiki/code prose.
 
-A helper that already produced a passing result for the exact still-current candidate must return that evidence to its parent. The parent records/reuses it rather than rerunning the same command merely to satisfy duplicate phase wording.
+Every contract cell has deterministic identity/hash. Narrative-only changes may alter the
+Spec Body Hash without changing the Spec Contract Hash.
 
-### Spec Contract Semantic Ownership
+`$to-tickets` routes every executable cell exactly once and preserves every exclusion in
+`ticket-coverage-manifest:v2`. Exact deterministic coverage replaces independent semantic
+decomposition certification for ordinary CCL-backed Specs.
 
-The Spec Contract is the completed Spec's **implementation / acceptance / exclusion contract**, not a generic collection of every sentence that is normative in some other lifecycle sense.
+`$verify-spec` and `$verify-spec-closure` independently prove implementation conformance
+to the same frozen cells. Independence means independent falsifiers/evidence, not a new
+interpretation of contract membership.
 
-This section is a repository-wide workflow supersession rule for `$spec-contract`, `$to-tickets`, `$verify-spec`, and `$review-spec`.
+`$review-spec` independently challenges Standards, Spec conformance, and Architecture
+realization against the same frozen cells. It may surface:
 
-Every content-bearing Spec source unit still belongs to the complete Source Unit Inventory. Classification into the Spec Contract follows semantic ownership:
+* an in-contract implementation/test/standards defect;
+* an exact cell-routing defect owned by `$to-tickets`;
+* a contract/planning gap owned upstream by `$to-specs` / semantic authority.
 
-* product/domain/application/persistence/public/architecture behavior the completed Spec must implement or prove → contract-semantic and therefore `normative-new` or `normative-represented`;
-* explicit acceptance/testing/exclusion requirements governing what completed work must or must not demonstrate → contract-semantic;
-* lifecycle/readiness/process prerequisites governing **when work may begin or which transition may occur**—for example blocker closure, `ready-for-agent` admission, branch/baseline establishment, required prior certification/review, owner approval, or workflow ordering—remain inventoried but are **not completed-Spec acceptance obligations** and must be classified `non-normative` for Spec Contract purposes with a lifecycle/process reason;
-* explanatory, historical, descriptive, or provenance-only material remains `non-normative`.
+A verifier/reviewer must never repair a gap by adding a new semantic obligation itself.
 
-Mandatory language such as `must`, `must not`, `only`, or `cannot` does not override this ownership boundary. A lifecycle gate does not become a `NORM-*` implementation cell merely because it is mandatory.
-
-When one source unit mixes lifecycle/process language with a genuine completed-Spec acceptance obligation, preserve the source unit once and map only the acceptance semantics into the contract. Do not manufacture a ticketable implementation obligation for the lifecycle portion.
-
-A fresh build over an unchanged Spec must therefore classify semantically identical lifecycle/readiness material the same way on every run. Disagreement over whether a source unit is lifecycle/process versus completed-Spec acceptance is a contract-classification defect; fail closed and repair the governing workflow rule rather than creating decomposition work from the disputed classification.
+Legacy Spec Review remediation may temporarily retain Root Blocker compatibility state,
+but every executable remediation obligation must map to exact current Spec cells and the
+frozen finding falsifier. Compatibility state does not create semantics.
 
 ### Non-Semantic Workflow-Policy Synchronization
 
-A verified/reviewed **semantic candidate anchor** may remain valid when its branch later receives a non-semantic workflow-policy synchronization from the default branch.
+A verified/reviewed semantic candidate anchor may remain valid when its branch later
+receives a non-semantic workflow-policy synchronization from default branch only when all
+of these are proven fail-closed:
 
-This section is a repository-wide workflow supersession rule for `$verify-spec`, `$review-spec`, and `$spec-merge-cleanup`.
+1. semantic anchor is an ancestor of current Spec branch tip;
+2. anchor→tip paths are workflow/process authority surfaces only (`.agents/skills/`,
+   `docs/process/`, or root `AGENTS.md`);
+3. each changed branch blob equals current default-branch policy;
+4. no product/test/migration/config/architecture/Spec/CCL/TCM/ticket/review-semantic
+   surface changed;
+5. policy delta changes workflow mechanics only, not product/acceptance semantics;
+6. mutable external authorities used by the prior receipt remain valid.
 
-A branch-tip advance is a reusable **policy-only synchronization** only when all of the following are established fail-closed:
+When policy changes `$spec-contract` or related construction rules, current deterministic
+validation must reproduce the receipt-bound Spec Body Hash and Spec Contract Hash.
 
-1. the verified/reviewed semantic candidate anchor is an ancestor of the current Spec branch tip;
-2. every path changed from that anchor to the current tip is a workflow/process authority surface under `.agents/skills/`, `docs/process/`, or root `AGENTS.md`;
-3. every such current branch blob is byte-identical to the corresponding blob on the current default branch;
-4. no product source, tests, migrations, dependency/configuration state, current/proposed architecture/product authority, ADR, wiki knowledge, Spec body, Workspace Metadata baseline, Ticket Coverage Manifest semantics, implementation-ticket state, review finding semantics, or other candidate-semantic surface changed in the anchor→tip delta;
-5. the policy delta changes workflow transport, evidence binding, routing, recovery, or lifecycle mechanics only; if it changes what product behavior/architecture/standards/acceptance the Spec must satisfy, this exception does not apply;
-6. all mutable external authorities that the prior verification/review explicitly depended on still satisfy their existing revalidation rules.
-
-When synchronized policy changes `$spec-contract` or another rule that can change contract construction/semantic certification, validate the persisted contract under the current policy and require the same Spec Body Hash and Spec Contract Hash before reusing prior semantic certification. This is contract-identity validation, not a new product verification campaign.
-
-When these conditions pass:
-
-* the receipt's `Verified HEAD` / `Reviewed HEAD` remains the **semantic candidate anchor**;
-* the current branch tip becomes the **authorized delivery tip**;
-* candidate-bound product tests and semantic certification are not rerun solely because of the policy sync;
-* downstream workflow may consume the existing receipt while mechanically binding the exact anchor→delivery-tip policy delta;
-* merge/cleanup merges the authorized delivery tip, not the older semantic anchor.
-
-If any condition is ambiguous, if a changed workflow rule alters substantive acceptance meaning, or if any non-policy surface changed, ordinary exact-candidate invalidation applies.
-
-This exception never permits unreviewed product work to hide behind a policy merge and never authorizes force deletion or silent discard of branch-tip commits.
+If all predicates pass, the old receipt HEAD remains semantic anchor and the current tip
+is the authorized delivery tip. Otherwise ordinary exact-candidate invalidation applies.
 
 ### `$implement-ticket` Parent / Independent Verifier Boundary
 
-`$implement-ticket` implements and technically validates the candidate; `$verify-ticket-closure` independently owns semantic closure certification. The parent must not perform a second semantic-certification workflow before dispatching the independent verifier.
+`$implement-ticket` implements and technically validates a ticket candidate;
+`$verify-ticket-closure` independently certifies closure. The parent must not perform a
+second semantic-certification workflow merely to dispatch the verifier.
 
-This section is a repository-wide workflow supersession rule for `$implement-ticket` and `$verify-ticket-closure`. It supersedes narrower `$implement-ticket` wording that requires the implementation actor, solely as a prerequisite to verifier dispatch, to build the complete Ticket Acceptance Universe, create one semantic proof/falsifier row per material obligation, close nested semantic domains, or assign `proposed-proven | proposed-unproven` semantic verdicts across the full ticket/Spec/architecture contract.
-
-Before verifier dispatch, the `$implement-ticket` closure checkpoint carries a concise **Implementation Evidence Index** instead of a parent-owned semantic certification matrix:
+Before dispatch carry a concise Implementation Evidence Index:
 
 ```text
-Candidate state: <TICKET_CLOSURE_STATE>
-Changed/implemented surfaces: <compact path or component groups>
-
-Evidence:
-- <ticket criterion / obligation group> → <implementation surface>; <applicable deterministic/test evidence or durable pointer>
-- ...
-
-Applicable technical checks:
-- <check> → PASS on <scope/candidate identity>
-- ...
-
+Candidate state: <identity>
+Changed/implemented surfaces: <compact groups>
+Evidence: <ticket cell/criterion group -> implementation/evidence pointer>
+Applicable technical checks: <check -> PASS + candidate identity>
 Known unresolved implementation failures: 0
 Known unresolved design/architecture blockers: 0
 ```
 
-Rules:
-
-* group obligations when the same implementation surface/evidence serves them; one row per semantic predicate is not required;
-* evidence entries are retrieval pointers, not semantic PASS declarations;
-* the parent must fix known failing required checks and known in-scope implementation defects before dispatch, but it does not independently prove exhaustive semantic entailment of every Spec/`ARCHSRC-*` predicate;
-* deterministic impact/consumer checks remain required when applicable, but do not expand them into a duplicate semantic certification manifest solely for closure dispatch;
-* remediation tickets additionally carry their existing Root Blocker/root-contract/preservation references needed by the verifier, without turning the implementation actor into the independent root certifier;
-* the durable checkpoint, candidate hash, branch/baseline/lineage binding, attempt history, and dispatcher-only isolation remain required.
-
-The fresh `$verify-ticket-closure` verifier independently reconstructs the authoritative acceptance universe, semantic domains, falsifiers, decomposition integrity, and final PASS/FAIL from durable authority. It may use the Implementation Evidence Index as a compact retrieval map but never as semantic authority.
-
-An older active closure checkpoint that contains a larger Proposed Closure Evidence matrix remains valid if its candidate/bindings are still exact; do not rebuild it merely to shrink the evidence format. New or rebuilt attempts use the concise index above.
+For ordinary CCL-backed tickets, exact assigned Spec cells/CCL addresses are the ticket
+semantic contract. Remediation tickets may additionally carry current compatibility Root
+Blocker/finding preservation state. A verifier may independently prove those contracts;
+it may not invent a broader architecture universe.
 
 ### Domain Vocabulary
 
-Do not preload `CONTEXT.md`.
+Do not preload `CONTEXT.md`. Read it only when a domain term is ambiguous/contested/new,
+canonical vocabulary is required, an entity page needs terminology, or `$domain-modeling`
+is running. Context compaction alone is not a reason to reread it.
 
-Read `CONTEXT.md` only when:
-
-* a domain term is ambiguous, contested, or new;
-* canonical domain vocabulary is required for the current work;
-* writing/updating an entity page where domain terminology is relevant;
-* running `$domain-modeling`.
-
-Context compaction, conversation continuation, or task-state recovery does not by itself require re-reading `CONTEXT.md`.
-
-If the required vocabulary is already established in the current task context, do not re-read `CONTEXT.md` unless it needs to be verified or refreshed.
-
-`CONTEXT.md` is canonical domain vocabulary. Avoid duplicating it here.
+`CONTEXT.md` is canonical domain vocabulary; avoid duplicating it here.
 
 ### Greenfield / Legacy Boundary
 
-The canonical greenfield implementation lives under `src/polaris/`.
+Canonical greenfield implementation lives under `src/polaris/`.
 
-`legacy/v0_1/` preserves the pre-greenfield Polaris platform as donor/reference material. New Polaris code, tests, configuration, migrations, tools, and runtime paths must not import, wrap, extend, execute through, or otherwise depend on `legacy/`.
+`legacy/v0_1/` is donor/reference material only. New Polaris code/tests/config/migrations/
+tools/runtime must not import, wrap, execute through, or otherwise depend on `legacy/`.
+Reuse requires independently established current need/authority and deliberate transplant
+into the greenfield boundary.
 
-Nothing survives because it already existed. A dependency, schema, migration, abstraction, workflow, runtime mechanism, architecture document, test, or implementation pattern from `legacy/` may be reused only after the current product need and architectural owner are independently established. Reuse means deliberately copying or transplanting the useful implementation into the current greenfield boundary; it never means creating a runtime dependency on `legacy/`.
-
-Do not treat ADRs, `docs/current/`, wiki pages, manifests, tests, or code under `legacy/v0_1/` as current authority. When current greenfield architecture has not yet established an answer, surface the gap and use the applicable requirements/architecture process rather than inheriting the legacy answer by default.
+Do not treat legacy ADR/docs/wiki/manifests/tests/code as current authority.
 
 ---
 
 ## Coding Conduct
 
-When changing source code, use `$coding-standards`.
+When changing source code use `$coding-standards`. Its requirements are mandatory.
+Project-specific semantic/architecture rules come from current authoritative contracts/
+architecture, not names, legacy implementation, or implementation accidents.
 
-Its requirements are mandatory, including project-specific data-contract, scoring, precision, async, observability, and related implementation practices.
-
-When a coding rule depends on project-specific semantics or architecture, follow the applicable current non-legacy ADR or architecture source referenced by `$coding-standards`. Do not infer architectural or data-contract semantics from field names, legacy implementation, existing implementation accidents, `CONTEXT.md`, or this file.
-
-Do not duplicate coding-standard policy in `AGENTS.md`.
+Do not duplicate coding-standard policy here.
 
 ## Secrets
 
-Never place credentials, passwords, tokens, or full authenticated connection strings in source, tests, plans, or documentation.
+Never place credentials, passwords, tokens, or full authenticated connection strings in
+source, tests, plans, or documentation.
 
 ---
 
@@ -378,170 +331,113 @@ Manage only services needed for the active task.
 
 ## Pytest Service Preflight
 
-No pytest command may launch until the selected test scope's external-service prerequisites have been identified and, when applicable, verified ready.
+No pytest command may launch until the selected test scope's external-service prerequisites
+have been identified and, when applicable, verified ready.
 
-Identify the exact selected greenfield test scope and inspect its active root configuration, tests, and fixtures to classify the complete scope as service-free or requiring one or more external services. For multi-file or directory scopes, use the union of all prerequisites. Identify required environment/configuration prerequisites, and for service-backed tests verify required services are ready before pytest starts. The v0.1 testing guide under `legacy/v0_1/docs/process/` is historical reference only and must not be treated as current greenfield test authority.
+Classify the exact selected greenfield scope from current root configuration/tests/
+fixtures. For multi-file/directory scope use the union of prerequisites. Verify required
+services/environment before pytest; do not use pytest startup/timeouts/skips as readiness
+probes.
 
-That prerequisite classification is reusable for later pytest invocations while the selected test scope, relevant configuration/fixtures, and service topology remain unchanged. Do **not** re-inspect the same fixtures/configuration before every pytest rerun solely because pytest is being invoked again. For service-backed tests, a lightweight readiness check may confirm that the same already-classified service target is still ready; reconstruct the prerequisite analysis only when the scope/configuration/service topology changed or readiness evidence became stale.
+The classification may be reused while selected scope/configuration/fixtures/service
+topology remain unchanged. A lightweight readiness check may refresh service state.
 
-Do not use pytest startup, a client timeout, a connection exception, or a skip as the readiness probe. If prerequisites cannot be verified, do not launch pytest; report the verification as unresolved.
-
-`POLARIS_BROAD_VERIFY_AUTHORIZED` must be supplied only for the individual command requiring authorization, for example `POLARIS_BROAD_VERIFY_AUTHORIZED=<task-specific-value> uv run --locked pytest ...`. Never export it globally or persist it into a shell/session environment.
+`POLARIS_BROAD_VERIFY_AUTHORIZED` must be supplied only to the individual command that
+requires it; never export/persist it globally.
 
 ---
 
 ## Dependencies and Shell
 
-`uv.lock` is committed project state and is the resolved dependency source of truth for Polaris. Keep it synchronized with `pyproject.toml` when dependency declarations intentionally change.
+`uv.lock` is committed resolved dependency authority. Keep it synchronized with
+`pyproject.toml` for intentional dependency changes.
 
-For canonical Polaris Python development, verification, and runtime commands whose tools or dependencies are declared by the project, use:
+For canonical project-declared Python tooling/runtime use:
 
 ```text
 uv run --locked <command>
 ```
 
-`--locked` is mandatory for ordinary execution because it verifies that `uv.lock` is current and fails rather than rewriting dependency state. `uv` may synchronize `.venv` or build/install Polaris as normal generated local environment state; `.venv` is not repository state.
+Do not substitute ambient same-named tools. Use `uv add/remove/lock` or intentional
+unlocked sync only for authorized dependency management. `uvx` is for genuinely one-off
+external tools. Plain `python` is allowed for intentionally standard-library-only repo
+helpers.
 
-Every canonical Python tool invoked this way must be declared in the applicable project dependency group and therefore represented in `uv.lock`. Do not rely on a same-named executable from ambient `PATH` as a substitute for locked project tooling.
+Missing/stale `uv.lock` is a dependency-state defect; do not casually regenerate/delete
+it.
 
-Use `uv add`, `uv remove`, `uv lock`, or an intentional unlocked `uv sync` only for authorized dependency-management work. Commit the resulting `pyproject.toml` and `uv.lock` changes together when both change.
-
-Use `uvx` only for genuinely one-off external Python tools that are not part of the Polaris development/runtime contract. Use plain `python` for repository helper scripts that are intentionally standard-library-only and do not require the Polaris environment.
-
-Missing or stale `uv.lock` is a dependency-state defect for ordinary locked execution; do not delete, ignore, regenerate, or rewrite it as incidental verification cleanup.
-
-Standard read-only discovery and diagnostic shell commands are allowed.
+Standard read-only shell discovery/diagnostics are allowed.
 
 ---
 
 ## Context and Discovery Efficiency
 
-Treat context and discovery as engineering resources. Load the smallest authoritative context and use the smallest discovery operation sufficient to answer the current material question or proof obligation.
+Treat context/discovery as engineering resources. Use the smallest authoritative context
+and smallest discovery operation sufficient for the current material question; broaden
+when evidence remains ambiguous/incomplete.
 
-This is a sufficiency rule, not a scarcity rule:
+Efficiency never authorizes skipping correctness/closure evidence. Durable manifests,
+receipts, known IDs/markers, CCL addresses, and exact cell mappings are recovery indexes;
+use them instead of lifecycle archaeology.
 
-* tool selection is question-driven, not sequence-driven;
-* no discovery tool has a repository-wide mandatory order, priority, or call-count merely because it is available or because code is changing;
-* use or combine any available tools when distinct material questions require them;
-* broaden discovery or context whenever bounded evidence leaves a material ambiguity, conflict, incomplete authoritative domain, or required proof unresolved;
-* efficiency never authorizes skipping evidence required for correctness, closure, fail-closed behavior, or an owning workflow's transition.
-
-Durable checkpoints, receipts, manifests, known comment IDs/markers, and explicit obligation mappings are routing/recovery indexes. Use them to locate the exact underlying authority needed for the current decision rather than reconstructing unrelated lifecycle archaeology. They do not replace the underlying authority when that authority must be independently validated.
-
-Do not dump complete comment histories, large raw API payloads, entire parent artifacts, or broad file contents into active model context when marker/ID/section filtering, exact excerpts, graph/snippet queries, or local deterministic reduction can preserve the required authority. When a large paginated/raw payload is necessary, prefer fetching it to scratch and reducing it before semantic inspection; broaden to the full source only when the bounded result is insufficient.
-
-Reuse still-valid discovery/evidence within the same lifecycle when its target, candidate, and governing authority have not materially changed. Re-query or re-read when staleness, a new material question, or a transition-specific rule requires it.
+Avoid dumping broad raw histories/payloads when exact sections/IDs/hashes or deterministic
+reduction suffice. Reuse still-valid discovery while its target/authority remains current.
 
 ---
 
 ## Repository Analysis
 
-Use the smallest discovery tool sufficient for the question rather than broad manual scanning.
+Select discovery tools by question, not mandatory sequence:
 
-* `$repowise` — behavioral location, repository status, hot spots, health, change risk, historical rationale, and dead-code triage.
-* `$codebase-memory-mcp` — the default for exact structural code discovery: symbols, callers/callees, cross-file dependencies, code architecture, diff blast radius, and cross-service analysis.
-* `$codegraph` — implicit/dynamic runtime paths such as decorators, event emitters, callbacks, string-keyed handlers, abstract dispatch, and asynchronous routing.
-* `$graphify` — broad exploratory relationships across code, documentation, decisions, and communities, including cross-document connections and corpus-level structure.
-* `rg` or direct reads — exact literals, configuration, Markdown/policy, ground-truth verification, and graph coverage gaps.
+* `$repowise` — behavioral location/status/hotspots/history/dead-code triage;
+* `$codebase-memory-mcp` — exact structural symbol/caller/dependency analysis;
+* `$codegraph` — implicit/dynamic runtime paths;
+* `$graphify` — broad exploratory relationships across code/docs/decisions;
+* `rg` / direct reads — exact literals/config/Markdown/policy/ground truth.
 
-These tools are complementary capabilities, not a mandatory pipeline. Select one smallest sufficient tool first. Combine tools only when distinct material questions require different evidence or the first bounded result leaves a material gap.
-
-A skill frontmatter description, skill-body preference, generated hook, or MCP connector description such as `always prefer`, `any codebase question`, `primary for almost any question`, or similar automatic-routing language does not override **Context and Discovery Efficiency** or the routing above. The mere presence of an existing graph or the fact that Python is changing does not select a tool. Explicit human invocation or a transition owner that specifically requires a tool remains authoritative.
-
-A Graphify vendor refresh must preserve this routing boundary. Treat restored catchall activation language as workflow-policy drift and reconcile it before accepting the refresh.
-
-For current greenfield analysis, exclude `legacy/` unless the task explicitly requires donor/reference inspection.
+Combine only when distinct material questions require it. Exclude `legacy/` from current
+greenfield analysis unless donor/reference inspection is explicitly needed.
 
 ---
 
 ## Database Migrations
 
-Migration lifecycle policy is owned by `$database-migrations`.
-
-Read and use it before creating or modifying migration files.
-
-Do not duplicate migration policy here.
+Migration lifecycle policy is owned by `$database-migrations`. Use it before creating or
+modifying migrations. Do not duplicate it here.
 
 ---
 
 ## ADRs
 
-`$to-adr-doc` is the single source of truth for ADR creation and lifecycle.
+`$to-adr-doc` owns ADR creation/lifecycle. In CCL-backed decisions, the ADR Decision
+projection may not override the accepted CCL contract.
 
-Use it when:
-
-* creating an ADR;
-* substantively editing a proposed ADR;
-* changing ADR status.
-
-Do not invent ADR lifecycle behavior independently.
+Use `$to-adr-doc` for ADR creation, proposed-body substantive edits, and status changes.
 
 ---
 
 ## Non-ADR Documents
 
-Use:
+Use `$to-doc` for new non-ADR documents and `$classify-doc` for classification,
+reclassification, relocation, or naming correction. Active root `wiki/_schema.md`, when
+present, owns classification/naming policy.
 
-* `$to-doc` for a new non-ADR document;
-* `$classify-doc` for classification, reclassification, relocation, or naming correction of an existing non-ADR document.
-
-Classification/naming policy lives in the active root `wiki/_schema.md` when a greenfield Living Entity Wiki is established. Do not use the legacy wiki schema as current authority.
-
-Do not:
-
-* store `doc_class` or `Doc-Class:` metadata;
-* leave new project-owned documents loose under `docs/`;
-* manually move classified documents without updating references and authority consequences.
+Do not store `doc_class`/`Doc-Class:` metadata, leave project-owned docs loose under
+`docs/`, or manually move classified docs without reference/authority reconciliation.
 
 ---
 
 ## Living Entity Wiki
 
-The pre-greenfield Living Entity Wiki is preserved under `legacy/v0_1/wiki/`. No legacy wiki page is current architectural authority.
+Legacy wiki under `legacy/v0_1/wiki/` is historical only.
 
-When a greenfield Living Entity Wiki is intentionally established at root `wiki/`, it is the machine-oriented architectural knowledge layer and preserves durable knowledge that is not cheaply reconstructable from current code, especially:
+When active root wiki exists, `$wiki-sync` owns substantive source/architecture/ADR/entity
+synchronization. Start routing from `wiki/index.md`; use code graph tools only when needed.
+Entity pages preserve causal why, canonical vocabulary, and inline `source:` citations;
+they do not become a second implementation/file inventory.
 
-* boundary rationale;
-* active invariants and causal reasoning;
-* meaningful rejected approaches;
-* unresolved questions;
-* future architectural direction.
-
-### Structure
-
-* `wiki/index.md` — active entity registry and routing metadata.
-* `wiki/entities/` — derived entity knowledge.
-* `wiki/log.md` — semantic wiki mutation history.
-* `wiki/_schema.md` — structural policy.
-* `wiki/_template.md` — entity-page format/provenance.
-
-### Lifecycle
-
-When an active root wiki exists, use `$wiki-sync` for:
-
-* substantive source changes, before and after;
-* substantive current/proposed architecture-document changes;
-* ADR creation, proposed-body edits, or lifecycle changes;
-* entity topology/boundary changes.
-
-Do not reproduce `$wiki-sync` procedure here.
-
-Start entity routing from `wiki/index.md`; use `$codegraph` or `$codebase-memory-mcp` when routing is ambiguous.
-
-Entity pages:
-
-* have no YAML frontmatter;
-* preserve causal **why**;
-* use canonical domain terminology; consult `CONTEXT.md` only when that terminology is not already established;
-* do not store Category, Implementation, Routing Anchors, `last_updated`, `linked_docs`, file inventories, call chains, or dependency lists.
-
-Use inline `source:` citations for entity-document relationships.
-
-Do not claim stronger implementation certainty than the evidence supports.
-
-Use `$wiki-lint` for whole-wiki health/conflict/drift auditing.
-
-Use `$wiki-synthesize` manually for higher-inference recurring-pattern analysis; it is report-only.
+Use `$wiki-lint` for whole-wiki health/conflict/drift and `$wiki-synthesize` manually for
+higher-inference report-only analysis.
 
 ---
 
@@ -551,58 +447,44 @@ Use `$wiki-synthesize` manually for higher-inference recurring-pattern analysis;
 
 When a skill prescribes another repository skill as internal composition:
 
-1. Do not use the session skill list or tool registry to determine whether the child exists.
-2. Resolve the child directly from `.agents/skills/<skill-name>/SKILL.md`.
-3. Read that `SKILL.md` and execute its procedure as prescribed internal composition.
-4. `disable-model-invocation: true` and `allow_implicit_invocation: false` do not prohibit prescribed parent → child composition.
-5. Report the child unavailable only when its repository `SKILL.md` is absent or unreadable.
+1. resolve `.agents/skills/<skill-name>/SKILL.md` directly;
+2. read and execute it as prescribed;
+3. `disable-model-invocation: true` / `allow_implicit_invocation: false` do not prohibit
+   prescribed parent→child composition;
+4. report unavailable only when its repository `SKILL.md` is absent/unreadable.
 
 ### Independent Semantic Child Result Admission
 
-This repository-wide rule applies whenever a parent workflow depends on a fresh independent semantic verifier, reviewer, challenger, certifier, or equivalent child result before a semantic lifecycle transition. It is the minimum admission rule; stronger workflow-specific dispatcher/result contracts remain authoritative and must not be weakened.
+Dispatch is not a verdict. Before consuming a fresh independent verifier/reviewer result,
+require the actual terminal payload, exact frozen candidate/contract identity match,
+required witness fields, current immutability/freshness, and no parent-substituted verdict.
 
-**Dispatch is not a verdict.** Successful child creation, task/process completion, wait completion, polling state, absence of an execution error, or any other child-lifecycle status does not establish semantic `PASS`, `FAIL`, clean review coverage, or an equivalent semantic result.
+Pending/missing/malformed/contradictory/identity-mismatched results are unresolved/invalid,
+never PASS/FAIL. Use only the owning workflow's explicit replacement rule if the original
+child context is unavailable.
 
-Before a parent consumes an independent semantic child result, require all of the following:
+### Workflow Project Tracking
 
-* the semantic result payload was actually received by the parent;
-* the payload contains exactly one terminal semantic verdict/result shape required by the child contract;
-* the returned candidate/proposal/recommendation/review identity exactly matches the identity frozen at dispatch;
-* every mechanically required witness field for that child result is present and internally valid;
-* any required candidate/tracker immutability or freshness checks still pass;
-* child execution/result state is not pending, ambiguous, missing, malformed, contradictory, or identity-mismatched;
-* the parent has not substituted its own semantic conclusion for the child's result.
+The public Polaris GitHub Project is an eventually consistent operational projection, not
+workflow authority.
 
-A pending, missing, malformed, contradictory, or identity-mismatched child result is **unresolved/invalid**, never semantic `PASS` or `FAIL`. The parent must not cross a human-approval gate, persist a semantic lifecycle transition, publish a certified artifact, or report independent certification from such a result.
+Routine lifecycle transitions do **not** invoke `$project-tracking`. Authorized projection
+boundaries are:
 
-When the original child context is genuinely unavailable, use only the owning workflow's explicit replacement/recovery rule. If that workflow defines no replacement path, halt at the unresolved independent-result boundary rather than inventing one. Child unavailability never becomes semantic success.
+1. Spec completion — `$spec-merge-cleanup` reconstructs and batch-syncs the completed
+   lineage;
+2. explicit human-requested board reconciliation;
+3. separately authorized bootstrap/migration.
 
-### Workflow Project tracking
+Do not create pending-update shadow state. `$project-delivery-management` persists
+canonical focus/dependency truth immediately but does not imply board refresh.
 
-The public Polaris GitHub Project is an operational projection, not workflow authority. **Authoritative repository/tracker state is immediate; Project projection is intentionally eventually consistent.**
-
-When a workflow derives base `Workflow State`, `Work Status`, or `Next Skill` while projection is deferred, those values describe the later Project projection; authoritative lifecycle/actionability remains established by the owning workflow's durable evidence. Do not persist a substitute copy merely because the Project is stale.
-
-Routine lifecycle transitions do **not** invoke `$project-tracking`. This repository-wide cadence rule explicitly supersedes narrower existing skill wording that still requires automatic Project synchronization after ordinary `$wayfinder`, `$to-specs`, `$to-tickets`, `$implement-ticket`, `$verify-spec`, `$review-spec`, `$architecture-remediation`, or internal `$project-delivery-management` transitions.
-
-Project projection is authorized only at:
-
-1. **Spec completion** — `$spec-merge-cleanup` reconstructs the complete completed-Spec lineage from current durable authority and invokes `$project-tracking` once for the whole reconciliation set before successful cleanup return;
-2. **explicit human-requested board reconciliation** — the active workflow independently reconstructs the requested authoritative artifact universe and refreshes it in one batch;
-3. **separately authorized bootstrap/migration** — one-time Project/schema setup may synchronize state under its own contract.
-
-Do not create a pending-Project-update queue, flag, comment ledger, label, or other shadow registry. Missing Project membership or stale Project fields during active Spec work are expected projection lag and never substitute for or alter authoritative workflow state.
-
-`$project-delivery-management` continues to persist canonical focus/dependency truth immediately. Focus, switch, parallel-focus, dependency mutation, guard, and deterministic reconciliation do not imply a board refresh unless the human explicitly requested one. A board refresh is a separate projection operation.
-
-At the mandatory Spec boundary, `$spec-merge-cleanup` must not assume earlier skills kept the board current. It reconstructs the complete lineage from hierarchy, dependencies, receipts/checkpoints, issue state, provenance, and canonical project-delivery state, then lets `$project-tracking` add missing Project members and apply one batch of field deltas. Reconstruction is working state only; do not persist another projection registry.
-
-Follow `.agents/skills/project-tracking/WIRING.md` for this cadence and `$project-tracking` for projection mechanics. Independent verifiers never synchronize Project state. `PROJECT TRACKING: DRIFT` never rolls back or rewrites authoritative workflow state or suppresses an otherwise-authorized downstream handoff.
+Project drift never rewrites authoritative repository/tracker state or suppresses an
+otherwise-authorized lifecycle handoff.
 
 ### Issue tracker
 
 Issues and PRDs are tracked in GitHub Issues for `sponge-b0b/Polaris`.
-
 See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
@@ -619,6 +501,5 @@ See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
-This repository uses a single-context domain-doc layout with root `CONTEXT.md` and optional root `docs/adr/`.
-
-See `docs/agents/domain.md`.
+This repository uses root `CONTEXT.md` and optional root `docs/adr/` for the current
+single-context domain-doc layout. See `docs/agents/domain.md`.

@@ -1,6 +1,6 @@
 ---
 name: review-spec
-description: Independently review one verified CCL-backed Spec candidate along Standards, Spec, and Architecture axes without redefining its frozen contract; persist finding continuity and an exact exit receipt.
+description: Independently review one verified CCL-backed Spec candidate against its frozen deterministic contract; persist stable structured findings and route exact finding remediation without creating new semantics.
 compatibility: product=codex product=claude-code system=git system=python system=gh network=required
 disable-model-invocation: true
 ---
@@ -12,7 +12,7 @@ passed by `$verify-spec`.
 
 Review independence is about finding implementation, standards, integration, and
 architecture-realization defects that verification missed. It is **not** authority to
-reinterpret planning prose into new obligations.
+reinterpret planning prose, create a new contract cell, or broaden CCL.
 
 The review contract is the exact deterministic Spec cell universe:
 
@@ -25,108 +25,88 @@ EXC-* -> exclusions
 
 ## 1. Bind the exact verified candidate
 
-Recover:
+Recover from durable state:
 
 * parent Spec and governance mode;
-* fixed baseline, branch, exact current HEAD;
+* fixed baseline, branch, exact current `HEAD`;
 * latest passing `## Spec Verification Receipt`;
-* exact receipt-bound `SPEC_BODY_HASH` and `SPEC_CONTRACT_HASH`;
-* deterministic current `$spec-contract` build;
-* exact current `ticket-coverage-manifest:v2`;
-* implementation ticket set/closure evidence;
-* existing conventional `Spec Review: ...` issue and its managed finding ledger, if one
-  already exists.
+* receipt-bound `SPEC_BODY_HASH` and `SPEC_CONTRACT_HASH`;
+* deterministic current `$spec-contract`;
+* current `ticket-coverage-manifest:v2`;
+* implementation ticket/closure evidence;
+* exactly one conventional `Spec Review: ...` issue, creating it if absent;
+* current review finding ledger, if present.
 
-Require the current candidate to match the passing verification receipt, except for an
-explicitly proven non-semantic policy-only synchronization allowed by `AGENTS.md`.
+Require the current candidate to match the passing verification receipt, except for a
+proven policy-only synchronization allowed by `AGENTS.md`.
 
-Rebuild the deterministic contract and require the receipt-bound contract identity to
-remain current. No semantic contract-builder/reviewer is used.
+Rebuild the deterministic Spec contract and v2 coverage. If projection/coverage is stale:
 
-If current Spec projection/coverage is invalid, review cannot reinterpret it:
+```text
+cell-routing-defect      -> $to-tickets
+contract/planning gap    -> $to-specs / semantic owner
+malformed CCL projection -> $to-specs
+```
 
-* exact cell routing defect -> `$to-tickets`;
-* missing material contract -> `$to-specs` / semantic owner;
-* malformed CCL projection -> `$to-specs`.
+Do not reinterpret the defect locally.
 
 ## 2. Conventional Spec Review issue
 
-Every reviewed Spec has exactly one conventional issue:
-
-```text
-Spec Review: <Spec title>
-```
-
-whose body contains:
+The one review issue contains:
 
 ```markdown
 **Parent Spec:** #<spec>
 ```
 
-Create it before the first review dispatch if absent. Reuse it across re-review and
-remediation; never create one issue per pass.
+It owns:
 
-That issue owns:
-
-* `<!-- review-spec-finding-ledger:v1 -->` Finding Continuity Ledger;
-* review-remediation/root state when compatibility remediation is required;
-* final `## Spec Review Exit Receipt`.
+* one active structured Review Finding Continuity Ledger;
+* Review Remediation Ticket lineage;
+* the final Spec Review Exit Receipt.
 
 The parent Spec continues to own Workspace Metadata, Spec Verification Receipts, and
 Ticket Coverage Manifest v2.
 
-## 3. One fresh reviewer, three independent axes
+## 3. One fresh reviewer, three axes
 
-Dispatch exactly one fresh non-mutating reviewer for the exact candidate. The reviewer
-executes these axes sequentially:
+Dispatch exactly one fresh non-mutating reviewer for the exact candidate. Execute
+sequentially:
 
 1. Standards, when applicable;
 2. Spec, always;
 3. Architecture, when applicable.
 
-Do not fan the axes out to separate automatic reviewers. Another independent reviewer or
-challenger requires explicit human authorization.
+The reviewer receives the exact frozen Spec cells/CCL addresses. It may independently
+derive falsifiers and evidence, but may not add/remove/redefine contract cells.
 
-Shared factual evidence may be reused; semantic conclusions may not be copied from one
-axis to another.
+### Standards
 
-The reviewer receives the exact frozen contract cells/CCL addresses and may not add,
-remove, or redefine them.
+Review current applicable repository engineering/coding/testing/workflow standards that
+govern the changed implementation surfaces.
 
-### Standards axis
+Standards findings must cite the exact governing standard. Standards may constrain
+implementation quality; they do not create new product/domain semantics.
 
-Review the candidate against current applicable repository engineering/coding/testing/
-workflow standards that govern the implementation surfaces actually changed by the Spec.
+### Spec
 
-A Standards finding must identify the exact governing standard and current violating
-surface. Standards do not create new product/domain semantics.
+Challenge whether the integrated candidate satisfies every frozen cell, including
+production composition, negative behavior, and test adequacy.
 
-### Spec axis
+A current in-contract defect is Blocking even when verification previously passed.
 
-Adversarially challenge whether the integrated candidate actually satisfies every frozen
-cell, including production composition and negative behavior, and whether the passing
-verification missed a concrete falsifier.
+### Architecture
 
-A current in-contract defect remains Blocking even though verification previously passed;
-the prior PASS is provenance, not suppression.
+Challenge whether implementation structure realizes exact CCL semantics and current
+architecture constraints that are implementation consequences of those contracts.
 
-The reviewer may not convert narrative Problem/Solution/User Story prose into a new cell.
+ADR/wiki rationale may explain why. It may not strengthen CCL.
 
-### Architecture axis
-
-Review whether the implemented structure realizes the exact CCL material semantics and
-respects current architecture constraints that are implementation consequences of those
-contracts.
-
-ADR rationale/wiki narrative may explain why, but may not silently strengthen CCL.
-
-If a current architecture authority appears to require material behavior absent from
-CCL/OBL, classify **contract-authority-gap** rather than inventing a review-owned
-obligation. That gap blocks Exit until the semantic owner reconciles it.
+If current architecture authority proves material behavior absent from CCL/OBL, classify
+`contract-authority-gap`; do not invent a review-owned obligation.
 
 ## 4. Finding model
 
-Every finding has:
+Every current finding has exactly:
 
 ```text
 Finding ID: RF-<stable n>
@@ -139,106 +119,161 @@ Classification:
   cell-routing-defect
   contract-authority-gap
   planning-cell-gap
-Cells: <exact OBL/IMP/TEST/EXC IDs | None>
-CCL: <exact addresses | None>
+Cells: <exact current cells + hashes | empty when legitimately standards-only>
+Standard refs: <exact standards authority | empty>
+Falsifier: <concrete state making the finding true>
 Evidence: <concrete current evidence>
-Falsifier / consequence: <what is actually wrong>
 Owner: <workflow owner>
 Status: open | resolved | owner-overridden | scope-retired
 ```
 
 Routing:
 
-* implementation/test/standards defect inside current cells -> review remediation path;
-* `cell-routing-defect` -> `$to-tickets`;
-* `contract-authority-gap` / `planning-cell-gap` -> `$to-specs` and, when required,
-  `$contract-ledger` / governing `$wayfinder`;
-* genuine new material semantic choice -> architecture/semantic decision owner;
-* Advisory -> never blocks Exit unless explicitly promoted through current authority.
+```text
+implementation-defect
+standards-defect
+test/proof-defect
+    -> Review Remediation Ticket path through $to-tickets
 
-Do not create `ARCHSRC-*`, new Spec cells, or broaden CCL while reviewing.
+cell-routing-defect
+    -> $to-tickets on the current decomposition owner
 
-## 5. Finding continuity
+contract-authority-gap
+planning-cell-gap
+    -> $to-specs / semantic owner
 
-Maintain exactly one machine-managed ledger comment on the conventional Spec Review:
+genuine new material semantic choice
+    -> $contract-ledger / governing $wayfinder as applicable
+```
+
+Advisory findings do not become remediation tickets unless explicitly promoted through
+current authority.
+
+## 5. Structured finding continuity ledger v2
+
+Maintain exactly one active review-ledger comment. For compatibility with
+`$spec-merge-cleanup`, retain the historical outer marker while embedding the canonical v2
+JSON payload:
 
 ```markdown
 <!-- review-spec-finding-ledger:v1 -->
+<!-- review-spec-finding-ledger:v2
+{
+  "schema": "polaris.review-findings/v2",
+  "spec": "#<spec>",
+  "spec_contract_hash": "<hash>",
+  "findings": [
+    {
+      "finding_id": "RF-1",
+      "axis": "Spec",
+      "severity": "Blocking",
+      "classification": "implementation-defect",
+      "cells": [
+        {"cell": "OBL-001", "cell_hash": "<hash>"}
+      ],
+      "standard_refs": [],
+      "falsifier": "<exact frozen falsifier>",
+      "evidence": "<current evidence>",
+      "owner": "$to-tickets",
+      "status": "open"
+    }
+  ]
+}
+-->
 ## Review Finding Continuity Ledger
 
-**Spec:** #<spec>
-**Reviewed contract:** <SPEC_CONTRACT_HASH>
-
-| Finding | Axis | Classification | Cells | Status | Evidence / disposition |
-| --- | --- | --- | --- | --- | --- |
-| RF-1 | Spec | implementation-defect | OBL-001 | open | ... |
+<deterministic human-readable projection>
 ```
 
-Rules:
+The JSON payload is authoritative finding/remediation state. The rendered table/text below
+it is a human-readable view only.
 
-* preserve stable finding IDs across re-review;
-* a fresh reviewer's silence never erases an existing open finding;
-* candidate mutation alone never resolves a finding;
-* `resolved` requires current evidence against the exact prior falsifier;
-* `owner-overridden` requires explicit durable owner authority;
-* `scope-retired` requires explicit current scope authority;
-* when the contract changes, reconcile every prior finding against exact changed cell
-  identities/hashes; do not guess continuity from similar prose.
+Before persisting or consuming the ledger, extract its JSON and run:
 
-Hash the exact managed ledger body for the Exit Receipt.
+```bash
+python -m scripts.review_remediation validate-ledger \
+  <spec-contract.json> <review-findings.json>
+```
 
-## 6. Compatibility review-remediation state
-
-Ordinary CCL-backed ticketing no longer reconstructs semantic roots. Until Spec Review
-remediation is migrated to a deterministic finding/cell delta, preserve a narrow
-compatibility Root Blocker representation **only for open Blocking implementation/
-test/standards findings already inside exact current cells**.
-
-Each compatibility root must reference:
+Require exact:
 
 ```text
-RB-<n>
-Current exact finding IDs
-Exact current cell IDs/hashes
-Exact CCL addresses for OBL cells
-Invariant: close those falsifiers without violating any current parent cell/exclusion
+REVIEW FINDING LEDGER: VALID
 ```
 
-Do not synthesize a broader sibling/domain universe. Do not use Root Blocker machinery to
-admit a contract-authority gap, planning-cell gap, or cell-routing defect.
+Continuity rules:
 
-`$to-remediation-tickets` may consume this compatibility root state; every resulting
-executable obligation must map back to exact current Spec cells plus the specific frozen
-review finding falsifier. This compatibility boundary is temporary.
+* preserve stable `RF-*` identity across re-review when the same finding remains;
+* reviewer silence never erases an existing open finding;
+* candidate mutation alone never resolves a finding;
+* `resolved` requires current evidence against the exact frozen falsifier;
+* `owner-overridden` requires explicit owner authority;
+* `scope-retired` requires explicit current scope authority;
+* if an affected cell hash changes, the old finding is stale until explicitly reconciled
+  against the new contract; never preserve it by prose similarity;
+* a remediation-owned finding's `falsifier` is frozen while open. If the actual defect
+  materially changes, create/reconcile finding identity explicitly rather than silently
+  broadening it.
 
-## 7. Decomposition and contract-gap persistence
+For `OBL-*`, CCL addresses are derived from the exact current Spec cell. Do not duplicate a
+second hand-authored semantic statement in the finding.
 
-For a proven `cell-routing-defect`, persist/update the canonical
-`<!-- decomposition-defects:v1 -->` record on the current `$to-tickets` source owner. The
-record names exact current cells/hashes and the missing/misrouted destination. It never
-creates an architecture obligation outside the contract.
+### Legacy ledger migration
 
-For a proven contract/planning gap, persist the durable blocker on the parent Spec with:
+A historical v1 table / Root Blocker state is migration input only.
 
-* exact missing material/private/test/exclusion concern;
-* current cells demonstrating absence;
-* governing current authority that proves the gap, when any;
-* whether a new semantic decision is required;
-* owning next workflow.
+On the next fresh review:
 
-Do not disguise a contract gap as ticket decomposition work.
+1. preserve prior `RF-*` IDs when current axis/classification/cell identity makes continuity
+   unambiguous;
+2. require the current reviewer to establish an exact v2 falsifier/evidence row;
+3. mark historical rows no longer current as resolved/scope-retired/owner-overridden only
+   with valid current evidence/authority;
+4. persist the new v2 ledger;
+5. do not synthesize or retain Root Blockers as current remediation authority.
 
-## 8. Review Attention
+If continuity is ambiguous, keep the historical record as history and allocate a new
+current finding ID rather than guessing.
 
-Before Exit invoke `$attention` against the exact reviewed candidate. Attention may expose
-an implementation defect, routing defect, or upstream contract gap, but it cannot create
-a new semantic contract.
+## 6. Review remediation contract boundary
 
-Any resulting concern must be classified through the same finding model before Exit.
+Open Blocking findings classified:
 
-## 9. Human-facing aggregate
+```text
+implementation-defect
+standards-defect
+test/proof-defect
+```
 
-Always present the axes in this exact shape:
+are the only findings eligible for implementation remediation.
+
+They are **not** grouped into semantic Root Blockers.
+
+`$to-tickets` may group several eligible findings into one ticket when that is the smallest
+coherent execution slice. The deterministic remediation contract is built from:
+
+```text
+current Spec contract
++ exact v2 finding rows
+        ↓
+polaris.review-remediation-contract/v1
+```
+
+It contains the selected findings/falsifiers, exact affected cells, exact Standards refs,
+and every other current parent-Spec cell as a preservation guardrail.
+
+Grouping findings changes execution slicing only. It does not create a new invariant,
+semantic domain, sibling set, or architecture obligation.
+
+## 7. Review Attention
+
+Before Exit invoke `$attention` against the exact reviewed candidate. Attention is
+report-only. Any material concern must enter the same finding model before it can affect
+review state.
+
+## 8. Human-facing aggregate
+
+Always report:
 
 ```markdown
 ## Standards
@@ -266,28 +301,28 @@ Always present the axes in this exact shape:
 - <findings or None.>
 ```
 
-Keep findings under their originating axis/severity.
-
-Then show compact supplemental state:
+Then:
 
 ```text
 Reviewed HEAD: <sha>
 Spec Contract Hash: <hash>
 Contract cells reviewed: <n>/<n>
 Open Blocking findings: <n>
+Open remediation-owned findings: <n>
 Open cell-routing defects: <n>
 Open contract/planning gaps: <n>
 Finding continuity unresolved: <n>
 ```
 
-## 10. Exit Gate
+## 9. Exit Gate
 
-PASS is reachable only when:
+PASS requires:
 
 ```text
 Verification receipt: current and passed
 Deterministic Spec contract: VALID
 Ticket coverage v2: VALID
+Review finding ledger v2: VALID
 Reviewer coverage: complete
 Unchecked contract cells: 0
 Open Blocking findings: 0
@@ -295,23 +330,26 @@ Open cell-routing defects: 0
 Open contract-authority gaps: 0
 Open planning-cell gaps: 0
 Unaccounted prior findings: 0
-Unresolved continuity cells: 0
 Candidate changed during review: no
 ```
 
 Advisory findings may remain.
 
-If blocking implementation/remediation findings remain, persist/update compatibility
-review-remediation state and hand off through `$to-tickets` on the conventional Spec
-Review.
+When remediation-owned Blocking findings remain, persist the current v2 ledger and hand off
+directly:
 
-If a cell-routing defect remains, hand off `$to-tickets` on the current durable owner.
+```text
+$to-tickets - Spec Review: <Feature Name> (<Review URL>)
+```
 
-If a contract/planning gap remains, hand off to `$to-specs` / owning semantic workflow.
+Do **not** invoke `$review-spec-remediation`; Root Blocker synthesis is retired.
 
-## 11. Persist the Spec Review Exit Receipt
+Cell-routing defects hand off to `$to-tickets` on their decomposition owner. Contract or
+planning gaps hand off to `$to-specs` / semantic owner.
 
-On PASS persist on the conventional Spec Review issue:
+## 10. Spec Review Exit Receipt
+
+On PASS persist:
 
 ```markdown
 ## Spec Review Exit Receipt
@@ -335,14 +373,15 @@ On PASS persist on the conventional Spec Review issue:
 **Unchecked coverage cells:** 0
 ```
 
-The legacy-compatible zero fields remain because `$spec-merge-cleanup` consumes this
-schema. They must reflect actual current state, never be hard-coded around unresolved
-work.
+The two Root-blocker fields are **legacy receipt transport only** until
+`$spec-merge-cleanup`'s historical parser is separately retired. No live Root Blocker
+ledger is required or authorized; on a valid v2 PASS these compatibility fields carry no
+semantic state.
 
-Before persistence re-read the candidate, verification receipt, deterministic contract,
+Before receipt persistence re-read candidate, verification receipt, deterministic contract,
 v2 coverage, and finding ledger. Any stale identity blocks Exit.
 
-## 12. Handoff
+## 11. Handoff
 
 On PASS:
 
@@ -352,8 +391,7 @@ $spec-merge-cleanup - <Spec Title> (<Spec URL>)
 
 Do not invoke cleanup implicitly.
 
-On FAIL, emit exactly the current owning lifecycle handoff after durable state is
-persisted.
+On FAIL emit exactly the current owning lifecycle handoff after durable state is persisted.
 
 ## Non-goals
 
@@ -361,8 +399,8 @@ persisted.
 
 * reinterpret Spec prose into contract cells;
 * reconstruct architecture obligation universes outside CCL;
-* use a prior PASS to suppress a current in-contract falsifier;
-* create semantic requirements during review;
+* create Root Blockers for current remediation;
+* invent semantic requirements during review;
 * repair implementation itself;
 * mutate CCL;
 * treat Project fields as review authority.

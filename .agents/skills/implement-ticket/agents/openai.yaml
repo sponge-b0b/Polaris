@@ -1,5 +1,5 @@
 interface:
   display_name: "Implement Ticket"
-  short_description: "Build work from an individual ticket"
+  short_description: "Implement one deterministic ticket contract"
 policy:
   allow_implicit_invocation: false

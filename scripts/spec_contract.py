@@ -379,6 +379,8 @@ def main() -> int:
             if args.command == "check-coverage":
                 validate_coverage(contract, coverage_value)
                 print("TICKET COVERAGE: VALID")
+                print("Missing mappings: 0")
+                print("Duplicate mappings: 0")
                 return 0
             ticket_contract = build_ticket_contract(
                 contract, coverage_value, args.destination

@@ -70,7 +70,7 @@ must exactly equal the current branch before ordinary mutation.
 
 Do not silently create/switch/repair the branch.
 
-### Live-WIP reslice compatibility
+### Live-WIP reslice recovery
 
 If current durable state contains `ticket-reslice-recovery:v1`, preserve its established
 isolated-worktree safety invariant:
@@ -84,7 +84,7 @@ isolated-worktree safety invariant:
   exact certified completion commits;
 * ambiguous ownership or completion identity is a Hard Blocker.
 
-This compatibility mechanism transports WIP only. It cannot change the current ticket
+This recovery mechanism transports WIP only. It cannot change the current ticket
 contract.
 
 ## 3. Build the deterministic ticket contract
@@ -172,10 +172,6 @@ not create a new semantic invariant, root, sibling universe, or architecture obl
 
 If a finding is a cell-routing defect, planning-cell gap, or contract-authority gap, it is
 not admissible to this remediation contract. Route it to its owning workflow instead.
-
-A historical Root Blocker ticket/checkpoint is compatibility history only. Before current
-implementation it must be normalized through `$review-spec` + `$to-tickets` into exact
-`RF-*` remediation state. Do not execute against an RB matrix.
 
 ## 4. Implement only the frozen ticket contract
 
@@ -330,17 +326,6 @@ Persist at least:
 
 Zero or one active v3 marker is allowed; more than one fails closed. POST/PATCH the one
 managed comment and read it back exactly after every write.
-
-### Legacy checkpoint migration
-
-Existing v2/root checkpoints are compatibility history, not current closure authority.
-For an open ticket with no v3 checkpoint, migrate once only when current durable state can
-mechanically reproduce the exact current ticket contract, baseline, candidate, and
-lineage. Preserve old verdicts/findings as history. A historical PASS never certifies a
-changed/current candidate under v3.
-
-If migration cannot bind exactly, discard no history: mark the old state historical and
-start a fresh v3 attempt after current contract/candidate recovery.
 
 ## 8. Independent closure dispatch
 

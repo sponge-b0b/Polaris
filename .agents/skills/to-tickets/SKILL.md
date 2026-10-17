@@ -75,9 +75,6 @@ These are not converted into Root Blockers. `cell-routing-defect`,
 `planning-cell-gap`, and `contract-authority-gap` remain with their owning upstream
 workflows.
 
-A historical Root Blocker ledger/ticket is migration history only. Never slice new work
-from it.
-
 ## 2. Governance and branch/baseline
 
 Resolve governance from the Parent Spec's local provenance markers.
@@ -198,12 +195,6 @@ manifest-only ID         removed
 
 Closed tickets remain immutable history. Changed/new work gets an open/new owner.
 
-If linked legacy ordinary tickets exist without v2 coverage, `$to-tickets` itself proposes
-a fresh mapping from the **current exact cells**. Old ticket prose is historical execution
-context, not semantic authority. Preserve matching open tickets where current exact cells
-can be assigned safely; otherwise create/update current tickets after human approval.
-`$to-remediation-tickets` is not required for current ordinary reconciliation.
-
 ## 6. Review remediation slicing
 
 For a Spec Review, the executable denominator is the set of current open
@@ -257,14 +248,6 @@ authority; then all current Spec cells are preservation guardrails.
 A current open Review Remediation Ticket is reusable only when its exact selected RF set,
 Spec Contract Hash, and Review Remediation Contract Hash match the current proposal.
 
-If an open historical Root Blocker ticket lacks a normalized review-remediation contract:
-
-* do not reinterpret its RB invariant;
-* preserve it as history;
-* propose superseded closure when its old execution scope is no longer the current
-  normalized owner;
-* create/update normalized RF-backed remediation tickets for current open findings.
-
 Closed remediation tickets remain immutable historical evidence. If the finding is open
 again/currently violated, new executable work gets a current ticket.
 
@@ -290,6 +273,7 @@ Review Remediation Contract Hash: <hash>
 
 - `OBL-001` — exact CCL: `<contract@revision#assertion>`
 - `TEST-001` — <exact current requirement>
+
 ```
 
 Use `None.` when there are no affected cells.

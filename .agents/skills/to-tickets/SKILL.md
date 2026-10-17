@@ -208,12 +208,31 @@ Rules:
 * dependencies express real execution prerequisites only;
 * a missing material choice routes upstream rather than entering ticket prose.
 
+### Execution-closure rule
+
+After drafting routes, mechanically inspect every current `IMP-*` and `TEST-*` requirement
+for explicit references to current contract cells. Literal IDs and same-prefix ranges such
+as `OBL-007 through OBL-009` are execution prerequisites, not explanatory prose.
+
+For every explicit current-cell reference, the referenced cell must be either:
+
+* owned by the same proposed ticket; or
+* owned by a ticket that is transitively upstream in the proposed dependency graph.
+
+A plan cell must never depend on a current cell owned by a downstream or unrelated ticket.
+The dependency graph must cover every proposed destination, contain only proposed
+destinations, and be acyclic.
+
+Do not infer new semantic dependencies from narrative prose. This gate uses only explicit
+current contract-cell references already present in deterministic `IMP-*` / `TEST-*`
+requirements plus the proposed native dependency graph.
+
 Run `$attention` before approval. Attention may expose a missing cell/bad slice but cannot
 create semantics.
 
-## 5. Ordinary deterministic coverage
+## 5. Ordinary deterministic coverage and execution closure
 
-Build:
+Build coverage:
 
 ```json
 {
@@ -237,7 +256,40 @@ python -m scripts.spec_contract check-coverage \
 
 Require `TICKET COVERAGE: VALID`.
 
-Existing v2 state reconciles mechanically:
+Then build the proposed dependency graph separately so persisted
+`ticket-coverage-manifest:v2` semantics remain unchanged:
+
+```json
+{
+  "schema": "polaris.ticket-dependencies/v1",
+  "spec_contract_hash": "<hash>",
+  "tickets": [
+    {"destination": "T1", "depends_on": []},
+    {"destination": "T2", "depends_on": ["T1"]}
+  ]
+}
+```
+
+Run:
+
+```bash
+python -m scripts.spec_contract check-execution \
+  <contract.json> <coverage.json> <dependencies.json>
+```
+
+Require exact current-run receipts:
+
+```text
+TICKET EXECUTION CLOSURE: VALID
+Dependency graph: VALID
+```
+
+`check-execution` deterministically expands explicit same-prefix cell ranges and rejects a
+plan cell whose referenced current cell is neither same-ticket nor transitively upstream.
+It also rejects missing/extra dependency destinations, unknown prerequisites,
+self-dependencies, and dependency cycles.
+
+Existing v2 coverage state reconciles mechanically:
 
 ```text
 same ID + same hash      unchanged
@@ -412,11 +464,16 @@ Semantic prose classification performed: 0
 TICKET COVERAGE: VALID
 Missing mappings: 0
 Duplicate mappings: 0
+TICKET EXECUTION CLOSURE: VALID
+Dependency graph: VALID
 ATTENTION: COMPLETE
 ```
 
 The three Project Delivery lines must be copied verbatim from the successful current-run
 `scripts.project_delivery guard` stdout. `$to-tickets` must not generate them itself.
+The execution-closure and dependency-graph lines must be copied from the successful
+current-run `scripts.spec_contract check-execution` stdout; prose reasoning is not a
+substitute.
 
 For an Independent ordinary Spec, omit only the three project-delivery guard lines. For
 Spec Review mode, substitute the exact remediation-ledger/contract receipts required by
@@ -447,12 +504,14 @@ For every substantive proposal show:
 * dependencies;
 * new/update/preserve/supersede status.
 
-Also show the relevant contract hash(es), exact zero missing/duplicate mappings, and that no
-semantic decomposition agents were used.
+Also show the relevant contract hash(es), exact zero missing/duplicate mappings, successful
+execution closure/dependency-graph validation, and that no semantic decomposition agents
+were used.
 
 Ask for one approval of the complete substantive delta only after the mandatory receipt
 block is complete. If the proposal changes materially, revalidate affected deterministic
-contracts, regenerate the receipt block from the new current run, and ask again.
+contracts, coverage, execution closure, regenerate the receipt block from the new current
+run, and ask again.
 
 ## 11. Publication/readback
 
@@ -473,7 +532,9 @@ After mutation:
 * require branch/baseline/provenance equality with approved proposal.
 
 For ordinary Specs, persist exactly one current `ticket-coverage-manifest:v2`, then rerun
-`check-coverage`.
+`check-coverage`. Reconstruct `polaris.ticket-dependencies/v1` from the native dependency
+readback and rerun `check-execution` against the persisted coverage. Publication is not
+complete unless both deterministic checks still pass.
 
 For review remediation, do not create a second parent coverage manifest.
 

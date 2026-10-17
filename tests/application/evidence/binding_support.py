@@ -27,13 +27,13 @@ from polaris.domain.evidence.judgments import (
     JudgmentWideEvidenceScope,
 )
 from polaris.domain.evidence.observations import EvidenceObservationId
-from tests.configuration_support import (
+from tests.application.evidence.evidence_support import OBSERVATION_ID
+from tests.domain.configuration.configuration_support import (
     TARGET_ID,
     requirement_assignment_for_key,
     requirement_key,
     requirement_version,
 )
-from tests.evidence_support import OBSERVATION_ID
 
 BINDING_OPERATION_ID = UUID("00000000-0000-4000-8000-000000000301")
 SECOND_BINDING_OPERATION_ID = UUID("00000000-0000-4000-8000-000000000302")

@@ -37,7 +37,7 @@ from polaris.domain.evidence.sufficiency import (
     EvidenceSufficiencyBasisGuards,
     evaluate_evidence_sufficiency,
 )
-from tests.configuration_support import (
+from tests.domain.configuration.configuration_support import (
     FRESHNESS_ID,
     ROOT_VERSION_ID,
     SET_ID,

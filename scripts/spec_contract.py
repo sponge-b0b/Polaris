@@ -17,6 +17,12 @@ _OBL_ID = re.compile(r"^OBL-[0-9]{3,}$")
 _PLAN_ITEM = re.compile(
     r"^- `(?P<id>(?P<prefix>IMP|TEST|EXC)-[0-9]{3,})` — (?P<text>\S(?:.*\S)?)$"
 )
+_CELL_REF = re.compile(r"\b(?P<prefix>OBL|IMP|TEST)-(?P<number>[0-9]{3,})\b")
+_CELL_RANGE = re.compile(
+    r"\b(?P<start_prefix>OBL|IMP|TEST)-(?P<start>[0-9]{3,})\s+"
+    r"(?:through|to)\s+"
+    r"(?P<end_prefix>OBL|IMP|TEST)-(?P<end>[0-9]{3,})\b"
+)
 
 
 class SpecContractError(ValueError):
@@ -259,6 +265,164 @@ def validate_coverage(contract: dict[str, Any], coverage: dict[str, Any]) -> Non
     _need(not missing, "coverage: missing cells " + ", ".join(sorted(missing)))
 
 
+def _cell_sort_key(cell_id: str) -> tuple[int, int]:
+    prefix, number = cell_id.split("-", 1)
+    prefix_order = {"OBL": 0, "IMP": 1, "TEST": 2}
+    return prefix_order[prefix], int(number)
+
+
+def _current_cell_references(requirement: str, current_ids: set[str]) -> list[str]:
+    references = {
+        match.group(0)
+        for match in _CELL_REF.finditer(requirement)
+        if match.group(0) in current_ids
+    }
+    for match in _CELL_RANGE.finditer(requirement):
+        start_prefix = match.group("start_prefix")
+        end_prefix = match.group("end_prefix")
+        if start_prefix != end_prefix:
+            continue
+        start_text = match.group("start")
+        end_text = match.group("end")
+        start = int(start_text)
+        end = int(end_text)
+        if end < start:
+            continue
+        width = max(len(start_text), len(end_text))
+        for number in range(start, end + 1):
+            cell_id = f"{start_prefix}-{number:0{width}d}"
+            if cell_id in current_ids:
+                references.add(cell_id)
+    return sorted(references, key=_cell_sort_key)
+
+
+def _dependency_graph(
+    contract: dict[str, Any],
+    coverage: dict[str, Any],
+    dependency_plan: dict[str, Any],
+) -> dict[str, tuple[str, ...]]:
+    _need(
+        dependency_plan.get("schema") == "polaris.ticket-dependencies/v1",
+        "dependencies: wrong schema",
+    )
+    _need(
+        dependency_plan.get("spec_contract_hash") == contract.get("spec_contract_hash"),
+        "dependencies: stale spec contract hash",
+    )
+    _need(
+        set(dependency_plan) == {"schema", "spec_contract_hash", "tickets"},
+        "dependencies: unsupported shape",
+    )
+    tickets = dependency_plan.get("tickets")
+    _need(isinstance(tickets, list), "dependencies.tickets: expected list")
+    route_destinations = {row["destination"] for row in coverage["routes"]}
+    graph: dict[str, tuple[str, ...]] = {}
+    for row in tickets:
+        _need(isinstance(row, dict), "dependencies.tickets: invalid row")
+        _need(
+            set(row) == {"destination", "depends_on"},
+            "dependencies.tickets: unsupported row",
+        )
+        destination = row["destination"]
+        depends_on = row["depends_on"]
+        _need(
+            isinstance(destination, str) and destination.strip(),
+            "dependencies.tickets: missing destination",
+        )
+        _need(destination not in graph, f"dependencies: duplicate ticket {destination}")
+        _need(
+            isinstance(depends_on, list)
+            and all(isinstance(item, str) and item.strip() for item in depends_on),
+            f"dependencies: invalid depends_on for {destination}",
+        )
+        _need(
+            len(depends_on) == len(set(depends_on)),
+            f"dependencies: duplicate prerequisite for {destination}",
+        )
+        _need(
+            destination not in depends_on,
+            f"dependencies: self-dependency {destination}",
+        )
+        graph[destination] = tuple(depends_on)
+    _need(
+        set(graph) == route_destinations,
+        "dependencies: ticket set does not match coverage destinations",
+    )
+    for destination, depends_on in graph.items():
+        unknown = set(depends_on) - route_destinations
+        _need(
+            not unknown,
+            f"dependencies: {destination} references unknown tickets "
+            + ", ".join(sorted(unknown)),
+        )
+
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(destination: str) -> None:
+        if destination in visited:
+            return
+        _need(
+            destination not in visiting,
+            f"dependencies: cycle detected at {destination}",
+        )
+        visiting.add(destination)
+        for prerequisite in graph[destination]:
+            visit(prerequisite)
+        visiting.remove(destination)
+        visited.add(destination)
+
+    for destination in sorted(graph):
+        visit(destination)
+    return graph
+
+
+def validate_execution_closure(
+    contract: dict[str, Any],
+    coverage: dict[str, Any],
+    dependency_plan: dict[str, Any],
+) -> int:
+    """Validate explicit current-cell references against ticket execution ordering."""
+    validate_coverage(contract, coverage)
+    graph = _dependency_graph(contract, coverage, dependency_plan)
+    route_by_cell = {row["cell"]: row["destination"] for row in coverage["routes"]}
+    cells = {cell["cell"]: cell for cell in contract["cells"]}
+    current_ids = set(cells)
+    upstream_cache: dict[str, set[str]] = {}
+
+    def upstream(destination: str) -> set[str]:
+        cached = upstream_cache.get(destination)
+        if cached is not None:
+            return cached
+        result: set[str] = set()
+        for prerequisite in graph[destination]:
+            result.add(prerequisite)
+            result.update(upstream(prerequisite))
+        upstream_cache[destination] = result
+        return result
+
+    checked = 0
+    for cell in contract["cells"]:
+        if cell["kind"] not in {"implementation", "testing"}:
+            continue
+        destination = route_by_cell[cell["cell"]]
+        for reference in _current_cell_references(cell["requirement"], current_ids):
+            if reference == cell["cell"]:
+                continue
+            referenced_destination = route_by_cell.get(reference)
+            if referenced_destination is None:
+                continue
+            checked += 1
+            _need(
+                referenced_destination == destination
+                or referenced_destination in upstream(destination),
+                f"execution closure: {cell['cell']} in {destination} references "
+                f"{reference} in {referenced_destination}, which is not the same "
+                "ticket or an upstream dependency",
+            )
+    return checked
+
+
 def build_ticket_contract(
     contract: dict[str, Any],
     coverage: dict[str, Any],
@@ -358,6 +522,10 @@ def main() -> int:
     coverage = sub.add_parser("check-coverage")
     coverage.add_argument("contract")
     coverage.add_argument("coverage")
+    execution = sub.add_parser("check-execution")
+    execution.add_argument("contract")
+    execution.add_argument("coverage")
+    execution.add_argument("dependencies")
     ticket = sub.add_parser("build-ticket")
     ticket.add_argument("contract")
     ticket.add_argument("coverage")
@@ -371,7 +539,12 @@ def main() -> int:
     check_ticket.add_argument("ticket_body")
     args = parser.parse_args()
     try:
-        if args.command in {"check-coverage", "build-ticket", "check-ticket"}:
+        if args.command in {
+            "check-coverage",
+            "check-execution",
+            "build-ticket",
+            "check-ticket",
+        }:
             contract = json.loads(Path(args.contract).read_text(encoding="utf-8"))
             coverage_value = json.loads(Path(args.coverage).read_text(encoding="utf-8"))
             _need(isinstance(contract, dict), "contract: expected object")
@@ -381,6 +554,23 @@ def main() -> int:
                 print("TICKET COVERAGE: VALID")
                 print("Missing mappings: 0")
                 print("Duplicate mappings: 0")
+                return 0
+            if args.command == "check-execution":
+                dependency_value = json.loads(
+                    Path(args.dependencies).read_text(encoding="utf-8")
+                )
+                _need(
+                    isinstance(dependency_value, dict),
+                    "dependencies: expected object",
+                )
+                checked = validate_execution_closure(
+                    contract,
+                    coverage_value,
+                    dependency_value,
+                )
+                print("TICKET EXECUTION CLOSURE: VALID")
+                print("Dependency graph: VALID")
+                print(f"Explicit cell references checked: {checked}")
                 return 0
             ticket_contract = build_ticket_contract(
                 contract, coverage_value, args.destination

@@ -117,6 +117,10 @@ If `reconcile` or `guard` fails, returns ambiguous/incomplete state, or cannot p
 exact result format owned by `$project-delivery-management`, stop with the guard blocked.
 Do not fall back to heuristic searches or declare ALLOWED independently.
 
+Preserve the exact fresh ALLOWED lines as the **delivery guard receipt** for the current run.
+A paraphrase such as "delivery check passed" or "guard is ALLOWED" is not the receipt and
+must not be used at the approval boundary.
+
 Independent Specs never acquire a Wayfinder.
 
 All tickets use:
@@ -150,6 +154,16 @@ Require:
 SPEC CONTRACT: VALID
 Semantic prose classification performed: 0
 ```
+
+`Semantic prose classification performed: 0` is a required workflow receipt, not a request
+for another semantic review. Ordinary ticketing is allowed to consume only the deterministic
+`OBL-*`, `IMP-*`, `TEST-*`, and `EXC-*` cell universe. It must not derive additional ticket
+cells from Problem Statement, Solution, User Stories, Architecture Impact, Further Notes,
+ADRs, source prose, or inferred architecture obligations.
+
+Record the receipt only after confirming that zero extra cells were created or routed from
+such prose. If any prose-derived cell universe was built or used, the value is not zero and
+ordinary ticketing must stop rather than ask for approval.
 
 The complete ordinary denominator is the exact `cells` array.
 
@@ -376,6 +390,32 @@ This recovery metadata never changes ticket contract semantics.
 
 ## 10. Human approval
 
+Before asking for human approval, emit one **Pre-publication workflow receipts** block.
+This is mandatory; do not replace it with prose summary.
+
+For an ordinary Wayfinder-managed Spec, the block contains these exact receipt forms:
+
+```text
+Pre-publication workflow receipts
+PROJECT DELIVERY GUARD: ALLOWED
+Wayfinder: #<n>
+Focused set: <exact set>
+SPEC CONTRACT: VALID
+Semantic prose classification performed: 0
+TICKET COVERAGE: VALID
+Missing mappings: 0
+Duplicate mappings: 0
+ATTENTION: COMPLETE
+```
+
+For an Independent ordinary Spec, omit only the three project-delivery guard lines. For
+Spec Review mode, substitute the exact remediation-ledger/contract receipts required by
+that mode while retaining any applicable delivery-guard receipt.
+
+Every line in the receipt block must come from the current run. Do not reconstruct it from
+memory, earlier runs, or a paraphrase. If any required receipt is missing, stale, nonzero,
+ambiguous, or failed, **do not ask for approval**. Stop at the owning workflow failure.
+
 For every substantive proposal show:
 
 ### Ordinary
@@ -400,8 +440,9 @@ For every substantive proposal show:
 Also show the relevant contract hash(es), exact zero missing/duplicate mappings, and that no
 semantic decomposition agents were used.
 
-Ask for one approval of the complete substantive delta. If the proposal changes
-materially, revalidate affected deterministic contracts and ask again.
+Ask for one approval of the complete substantive delta only after the mandatory receipt
+block is complete. If the proposal changes materially, revalidate affected deterministic
+contracts, regenerate the receipt block from the new current run, and ask again.
 
 ## 11. Publication/readback
 

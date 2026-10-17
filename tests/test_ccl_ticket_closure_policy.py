@@ -43,16 +43,17 @@ def test_parent_exclusions_are_deterministic_guardrails() -> None:
     assert "exclusion guardrails unresolved: 0" in VERIFY
 
 
-def test_new_attempts_use_v3_checkpoint() -> None:
+def test_current_attempts_use_only_v3_checkpoint() -> None:
     assert "implement-ticket-closure-checkpoint:v3" in IMPLEMENT
-    assert "Existing v2/root checkpoints are compatibility history" in IMPLEMENT
+    assert "Legacy checkpoint migration" not in IMPLEMENT
+    assert "v2/root checkpoints" not in IMPLEMENT
 
 
-def test_repository_governance_already_requires_frozen_ticket_contract() -> None:
+def test_repository_governance_requires_frozen_ticket_contract() -> None:
     assert "$verify-ticket-closure" in AGENTS
     assert "proof independence" in AGENTS
     assert "$implement-ticket" in README
-    assert "proof independence" in README
+    assert "Independence means proof" in README
 
 
 def test_gap_routing_is_owned_upstream() -> None:

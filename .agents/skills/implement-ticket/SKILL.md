@@ -1,1661 +1,444 @@
 ---
 name: implement-ticket
-description: "Implement one ticket, prepare an immutable closure candidate, dispatch fresh independent semantic certification, and persist/close only the exact certified candidate."
+description: Implement one exact deterministic ticket contract, run applicable technical checks, obtain fresh independent closure proof, and close only the exact certified candidate.
 compatibility: product=codex product=claude-code system=python system=git system=gh network=required
 disable-model-invocation: true
 ---
 
 # Implement Ticket
 
-Implement one ticket and close it only after one fresh independent `$verify-ticket-closure` verdict certifies the exact candidate.
+`$implement-ticket` owns implementation and lifecycle completion of one published ticket.
+It does **not** decide what the ticket means.
 
-This `SKILL.md` is the single authoritative procedure for `$implement-ticket`.
-
-The common ticket-closure hardening below supersedes only the older root-verification/self-certification concepts preserved later in this file. All other preserved implementation, branch, hierarchy, project-delivery, applicability, helper, verification, persistence, commit, tracker, frontier, and handoff mechanics remain normative.
-
-## Superseded Legacy Concepts
-
-The following older concepts are replaced by the current rules in this section:
-
-* `Durable Root-Verification Checkpoint` → **Durable Ticket-Closure Checkpoint**;
-* remediation-only root-verification re-entry → **common closure re-entry for every ticket**;
-* any statement allowing an ordinary ticket to self-certify semantic acceptance and proceed directly to persistence/closure;
-* `Spec Review Root Closure` verifier handoff/dispatch/verdict mechanics → the common **Independent Ticket Closure Gate** below;
-* direct `$verify-root-closure` certification → `$verify-ticket-closure`;
-* `ROOT CLOSURE: PASS|FAIL` as the ticket semantic verdict → `TICKET CLOSURE: PASS|FAIL`.
-
-The preserved remediation-specific root reasoning, invariant sweep, preservation, and protected-root requirements remain applicable inputs for remediation; they are now certified inside the same common verifier rather than by a separate algorithm.
-
-## Core Authority Invariant
-
-> **The implementation actor may propose closure evidence, but it may not certify its own candidate.**
-
-For every ordinary Implementation Ticket and every Review Remediation Ticket:
+For an ordinary CCL-backed ticket, the executable contract is derived mechanically:
 
 ```text
-implement
-    ↓
-local / delegated implementation verification
-    ↓
-Proposed Closure Evidence
-    ↓
-immutable candidate checkpoint
-    ↓
-automatic fresh non-mutating $verify-ticket-closure dispatch
-    ↓
-one TICKET CLOSURE: PASS | FAIL
-    ↓
-persist / commit / close only after PASS
+current Spec contract
++ ticket-coverage-manifest:v2
++ this ticket destination
+        ↓
+polaris.ticket-contract/v1
+        ↓
+assigned OBL/IMP/TEST cells + parent EXC guardrails
 ```
 
-Implementation checks such as `$verify-code`, documentation validation, database proof, tracker rereads, and targeted tests remain required where applicable. They provide evidence; they do not give the implementer semantic closure authority.
+The implementation actor may choose implementation-equivalent private mechanics. It may
+not add, remove, strengthen, weaken, or reinterpret a material semantic obligation.
 
-### Shared-invariant mandate classification
+## 1. Recover durable ticket state
 
-Apply the repository Mandate Boundary before deciding that a required correction is outside ticket scope.
+Assume no chat/session state.
 
-When the current ticket path intersects behavior shared with other paths, classify the contemplated work as exactly one of:
+Read the current ticket, its native direct parent, parent Spec, current Spec body, current
+Ticket Coverage Manifest v2, native blockers/dependencies, branch/baseline state, current
+CCL ledger, and the one current closure checkpoint when present.
+
+Determine mode:
 
 ```text
-optional adjacent cleanup/refactor
-current path must satisfy an already-authoritative shared invariant
-shared invariant missing/contradictory/materially unresolved
+ordinary
+    native parent = Parent Spec
+
+remediation
+    native parent = conventional Spec Review
+    Parent Spec remains lifecycle/branch provenance
 ```
 
-Route them as follows:
+Missing, ambiguous, or contradictory native/textual lineage fails closed. `$implement-ticket`
+validates hierarchy; `$to-tickets` owns repairing it.
 
-* **optional adjacent cleanup/refactor** → outside the ticket mandate unless separately authorized;
-* **current path must satisfy an already-authoritative shared invariant** → necessary correctness work for this ticket, limited to the smallest change required to make the owned path conform;
-* **shared invariant missing/contradictory/materially unresolved** → design/authority gap; fail closed and route to the owning upstream authority before implementation chooses a rule.
+Resolve governance from the parent Spec's local provenance markers. Independent Specs never
+acquire a Wayfinder. For Wayfinder-managed Specs, perform the prescribed
+`$project-delivery-management reconcile` + guard calls and require an admitted ALLOWED
+result before substantive mutation.
 
-Do not classify required conformance as scope expansion merely because the invariant also governs other command families, adapters, namespaces, or consumers. Conversely, required conformance does not authorize modifying unaffected participants for consistency.
+Require open native ticket blockers to be closed. Resolve any current
+`architecture-blocker:v1`; unresolved/routed state follows its current owning handoff and
+never gets self-resolved by implementation.
 
-## Invocation Termination
+## 2. Guard branch and ticket baseline
 
-This invocation may stop only at:
+All tickets under one Spec use the published shared Spec branch. A declared Ticket branch
+must exactly equal the current branch before ordinary mutation.
 
-* **Completed** — all required persistence, evidence, and closure gates completed;
-* **Human Handoff** — another applicable workflow authority explicitly requires human authorization or judgment;
-* **Hard Blocker** — a concrete external/environmental, branch, baseline, permission, required-tool, or persistence failure prevents further safe work.
+`Ticket baseline` is per-ticket and immutable after pinning:
 
-Everything else is non-terminal.
+* `Pending` -> pin the exact pre-mutation shared-branch HEAD, persist it in the ticket,
+  and read it back;
+* full SHA -> require it to exist and be an ancestor of the current ticket candidate;
+* anything else -> fail closed.
 
-In particular, partial progress, verification failure, `TICKET CLOSURE: FAIL`, corrective edits making a verdict stale, remaining actionable in-scope work, an open ticket, an `awaiting-closure-verification` checkpoint, and `TICKET CLOSURE: PASS` before final lifecycle completion do not authorize stopping.
+Do not silently create/switch/repair the branch.
 
-If none applies, continue the workflow.
+### Live-WIP reslice compatibility
 
-## Durable Ticket-Closure Checkpoint
+If current durable state contains `ticket-reslice-recovery:v1`, preserve its established
+isolated-worktree safety invariant:
 
-Every ticket closure-verification attempt must survive complete session/context loss.
+* the protected caller checkout is immutable donor/recovery state;
+* execute the actionable participant in an isolated worktree when the record requires it;
+* attribute every donor hunk/path to an exact durable owner before transplanting it;
+* never stash/reset/clean/overwrite the protected donor checkout;
+* native dependencies, not recovery metadata, determine actionability;
+* the participant closing second terminalizes the record as `source-reconciled` with both
+  exact certified completion commits;
+* ambiguous ownership or completion identity is a Hard Blocker.
 
-Use exactly one machine-managed ticket comment:
+This compatibility mechanism transports WIP only. It cannot change the current ticket
+contract.
+
+## 3. Build the deterministic ticket contract
+
+### Ordinary CCL-backed ticket
+
+Take one exact current parent-Spec body snapshot and build the deterministic Spec contract:
+
+```bash
+python -m scripts.ccl_spec check <spec-body-file> contracts/ccl/transactions
+python -m scripts.spec_contract build <spec-issue-json> <spec-contract.json>
+python -m scripts.spec_contract check-coverage <spec-contract.json> <coverage.json>
+```
+
+Then bind this published ticket to its exact route:
+
+```bash
+python -m scripts.spec_contract build-ticket \
+  <spec-contract.json> \
+  <coverage.json> \
+  "#<ticket-number>" \
+  <ticket-body-file> \
+  <ticket-contract.json>
+```
+
+Require:
 
 ```text
-<!-- implement-ticket-closure-checkpoint:v2 -->
+TICKET CONTRACT: VALID
 ```
 
-Persist:
+The resulting `polaris.ticket-contract/v1` owns ordinary ticket contract identity:
+
+* `spec_contract_hash`;
+* `ticket_contract_hash`;
+* exact assigned `OBL-*`, `IMP-*`, and `TEST-*` cells with current `cell_hash` values;
+* exact CCL addresses for assigned `OBL-*` cells;
+* every current parent `EXC-*` as a guardrail.
+
+All parent exclusions are transported as guardrails so implementation does not have to
+interpret which exclusions "probably apply". The verifier may later disposition an
+exclusion `not-applicable` only from concrete candidate evidence.
+
+The published ticket `## Contract cells` section must be the exact human-readable
+projection of those assigned cells. A stale hash, missing/extra cell, changed CCL address,
+or changed private/test requirement is a ticket/decomposition defect. Stop and return to
+`$to-tickets`; do not reconstruct intended meaning from ticket prose.
+
+### Spec Review remediation compatibility
+
+Until remediation ticketing is normalized in the next workflow cutover, an existing
+Review Remediation Ticket may carry its current Root Blocker/finding compatibility state.
+
+That state may extend proof requirements only when:
+
+* every executable change maps to exact current parent-Spec cells; and
+* the extra remediation requirement is the frozen review finding/root falsifier,
+  preservation obligation, or proof obligation needed to close that finding.
+
+Compatibility state may not create a new material product/domain/architecture contract.
+If it requires one, stop and route to the semantic owner.
+
+## 4. Implement only the frozen ticket contract
+
+Before first substantive mutation run `$attention` with the ticket/candidate context.
+Attention is report-only and cannot enlarge the contract.
+
+For each assigned cell:
+
+* `OBL-*` — implement the exact typed CCL semantics without changing their strength;
+* `IMP-*` — implement the exact private/mechanical planning obligation; equivalent private
+  mechanics are allowed only when the cell permits them;
+* `TEST-*` — create/adjust the exact requested proof/test capability;
+* `EXC-*` — do not implement excluded behavior and do not use an exclusion as positive work.
+
+Use `$coding-standards`, `$database-migrations`, `$wiki-sync`, `$verify-code`, repository
+architecture checks, documentation checks, and other established helpers when their
+current applicability rules select them. Observe the repository pytest service-preflight
+rule before any pytest command.
+
+The parent must fix known implementation/test/technical failures before dispatching closure
+verification. Passing technical checks are evidence, not semantic closure.
+
+### Material design gap
+
+If correct implementation requires a material semantic choice not present in assigned CCL
+assertions, implementation stops before choosing it.
+
+Classify:
+
+```text
+planning-cell-gap
+    private/test work is missing but no new material semantics are required
+    -> $to-specs
+
+contract-authority-gap
+    a new/change material semantic decision is required
+    -> $architecture-remediation / owning semantic decision path
+
+cell-routing-defect
+    an existing exact current Spec cell is assigned incorrectly or absent from this ticket
+    -> $to-tickets
+```
+
+Persist existing blocker/defect state through its owning workflow; do not create parallel
+semantic authority in this skill.
+
+## 5. Build the Implementation Evidence Index
+
+The implementation actor does **not** build a Ticket Acceptance Universe or assign its own
+semantic `proven` verdicts.
+
+After applicable implementation/checks are complete, build only this concise retrieval
+index:
+
+```text
+Ticket Contract Hash: <hash>
+Candidate state: <TICKET_CLOSURE_STATE>
+Changed/implemented surfaces: <compact path/component groups>
+
+Evidence:
+- <cell(s)> -> <implementation surface>; <test/check/evidence pointer>
+- ...
+
+Applicable technical checks:
+- <check> -> PASS on <candidate/scope identity>
+- ...
+
+Known unresolved implementation failures: 0
+Known unresolved design/architecture blockers: 0
+```
+
+Evidence rows are pointers for the independent verifier. They are not semantic PASS
+claims and need not be one row per predicate when cells share the same implementation
+surface.
+
+For remediation compatibility, also include the frozen Root Blocker/finding identity and
+preservation/proof pointers required by that root.
+
+## 6. Candidate identity
+
+Before closure dispatch compute `TICKET_CLOSURE_STATE` over the final Git-relevant path
+state relative to the immutable Ticket baseline.
+
+The path universe is the union of:
+
+* `git diff --no-renames --name-only -z <baseline> --`;
+* untracked non-ignored paths.
+
+For sorted raw paths hash:
+
+```text
+path\0<raw-path>\0
+state\0DELETED\0
+```
+
+for absent paths, otherwise:
+
+```text
+path\0<raw-path>\0
+mode\0<100644|100755|120000>\0
+sha256\0<final-content-or-symlink-target-sha256>\0
+```
+
+Hash that byte stream with SHA-256. This identity is independent of staged/untracked/
+committed representation when final bytes/mode are unchanged.
+
+Tracker-only tickets additionally bind the exact required tracker state.
+
+Use the same algorithm at dispatch, verifier-return admission, pre-persistence recheck,
+and stale-PASS detection.
+
+## 7. Durable closure checkpoint v3
+
+Use exactly one machine-managed comment:
+
+```text
+<!-- implement-ticket-closure-checkpoint:v3 -->
+```
+
+Persist at least:
 
 ```markdown
-<!-- implement-ticket-closure-checkpoint:v2 -->
+<!-- implement-ticket-closure-checkpoint:v3 -->
 ## Implement Ticket Closure Checkpoint
 
-**Version:** 2
+**Version:** 3
 **Stage:** awaiting-closure-verification | verifier-failed | verifier-passed
 **Ticket:** #<ticket>
 **Mode:** ordinary | remediation
 **Ticket branch:** <branch>
 **Ticket baseline:** <sha>
-**Parent Spec:** #<Spec>
-**Spec obligations:** <IDs | None>
-**Architecture obligations:** <ARCHSRC IDs | None>
+**Parent Spec:** #<spec>
+**Spec Contract Hash:** <hash>
+**Ticket Contract Hash:** <hash>
+**Assigned cells:** <IDs>
+**CCL:** <exact inherited addresses | None>
 **Remediation parent:** <Spec Review #n | None>
-**Root:** <RB-n — invariant | None>
+**Root/Finding:** <identity | None>
 **Candidate state:** <TICKET_CLOSURE_STATE>
 **Attempt:** <n>
 
-### Proposed Closure Evidence
-<complete current proposed acceptance evidence>
+### Implementation Evidence Index
+<exact current index>
 
 ### Last verifier result
-<None | exact valid TICKET CLOSURE PASS/FAIL result>
+<None | exact current TICKET CLOSURE result>
 
 ### Attempt history
-- Attempt <n> | <candidate state> | <PASS|FAIL|invalid> | <concise result>
+- Attempt <n> | <candidate> | <PASS|FAIL|invalid> | <summary>
 ```
 
-Use the zero-or-one marker resolution and exact POST/PATCH/readback mechanics under **Checkpoint Persistence Mechanics** below. More than one active v2 checkpoint is ambiguous and fails closed.
+Zero or one active v3 marker is allowed; more than one fails closed. POST/PATCH the one
+managed comment and read it back exactly after every write.
 
-### Legacy remediation checkpoint
+### Legacy checkpoint migration
 
-A pre-existing `<!-- implement-ticket-root-checkpoint:v1 -->` is historical compatibility state only.
+Existing v2/root checkpoints are compatibility history, not current closure authority.
+For an open ticket with no v3 checkpoint, migrate once only when current durable state can
+mechanically reproduce the exact current ticket contract, baseline, candidate, and
+lineage. Preserve old verdicts/findings as history. A historical PASS never certifies a
+changed/current candidate under v3.
 
-If an open remediation ticket has v1 but no v2 checkpoint:
+If migration cannot bind exactly, discard no history: mark the old state historical and
+start a fresh v3 attempt after current contract/candidate recovery.
 
-1. re-read and validate v1 branch/baseline/lineage/root/candidate state under current authority;
-2. create exactly one v2 checkpoint carrying the same attempt history and last valid verifier result as historical evidence;
-3. do not treat a historical `$verify-root-closure` PASS as certification of a new or changed candidate;
-4. if the exact old candidate is still the candidate and no current root/contract state changed, preserve the result only as prior evidence and require `$verify-ticket-closure` before any new closure transition.
+## 8. Independent closure dispatch
 
-Never maintain v1 and v2 as competing active authorities.
+After implementation and applicable technical checks are complete, before commit/push or
+ticket closure:
 
-### Checkpoint Persistence Mechanics
+1. recompute the exact ticket contract;
+2. recompute `TICKET_CLOSURE_STATE`;
+3. write/read back v3 `awaiting-closure-verification` with a new Attempt;
+4. enter dispatcher-only mode;
+5. spawn exactly one genuinely fresh non-mutating `$verify-ticket-closure` verifier.
 
-Use the existing marker comment if present; never create multiple active checkpoint comments for one ticket.
+Pass only the exact durable inputs needed for certification:
 
-Resolve the current marker deterministically:
+* ticket + parent Spec identity;
+* exact `polaris.ticket-contract/v1`;
+* branch/baseline/candidate state;
+* current coverage identity;
+* Implementation Evidence Index;
+* applicable terminal technical-check evidence;
+* for remediation, the frozen root/finding compatibility state.
 
-```bash
-REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
-CHECKPOINT_MARKER='<!-- implement-ticket-closure-checkpoint:v2 -->'
+Do not pass an alternate prose-derived semantic universe.
 
-CHECKPOINT_IDS=$(
-  gh api --paginate --slurp \
-    -H "X-GitHub-Api-Version: 2026-03-10" \
-    "repos/$REPO/issues/$TICKET_NUMBER/comments?per_page=100" \
-    | jq -c --arg marker "$CHECKPOINT_MARKER" \
-      '[.[][] | select(.body | contains($marker)) | .id]'
-)
-```
+While dispatcher-only the parent may only dispatch, receive the result, recompute exact
+candidate/tracker bindings, mechanically validate verdict shape/identity, and persist the
+result. It may not perform its own semantic closure review.
 
-Require zero or one ID. More than one is ambiguous durable state and fails closed.
+## 9. Consume verifier result
 
-Write checkpoint Markdown outside the repository, for example `/tmp/implement-ticket-closure-checkpoint.md`.
+### Invalid result
 
-If no checkpoint exists:
-
-```bash
-jq -Rs '{body: .}' /tmp/implement-ticket-closure-checkpoint.md \
-  | gh api -X POST \
-      -H "X-GitHub-Api-Version: 2026-03-10" \
-      "repos/$REPO/issues/$TICKET_NUMBER/comments" \
-      --input -
-```
-
-If one exists:
-
-```bash
-CHECKPOINT_ID=<the one existing id>
-
-jq -Rs '{body: .}' /tmp/implement-ticket-closure-checkpoint.md \
-  | gh api -X PATCH \
-      -H "X-GitHub-Api-Version: 2026-03-10" \
-      "repos/$REPO/issues/comments/$CHECKPOINT_ID" \
-      --input -
-```
-
-Re-read the comment after every write and require exact version, stage, ticket/lineage, root where applicable, baseline, candidate state, and attempt values.
-
-Do not use Project fields, labels, local scratch files, prior conversation, or subagent memory as a substitute for this checkpoint.
-
-## Candidate State
-
-Before verifier dispatch compute one deterministic candidate state over the **final Git-relevant path state** of every repository path that differs from `TICKET_BASELINE` or is currently untracked.
-
-Candidate identity must not depend on whether identical final bytes are currently untracked, staged, or committed. For each candidate path hash the raw path plus exactly one final state:
-
-* regular file → final Git mode `100644` or `100755` plus SHA-256 of file bytes;
-* symlink → final Git mode `120000` plus SHA-256 of symlink-target bytes;
-* absent path → `DELETED`.
-
-Use `--no-renames` so a rename is canonically represented by the old path's deletion plus the new path's final state rather than by Git's similarity heuristic.
-
-Use this exact procedure:
-
-```bash
-TICKET_CLOSURE_STATE=$(
-  TICKET_BASELINE="$TICKET_BASELINE" python - <<'PY'
-import hashlib
-import os
-import stat
-import subprocess
-
-baseline = os.environ["TICKET_BASELINE"]
-
-
-def git_paths(*args: str) -> list[bytes]:
-    result = subprocess.run(
-        ["git", *args],
-        check=True,
-        stdout=subprocess.PIPE,
-    )
-    return [path for path in result.stdout.split(b"\0") if path]
-
-
-paths = set(
-    git_paths("diff", "--no-renames", "--name-only", "-z", baseline, "--")
-)
-paths.update(git_paths("ls-files", "--others", "--exclude-standard", "-z"))
-
-candidate = hashlib.sha256()
-
-for raw_path in sorted(paths):
-    path = os.fsdecode(raw_path)
-    candidate.update(b"path\0")
-    candidate.update(raw_path)
-    candidate.update(b"\0")
-
-    try:
-        metadata = os.lstat(path)
-    except FileNotFoundError:
-        candidate.update(b"state\0DELETED\0")
-        continue
-
-    if stat.S_ISLNK(metadata.st_mode):
-        mode = b"120000"
-        content_hash = hashlib.sha256(
-            os.fsencode(os.readlink(path))
-        ).hexdigest()
-    elif stat.S_ISREG(metadata.st_mode):
-        mode = b"100755" if metadata.st_mode & stat.S_IXUSR else b"100644"
-        digest = hashlib.sha256()
-        with open(path, "rb") as handle:
-            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                digest.update(chunk)
-        content_hash = digest.hexdigest()
-    else:
-        raise SystemExit(f"unsupported candidate path type: {path}")
-
-    candidate.update(b"mode\0")
-    candidate.update(mode)
-    candidate.update(b"\0sha256\0")
-    candidate.update(content_hash.encode("ascii"))
-    candidate.update(b"\0")
-
-print(candidate.hexdigest())
-PY
-)
-```
-
-This manifest is representation-independent across the commit boundary: committing the exact candidate does not change `TICKET_CLOSURE_STATE` merely because new files became tracked.
-
-Use this exact hash procedure for dispatch, verifier-integrity rechecks, persistence rechecks, and stale-PASS detection.
-
-For tracker-only tickets, bind the checkpoint to exact durable tracker identifiers/state required by the ticket in addition to the repository state.
-
-A certification PASS applies only to the exact:
-
-* ticket contract and `Spec obligations` mapping;
-* branch and baseline;
-* candidate state;
-* lineage;
-* remediation/root state when applicable;
-* root-required tracker state when applicable.
-
-Any substantive candidate mutation after PASS makes the PASS stale unless an independently certified invalidation boundary plus deterministic fail-closed delta analysis establishes that the proof remains valid. When uncertain, recertify.
-
-## Proposed Closure Evidence
-
-Before independent certification, build the complete **Ticket Acceptance Universe** exactly as required by **Transition-Bound Ticket Completion** later in this file and reconcile every obligation as `proposed-proven | proposed-unproven`.
-
-The implementer's disposition is a proposal, not certification.
-
-For each material obligation preserve enough concise evidence for the verifier to challenge:
-
-```text
-Acceptance: TA-<n>
-Source: <exact ticket / carried Spec obligation>
-Claim: <exact semantic claim>
-Domain: <authoritative domain>
-Falsifier: <concrete false state>
-Proposed evidence: <current evidence>
-Proposed state: proposed-proven | proposed-unproven
-```
-
-When a claim contains an exhaustive quantifier, identify the nested domain the verifier must independently close. Do not declare a criterion complete merely because changed files or existing tests cover a convenient subset.
-
-For remediation, Proposed Closure Evidence additionally carries the Root Blocker invariant, carried cells, Root Invariant Sweep, preservation obligations, and protected roots below. These join the common acceptance universe.
-
-If any implementer cell remains `proposed-unproven`, continue actionable implementation/verification. Do not dispatch a knowingly incomplete candidate.
-
-## Independent Ticket Closure Gate
-
-After implementation and all applicable local/delegated checks are complete, but **before commit/push, closure-evidence persistence, ticket close, dependency/frontier mutation, or Completed handoff**:
-
-1. compute current `TICKET_CLOSURE_STATE`;
-2. write/update the v2 checkpoint to `Stage: awaiting-closure-verification` with the full Proposed Closure Evidence and incremented Attempt;
-3. read it back and verify exact binding;
-4. enter dispatcher-only mode and automatically spawn exactly one genuinely fresh `$verify-ticket-closure` verifier for that exact candidate.
-
-Do **not** stop for human authorization between checkpoint creation and verifier dispatch. The user's `$implement-ticket` invocation already authorizes the ticket lifecycle; verifier independence comes from the fresh non-mutating certification actor, not from a second human command.
-
-The durable checkpoint remains mandatory even though normal dispatch is automatic. It is the recovery authority if the session, process, or conversational context disappears before the verifier result is fully consumed and persisted.
-
-## Resume / Dispatch
-
-On every later invocation for an open ticket, recover the v2 checkpoint before choosing continuation and re-run the branch/hierarchy/project-delivery guards below.
-
-Route:
-
-* `awaiting-closure-verification`
-  * exact matching ticket/mode/branch/baseline/contract/lineage/root/candidate state → automatically resume dispatcher-only mode and dispatch one fresh verifier;
-  * this same route applies after complete session/context loss and when a human directly invokes `$verify-ticket-closure` as an optional recovery/manual entry point;
-  * candidate mismatch → checkpoint stale; resume implementation and rebuild proposed evidence.
-* `verifier-failed`
-  * resume implementation immediately using **all** returned findings;
-  * do not re-dispatch the stale candidate;
-  * after corrections/checks, rebuild proposed evidence, create a new awaiting attempt, and automatically dispatch a fresh verifier.
-* `verifier-passed`
-  * require exact candidate/contract/baseline/branch/lineage/root binding;
-  * if valid, exit dispatcher-only mode if active and resume Section 4 (`Re-Verify Before Persistence`) below immediately in the same invocation;
-  * any mismatch returns to implementation/recertification.
-
-### Dispatcher-only mode
-
-After creating or recovering a valid `awaiting-closure-verification` checkpoint with exact matching state, the `$implement-ticket` main agent may only:
-
-1. capture/reconfirm exact dispatch candidate state and durable bindings;
-2. spawn exactly one genuinely fresh verifier subagent;
-3. pass the ticket, parent Spec, exact `Spec obligations`, baseline, candidate state, checkpoint, Proposed Closure Evidence, and applicable architecture/policy context;
-4. for remediation, also pass the Spec Review, stable root, cumulative root contract, preservation state, and protected-root context;
-5. require the subagent to execute `$verify-ticket-closure` as a non-mutating leaf;
-6. receive the result;
-7. recompute `TICKET_CLOSURE_STATE` with the exact hash procedure above, re-read applicable tracker state, and validate verifier integrity;
-8. mechanically validate that the returned verdict contains every transition witness required by the current `$verify-ticket-closure` PASS or FAIL contract; do not interpret semantic sufficiency;
-9. consume only a structurally valid `TICKET CLOSURE: PASS` or `TICKET CLOSURE: FAIL`.
-
-The parent must not inspect toward its own closure verdict, execute `$verify-ticket-closure` itself, mutate the candidate, repair findings, or delegate further while the verifier runs.
-
-## Verifier Result
+Missing/malformed/mismatched verifier output is neither PASS nor FAIL. Record the attempt
+as `invalid`, keep the candidate immutable, and dispatch a new fresh verifier if the
+candidate/bindings remain exact.
 
 ### FAIL
 
-`TICKET CLOSURE: FAIL` is non-terminal.
+Persist the exact FAIL as `verifier-failed`, including all findings. Then route each
+finding by owner:
 
-Before accepting a returned FAIL as a valid verifier result, mechanically require the current `$verify-ticket-closure` FAIL witness shape. At minimum require:
+* implementation/test defect inside assigned cells -> resume implementation now;
+* `cell-routing-defect` -> durable decomposition record + Human Handoff to `$to-tickets`;
+* `planning-cell-gap` -> Human Handoff to `$to-specs`;
+* `contract-authority-gap` / material design gap -> Human Handoff to
+  `$architecture-remediation` / governing semantic owner;
+* remediation compatibility root failure -> resume/root-route under current review
+  remediation ownership.
 
-```text
-Failure saturation: complete
-Prior-attempt findings: <accounting>
-Cumulative Retry State:
-  Authority identity
-  Acceptance/proof-plan identity
-  Domain construction state
-  Candidate-dependent proof dependencies
-  Reusable prior dispositions
-  Mandatory falsifiers for next attempt
-Findings:
-```
+A contract/routing gap blocks local correction that depends on the missing authority.
+Preserve independent ordinary implementation findings, but do not guess the missing
+contract.
 
-This is structural validation only. The parent may verify presence, exact bindings, and mechanically checkable counts/fields; it may not decide that the verifier's semantic construction or evidence is sufficient.
-
-If any required FAIL witness is missing or malformed:
-
-1. do **not** set `Stage: verifier-failed`;
-2. do **not** mutate or repair the candidate from that output;
-3. append the attempt to `Attempt history` as `invalid` with the missing witness identified;
-4. keep the exact candidate/bindings immutable, advance to a new `awaiting-closure-verification` attempt, and dispatch a genuinely fresh verifier;
-5. do not reuse semantic dispositions from the malformed result.
-
-A malformed verifier output is not a semantic PASS or FAIL.
-
-Before leaving dispatcher-only mode with a structurally valid FAIL:
-
-1. persist the exact valid verdict into the v2 checkpoint as `verifier-failed`;
-2. preserve every returned finding, complete `Cumulative Retry State`, and the exact candidate/binding state in `Last verifier result`;
-3. append the attempt/candidate/result to `Attempt history`;
-4. re-read and verify the checkpoint.
-
-Then exit dispatcher-only mode and resume implementation **in the same invocation** when actionable.
-
-All verifier findings remain mandatory until corrected or superseded by explicit authoritative contract change.
-
-After correction, any prior PASS/FAIL is candidate-stale; build a new awaiting attempt and automatically dispatch a new fresh verifier. Continue this lifecycle while work remains actionable; stop only at **Completed**, another genuinely required **Human Handoff**, or a **Hard Blocker**.
-
-#### Decomposition-defect FAIL routing
-
-A valid `TICKET CLOSURE: FAIL` may contain one or more findings classified:
-
-```text
-Finding classification: decomposition-defect
-Finding owner: $to-tickets
-```
-
-This means the ticket contract/decomposition is incomplete relative to current governing architecture/design. It is not permission for `$implement-ticket` to enlarge the ticket, choose missing scope, or repair code against an unowned requirement.
-
-After persisting the complete FAIL in the durable checkpoint:
-
-1. preserve every verifier finding, including ordinary implementation findings;
-2. determine the current decomposition owner for the parent Spec:
-   * active conventional Spec Review remediation owner exists → that Spec Review;
-   * otherwise → the parent Spec;
-3. create or update that owner's single `<!-- decomposition-defects:v1 -->` record with stable `DD-*` entries for every decomposition finding, exact source/requirement/current manifest state, the discovering ticket/verifier provenance, and `Status: unresolved`;
-4. read back the record exactly;
-5. stop at **Human Handoff** with the current decomposition owner as the durable target:
-
-```text
-$to-tickets - <Current Decomposition Owner Title> (<Current Decomposition Owner URL>)
-```
-
-Use the parent Spec title/URL when the parent Spec is the current decomposition owner, or the conventional Spec Review title/URL when that Spec Review owns remediation.
-
-When any decomposition defect is present, do not continue local implementation correction first: the executable contract is incomplete. After `$to-tickets` reconciles ticket scope, resume `$implement-ticket` only after re-reading the ticket/branch/baseline/lineage and treating any changed contract or candidate binding as stale closure-checkpoint state that requires a new proposed-evidence/certification attempt.
+After any candidate correction, the old verdict is stale. Re-run invalidated technical
+checks, build a new evidence index, and dispatch a fresh attempt.
 
 ### PASS
 
-`TICKET CLOSURE: PASS` is non-terminal and requires verifier-integrity success.
+Require exact returned Ticket Contract Hash, branch, baseline, candidate state, mode, and
+root/finding identity when applicable.
 
-Before accepting PASS require:
-
-* verifier was genuinely fresh and non-mutating;
-* no candidate/tracker mutation occurred during dispatch;
-* returned ticket/baseline/candidate/contract/mode/root bindings match exactly;
-* acceptance coverage has `violated=0`, `unproven=0`, `unchecked=0`;
-* every required nested domain is closed;
-* no unproven material assumption remains.
-
-Before proceeding:
-
-1. update the durable v2 checkpoint to `Stage: verifier-passed`;
-2. preserve the exact valid PASS and its ticket/baseline/candidate/contract/mode/root bindings plus returned acceptance, nested-domain, production-path, negative-path, and protected-root evidence in `Last verifier result`;
-3. append the attempt/candidate/result to `Attempt history`;
-4. re-read and verify the checkpoint.
-
-Exit dispatcher-only mode and proceed immediately to Section 4 (`Re-Verify Before Persistence`) below **in the same invocation**.
-
-Do not present `TICKET CLOSURE: PASS` to the human as a terminal result. It establishes `CERTIFIED`, not `CLOSED`. Continue the persistence/commit/close/frontier lifecycle below until **Completed**, another explicit **Human Handoff**, or a **Hard Blocker** is reached.
-
-The parent may validate hashes/counts/identity mechanically. It may not reinterpret a failing semantic cell into PASS.
-
-## Completion Semantics
-
-Use these distinct states:
+For the returned contract require:
 
 ```text
-IMPLEMENTED
-Implementation and applicable local/delegated checks are complete.
-
-CERTIFIED
-A fresh independent `$verify-ticket-closure` PASS covers the exact candidate.
-
-CLOSED
-The exact certified candidate has been persisted/committed/pushed and tracker/frontier lifecycle completed.
+assigned cells unchecked: 0
+assigned cells violated: 0
+assigned cells unproven: 0
+exclusion guardrails unresolved: 0
+unresolved design/contract gaps: 0
 ```
 
-The `Completed` terminal state is legal only in `CLOSED` state.
+Persist the exact PASS as `verifier-passed`. PASS means `CERTIFIED`, not `CLOSED`.
 
-If no valid independent certification exists, the ticket is not complete regardless of green tests, implementation evidence, or the implementer's acceptance reconciliation.
+## 10. Persist the exact certified candidate
 
-Implementation discipline is applicability-driven:
+Before persistence:
 
-> Repository location does not determine implementation or verification discipline. Derive required work from the ticket/Spec obligations and the actual changed surfaces.
+1. recompute ticket contract and candidate state;
+2. re-run project-delivery/actionability guard when required by current governance;
+3. require the v3 PASS still binds exactly;
+4. require no new blocker/contract/coverage change;
+5. run only checks invalidated since certification, if any; any candidate mutation requires
+   fresh certification.
 
-Do not force code helpers onto documentation, workflow, configuration, migration, or tracker-only work. Mixed tickets apply the union of every relevant discipline.
+Commit only ticket-owned changes with an appropriate message. Push the shared Spec branch
+without force. Re-read the pushed commit and require the certified candidate content to
+match exactly.
 
-## Session Independence
+Persist the ticket's normal closure evidence including exact completion commit, Ticket
+Contract Hash, candidate identity, terminal technical evidence, and verifier PASS.
 
-Assume no prior session state.
+Close the ticket only after exact pushed readback and durable closure evidence succeed.
+Never rewrite a closed ticket to represent later work.
 
-Recover correctness-critical inputs from the invocation, repository, and durable tracker artifacts. Prior-session summaries are routing context only.
+Reconcile any active live-WIP recovery record under its order-independent terminalization
+rule. Never delete/reset a protected donor checkout while another nonterminal recovery
+record depends on it.
 
-If required durable state cannot be recovered, report the missing artifact rather than infer it.
+## 11. Frontier handoff
 
-### Prescribed Command Integrity
+After closure, re-read the parent Spec's current v2 coverage, implementation tickets,
+native blockers, and current contract identity.
 
-When this skill provides a concrete command sequence for a workflow-critical operation and makes that command normative through language such as `exactly once`, `deterministically`, `use these prescribed`, or an equivalent explicit execution requirement, treat the command shape as part of the workflow contract.
-
-Execute it as written except for substituting declared variables or values.
-
-Do not rewrite pipelines into tool-specific flags, combine commands because another CLI option appears equivalent, substitute alternate API/query forms, or probe alternative command shapes before using the prescribed one.
-
-If the prescribed command itself fails because the installed tool does not support it, report that incompatibility and adapt only the minimum necessary portion while preserving the prescribed semantics. Illustrative or example commands that are not made normative remain adaptable.
-
-## 1. Read the Ticket and Guard the Branch
-
-Read the full ticket and capture:
-
-* **Ticket branch**
-* **Ticket baseline**
-* **Context fit**
-* parent Spec
-* Architecture context when present
-
-For a Spec Review remediation ticket, also read the latest Spec Review state and capture:
-
-* Root Blocker ID and invariant;
-* affected sibling surfaces/reference kinds;
-* required authoritative path/boundary obligations;
-* carried acceptance-matrix cells;
-* previously satisfied roots governing affected surfaces/contracts.
-
-### Branch Guard
-
-A declared **Ticket branch** must exactly match the current branch before any repository file mutation.
-
-* Do not create, switch, rename, or repair it.
-* `None` skips enforcement.
-* Missing field halts.
-* Detached `HEAD` does not satisfy a declared branch.
-
-```bash
-EXPECTED_TICKET_BRANCH="<Ticket branch value>"
-CURRENT_BRANCH=$(git branch --show-current)
-
-if [ "$CURRENT_BRANCH" != "$EXPECTED_TICKET_BRANCH" ]; then
-  echo "❌ Wrong branch for this ticket."
-  echo "Expected: $EXPECTED_TICKET_BRANCH"
-  echo "Current:  ${CURRENT_BRANCH:-<detached HEAD>}"
-  exit 1
-fi
-```
-
-### Ticket Hierarchy Integrity Guard
-
-Before persisting a pending Ticket baseline or making any other substantive tracker/repository mutation, validate the ticket's declared lineage against its native GitHub direct parent.
-
-Determine ticket mode from durable ticket metadata:
-
-* ordinary Implementation Ticket → require exactly one `Parent Spec: #<n>` and no remediation parent; expected native parent is Spec `#<n>`;
-* Review Remediation Ticket → require exactly one `Remediation parent: Spec Review #<r>` plus exactly one `Parent Spec: #<s>` for lifecycle/branch provenance; expected native parent is Spec Review `#<r>`, never Parent Spec `#<s>`.
-
-Re-read the ticket's native direct parent from canonical GitHub relationship state. Missing, unreadable, ambiguous, or contradictory lineage/parentage fails closed. Textual lineage is not a substitute for native decomposition hierarchy.
-
-On failure, halt before baseline persistence, project-delivery reconciliation, implementation, verification, commit, or ticket-state mutation and report:
+If another implementation ticket is independently actionable, emit one copy-ready line per
+frontier ticket:
 
 ```text
-TICKET HIERARCHY: INVALID
-Ticket: #<ticket>
-Declared lineage: <Parent Spec / Remediation parent values>
-Expected native parent: #<n>
-Actual native parent: <#n | None | unreadable>
-Reason: <missing, ambiguous, or contradictory hierarchy>
+$implement-ticket - <Ticket Title> (<Ticket URL>)
 ```
 
-`$implement-ticket` validates hierarchy only. It must not create, remove, or repair native parent/sub-issue relationships. Formal ticket publication/reconciliation remains owned by `$to-tickets`; `$github-issue-dependencies` remains the mechanical relationship helper for that owner.
-
-A correctly published ticket continues through the existing guards and lifecycle unchanged.
-
-### Ticket Context-Fit Re-entry Guard
-
-Before persisting a pending Ticket baseline or making any other substantive tracker/repository mutation, recover the ticket's durable `Context fit` field from the ticket body.
-
-Require exactly one:
-
-* `one-window`; or
-* `indivisible-two-window-exception — <exact durable authority/green-state reason>`.
-
-`oversized`, ambiguous, malformed, or missing Context-fit state is a decomposition/readiness defect. For a ticket published before this invariant, do not let `$implement-ticket` self-certify a replacement disposition from convenience or current implementation shape; route the ticket back through `$to-tickets` reconciliation so the disposition is independently certified and durably published.
-
-The implementation actor may still discover evidence that falsifies the published sizing assumption. The proof-plan guard below independently challenges whether the actual authoritative work still matches that durable disposition.
-
-### Architecture-Blocker Admission Guard
-
-Before persisting a pending Ticket baseline or making any other substantive tracker/repository mutation, resolve the current ticket's machine-managed `<!-- architecture-blocker:v1 -->` marker to exactly zero or one comment.
-
-* More than one marker is ambiguous durable state and is a hard blocker.
-* No marker means continue.
-* `Status: resolved` is admissible only when `Disposition` names exact controlling authority/remediation evidence; malformed or authority-free resolution fails closed.
-* `Status: unresolved` means architecture is still unresolved. Halt before baseline persistence, implementation, verification, commit, or ticket-state mutation and present the canonical `$architecture-remediation` handoff for this ticket.
-* `Status: routed` is **not** implementation readiness. It means architecture remediation found a durable decision path but downstream ticket reconciliation has not durably finalized that blocker. Halt before baseline persistence, implementation, verification, commit, or ticket-state mutation and return the parent Spec through `$to-tickets` reconciliation. Do not invoke `$architecture-remediation` again solely to flip the status and do not self-resolve the report inside implementation.
-
-For a routed marker, report:
+If all current executable cells are covered by durably closed tickets and no open ticket
+work remains, hand off:
 
 ```text
-TICKET ARCHITECTURE ADMISSION: BLOCKED
-Ticket: #<ticket>
-Blocker status: routed
-Required owner: $to-tickets
-Reason: routed architecture-blocker state is nonterminal until current authority/Spec reconciliation finalizes the same managed report to resolved
+$verify-spec - <Spec Title> (<Spec URL>)
 ```
 
-Then present the canonical parent-Spec handoff:
-
-```text
-$to-tickets - <Parent Spec Title> (<Parent Spec URL>)
-```
-
-This guard is admission-only. `$implement-ticket` never rewrites architecture-blocker status.
-
-### Project Delivery Actionability Guard
-
-Before persisting a pending Ticket baseline or making any other tracker/repository mutation, resolve the parent Spec and determine whether it is Wayfinder-managed from durable `wayfinder-source`, `wayfinder-remediation`, and reconciled `Spec Handoff` evidence.
-
-For a Spec Review remediation ticket, use its durable `Parent Spec` lineage for this guard. The Spec Review remains remediation provenance; it is not a substitute project-delivery governor.
-
-An intentionally non-Wayfinder Spec keeps the existing implementation lifecycle. Do not invent a governing Wayfinder merely to enroll it into project focus.
-
-For a Wayfinder-managed Spec:
-
-1. require the parent Spec to be open;
-2. read its complete native `blocked by` relationship set and fail closed if blocker data is truncated or unreadable;
-3. stop if any direct Spec blocker is open;
-4. recover every current governing Wayfinder; ambiguous governance fails closed rather than choosing one;
-5. invoke `$project-delivery-management` `reconcile`;
-6. invoke `$project-delivery-management` `guard <Wayfinder>` for every governor;
-7. require at least one governor to return `PROJECT DELIVERY GUARD: ALLOWED`.
-
-If no governor is allowed, stop before Ticket-baseline persistence, implementation, verification, or ticket-state mutation. Report the governing maps, their guard results, current focus, and the explicit human `$project-delivery-management` focus/switch/parallel choices. `$implement-ticket` never establishes, switches, or broadens focus.
-
-A legitimately reopened blocker Spec makes existing tickets under the dependent Spec non-actionable again through the unchanged native dependency edge. Ticket publication, prior ticket completion, Project state, or a prior allowed invocation does not override current Spec blocker state.
-
-Capture whether the successful entry guard returned `Mode: pre-bootstrap`.
-
-Re-run this guard on every resumed human invocation before further substantive work. Internal child/helper workflows dispatched by an already-authorized `$implement-ticket` lifecycle inherit that parent authorization and must not introduce a redundant project-focus Human Handoff; a distinct later human lifecycle performs its own guard.
-
-If **this same ticket lifecycle** is the atomic bootstrap/cutover operation that activates project delivery after entering with `Mode: pre-bootstrap`, preserve that captured entry authorization only through this ticket's persistence/closure as allowed by `$project-delivery-management`'s **Bootstrap Activation Boundary**. The cutover may not retroactively block the operation required to create it.
-
-That exception:
-
-* applies only when this ticket itself activates the canonical label + singleton cutover;
-* never bypasses a direct Wayfinder blocker or reopened/open parent-Spec dependency;
-* may not establish, switch, or broaden focus;
-* expires when this ticket closes;
-* may not authorize any downstream human lifecycle or handoff after activation.
-
-### Project-delivery result admission
-
-The `Project Delivery Actionability Guard` is a delegated-owner boundary, not a checklist that `$implement-ticket` may reproduce itself. For every Wayfinder-managed parent Spec, successful guard execution requires the prescribed child workflow to execute and its returned terminal results to be admitted by this invocation.
-
-Before Ticket-baseline persistence, implementation, verification, or any substantive tracker/repository mutation, require:
-
-```text
-Project-delivery reconcile result received: yes
-Project-delivery guard result(s) received: <n>/<n governing Wayfinders>
-At least one exact PROJECT DELIVERY GUARD: ALLOWED: yes
-Manual project-delivery reconstruction used as substitute: no
-```
-
-Rules:
-
-* actually invoke `$project-delivery-management reconcile` and receive its terminal result;
-* actually invoke `$project-delivery-management guard <Wayfinder>` for every governing Wayfinder and receive each terminal guard result;
-* capture `Mode: pre-bootstrap` only from the admitted returned guard result when that mode applies;
-* reading the child `SKILL.md`, inspecting the management singleton, querying focus/frontier/blocker state, or independently reproducing the child's algorithm is diagnostic context only and **cannot** populate this witness or substitute for invocation;
-* missing, pending, malformed, stale-source, or non-ALLOWED required child results fail closed under the existing guard;
-* the same admission requirement applies on every resumed human invocation and to the Section 4 project-delivery re-run before persistence/closure.
-
-Until this witness is complete from actual returned child payloads, the Ticket Baseline Guard and all later implementation lifecycle transitions are unreachable. A human instruction to continue does not waive delegated-owner admission.
-
-### Ticket Baseline Guard
-
-**Ticket baseline** is the durable per-ticket verification anchor, distinct from the Spec baseline.
-
-It must be `Pending` or a full commit SHA.
-
-Before applying ordinary baseline semantics, resolve live-WIP reslice recovery:
-
-1. read the current ticket's comments for exactly zero or one `<!-- ticket-reslice-recovery:v1 -->` record;
-2. recover the current ticket's native decomposition parent and inspect that parent's direct ticket children only as needed to collect every `<!-- ticket-reslice-recovery:v1 -->` record whose **Source ticket** is the current ticket; do not restrict source discovery to direct blockers, completed destinations, or one destination;
-3. when one or more source recovery records exist, require them to agree on source ticket, source baseline, shared branch, recovery mode, and native-parent lineage; destination identities and lifecycle states may differ;
-4. malformed, duplicate, contradictory, or mismatched source/destination/branch/lineage state fails closed.
-
-#### Live-WIP protected-donor invariant
-
-A live-WIP reslice may place one or more destination tickets before or after the already-started source ticket in native dependency order. Recovery isolation must therefore be **topology-neutral**.
-
-While any valid reslice recovery record names the current ticket as its source and remains nonterminal:
-
-* the protected caller checkout is immutable recovery/donor state, not automatically the source candidate;
-* every reslice participant's candidate must contain only work currently owned by that ticket under durable authority;
-* native dependency relationships determine which ticket is actionable; recovery metadata must never invert or bypass those dependencies;
-* `Status: pending-prerequisite` means the destination recovery record is not yet complete; it does **not** itself require destination-first execution;
-* an actionable source ticket executes from an isolated worktree under **Source live-WIP recovery** below so destination-owned donor state can survive source certification and closure unchanged.
-
-This invariant applies equally to one-to-one and one-to-many reslices and does not depend on ticket numbers, file layout, or which side of the reslice happens to execute first.
-
-#### Order-independent recovery terminalization
-
-Recovery completion is monotonic and **closure-order independent**. A valid recovery record has exactly one terminal status: `source-reconciled`. Terminal state means both the Source and Destination tickets are durably closed under their ordinary independently certified lifecycles, both exact pushed completion commits are recorded in the recovery record, and those commits are valid ancestors of the shared branch state used for terminal readback.
-
-`pending-prerequisite` and `prerequisite-complete` are nonterminal:
-
-* `pending-prerequisite` means the destination has not yet completed; the source may still be open or may already be closed;
-* `prerequisite-complete` means the destination completed first and the source has not yet been durably reconciled into the record;
-* `source-reconciled` means both participants completed and the reslice record is terminal.
-
-Whichever participant closes **second** owns terminalization of that recovery record in the same closure invocation. No source-first or destination-first ordering may require a later invocation of a ticket that is already closed merely to advance recovery metadata.
-
-When the source closes first, keep a still-pending destination at `Status: pending-prerequisite` but add `Source completion commit: <certified pushed SHA>`. When the destination closes first, write `Status: prerequisite-complete` plus its destination baseline/completion commit. When either participant later observes that the counterpart is already durably complete, require exact counterpart completion evidence and transition directly to `Status: source-reconciled` with **both** completion commits recorded.
-
-Counterpart completion evidence must be fail-closed: require the counterpart issue to be closed, its independently certified closure state to remain valid, its exact pushed completion commit to be recoverable without guesswork, and that commit to be an ancestor of the current frozen shared-branch tip. A missing, contradictory, stale, or non-ancestor completion identity is a Hard Blocker; do not infer a commit from recency, branch position, issue number, or local WIP.
-
-A pre-existing nonterminal recovery record created before this invariant may omit the already-closed source's completion field. On the first later participant closure that can prove the exact certified source completion commit from durable closure evidence, backfill that field and terminalize normally. Do not rewrite any other recovery identity or lineage field.
-
-`source-reconciled` is idempotent terminal state. Re-entry must validate the same source/destination completion commits and lineage; it must never silently replace either completion identity. Reaching terminal state authorizes **retirement evaluation only**. Never automatically delete/reset/clean the protected caller checkout. Retirement still requires every recovery record that depends on that donor checkout to be terminal plus exact proof that no unique owner-local state remains.
-
-#### Destination live-WIP recovery
-
-When the current ticket is the recovery record's **Destination ticket** and `Status: pending-prerequisite`:
-
-* require `Recovery mode: isolated-worktree`;
-* require the declared shared branch to equal the ticket's `Ticket branch`;
-* require the source ticket to exist, remain in the same parent Spec lineage, and carry the exact recorded full-SHA source baseline;
-* fingerprint the protected caller checkout strongly: branch/HEAD, staged diff, unstaged tracked diff, and untracked path+content state;
-* fetch the shared branch and require the recorded reslice branch anchor to be an ancestor of the current remote tip. Any post-anchor delta that changes product/ticket semantics relevant to source/destination ownership must be reconciled through `$to-tickets` before implementation; workflow-policy-only or otherwise proven semantically independent advancement may remain in the current remote tip;
-* create a temporary isolated worktree detached at the exact frozen current remote shared-branch tip;
-* when this destination ticket still has `Ticket baseline: Pending`, persist that isolated-worktree HEAD as its immutable Ticket baseline and read it back exactly;
-* from that point through candidate certification/commit/push, execute repository mutation and candidate-state commands in the isolated worktree. The protected caller checkout is not the destination candidate.
-
-The dirty caller checkout may be used only as **read-only donor state**. Before copying any donor change, build a complete WIP attribution manifest over every dirty tracked hunk and untracked path visible in the protected caller checkout:
-
-```text
-Donor item: <path + hunk/range or untracked path>
-Durable owner: destination ticket | source ticket | neither
-Authority: <exact ticket/Spec/ADR obligation>
-Disposition: transplant | preserve-source | exclude
-```
-
-Requirements:
-
-* every donor item is dispositioned exactly once;
-* destination-owned donor work may be copied into the isolated worktree and then independently repaired/completed there;
-* source-owned donor work remains untouched in the protected caller checkout;
-* `neither` is excluded from the destination candidate;
-* ambiguous/shared ownership is a hard blocker until durable authority determines the minimum correct destination; do not guess from filenames or implementation convenience;
-* never stash, reset, clean, commit, checkout-overwrite, or otherwise mutate the protected caller checkout to make the destination implementable.
-
-Before every Human Handoff/ordinary return and before removing the isolated destination worktree, recompute the protected caller fingerprint and require exact equality. Unexpected caller mutation is a hard blocker.
-
-After the destination ticket is independently certified, committed, pushed to the shared branch, read back at the exact pushed commit, and closed under the ordinary lifecycle, reconcile the same recovery record under **Order-independent recovery terminalization**:
-
-* always record `Destination baseline: <ticket baseline SHA>` and `Destination completion commit: <certified pushed SHA>`;
-* if the source ticket is still open, write `Status: prerequisite-complete` and preserve any already-recorded source completion field exactly;
-* if the source ticket is already closed, require or recover its exact certified pushed completion commit under the fail-closed counterpart-evidence rule above, require that commit to be an ancestor of the frozen shared-branch tip, record `Source completion commit: <certified pushed SHA>`, and write `Status: source-reconciled` in this same destination-closure invocation;
-* if the record is already `source-reconciled`, require exact equality of source/destination completion identities and treat the transition as idempotent.
-
-Preserve all original source/destination/branch/reslice fields and read the updated recovery record back exactly. A closed source plus a completed destination must never be left at `prerequisite-complete`.
-
-#### Source live-WIP recovery
-
-When the current ticket is named as **Source ticket** by one or more valid sibling recovery records with `Status: pending-prerequisite | prerequisite-complete`, and the ordinary dependency guard says the source itself is currently actionable:
-
-* preserve the source ticket's already-pinned baseline exactly; never rebase or overwrite it;
-* require `Recovery mode: isolated-worktree` and require every associated record's shared branch to equal the ticket's `Ticket branch`;
-* fingerprint the protected caller checkout using the same strong representation above;
-* fetch the shared branch and require every recorded reslice branch anchor to be an ancestor of the exact frozen current remote tip. Any post-anchor delta that changes product/ticket semantics relevant to source/destination ownership must be reconciled through `$to-tickets`; workflow-policy-only or otherwise proven semantically independent advancement may remain in the current remote tip;
-* for every associated record already at `Status: prerequisite-complete`, require that destination to be closed, require its recorded completion commit to be an ancestor of the frozen remote tip, and treat its committed behavior as prerequisite authority when overlapping old WIP must be re-shaped;
-* create a temporary isolated worktree detached at the exact frozen current remote shared-branch tip;
-* build one complete donor-WIP attribution manifest over every dirty tracked hunk and untracked path visible in the protected caller checkout against the **current reconciled source contract and every associated destination contract**:
-
-```text
-Donor item: <path + hunk/range or untracked path>
-Durable owner: source ticket | destination ticket #<n> | neither
-Authority: <exact ticket/Spec/ADR obligation>
-Disposition: transplant-source | preserve-destination | exclude
-```
-
-Requirements:
-
-* every donor item is dispositioned exactly once;
-* only source-owned donor work may be copied into the isolated source worktree and then independently repaired/completed there;
-* destination-owned donor work remains untouched in the protected caller checkout even when the destination executes later than the source;
-* `neither` is excluded from the source candidate;
-* ambiguous/shared ownership is a hard blocker until durable authority determines the minimum correct owner; do not guess from filenames, hunk proximity, implementation convenience, or the old pre-reslice candidate;
-* a destination's pending status never transfers its work back to the source merely because the source executes first;
-* never stash, reset, clean, commit, checkout-overwrite, or otherwise mutate the protected caller checkout to make the source implementable.
-
-From isolated-worktree creation through source candidate certification, commit, push, readback, and closure, execute repository mutation and candidate-state commands in the isolated source worktree. The protected caller checkout is excluded from source candidate hashing.
-
-Before every Human Handoff/ordinary return and before removing the isolated source worktree, recompute the protected caller fingerprint and require exact equality. Unexpected caller mutation is a hard blocker.
-
-After source closure, reconcile every associated recovery record under **Order-independent recovery terminalization**:
-
-* record `Source completion commit: <certified pushed SHA>` on every associated nonterminal record, including a `pending-prerequisite` record whose destination executes later;
-* for each record already at `Status: prerequisite-complete`, require the recorded destination completion commit to remain valid and an ancestor of the frozen shared-branch tip, then transition it to `Status: source-reconciled` in this same source-closure invocation;
-* for each record still at `Status: pending-prerequisite`, keep that status so destination isolated-worktree recovery remains activated, but preserve the newly recorded source completion commit so the later destination can terminalize without another source invocation;
-* if any associated record is already `source-reconciled`, require exact equality of the recorded source completion commit and existing destination completion identity and treat it as idempotent;
-* do not automatically delete/reset/clean or retire the protected caller checkout while any associated recovery record remains nonterminal or while exact proof of no unique owner-local state is absent.
-
-The second-closing participant always owns the `source-reconciled` transition; closure ordering must never strand a completed pair in `prerequisite-complete`.
-
-#### Protected-donor prerequisite isolation
-
-When neither destination nor source live-WIP recovery applies, a dirty caller checkout may still be intentional protected donor state for a sibling live-WIP reslice. Before the ordinary clean-worktree requirement, evaluate this mode when the current ticket is on the same parent Spec and Ticket branch as a nonterminal `<!-- ticket-reslice-recovery:v1 -->` record and the current ticket is a native transitive prerequisite of that record's **Destination ticket**.
-
-Resolve it fail-closed:
-
-1. inspect the current ticket's native parent and that parent's direct ticket children only as needed to collect nonterminal recovery records on the current `Ticket branch`;
-2. for each candidate record, require `Recovery mode: isolated-worktree`, exact parent-Spec lineage, a full-SHA source baseline, and complete/untruncated native dependency data;
-3. prove the current ticket is neither the record's Source nor Destination and that following native `blocked by` edges from the Destination transitively reaches the current ticket; do not infer prerequisite ancestry from ticket numbers, prose ordering, or the proposed sequence;
-4. require every matching record's reslice branch anchor to be an ancestor of the exact frozen current remote shared-branch tip. Any post-anchor delta that changes product/ticket semantics relevant to the current ticket or reslice ownership must return through `$to-tickets`; workflow-policy-only or otherwise proven semantically independent advancement may remain;
-5. fingerprint the protected caller checkout using the same strong branch/HEAD, staged, unstaged tracked, and untracked path+content representation used by destination/source recovery;
-6. create a temporary isolated worktree detached at the exact frozen current remote shared-branch tip;
-7. when the current ticket still has `Ticket baseline: Pending`, persist that isolated-worktree HEAD as its immutable Ticket baseline and read it back exactly;
-8. from baseline persistence through implementation, verification, candidate certification, commit, push, readback, and closure, execute repository mutation and candidate-state commands in the isolated worktree. The protected caller checkout is not this ticket's candidate.
-
-This prerequisite-isolation mode is **non-donor**. The current ticket has no authority to classify, copy, transplant, repair, commit, or otherwise consume dirty caller WIP merely because it protects the checkout. Leave every donor hunk/path untouched; donor attribution remains owned by the recovery Source/Destination lifecycles.
-
-The current prerequisite ticket also does not advance or terminalize the sibling recovery record because it is neither participant. Preserve that record unchanged.
-
-Before every Human Handoff/ordinary return and before removing the isolated prerequisite worktree, recompute the protected caller fingerprint and require exact equality. Unexpected caller mutation is a hard blocker.
-
-#### Terminal protected-donor residual isolation
-
-When destination, source, and protected-donor prerequisite isolation do not apply, a dirty caller checkout may still be intentionally preserved donor state from a **terminal** `source-reconciled` reslice. Before falling through to the ordinary clean-worktree requirement, evaluate this residual-isolation mode.
-
-This mode is admissible only when all of the following can be proven from durable state:
-
-1. the current ticket and every candidate recovery record share the same native parent Spec and `Ticket branch`;
-2. each candidate record has `Status: source-reconciled`, `Recovery mode: isolated-worktree`, a full-SHA source baseline, reslice branch anchor, destination baseline, destination completion commit, and source completion commit;
-3. the protected caller checkout is on the declared shared branch and its current `HEAD` either exactly equals the candidate record's recorded **Reslice branch anchor** **or** is a descendant reached solely through commits proven workflow-policy-only or otherwise semantically independent of product/ticket/reslice ownership. Inspect the complete anchor-to-caller commit/path delta; any product, ticket-contract, architecture, or recovery-identity change makes the advancement ineligible. This bounded policy-only ancestry is the durable caller identity; do not infer identity from branch name or dirtiness alone;
-4. collect every recovery record under that parent with the same Source ticket, Source ticket baseline, Shared branch, and Reslice branch anchor; require all such records to be terminal `source-reconciled` and mutually consistent;
-5. require every recorded Source and Destination ticket to be closed with independently certified closure evidence matching the recorded completion commit, and require every recorded source/destination completion commit to be an ancestor of the exact frozen current remote shared-branch tip;
-6. require complete/untruncated native hierarchy/dependency data. Any contradictory identity, missing completion evidence, non-ancestor completion commit, nonterminal sibling recovery record for the same donor identity, or caller `HEAD` that is neither the exact anchor nor an admissible policy-only descendant disables this mode and fails closed rather than treating the checkout as protected residual state.
-
-When those conditions hold:
-
-* fingerprint the protected caller checkout strongly using branch/HEAD, staged diff, unstaged tracked diff, and untracked path+content state;
-* freeze the exact current remote shared-branch tip and create a temporary isolated worktree detached there;
-* when the current ticket still has `Ticket baseline: Pending`, persist that isolated-worktree HEAD as its immutable Ticket baseline and read it back exactly;
-* from baseline persistence through implementation, verification, candidate certification, commit, push, readback, and closure, execute repository mutation and candidate-state commands only in the isolated worktree. The protected caller checkout is not the current ticket's candidate.
-
-This residual-isolation mode is **non-donor and non-retirement**. The current ticket has no authority to classify, copy, transplant, repair, commit, reset, clean, or otherwise consume the dirty caller state, and it must not rewrite or terminalize already-terminal recovery records. Residual isolation exists only to keep later tickets executable until a separately authorized retirement evaluation proves that no unique owner-local state remains.
-
-Before every Human Handoff/ordinary return and before removing the isolated residual worktree, recompute the protected caller fingerprint and require exact equality. Unexpected caller mutation is a hard blocker.
-
-#### Ordinary baseline path
-
-When none of destination, source, protected-donor prerequisite, or terminal protected-donor residual isolation applies:
-
-If `Pending`:
-
-1. require a clean worktree;
-2. capture `git rev-parse HEAD`;
-3. persist that full SHA into **Ticket baseline**;
-4. re-read the ticket and require the value to match;
-5. set `TICKET_BASELINE` to it.
-
-Do this before repository file mutation.
-
-If already a SHA:
-
-```bash
-git rev-parse "$TICKET_BASELINE^{commit}"
-```
-
-Use that exact value. Never recompute or overwrite it.
-
-Live-WIP recovery changes only the execution substrate and baseline-capture location. It does not weaken hierarchy, dependency, architecture, proof-plan, candidate-freeze, independent-verifier, commit/push/readback, or closure requirements.
-
-## 2. Implement
-
-Continue until the ticket completes all required gates or reaches a defined blocker.
-
-Elapsed time, remaining work, context pressure, task size, or partial progress are not valid stopping conditions.
-
-**A partial implementation is not a defined blocker. If actionable in-scope work remains, continue the ticket in the current invocation.**
-
-Whenever halting before completion, explicitly name the blocker and the workflow rule that requires or permits the halt.
-
-### Change Surface Classification
-
-Before selecting implementation helpers or verification, derive the ticket's complete change-surface set from the ticket/parent Spec obligations and the planned/actual mutations.
-
-Use these classes as needed:
-
-* **Code** — production/library/runtime source;
-* **Tests** — test source, fixtures, harnesses, test configuration;
-* **Documentation** — Markdown/docs/ADRs/wiki content;
-* **Agent skills / workflow policy** — agent skills, lifecycle contracts, tracker/process policy;
-* **Repository configuration** — package/tool/runtime configuration;
-* **CI / automation** — workflows, scripts, release/qualification automation;
-* **Data / schema / migrations** — models, migrations, durable serializers/contracts;
-* **Tracker-only state** — issues, native relationships, labels, durable workflow state, Project projection with no repository file mutation.
-
-`Mixed` means apply the union of all relevant classes; it is not a shortcut that collapses the ticket to one dominant class.
-
-Record an applicability plan before substantive implementation. Every helper/check considered below must be either `applicable` or `not-applicable` with a concrete reason. Do not invoke a helper merely because it exists in the repository.
-
-### Pre-Implementation Acceptance Proof Plan
-
-After the required entry and Ticket-baseline guards pass, but before substantive implementation, derive the implementer's proof plan from the **ticket contract and governing authority**, not from the implementation shape you expect to write.
-
-For every explicit ticket acceptance criterion, record compactly:
-
-```text
-Acceptance: <ticket AC>
-Authoritative predicate/domain: <compact authority-derived claim>
-Falsifier: <concrete state that would make the claim false>
-Required proof modality: <static | unit | integration | real-service | runtime | tracker | other>
-Delegated gate owner: <skill/check owner when applicable>
-Runtime/service prerequisites: <None | exact prerequisites>
-Likely evidence seam: <existing/new test, inspection, receipt, or tracker fact>
-```
-
-This is an implementation plan, not semantic certification and not a duplicate `$verify-ticket-closure` acceptance universe.
-
-Use it to:
-
-* design the implementation and tests once around the real falsifiers rather than discovering material proof requirements only after a green candidate exists;
-* resolve authority-defined concrete types, unions, key members, cardinalities, temporal cutoffs, and failure outcomes explicitly rather than leaving umbrella phrases such as "typed applicability", "historical correctness", or "exact identity" to implementation interpretation;
-* check every canonical type/reference required by the ticket against the published decomposition before code: when a later sibling ticket owns behavior over that type but the current ticket already requires the shared vocabulary to express its own contract, establish the smallest authority-owned shared foundation now; when authority does not resolve that ownership, fail closed rather than inventing a placeholder or generic surrogate;
-* establish runtime/service prerequisites before expensive behavioral verification begins;
-* expose an apparent decomposition defect before code when the actual authorized work contains materially more independent scenario families/closure domains than the ticket's certified context-fit allowed;
-* begin discovery from the exact ticket obligations, carried Spec cells, ARCHSRC rows, and referenced authority sections; broaden to graph/repository search only when an exact seam remains unresolved, and narrow immediately when a broad result is truncated or materially exceeds the ticket's contract surface.
-
-If the authority-first plan shows the ticket was materially oversized or omitted a required independently closable slice, fail closed as a decomposition defect and route back to `$to-tickets`; do not silently split or redesign the ticket during implementation.
-
-### Living Entity Wiki Guard
-
-Invoke `$wiki-sync` before editing only when the change substantively affects a wiki-governed entity/source and the Living Entity Wiki exists.
-
-Architecture context is routing context only. `$wiki-sync` owns entity routing, source consistency, Strict Invariants, Rejected Approaches, and blocking `[source-conflict]`.
-
-After substantive implementation, invoke `$wiki-sync` again only when durable entity knowledge may have changed.
-
-### Architecture vs. Implementation
-
-Missing realization of accepted architecture is implementation work, not an architecture blocker.
-
-Before routing to architecture remediation, determine whether accepted authority already establishes the required durable semantics, including where applicable:
-
-* canonical ownership;
-* authority/input sources;
-* identity/key semantics;
-* lifecycle ordering;
-* boundaries/dependency direction;
-* failure behavior.
-
-Missing code, documentation, workflow policy, configuration, registration, repository operations, tracker wiring, producers, bootstrap wiring, or similar mechanisms are implementation work when those durable semantics are already resolved.
-
-Route to `$architecture-remediation` only when proceeding requires inventing or changing a durable architectural semantic or applicable authorities genuinely conflict.
-
-Collect every independent blocker and de-duplicate symptoms of the same question.
-
-### Architecture Human Handoff Intercept
-
-Do not invoke human-gated `$architecture-remediation` implicitly.
-
-This transition locally enforces the repository-wide **Fresh-Session Durability Gate** and **Durable architecture-blocker report** contract from `.agents/skills/README.md`. A prose handoff is not legal durable state.
-
-Before emitting the handoff:
-
-1. require at least one current **Architecture Routing Disposition** row with `Disposition: architecture-blocker`;
-2. collect the complete de-duplicated blocker set for this ticket; do not route only the first symptom when several independent unresolved durable choices remain;
-3. resolve the current ticket's `<!-- architecture-blocker:v1 -->` marker to exactly zero or one comment;
-   * more than one marker is ambiguous durable state and is a **Hard Blocker**;
-   * when one marker exists, update that same comment in place rather than creating another;
-4. materialize the report using the canonical schema owned by `.agents/skills/README.md`, with:
-   * `Status: unresolved`;
-   * `Source workflow: $implement-ticket`;
-   * the current ticket as `Source artifact`;
-   * the exact parent Spec;
-   * every independent unresolved question/conflict;
-   * durable evidence sufficient to recover why the blocker exists;
-   * the material consequence;
-   * the exact blocked ticket/Spec acceptance obligation;
-   * the governing ADR/doc/contract/decision authority;
-   * `Disposition: None while unresolved`;
-5. when the blocker originates from a valid `$verify-ticket-closure` result, bind its report evidence to the durable closure checkpoint comment, attempt number, exact candidate state, and the verifier finding(s) that exposed the missing choice; when discovered earlier, bind the strongest equivalent durable source evidence available at that transition;
-6. POST or PATCH the one managed report, then re-read it from the tracker and mechanically require:
-   ```text
-   Architecture blocker marker count: 1
-   Blocker report status: unresolved
-   Source workflow match: yes
-   Source artifact match: yes
-   Parent Spec match: yes
-   Independent blocker set complete: yes
-   Durable evidence/provenance present: yes
-   Blocked obligations present: yes
-   Governing authority present: yes
-   Disposition unresolved: yes
-   ```
-7. if persistence, uniqueness, or readback validation fails, do **not** emit `$architecture-remediation`; stop as a **Hard Blocker** identifying the failed durable-handoff condition.
-
-The report is the fresh-session recovery authority. Surrounding prose may summarize it, but must not carry correctness-critical blocker state that exists nowhere durable.
-
-Only after the persistence gate passes, halt with:
-
-> ⚠️ **Implementation is blocked by unresolved architecture.**
->
-> Please run:
->
-> ```
-> $architecture-remediation - <Current Ticket Title> (<Ticket URL>)
-> ```
->
-> **Durable blocker report:** <architecture-blocker comment URL>
->
-> **Architecture blockers:**
->
-> 1. **<question/conflict>**
->    * Evidence: <concise durable evidence>
->    * Material consequence: <ownership/path/boundary/dependency/lifecycle/source conflict>
->    * Governing context: <entities / ADRs / docs / Wayfinder decisions>
-
-Do not propose an architectural resolution.
-
-### Documentation / ADRs
-
-When the Documentation surface makes them applicable:
-
-* `$to-doc` — new non-ADR document;
-* `$classify-doc` — classify/reclassify/relocate an existing non-ADR;
-* `$wiki-sync` — substantive existing `docs/current/` or `docs/proposed/` changes affecting wiki-governed knowledge;
-* `$to-adr-doc` — ADR content or lifecycle.
-
-Do not duplicate those workflows here.
-
-### Wiki Commit Ownership
-
-When `$implement-ticket` is parent and `$wiki-sync` changes repository files, `$wiki-sync` must not commit separately. Include its changes and matching `wiki/log.md` entry in the ticket commit.
-
-### Scope and Applicable Helpers
-
-* Implement only the ticket.
-* For Spec Review remediation, fix the **root invariant**, not merely cited symptoms.
-* Named authoritative paths and sibling surfaces are in scope.
-* Any newly discovered manifestation of the same root on an in-scope surface belongs to this ticket.
-* Any regression introduced against a previously satisfied root on an affected surface belongs to this ticket.
-* Use `$tdd` only at applicable pre-agreed code/test seams.
-* Use `$format-code` only when code/test surfaces governed by it changed.
-* Use `$coding-standards` only for code surfaces it governs.
-* Use `$deduplicate-code` in `ticket-differential` mode when the ticket changes files inside the repository's configured Arid or JSCPD scan universe; whole-repository scanning is required, but repair attribution is only against `TICKET_BASELINE`.
-* Use documentation/workflow/configuration/CI/tracker owners and deterministic checks appropriate to those surfaces instead of substituting code helpers.
-* Avoid unrelated cleanup.
-
-### Database Guard
-
-Invoke `$database-migrations` only for data/schema/migration-affecting work, including models, migrations, PostgreSQL repositories, durable serializers/contracts, and schema-dependent tests.
-
-A required PostgreSQL check skipped because local setup is absent remains unresolved.
-
-## 3. Verify
-
-Verification is targeted and applicability-driven.
-
-Build the verification set from the ticket acceptance criteria plus the classified change surfaces. Every required check must have identifiable supporting evidence; every omitted candidate check must have a concrete non-applicability reason.
-
-### Verification Funnel and Repair-Loop Control
-
-Completeness of verification does not require rerunning the most expensive complete matrix after every mechanical repair.
-
-Execute applicable delegated gates through their owning skills, but order candidate shaping from cheapest/earliest falsifiers toward broadest proof:
-
-1. **candidate-shaping preflight** — formatting/no-op formatter state, syntax/schema/frontmatter, targeted lint/type/static checks, exact runtime/interpreter/service qualification, and other deterministic prerequisites;
-2. **focused repair gates** — the smallest owning-skill check that can close the currently observed failure;
-3. **targeted behavioral proof** — ticket-specific unit/integration/real-service checks and negative paths;
-4. **pre-freeze shaping closure** — complete post-implementation wiki/document routing, generated/migration finalization, applicable ticket-differential duplicate-code and stale-suppression health, and the semantic falsification gate below; repair until every shaping gate is green;
-5. **broader/delegated proof** — architecture, migration/database, workflow, or other wider gates required by the applicability plan that are not candidate-shaping gates;
-6. **final candidate-bound pass** — only after pre-freeze shaping closure is green and no known mutation remains, execute the complete still-required verification set for the exact candidate before closure evidence is frozen.
-
-Rules:
-
-* format/fix the candidate before treating it as a verification candidate; do not use the complete verification matrix as a formatter;
-* applicable `$deduplicate-code ticket-differential` is a **pre-freeze shaping gate**, not a first-discovery final gate: candidate-introduced/expanded duplication and stale suppressions must be resolved before `FINAL_VERIFY_STATE` is computed;
-* establish required interpreter/runtime/service prerequisites before behavioral tests that depend on them;
-* do not launch concurrent `uv run` processes that may create, replace, or mutate the same project virtual environment under different interpreter/runtime selections; serialize them or give each an explicitly isolated environment;
-* after a failure and repair, rerun only the failed gate, its prerequisites, and gates whose evidence the repair could invalidate; reuse still-valid exact-candidate evidence under the repository's candidate-bound reuse policy;
-* a broad final pass is required after the repair funnel is green, but already-green broad gates need not be repeatedly rerun during the inner edit loop;
-* every observed required-gate failure remains in the verification universe until it has an explicit causal disposition under the hardening invariant; a narrower later PASS does not erase it;
-* a failure in formatting, deterministic generated state, duplicate-code/stale-suppression health, or another mandatory pre-freeze shaping category during a purported final pass is a sequencing defect: return immediately to the focused shaping gate instead of launching another complete matrix;
-* after **two consecutive complete-matrix failures caused only by mechanical, formatting, runtime-selection, duplicate-code, or stale-suppression issues with no product-semantic failure**, raise Attention for verification churn and stop launching complete-matrix reruns until the failing gate is isolated and passes its focused preflight.
-
-The funnel changes execution order and evidence reuse only. It never waives an applicable delegated gate or weakens the final candidate-bound verification set.
-
-Typical routing:
-
-* Code/Tests → invoke `$verify-code` with `TICKET_BASELINE`, plus any ticket-required targeted production-boundary proof;
-* Duplicate-code discipline → when any ticket-changed path is inside the configured Arid or JSCPD scan universe, invoke `$deduplicate-code` in `ticket-differential` mode with `TICKET_BASELINE` during pre-freeze shaping; repair candidate-introduced/expanded duplication and stale suppressions before freeze, while baseline-identical debt remains out of scope. The immutable baseline scan may be computed once per exact `TICKET_BASELINE` + scanner-configuration identity and reused across candidate repair iterations; invalidate that reuse only if the baseline or scanner configuration changes;
-* Documentation → deterministic document/ADR/wiki validation owned by the relevant documentation workflow;
-* Agent skills/workflow policy → structure/frontmatter, cross-skill contract consistency, ownership/handoff, fail-closed behavior, idempotency/re-entry, tracker relationship/projection proof as required;
-* Repository configuration / CI → syntax/schema/lint/dry-run or repository-defined validation appropriate to the changed surface;
-* Data/schema/migrations → `$database-migrations` and required migration/database proof;
-* Tracker-only state → canonical re-read, native relationship/state verification, idempotency when required, and proof that repository files did not need mutation.
-
-Do not automatically run full-suite tests, repository-wide lint/type checks, coverage, or unrelated integration suites. The applicable `$deduplicate-code` gate is an explicit exception to ordinary narrow-scope verification because duplicate relations are repository-wide by definition; its differential mode limits repair attribution rather than scan scope.
-
-Do not claim an acceptance criterion is proven without identifiable source/test/document/configuration/tracker evidence appropriate to that criterion.
-
-### Claim-Proof Integrity
-
-Before proposing any acceptance criterion as proven, derive its proof obligation from the authoritative criterion and parent Spec before using implementation notes, changed-file inventories, prior closure evidence, known defect patterns, or existing tests as a proof plan.
-
-Normalize the claim into its **subject, quantifier, domain, predicate, and material conditions/exceptions**, then state the concrete **falsification condition**: a repository/runtime/tracker state that would make the claim false. Derive verification from that claim and falsifier, and actively seek counterexamples within the required domain.
-
-Evidence is sufficient for the implementer's proposal only when it excludes the falsification condition across the required domain. Final semantic certification remains owned by `$verify-ticket-closure`.
-
-Pattern searches, passing tests, static checks, changed-surface inventories, previous ticket evidence, and known-defect sweeps are supporting evidence only unless they are logically sufficient to exclude the falsifying condition. Do not require verbose proof-model persistence; durable proposed evidence may remain concise and traceable.
-
-### Acceptance Domain Integrity
-
-The domain stated by each ticket acceptance criterion is normative. Do not silently narrow universal or closure language such as `all`, `every`, `no ... remain`, `contract-impact closure`, `root-complete sweep`, `repository-wide`, or an explicit surface list into only changed files, targeted tests, cited examples, or the subset touched during implementation.
-
-Before proposing a criterion proven:
-
-1. recover its exact predicate and stated domain;
-2. enumerate the required surfaces/reference kinds from the criterion and parent Spec;
-3. select evidence that covers that whole domain;
-4. if evidence covers only a subset, leave the criterion proposed-unproven and continue implementation/verification.
-
-The changed-surface inventory may guide what this ticket edits, but it does not reduce the verification domain of an acceptance criterion.
-
-If required verification fails, fix it within ticket scope and rerun the invalidated portion through the **Verification Funnel and Repair-Loop Control** above. Do not persist completion or close while required verification remains unresolved.
-
-## Spec Review Root Reasoning
-
-The following reasoning gates apply only to Spec Review remediation tickets and extend the common ticket acceptance universe. They do not create a separate root-verifier lifecycle.
-
-Root closure is surface-neutral: the authoritative path/boundary may be a runtime production path, workflow/skill lifecycle, documentation/ADR contract, configuration/automation path, schema/persistence boundary, or tracker relationship/state. Existing templates may call this the **Production path**; interpret that field as the authoritative path/boundary governed by the root.
-
-### Root Closure Gate
-
-Targeted verification must support the **entire carried Root Blocker obligation**, not merely the changed seam or enumerated symptoms.
-
-Required proposed proof includes:
-
-* authoritative path/boundary governed by the root;
-* every carried acceptance cell;
-* affected sibling surfaces/reference kinds;
-* regression proof that would fail for the root or a named symptom;
-* relevant fail-closed behavior.
-
-### Root Invariant Sweep
-
-Before proposing closure, search the contract surface governed by the root for other manifestations of the same violation.
-
-Inspect only applicable surfaces, such as:
-
-* constructors/factories/defaults, producers/consumers, adapters/facades, persistence/result boundaries, DI/bootstrap/composition;
-* skills, lifecycle owners, handoffs, guards, defaults, alternate workflow paths, tracker relationships/projections;
-* documentation/ADR authority and duplicate normative claims;
-* configuration/CI alternate paths;
-* schema/migration/persistence boundaries;
-* named sibling surfaces and representative proof.
-
-**Search first, then read only relevant surrounding material.**
-
-The sweep is bounded by the root invariant. If another manifestation is found, fix and prove it within this ticket.
-
-### Preserve Previously Satisfied Roots
-
-Do not regress a previously satisfied Root Blocker.
-
-A prior root becomes protected when this ticket changes a surface it governs, including the same authoritative path, service/repository, typed contract/evidence object, adapter/persistence boundary, workflow owner/handoff, documentation authority, tracker lifecycle state, canonical owner, or named sibling surface.
-
-For each protected root:
-
-1. identify applicable existing regression/acceptance proof;
-2. recover and re-read the **current governing authority** for that protected contract when it derives from a Standard, repository policy, ADR/document authority, workflow policy, configuration contract, or other mutable normative source;
-3. reconcile historical root wording against that current authority, including documented exceptions or explicit supersession;
-4. rerun only proof affected by this change;
-5. confirm the currently applicable protected contract remains satisfied.
-
-Historical root state identifies the concern to preserve; it does not silently freeze a superseded policy forever. Current authority supersedes historical policy wording only when that authority change is explicit and durable. Implementation drift is never supersession.
-
-For Standards/policy roots, do not treat the historical symptom alone as the violation. Cite the exact current rule and explain why any documented exception does or does not apply.
-
-If regressed under the current applicable authority, fix it within this ticket and rerun both current-root and protected-root proof.
-
-### Closure Reconciliation
-
-Reconcile for Proposed Closure Evidence:
-
-* every carried acceptance cell → `proposed-proven | proposed-unproven`;
-* every protected root → `proposed-preserved | proposed-regressed`.
-
-If any carried cell is proposed-unproven, known root violation remains, or protected root is proposed-regressed, keep the ticket open and continue fixing all actionable in-scope failures. Do not dispatch `$verify-ticket-closure` for a knowingly incomplete candidate.
-
-### No Partial Root Stop
-
-Discovering additional in-scope root work is not itself a blocker. Continue until every carried root obligation is proposed-proven unless progress is actually prevented by a required Human Handoff, unresolved material architecture, an external/environmental dependency, or a branch/baseline/permission/tool/persistence failure that makes further work unsafe or impossible.
-
-### Proposed Root Closure Evidence
-
-Carry into the common Proposed Closure Evidence:
-
-* Root Blocker ID and invariant;
-* authoritative path/boundary exercised;
-* Root Invariant Sweep surfaces/results;
-* every carried acceptance cell and proposed proof;
-* protected roots and proposed proof/results;
-* applicable regression/runtime/workflow/document/configuration/tracker/DB checks used.
-
-Generic test counts or unsupported assertions are insufficient.
-
-## 4. Re-Verify Before Persistence
-
-Re-run the **Ticket Hierarchy Integrity Guard** immediately before final repository persistence or ticket closure. If the native direct parent or declared lineage changed during implementation, halt under `TICKET HIERARCHY: INVALID`; do not commit or close under stale decomposition state.
-
-Re-check **Ticket branch** immediately before repository commit when repository files changed:
-
-```bash
-EXPECTED_TICKET_BRANCH="<Ticket branch value>"
-CURRENT_BRANCH=$(git branch --show-current)
-
-if [ "$CURRENT_BRANCH" != "$EXPECTED_TICKET_BRANCH" ]; then
-  echo "❌ Branch changed during ticket implementation."
-  exit 1
-fi
-```
-
-Skip when **Ticket branch** is `None` or the ticket is proven tracker-only with no repository mutation.
-
-For a Wayfinder-managed parent Spec, re-run the **Project Delivery Actionability Guard** immediately before final persistence/closure unless this exact ticket entered with `Mode: pre-bootstrap` and is itself the atomic cutover operation that activated project delivery.
-
-For that bootstrap case, validate the parent Spec/governing Wayfinder did not gain an open blocker, activation label exists, exactly one valid open singleton exists with migration-defined initial state, and the captured pre-bootstrap authorization belongs to this same still-open ticket lifecycle. Do not require newly activated empty focus to authorize the operation that created it.
-
-For every other case, if dependency/focus authorization changed, do not commit or close under stale authorization.
-
-### Certified Candidate State Guard
-
-For every ticket, recompute repository `TICKET_CLOSURE_STATE` using the exact hash procedure above and re-read any required durable tracker state. Require them to match the independently certified candidate and valid `verifier-passed` checkpoint. If they differ, the PASS is stale; return to implementation/recertification.
-
-## 5. Commit and Push When Applicable
-
-If repository files changed:
-
-1. verify the branch;
-2. verify the certified candidate state;
-3. commit with `$conventional-commits`;
-4. include owned wiki changes in the same commit;
-5. push:
-
-```bash
-git push -u origin HEAD
-```
-
-If commit or push fails, do not close the ticket.
-
-Capture ticket commits:
-
-```bash
-git log --reverse --format='%h — %s' "$TICKET_BASELINE"..HEAD
-```
-
-If the ticket is tracker-only and no repository files changed:
-
-* do not manufacture an empty commit;
-* require `git rev-parse HEAD` still equals `TICKET_BASELINE` unless an unrelated authorized parent change is explicitly accounted for;
-* require a clean worktree;
-* record repository commit/push as `not-applicable — tracker-only ticket; no repository mutation`.
-
-## 6. Close the Ticket
-
-Close only when:
-
-* implementation is complete;
-* acceptance criteria have identifiable proposed evidence;
-* every applicable targeted verification gate succeeded;
-* a valid fresh `TICKET CLOSURE: PASS` certifies the exact candidate;
-* branch/baseline/candidate invariants hold where applicable;
-* repository commit/push succeeded when repository files changed;
-* tracker-only repository non-mutation was proven when no repository files changed.
-
-For Spec Review remediation additionally require every carried acceptance cell certified, Root Invariant Sweep clean, protected roots preserved, verified candidate state unchanged, and parent Spec Review Root Closure Reconciliation durably persisted.
-
-### Persist Root Closure Evidence
-
-Before closing a Spec Review remediation ticket, persist independently certified closure evidence as a ticket comment:
-
-```markdown
-## Root Closure Evidence
-
-**Root:** RB-<n> — <invariant>
-**Production path:** <authoritative path/boundary exercised>
-**Independent verification:** TICKET CLOSURE: PASS — `$verify-ticket-closure`
-**Ticket baseline:** <TICKET_BASELINE>
-**TICKET_CLOSURE_STATE:** <TICKET_CLOSURE_STATE>
-
-### Acceptance proof
-- <cell>: proven — <certifier evidence>
-
-### Invariant sweep
-- <surface>: clean/proven — <certifier evidence>
-
-### Protected roots
-- RB-<n>: preserved — <certifier evidence>
-- or None
-
-### Verification
-- <applicable targeted checks and result>
-
-### Commits
-- <short SHA> — <subject>
-- or None — tracker-only ticket; no repository mutation
-```
-
-Use the verifier's results. Do not strengthen them with unsupported parent claims. Do not close if this comment cannot be persisted.
-
-### Persist Parent Root Closure Reconciliation
-
-For a Spec Review remediation ticket, ticket-local Root Closure Evidence is not sufficient durable completion state.
-
-Before closing, reconcile the independently certified `TICKET CLOSURE: PASS` root coverage into the existing parent Spec Review's canonical Root Blocker Ledger and cumulative acceptance state.
-
-This is a closure-state projection, not another review/remediation-synthesis pass. Do not invoke `$review-spec-remediation`, perform another review, redefine Root Blockers, change acceptance obligations, strengthen verifier evidence, or rewrite historical review content.
-
-Immediately before reconciliation, re-read latest durable Spec Review state. Require the current Root Blocker ID/invariant to match the independently verified root, every active non-satisfied cell to have been in the closure contract and proven, and no new/materially changed non-satisfied obligation to have appeared after dispatch.
-
-If any requirement fails, the PASS is stale; keep the ticket open and return to implementation/recertification.
-
-Before appending, reuse an exact existing reconciliation for the same remediation ticket and candidate state; halt on conflicting reconciliation state.
-
-Append the existing **Root Closure Reconciliation** format, changing only the current root's independently proven non-satisfied cells to `satisfied`. Previously satisfied/Owner-overridden cells and other roots remain unchanged.
-
-If reconciliation cannot be persisted, do not close the ticket.
-
-Ordinary tickets do not require formal Root Closure Evidence or Root Closure Reconciliation, but they still require common `$verify-ticket-closure` certification.
-
-## 7. Handoff
-
-Enter this section only when **Invocation Termination** permits returning control.
-
-Report:
-
-* classified change surfaces and applicability plan;
-* implementation and acceptance evidence;
-* Architecture context/divergence;
-* ticket branch and baseline;
-* applicable wiki/document/database/tooling activity;
-* applicable targeted verification and non-applicable checks with reasons;
-* `$verify-ticket-closure` verdict/candidate binding;
-* repository commit(s)/push, or tracker-only non-mutation proof;
-* final worktree/repository state;
-* closure state.
-
-For Spec Review remediation also report Root Blocker ID/invariant, authoritative path/boundary, sibling surfaces audited, Root Invariant Sweep, carried acceptance proof, protected-root preservation, Root Closure Evidence persistence, and Root Closure Reconciliation persistence.
-
-After successful ticket closure, if the parent Spec is Wayfinder-managed, invoke `$project-delivery-management` `reconcile` after closure is durable. Ticket closure remains authoritative even if reconciliation fails; report coordination drift and do not present a downstream lifecycle handoff that depends on stale project-delivery state.
-
-### Deterministic Post-Closure Frontier
-
-After successful ticket closure and any required project-delivery reconciliation, derive the downstream ticket frontier. The same recovered frontier must drive parent/frontier lifecycle reconciliation and the final Human Handoff.
-
-Use the already recovered repository and decomposition parent:
-
-* ordinary Implementation Ticket → frontier parent is its native parent Spec;
-* Review Remediation Ticket → frontier parent is its native parent Spec Review; the durable `Parent Spec` remains the lifecycle provenance owner and downstream verification target.
-
-Do not infer the frontier from Project fields, labels, prior conversation, or prose in issue comments.
-
-Use the native REST sub-issue endpoint exactly once to read all direct children:
-
-```bash
-REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
-FRONTIER_PARENT=<native parent issue number>
-
-FRONTIER_PAGES=$(
-  gh api --paginate --slurp \
-    -H "X-GitHub-Api-Version: 2026-03-10" \
-    "repos/$REPO/issues/$FRONTIER_PARENT/sub_issues?per_page=100"
-)
-
-OPEN_CHILDREN=$(
-  printf '%s\n' "$FRONTIER_PAGES" \
-    | jq -c '[.[][] | select(.state == "open") | {number, title, url: .html_url}]'
-)
-```
-
-For each open direct child, use the native dependency endpoint exactly once to recover its complete `blocked by` set:
-
-```bash
-BLOCKER_PAGES=$(
-  gh api --paginate --slurp \
-    -H "X-GitHub-Api-Version: 2026-03-10" \
-    "repos/$REPO/issues/$CHILD_NUMBER/dependencies/blocked_by?per_page=100"
-)
-
-OPEN_BLOCKERS=$(
-  printf '%s\n' "$BLOCKER_PAGES" \
-    | jq -c '[.[][] | select(.state == "open") | {number, title, url: .html_url}]'
-)
-```
-
-A child is executable only when `OPEN_BLOCKERS` is empty.
-
-Execution rules:
-
-* use these prescribed REST reads; do not probe `gh issue view --json subIssues`, alternate JSON shapes, GraphQL relationship queries, or help output;
-* capture raw paginated payloads locally and inspect only the reduced `jq` results required by this workflow; do not print raw page payloads merely for model inspection;
-* a successful prescribed `gh api --paginate --slurp` command plus successful local `jq` reduction is authoritative for this read; UI, harness, or tool-rendering truncation of an otherwise successful raw payload is **not** pagination failure and must not make the frontier unreadable;
-* treat the frontier as unreadable only when a prescribed command fails, pagination itself fails, local reduction fails, or required relationship data is otherwise proven incomplete;
-* do not retry a failed frontier/dependency read through another interface;
-* do not narrate successful frontier discovery, per-child blocker reads, intermediate counts, or retries;
-* preserve native hierarchy as the decomposition authority and native `blocked by` relationships as dependency authority.
-
-### Parent / Frontier Lifecycle Reconciliation
-
-Derive parent/frontier lifecycle state from this same post-closure snapshot.
-
-For an ordinary Implementation Ticket:
-
-* if one or more implementation-ticket children remain open, preserve the parent Spec's current implementation lifecycle unless another durable lifecycle transition independently changed it;
-* if no implementation-ticket children remain open, establish `$verify-spec` as the parent Spec's next lifecycle action; derive base Project projection `Workflow State = Ready to Verify`, `Work Status = Ready`, `Next Skill = $verify-spec`.
-
-For a Review Remediation Ticket:
-
-* re-read the latest durable Spec Review Root Blocker Ledger after ticket-local Root Closure Reconciliation;
-* if remediation children remain open or the ledger still establishes `open` / `regressed` implementation remediation, preserve the parent Spec's `Review Remediation` lifecycle and derive the Spec Review state from that durable remediation state;
-* if no remediation child remains open and the ledger establishes no remaining `open` / `regressed` implementation remediation, establish `$verify-spec` as the durable `Parent Spec`'s next lifecycle action; derive base Project projection `Workflow State = Ready to Verify`, `Work Status = Ready`, `Next Skill = $verify-spec`;
-* include the Spec Review itself as an affected artifact only when its own durable remediation state changes. Never infer `Spec Review = Complete` merely because its child count reached zero.
-
-Child absence is frontier evidence, not sufficient authority to erase Architecture Remediation, unresolved durable remediation state, or another independently owned lifecycle state.
-
-### Downstream Dependency Reconciliation
-
-After every successful ticket closure, re-read direct native dependents because closure may change their actionability without changing the dependency relationship itself.
-
-Use the native REST dependency endpoint exactly once to read every direct dependent:
-
-```bash
-DEPENDENT_PAGES=$(
-  gh api --paginate --slurp \
-    -H "X-GitHub-Api-Version: 2026-03-10" \
-    "repos/$REPO/issues/$TICKET_NUMBER/dependencies/blocking?per_page=100"
-)
-
-OPEN_DEPENDENTS=$(
-  printf '%s\n' "$DEPENDENT_PAGES" \
-    | jq -c '[.[][] | select(.state == "open") | {number, title, url: .html_url, parent_issue_url}]'
-)
-```
-
-For each open direct dependent, read its complete native `blocked by` set exactly once and keep only open blockers:
-
-```bash
-DEPENDENT_BLOCKER_PAGES=$(
-  gh api --paginate --slurp \
-    -H "X-GitHub-Api-Version: 2026-03-10" \
-    "repos/$REPO/issues/$DEPENDENT_NUMBER/dependencies/blocked_by?per_page=100"
-)
-
-DEPENDENT_OPEN_BLOCKERS=$(
-  printf '%s\n' "$DEPENDENT_BLOCKER_PAGES" \
-    | jq -c '[.[][] | select(.state == "open") | {number, title, url: .html_url}]'
-)
-```
-
-The native dependency edge remains authoritative history. Do **not** remove it merely because the blocker closed, and do not rewrite the dependent ticket's `## Blocked by` prose to erase the relationship.
-
-For an open direct dependent that is durably an ordinary Implementation Ticket or Review Remediation Ticket and whose current `Blocked` lifecycle state is dependency-derived:
-
-* one or more open native blockers → keep base `Workflow State = Blocked`, `Work Status = Blocked`, `Next Skill = None`;
-* zero open native blockers → establish `$implement-ticket` as the ticket's next lifecycle action; derive base Project projection `Workflow State = Ready to Implement`, `Work Status = Ready`, `Next Skill = $implement-ticket`.
-
-Do not overwrite another durable lifecycle state such as Architecture Remediation or an independently owned closure-verification state. Require the dependent's native parent and declared lineage to establish its ticket type and current lifecycle ownership before changing its base route; ambiguous state fails closed.
-
-### Deferred Project Projection
-
-Follow the repository-wide **Workflow Project tracking** policy in `AGENTS.md`. Do not invoke `$project-tracking` at ordinary ticket closure; derive authoritative lifecycle/actionability now and allow Project projection to lag until an authorized reconciliation boundary.
-
-If authoritative frontier, blocker, lineage, or remediation-ledger reads cannot be completed, the completed ticket remains authoritatively closed. Report the exact unreadable state and do not advertise a downstream lifecycle handoff whose actionability cannot be proven.
-
-Before presenting any next `$implement-ticket` or `$verify-spec` handoff for a Wayfinder-managed Spec, evaluate current project-delivery authorization again. If no governing Wayfinder is currently allowed, do not advertise downstream lifecycle as actionable. Report the governing Wayfinder set and explicit human `$project-delivery-management` focus/switch/parallel action required.
-
-### Handoff From the Recovered Frontier
-
-Emit the normal frontier handoff from the **same** recovered post-closure snapshot used for parent/frontier lifecycle reconciliation. Do not perform a second frontier read for handoff selection.
-
-* exactly one open unblocked ticket → emit exactly one copy-ready line:
-
-  ```text
-  $implement-ticket - <Ticket Title> (<Ticket URL>)
-  ```
-
-* multiple open unblocked tickets → emit one copy-ready line per ticket in stable issue-number order and let the user choose;
-* no open implementation/remediation tickets and lifecycle reconciliation establishes `$verify-spec` as the parent Spec's next action → emit exactly one copy-ready line:
-
-  ```text
-  $verify-spec - <Spec Title> (<Spec URL>)
-  ```
-
-  For Review Remediation Ticket mode, use the durable `Parent Spec` title and URL, not the Spec Review title/URL.
-* open tickets but all blocked → report the open blockers and stop.
-
-A prose sentence that merely names the next artifact does **not** satisfy the handoff requirement. The required copy-ready `$implement-ticket` or `$verify-spec` command must be present in the final response when that lifecycle is actionable.
-
-Do not invoke the next `$implement-ticket` or `$verify-spec` lifecycle stage implicitly.
-
-An unresolved required gate keeps the ticket open, but does not by itself authorize stopping. If actionable in-scope work remains, continue; a pre-completion handoff must identify the concrete blocker that requires the halt.
-
-## Transition-Bound Ticket Completion
-
-The reasoning gates in this skill are part of the ticket state machine, not advisory prose. Before independent certification, materialize the complete current **Ticket Acceptance Universe** from the ticket and its authoritative parent/remediation contract. Include every explicit acceptance criterion and every distinct normative build, verification, preservation, negative-path, or root-closure obligation carried by the ticket. Do not build this universe from changed files, implementation notes, tests already written, or known defect patterns.
-
-Create exactly one working row per obligation:
-
-```text
-Acceptance: TA-<n>
-Source: <exact ticket/root/parent obligation>
-Claim: <authoritative obligation>
-Predicate: <subject + quantifier + domain + required predicate + material conditions/exceptions>
-Falsifier: <concrete current state that would make the claim false>
-Evidence: <direct current evidence excluding the falsifier>
-Survivability: <excluded | survives>
-Assumptions: <None | material assumption + authority/direct proof>
-Proposed state: <proposed-proven | proposed-unproven | not-applicable>
-```
-
-`proposed-proven` is legal only when Predicate, Falsifier, and Evidence are concrete, `Survivability: excluded`, and every material assumption is authoritative or directly proven. `not-applicable` requires an exact source-grounded condition; it may not mean inconvenient, unchanged, already tested, inherited, or apparently covered elsewhere. Final semantic state remains owned by `$verify-ticket-closure`.
-
-Before verifier dispatch require:
-
-```text
-Ticket acceptance obligations: <n>
-Acceptance coverage rows: <n>
-Missing obligations: 0
-Unknown rows: 0
-Proposed-unproven: 0
-Incomplete proposed proof records: 0
-Survivability not excluded for proposed-proven rows: 0
-Unproven material assumptions: 0
-```
-
-A passing test count, closed sibling ticket, changed-surface sweep, or implementation narrative cannot substitute for this reconciliation.
-
-### Applicability Closure
-
-Reconcile the earlier applicability plan against the **actual final change surface** immediately before certification. Every candidate helper/check named by this skill must still have an explicit `applicable` or `not-applicable` disposition with a concrete reason. Newly introduced surfaces must be classified before completion. Omission is not `not-applicable`.
-
-### Architecture Routing Disposition
-
-Before either continuing implementation on a potentially architectural concern or emitting the Architecture Human Handoff, materialize every candidate durable-semantic question discovered during the ticket:
-
-```text
-Candidate: AR-<n>
-Durable semantic at issue: <owner/path/key/boundary/lifecycle/failure semantic or None>
-Current governing authority: <authority/evidence>
-Gap: <None | exact unresolved choice/conflict>
-Disposition: <implementation | architecture-blocker>
-Reason: <why current authority is sufficient or why invention/change is required>
-```
-
-Every candidate must be dispositioned. `implementation` requires current authority to determine the durable semantic without invention. `architecture-blocker` requires a concrete unresolved durable choice or authority conflict. A concern may not disappear merely because implementation found a convenient mechanism, and ordinary missing wiring may not be promoted to architecture merely to halt.
-
-These working records need not be copied verbatim into the final human response; they are mandatory transition state that must exist before the corresponding lifecycle transition is legal. An `architecture-blocker` disposition is not itself a durable handoff: before `$architecture-remediation` may be presented, the **Architecture Human Handoff Intercept** must project the complete blocker set into the single managed `<!-- architecture-blocker:v1 -->` report and pass its readback gate.
-
-## Context-Efficient Helper Loading and Candidate-Frozen Final Verification
-
-This section is authoritative for helper-context loading and the timing of final local/delegated verification. It supersedes only earlier wording that could be read to authorize eager helper ingestion or final verification before candidate freeze. All applicability, semantic proof, certification, persistence, and closure requirements above remain unchanged.
-
-### Helper Context Loading
-
-The existing applicability plan is also the authority for helper-skill context loading.
-
-* Do not preload or concatenate multiple helper `SKILL.md` files merely because they may become relevant later in the ticket.
-* A helper classified `not-applicable` must not be loaded for ordinary execution.
-* For an `applicable` helper, defer loading its detailed contract until the first transition that actually requires that helper.
-* When only one exact cross-skill rule is needed to make a routing or ownership decision, read the smallest heading-bounded excerpt that resolves that question; broaden to the complete helper skill only when the helper is being executed directly or the bounded excerpt is insufficient.
-* When a child/helper invocation itself loads its authoritative skill contract, the parent must not duplicate that complete read merely to mirror the child's context. Pass the required routing inputs and consume the child's returned contract/result.
-* Reuse an already loaded, still-current helper contract within the same ticket lifecycle. Re-read only when the helper file changed, session/re-entry state no longer contains the required contract, a new material question requires a previously unread section, or returned state creates a concrete ambiguity that requires exact contract validation.
-* Do not bulk `cat` helper skills as a convenience. Applicability and the current transition determine each load independently.
-
-These rules implement the repository-wide Context and Discovery Efficiency policy locally without weakening any helper's authority once that helper becomes applicable.
-
-### Iterative Evidence Is Not Final Verification
-
-During active implementation, run only the minimum direct checks and discovery needed to guide the next edit, falsify the current design, or establish implementation scope. Focused unit tests, syntax checks, contract-consumer discovery, and similarly narrow probes may run as needed.
-
-Do not run a complete final `$verify-code` lifecycle, delegated repository-wide invariant gate, full documentation/workflow/database verification set, or equivalent final gate merely to obtain an early green result while substantive mutation is still expected. Any such early result is iterative evidence only and cannot satisfy the final verification requirement.
-
-Complete all known mutating finalization before freeze, including applicable `$format-code`, post-implementation `$wiki-sync` edits, generated artifacts/migrations, deterministic auto-fixes, applicable ticket-differential duplicate/stale-suppression repairs, and other authorized repository mutations. Claim/falsifier construction and semantic discovery are not deferred; only final verification execution is.
-
-Interpret `local / delegated implementation verification` in the Core Authority Invariant as the final candidate-bound verification phase below. Iterative checks do not satisfy that transition.
-
-### Pre-Freeze Semantic Falsification Gate
-
-Immediately before `FINAL_VERIFY_STATE` may be computed, re-read the authority-first proof plan against the **actual implemented candidate** and actively try to falsify every acceptance predicate. This is an implementer self-challenge, not semantic certification and not a replacement for `$verify-ticket-closure`.
-
-For every acceptance row:
-
-1. restate the exact concrete predicate using authority-defined types/keys/cardinalities/temporal boundaries rather than umbrella labels;
-2. exercise or inspect at least one direct counterexample matching the row's falsifier;
-3. for closed typed domains/unions, prove the implemented construction uses the canonical members and cannot express an invalid generic/missing member;
-4. for temporal or historical predicates such as `(T,K)`, prove state recorded/known after `K` cannot change an answer at `K` unless the authority explicitly says otherwise;
-5. for shared vocabulary split across sibling tickets, confirm the current candidate owns only the minimum shared type foundation required by its own contract and has not silently pulled later behavior forward;
-6. disposition every surviving counterexample as repaired, authoritative not-applicable, or unresolved.
-
-Any surviving falsifier, generic surrogate for an authority-defined typed contract, missing required canonical member, or unresolved ownership/decomposition question blocks candidate freeze.
-
-Before freeze require:
-
-```text
-Pre-freeze shaping gates: <n>
-Pre-freeze shaping gates green: <n>/<n>
-Applicable duplicate/stale-suppression gate: <clean | not-applicable>
-Semantic falsifiers exercised: <n>
-Surviving semantic falsifiers: 0
-Unresolved shared-vocabulary/decomposition questions: 0
-Known repository/tracker mutations remaining: 0
-```
-
-### Final Verification Candidate Freeze
-
-When implementation, applicability reconciliation, semantic discovery, the **Pre-Freeze Semantic Falsification Gate**, and all known mutating finalization are complete, freeze the candidate **before** running final verification:
-
-1. compute `FINAL_VERIFY_STATE` using the exact `TICKET_CLOSURE_STATE` hash procedure in **Candidate State**;
-2. bind any tracker-only or mixed durable tracker state required by the ticket at the same boundary;
-3. record that no known substantive repository/tracker mutation remains before final verification;
-4. run every applicable still-required final verification owner/gate once against that frozen state, including `$verify-code` and any delegated invariant gate not already satisfied by reusable exact-candidate shaping evidence;
-5. reuse a pre-freeze gate result, including `$deduplicate-code ticket-differential`, only when it was run on the exact bytes/tracker state that produced `FINAL_VERIFY_STATE` and no relevant configuration/baseline changed; otherwise rerun it against the frozen state;
-6. recompute the same candidate/tracker state after final verification and require exact equality with the freeze.
-
-Final verification is evidence for one immutable candidate, not another implementation iteration. Its normal role is confirmation of an already-shaped candidate, not discovery of formatter, duplicate-code, stale-suppression, obvious typed-contract, or direct falsifier defects.
-
-If a final gate fails and repair is required, or if a verification helper performs an authorized repair/auto-fix, the freeze is stale immediately. Do not count that run as final evidence. Return to implementation, complete the repair and mutating finalization, compute a new `FINAL_VERIFY_STATE`, and re-run every final gate whose evidence may have been invalidated. Reuse prior gate evidence only when deterministic fail-closed invalidation analysis proves the exact proof/evidence is unaffected; uncertainty requires rerun.
-
-#### Repair-Time Evidence Invalidation Map
-
-After any candidate mutation that follows accepted verification evidence, materialize an invalidation row for every prior evidence item proposed for reuse:
-
-```text
-Evidence item: <gate/check/result>
-Evidence candidate state: <candidate identity the evidence proved>
-Owning gate: <skill/check>
-Proof/execution dependencies: <recoverable dependency manifest>
-Changed-surface intersection: <none | exact intersecting dependencies>
-Runtime/configuration/tracker changes: <none | exact changed inputs>
-Disposition: reusable | invalidated
-Reason: <deterministic fail-closed reason>
-```
-
-Evidence belongs to the complete inputs that can affect the proof, not to the subsystem or file category named by the check. An unchanged adapter, schema, test file, or directory is not sufficient evidence that a prior result remains valid when code executed by that proof changed.
-
-A `reusable` disposition is legal only when the proof/execution dependency manifest is recoverable, the complete candidate delta has zero intersection with that manifest, and every material runtime/configuration/tracker input remains compatible. Missing, incomplete, or ambiguous dependency state makes the evidence `invalidated`; rerun the owning gate/check rather than guessing.
-
-**Whole-owner invalidation for `$verify-code`:** after an accepted final `$verify-code` result, any repair to current executable production Python under `src/polaris/` or current migration Python invalidates that `$verify-code` result as a whole. Complete candidate shaping, freeze the repaired candidate, and invoke `$verify-code` again. Do not reconstruct a `$verify-code` PASS by individually rerunning Ruff, Mypy, selected tests, architecture, or other component checks. The fresh `$verify-code` invocation owns its complete contract-impact and targeted-verification result.
-
-Before building Proposed Closure Evidence or writing `Stage: awaiting-closure-verification`, require:
-
-```text
-Final verification candidate state: <FINAL_VERIFY_STATE>
-Applicable final gates: <n>
-Final gates complete for frozen state: <n>/<n>
-Candidate/tracker mutation during accepted final verification: 0
-Unresolved final gates: 0
-```
-
-Then require current `TICKET_CLOSURE_STATE` and applicable tracker binding to equal the frozen state and use that same candidate identity for Proposed Closure Evidence, durable checkpoint persistence, and fresh `$verify-ticket-closure` dispatch.
-
-This freeze is a local technical-evidence boundary, not semantic certification. The durable v2 checkpoint and fresh verifier remain the only ticket-closure certification path.
+If current contract/coverage changed during closure, do not infer the frontier from stale
+state; return to `$to-tickets` as appropriate.
+
+## Non-goals
+
+`$implement-ticket` does not:
+
+* infer hidden obligations from Spec/ticket/ADR/wiki prose;
+* build an architecture/source-unit semantic universe;
+* create or revise CCL;
+* reslice tickets;
+* repair native ticket hierarchy;
+* certify its own candidate;
+* make a missing material design decision;
+* treat a passing technical check as semantic closure.

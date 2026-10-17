@@ -1,62 +1,45 @@
 ---
 name: verify-root-closure
-description: Compatibility route for historical Spec Review remediation handoffs. Root closure is now certified by the common `$verify-ticket-closure` verifier; this skill must not run a separate certification algorithm.
+description: Compatibility route for historical Root Blocker verification handoffs. Current review remediation is certified only through `$verify-ticket-closure` against `review-remediation-contract/v1`.
 compatibility: product=codex product=claude-code system=python system=git system=gh network=required
 disable-model-invocation: true
 ---
 
 # Verify Root Closure — Compatibility Route
 
-`$verify-root-closure` is no longer an independent certification authority.
+`$verify-root-closure` is not a certification authority.
 
-The common ticket verifier owns semantic closure for both ordinary and Spec Review remediation tickets:
+Current Review Remediation Tickets are normalized to:
 
 ```text
+review-spec-finding-ledger:v2
+        ↓
+polaris.review-remediation-contract/v1
+        ↓
+$implement-ticket
+        ↓
 $verify-ticket-closure
 ```
 
-Remediation adds the stable Root Blocker invariant, cumulative carried acceptance cells, verification obligations, same-root preservation obligations, protected roots, and Root Invariant Sweep to the **same ticket acceptance universe**. It does not create a second verifier or verdict.
+No new `ROOT CLOSURE: PASS|FAIL` verdict exists.
 
-## Historical Invocation
+## Historical invocation
 
-If a human invokes `$verify-root-closure` from an older durable handoff/checkpoint:
+If a historical ticket still depends on Root Blocker/checkpoint state:
 
-1. recover the referenced remediation ticket and current `$implement-ticket` durable state;
-2. do **not** execute the historical root-certification algorithm locally;
-3. resume `$implement-ticket` compatibility routing;
-4. migrate a valid legacy `<!-- implement-ticket-root-checkpoint:v1 -->` into the v2 common closure checkpoint as required by current `$implement-ticket`;
-5. emit or honor the current `$verify-ticket-closure` authorization/handoff for the exact current candidate.
+1. recover the ticket and Parent Spec/Spec Review;
+2. preserve the historical record unchanged;
+3. if no current normalized RF-backed remediation contract exists, route through
+   `$review-spec` and `$to-tickets` first;
+4. once normalized, resume `$implement-ticket` and its v3 closure checkpoint.
 
-The historical invocation may serve as user intent to continue verification, but it does not allow the `$implement-ticket` parent to self-certify and does not make an old root PASS current proof for a changed candidate.
-
-## Current Invocation
-
-For a ticket already using the v2 closure checkpoint, return the canonical command:
+If a current v3 checkpoint already exists, return:
 
 ```text
-$verify-ticket-closure - <Current Ticket Title> (<Ticket URL>)
+$verify-ticket-closure - <Ticket Title> (<Ticket URL>)
 ```
 
-and route through `$implement-ticket`'s dispatcher-only continuation.
+through `$implement-ticket` dispatcher recovery.
 
-## No Parallel Verdict
-
-Do not emit:
-
-```text
-ROOT CLOSURE: PASS
-ROOT CLOSURE: FAIL
-```
-
-for new verification attempts.
-
-The only semantic ticket verdict is:
-
-```text
-TICKET CLOSURE: PASS
-TICKET CLOSURE: FAIL
-```
-
-from one fresh non-mutating `$verify-ticket-closure` verifier.
-
-Historical Root Closure Evidence remains durable history and may be consumed as evidence by the common verifier, never as current certification authority.
+This skill never executes a separate semantic verifier and never treats an old Root PASS as
+current certification for a changed candidate.

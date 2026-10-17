@@ -209,21 +209,26 @@ open/current owner or a new ticket rather than rewriting history.
 A narrative-only Spec edit that leaves the Spec Contract Hash/cell hashes unchanged does
 not require ticket-semantic reslicing.
 
-### Legacy ticket compatibility
+### Legacy ordinary ticket compatibility
 
-For an ordinary Spec with legacy ticket state but no current v2 mapping,
-`$to-remediation-tickets` may be used once as a compatibility mapper. Its output is
-admissible only when every current executable obligation maps to exact current Spec cells.
+For an ordinary Spec with legacy tickets but no v2 coverage, current `$to-tickets` proposes
+a fresh human-approved mapping from exact current Spec cells. Historical ticket prose is
+execution context only. `$to-remediation-tickets` remains only as a compatibility redirect
+for old entry points.
 
-### Spec Review remediation compatibility
+### Spec Review remediation
 
-A conventional Spec Review remains a temporary compatibility source for
-`$to-remediation-tickets` until review remediation itself is normalized to a deterministic
-finding/cell delta.
+`$review-spec` persists one structured `review-spec-finding-ledger:v2`. Stable `RF-*`
+findings contain exact current cell hashes where applicable, exact Standards references,
+and one frozen falsifier.
 
-Compatibility Root Blocker state must not create new semantics. Every executable
-remediation obligation must map to exact current Spec cells plus a frozen review finding
-falsifier/preservation requirement.
+`$to-tickets` may group open Blocking implementation/test/standards findings into coherent
+execution slices. Each slice is compiled deterministically into
+`polaris.review-remediation-contract/v1` containing selected finding hashes/falsifiers,
+affected current cells, and every other current Spec cell as a preservation guardrail.
+
+Root Blocker ledgers/matrices are historical compatibility only. They are not current
+semantic or remediation authority.
 
 ## Implementation
 
@@ -231,15 +236,22 @@ All tickets for one Spec share the same Spec branch and fixed Spec baseline. Eac
 owns its own Ticket baseline; new tickets begin `Pending`, and `$implement-ticket` pins the
 exact pre-mutation candidate when implementation begins.
 
-`$implement-ticket` consumes the exact assigned Spec cells and inherited CCL addresses.
-It may choose implementation-equivalent private mechanics but may not make a missing
-material semantic decision.
+For an ordinary ticket, implementation first derives one deterministic
+`polaris.ticket-contract/v1` from the current Spec contract + current v2 coverage + this
+ticket destination. It contains exact assigned `OBL/IMP/TEST` cells, their hashes and CCL
+addresses, plus every parent `EXC-*` as an exclusion guardrail. The published ticket body
+must validate against that exact route.
 
-Before independent ticket closure verification, the parent carries a concise
-Implementation Evidence Index. It does not run a duplicate semantic certification pass.
+`$implement-ticket` may choose implementation-equivalent private mechanics but may not
+make a missing material semantic decision. Before independent closure verification it
+carries a concise Implementation Evidence Index, not a parent-authored semantic proof
+matrix. New attempts bind the exact Ticket Contract Hash and candidate in closure
+checkpoint v3.
 
-`$verify-ticket-closure` independently proves the frozen ticket contract. Independence is
-proof independence, not authority to broaden the ticket/Spec/CCL universe.
+`$verify-ticket-closure` independently derives falsifiers/evidence for that frozen ticket
+contract. Independence is proof independence, not authority to broaden the ticket/Spec/CCL
+universe. A route defect goes to `$to-tickets`; a planning-cell gap goes to `$to-specs`; a
+material semantic gap goes to the owning architecture/semantic workflow.
 
 ## Integrated Spec Verification
 

@@ -1,7 +1,7 @@
 ---
 name: project-delivery-management
 description: Coordinate project-level delivery across current Polaris Wayfinder efforts by owning durable focus, exact parallel-focus authorization, cross-Wayfinder dependency placement, and fail-closed delivery guards.
-compatibility: product=codex product=claude-code system=gh network=required
+compatibility: product=codex product=claude-code system=python system=gh network=required
 disable-model-invocation: true
 ---
 

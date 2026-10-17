@@ -82,8 +82,40 @@ Resolve governance from the Parent Spec's local provenance markers.
 For a Wayfinder-managed Spec:
 
 1. invoke `$project-delivery-management reconcile`;
-2. invoke `guard <Wayfinder>` for every current governor;
-3. require at least one exact ALLOWED result.
+2. after reconciliation completes, invoke `$project-delivery-management guard <Wayfinder>`
+   for every current governor;
+3. require at least one fresh exact ALLOWED result:
+
+```text
+PROJECT DELIVERY GUARD: ALLOWED
+Wayfinder: #<n>
+Focused set: <exact set>
+```
+
+### Guard invocation discipline
+
+The project-delivery check is a required composed skill boundary, not an algorithm for
+`$to-tickets` to reproduce.
+
+`$to-tickets` must not independently discover the Project Delivery Management singleton,
+parse or infer the focused Wayfinder set, derive Wayfinder frontier eligibility, or classify
+a guard result. Those responsibilities stay inside `$project-delivery-management`.
+
+Do not substitute any of the following for the required invocation:
+
+* `gh search issues` queries;
+* issue title/body searches for `project-delivery:management`;
+* Project-board fields;
+* remembered singleton issue numbers;
+* previously observed focus/frontier state;
+* an inline recreation of the delivery-guard algorithm.
+
+Direct GitHub reads needed for Spec/ticket lifecycle work remain allowed, but they do not
+satisfy the project-delivery guard.
+
+If `reconcile` or `guard` fails, returns ambiguous/incomplete state, or cannot produce the
+exact result format owned by `$project-delivery-management`, stop with the guard blocked.
+Do not fall back to heuristic searches or declare ALLOWED independently.
 
 Independent Specs never acquire a Wayfinder.
 

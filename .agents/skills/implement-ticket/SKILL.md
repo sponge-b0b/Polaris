@@ -120,13 +120,16 @@ python -m scripts.spec_contract build <spec-issue-json> <spec-contract.json>
 python -m scripts.spec_contract check-coverage <spec-contract.json> <coverage.json>
 ```
 
-Then bind this published ticket to its exact route:
+Recover this published ticket's exact coverage `destination` from the current
+`ticket-coverage-manifest:v2` (for example `T1`). The destination is the route identity
+owned by `$to-tickets`; it is not the GitHub issue number and must not be inferred from the
+ticket title. Then bind this published ticket to that exact route:
 
 ```bash
 python -m scripts.spec_contract build-ticket \
   <spec-contract.json> \
   <coverage.json> \
-  "#<ticket-number>" \
+  "<ticket-destination>" \
   <ticket-body-file> \
   <ticket-contract.json>
 ```
@@ -196,8 +199,29 @@ not admissible to this remediation contract. Route it to its owning workflow ins
 
 ## 4. Implement only the frozen ticket contract
 
-Before first substantive mutation run `$attention` with the ticket/candidate context.
-Attention is report-only and cannot enlarge the contract.
+Before first substantive mutation, perform the `$attention` Sweep Procedure with the exact
+ticket contract, branch/baseline, candidate context, and materially implicated sibling/
+authority surfaces. Reading, listing, searching for, or otherwise discovering the
+`$attention` skill does **not** satisfy this checkpoint.
+
+Emit one formal Attention result before substantive mutation. The no-finding form is:
+
+```text
+ATTENTION: CLEAR
+Checkpoint: $implement-ticket pre-mutation
+Material concerns: 0
+```
+
+When concerns exist, emit the `$attention` `ATTENTION: FINDINGS` form with:
+
+```text
+Checkpoint: $implement-ticket pre-mutation
+```
+
+Route every finding through existing authority. Any finding whose existing governing rule
+blocks implementation must be resolved or handed off before substantive mutation. Attention
+is report-only and cannot enlarge the contract. No substantive mutation is allowed until
+this formal pre-mutation Attention receipt exists in the current invocation.
 
 For each assigned cell:
 
@@ -244,8 +268,30 @@ semantic authority in this skill.
 The implementation actor does **not** build a Ticket Acceptance Universe or assign its own
 semantic `proven` verdicts.
 
-After applicable implementation/checks are complete, build only this concise retrieval
-index:
+After applicable implementation/checks are complete and before freezing the Implementation
+Evidence Index, perform the `$attention` Sweep Procedure again against the actual final
+public/durable change surface. Reading or rediscovering the Attention skill is not a
+checkpoint. Emit one formal result using exactly:
+
+```text
+ATTENTION: CLEAR
+Checkpoint: $implement-ticket pre-closure
+Material concerns: 0
+```
+
+or the `$attention` `ATTENTION: FINDINGS` form with:
+
+```text
+Checkpoint: $implement-ticket pre-closure
+```
+
+Disposition every finding through existing authority before closure dispatch. If a finding
+causes candidate mutation, rerun invalidated technical checks and repeat this pre-closure
+Attention checkpoint on the corrected candidate before freezing evidence. Do not write the
+v3 `awaiting-closure-verification` checkpoint until the current candidate has this formal
+pre-closure Attention receipt and no unresolved blocking Attention finding.
+
+Then build only this concise retrieval index:
 
 ```text
 Ticket Contract Hash: <hash>

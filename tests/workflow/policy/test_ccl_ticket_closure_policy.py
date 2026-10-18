@@ -62,3 +62,18 @@ def test_gap_routing_is_owned_upstream() -> None:
         assert "contract-authority-gap" in text
         assert "$to-specs" in text
         assert "$to-tickets" in text
+
+
+def test_implement_ticket_attention_checkpoints_are_auditable() -> None:
+    assert "does **not** satisfy this checkpoint" in IMPLEMENT
+    assert "Checkpoint: $implement-ticket pre-mutation" in IMPLEMENT
+    assert "No substantive mutation is allowed until" in IMPLEMENT
+    assert "Checkpoint: $implement-ticket pre-closure" in IMPLEMENT
+    assert "Do not write the\nv3 `awaiting-closure-verification` checkpoint until" in IMPLEMENT
+
+
+def test_build_ticket_uses_published_coverage_destination() -> None:
+    assert "exact coverage `destination`" in IMPLEMENT
+    assert "for example `T1`" in IMPLEMENT
+    assert '"<ticket-destination>"' in IMPLEMENT
+    assert '"#<ticket-number>"' not in IMPLEMENT

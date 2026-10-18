@@ -204,24 +204,46 @@ ticket contract, branch/baseline, candidate context, and materially implicated s
 authority surfaces. Reading, listing, searching for, or otherwise discovering the
 `$attention` skill does **not** satisfy this checkpoint.
 
-Emit one formal Attention result before substantive mutation. The no-finding form is:
-
-```text
-ATTENTION: CLEAR
-Checkpoint: $implement-ticket pre-mutation
-Material concerns: 0
-```
-
-When concerns exist, emit the `$attention` `ATTENTION: FINDINGS` form with:
+Emit the formal `$attention` result with exactly:
 
 ```text
 Checkpoint: $implement-ticket pre-mutation
 ```
 
-Route every finding through existing authority. Any finding whose existing governing rule
-blocks implementation must be resolved or handed off before substantive mutation. Attention
-is report-only and cannot enlarge the contract. No substantive mutation is allowed until
-this formal pre-mutation Attention receipt exists in the current invocation.
+A CLEAR result uses the normal three-line `$attention` form. A FINDINGS result must preserve
+each finding's `Blocking basis`. Route/disposition findings under current authority; a
+finding with a blocking basis other than `none` prevents implementation.
+
+Write the exact formal Attention result to a temporary file outside the repository candidate,
+then run the machine gate before any substantive mutation. Resolve the current default-branch
+ref first so policy-sync admission is checked against current policy:
+
+```bash
+python .agents/skills/implement-ticket/scripts/attention_gate.py pre-mutation \
+  --ticket <ticket-number> \
+  --contract <ticket-or-remediation-contract.json> \
+  --baseline <ticket-baseline> \
+  --branch <ticket-branch> \
+  --default-ref <current-default-branch-ref> \
+  --attention-result <pre-mutation-attention-result-file>
+```
+
+Require:
+
+```text
+IMPLEMENT TICKET ATTENTION: PRE-MUTATION VALID
+```
+
+The gate writes `polaris.implement-ticket-attention/v1` working safety state under the
+worktree's Git metadata. It fails if the worktree already contains candidate mutation, if a
+committed baseline→HEAD delta is anything other than an admissible default-branch
+workflow-policy synchronization, if contract/branch/baseline identity is wrong, if the
+checkpoint name is wrong, or if any formal Attention finding remains blocking. This makes
+the checkpoint non-retroactive: prose saying that a sweep happened is not evidence, and an
+agent cannot mint the pre-mutation receipt after implementation has already changed the
+candidate.
+
+No substantive mutation is allowed until this command succeeds.
 
 For each assigned cell:
 
@@ -270,31 +292,61 @@ semantic `proven` verdicts.
 
 After applicable implementation/checks are complete and before freezing the Implementation
 Evidence Index, perform the `$attention` Sweep Procedure again against the actual final
-public/durable change surface. Reading or rediscovering the Attention skill is not a
-checkpoint. Emit one formal result using exactly:
-
-```text
-ATTENTION: CLEAR
-Checkpoint: $implement-ticket pre-closure
-Material concerns: 0
-```
-
-or the `$attention` `ATTENTION: FINDINGS` form with:
+public/durable change surface and emit the formal result with exactly:
 
 ```text
 Checkpoint: $implement-ticket pre-closure
 ```
 
-Disposition every finding through existing authority before closure dispatch. If a finding
+A blocking Attention finding must be dispositioned before closure dispatch. If disposition
 causes candidate mutation, rerun invalidated technical checks and repeat this pre-closure
-Attention checkpoint on the corrected candidate before freezing evidence. Do not write the
-v3 `awaiting-closure-verification` checkpoint until the current candidate has this formal
-pre-closure Attention receipt and no unresolved blocking Attention finding.
+Attention checkpoint on the corrected candidate.
+
+Write the exact result to a temporary file outside the repository candidate and bind it to
+the current candidate:
+
+```bash
+python .agents/skills/implement-ticket/scripts/attention_gate.py pre-closure \
+  --ticket <ticket-number> \
+  --contract <ticket-or-remediation-contract.json> \
+  --baseline <ticket-baseline> \
+  --branch <ticket-branch> \
+  --attention-result <pre-closure-attention-result-file>
+```
+
+Require:
+
+```text
+IMPLEMENT TICKET ATTENTION: PRE-CLOSURE VALID
+```
+
+Capture the exact `Attention Receipt Hash` printed by that command. Immediately verify the
+same frozen receipt and candidate:
+
+```bash
+python .agents/skills/implement-ticket/scripts/attention_gate.py verify \
+  --ticket <ticket-number> \
+  --contract <ticket-or-remediation-contract.json> \
+  --baseline <ticket-baseline> \
+  --branch <ticket-branch> \
+  --expected-receipt-hash <attention-receipt-hash>
+```
+
+Require:
+
+```text
+IMPLEMENT TICKET ATTENTION: VALID
+```
+
+Any candidate mutation after `pre-closure` makes the receipt stale and requires invalidated
+technical checks plus a fresh pre-closure Attention sweep/gate. Do not write the v3
+`awaiting-closure-verification` checkpoint until this verification succeeds.
 
 Then build only this concise retrieval index:
 
 ```text
 Ticket Contract Hash: <hash>
+Attention Receipt Hash: <hash>
 Candidate state: <TICKET_CLOSURE_STATE>
 Changed/implemented surfaces: <compact path/component groups>
 
@@ -373,6 +425,7 @@ Persist at least:
 **Parent Spec:** #<spec>
 **Spec Contract Hash:** <hash>
 **Ticket Contract Hash:** <hash>
+**Attention Receipt Hash:** <hash>
 **Assigned cells:** <IDs>
 **CCL:** <exact inherited addresses | None>
 **Remediation parent:** <Spec Review #n | None>
@@ -399,17 +452,21 @@ managed comment and read it back exactly after every write.
 After implementation and applicable technical checks are complete, before commit/push or
 ticket closure:
 
-1. recompute the exact ticket contract;
+1. recompute the exact ticket/remediation contract;
 2. recompute `TICKET_CLOSURE_STATE`;
-3. write/read back v3 `awaiting-closure-verification` with a new Attempt;
-4. enter dispatcher-only mode;
-5. spawn exactly one genuinely fresh non-mutating `$verify-ticket-closure` verifier.
+3. rerun `attention_gate.py verify` with the frozen `Attention Receipt Hash` and require
+   `IMPLEMENT TICKET ATTENTION: VALID` on that exact candidate;
+4. write/read back v3 `awaiting-closure-verification` with a new Attempt, exact candidate,
+   and exact Attention Receipt Hash;
+5. enter dispatcher-only mode;
+6. spawn exactly one genuinely fresh non-mutating `$verify-ticket-closure` verifier.
 
 Pass only the exact durable inputs needed for certification:
 
 * ticket + parent Spec identity;
 * exact `polaris.ticket-contract/v1`;
 * branch/baseline/candidate state;
+* exact Attention Receipt Hash;
 * current coverage identity;
 * Implementation Evidence Index;
 * applicable terminal technical-check evidence;
@@ -425,9 +482,10 @@ result. It may not perform its own semantic closure review.
 
 ### Invalid result
 
-Missing/malformed/mismatched verifier output is neither PASS nor FAIL. Record the attempt
-as `invalid`, keep the candidate immutable, and dispatch a new fresh verifier if the
-candidate/bindings remain exact.
+Missing/malformed/mismatched verifier output, including a missing/mismatched/stale Attention
+receipt admission, is neither PASS nor FAIL. Record the attempt as `invalid`, keep the
+candidate immutable, and dispatch a new fresh verifier if the candidate/bindings remain
+exact.
 
 ### FAIL
 
@@ -446,13 +504,15 @@ A contract/routing gap blocks local correction that depends on the missing autho
 Preserve independent ordinary implementation findings, but do not guess the missing
 contract.
 
-After any candidate correction, the old verdict is stale. Re-run invalidated technical
-checks, build a new evidence index, and dispatch a fresh attempt.
+After any candidate correction, the old verifier verdict and pre-closure Attention receipt
+are stale. Re-run invalidated technical checks, run the pre-closure Attention sweep/gate,
+build a new evidence index, and dispatch a fresh attempt.
 
 ### PASS
 
-Require exact returned Ticket Contract Hash, branch, baseline, candidate state, mode, and
-Review Remediation Contract Hash and selected finding identities when applicable.
+Require exact returned Ticket Contract Hash, Attention Receipt Hash, branch, baseline,
+candidate state, mode, and Review Remediation Contract Hash and selected finding identities
+when applicable.
 
 For the returned contract require:
 
@@ -470,19 +530,22 @@ Persist the exact PASS as `verifier-passed`. PASS means `CERTIFIED`, not `CLOSED
 
 Before persistence:
 
-1. recompute ticket contract and candidate state;
-2. re-run project-delivery/actionability guard when required by current governance;
-3. require the v3 PASS still binds exactly;
-4. require no new blocker/contract/coverage change;
-5. run only checks invalidated since certification, if any; any candidate mutation requires
-   fresh certification.
+1. recompute ticket/remediation contract and candidate state;
+2. rerun `attention_gate.py verify` with the exact v3/PASS Attention Receipt Hash and
+   require `IMPLEMENT TICKET ATTENTION: VALID`;
+3. re-run project-delivery/actionability guard when required by current governance;
+4. require the v3 PASS still binds exactly;
+5. require no new blocker/contract/coverage change;
+6. run only checks invalidated since certification, if any; any candidate mutation requires
+   fresh pre-closure Attention binding and fresh certification.
 
 Commit only ticket-owned changes with an appropriate message. Push the shared Spec branch
 without force. Re-read the pushed commit and require the certified candidate content to
 match exactly.
 
 Persist the ticket's normal closure evidence including exact completion commit, Ticket
-Contract Hash, candidate identity, terminal technical evidence, and verifier PASS.
+Contract Hash, Attention Receipt Hash, candidate identity, terminal technical evidence, and
+verifier PASS.
 
 Close the ticket only after exact pushed readback and durable closure evidence succeed.
 Never rewrite a closed ticket to represent later work.
@@ -524,4 +587,5 @@ state; return to `$to-tickets` as appropriate.
 * repair native ticket hierarchy;
 * certify its own candidate;
 * make a missing material design decision;
+* treat an unbound prose Attention statement as checkpoint completion;
 * treat a passing technical check as semantic closure.

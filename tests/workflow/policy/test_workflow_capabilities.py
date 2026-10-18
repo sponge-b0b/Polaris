@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -48,6 +50,12 @@ def test_known_migration_losses_are_explicitly_restored() -> None:
     assert attention["status"] == "LOST / DEFECT"
     assert attention["resolution"] == "RESTORED_BY_THIS_CHANGE"
     assert "scripts/workflow_attention.py" in attention["owner"]
+
+    blocker = rows["routed-architecture-blocker-finalization"]
+    assert blocker["status"] == "LOST / DEFECT"
+    assert blocker["resolution"] == "RESTORED_BY_THIS_CHANGE"
+    assert blocker["marker"] == "architecture-blocker:v1"
+    assert blocker["owner"] == [".agents/skills/to-tickets/SKILL.md"]
 
 
 def test_shared_handoff_gate_covers_all_lifecycle_producers() -> None:
@@ -139,3 +147,48 @@ def test_machine_attention_consumers_use_shared_validator() -> None:
             assert "--require-nonblocking" in text
         else:
             assert "scripts.workflow_attention" in text
+
+
+def test_durable_state_transition_ownership_is_closed() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "scripts.workflow_state_ownership",
+            "validate",
+            "--manifest",
+            str(MANIFEST_PATH),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "WORKFLOW STATE OWNERSHIP: VALID" in result.stdout
+    assert "Nonterminal states without owner: 0" in result.stdout
+
+
+def test_architecture_blocker_routed_state_has_current_finalization_owner() -> None:
+    machine = _manifest()["state_machines"]["architecture-blocker:v1"]
+    transitions = {(row["from"], row["to"]): row["owner"] for row in machine["transitions"]}
+    assert transitions[("routed", "resolved")] == "to-tickets"
+    assert machine["consumers"]["implement-ticket"]["admissible_states"] == ["resolved"]
+
+    to_tickets = (ROOT / machine["owner_skills"]["to-tickets"]).read_text(encoding="utf-8")
+    for phrase in (
+        "## 9A. Routed architecture-blocker finalization",
+        "routed -> resolved",
+        "PATCH that same managed comment in place",
+        "Unresolved/routed blockers remaining on design-ready tickets: 0",
+    ):
+        assert phrase in to_tickets
+
+
+def test_to_tickets_entrypoint_retains_complete_procedure() -> None:
+    skill = ROOT / ".agents/skills/to-tickets/SKILL.md"
+    procedure = ROOT / ".agents/skills/to-tickets/PROCEDURE.md"
+    assert procedure.exists()
+    text = skill.read_text(encoding="utf-8")
+    assert "## Authoritative procedure composition" in text
+    assert "read `.agents/skills/to-tickets/PROCEDURE.md` in full" in text
+    assert "on conflict, this file wins" in text

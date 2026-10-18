@@ -197,7 +197,6 @@ universes.
 The Parent Spec owns the atomic execution partition through exactly one
 `spec-execution-topology:v1` marker. `$to-tickets` must not draft, merge, split, or reorder
 those units. Stable `EU-001` maps to `T1`, `EU-002` to `T2`, and so on.
-
 Derive the only admissible ordinary decomposition:
 
 ```bash
@@ -430,8 +429,42 @@ This recovery metadata never changes ticket contract semantics.
 
 ## 10. Human approval
 
-Before asking for human approval, emit one **Pre-publication workflow receipts** block.
-This is mandatory; do not replace it with prose summary.
+Before asking for human approval, invoke the formal `$attention` checkpoint exactly as:
+
+```text
+Checkpoint: $to-tickets pre-publication
+```
+
+Persist the exact formal `$attention` result to a temporary file outside repository
+candidate state. It must be either the exact `ATTENTION: CLEAR` form or a complete
+`ATTENTION: FINDINGS` result defined by `.agents/skills/attention/SKILL.md`.
+
+Validate that producer result mechanically:
+
+```bash
+python -m scripts.workflow_attention validate \
+  --result <attention-result-file> \
+  --checkpoint '$to-tickets pre-publication' \
+  --require-nonblocking
+```
+
+Require exact successful stdout beginning with:
+
+```text
+ATTENTION PROTOCOL: VALID
+Checkpoint: $to-tickets pre-publication
+Status: <clear | findings-nonblocking>
+Finding count: <n>
+Attention Result SHA-256: <sha256>
+```
+
+A blocking finding, malformed finding, wrong checkpoint, invented status such as
+`ATTENTION: COMPLETE`, or failed validator means proposal readiness has **not** been
+certified. Do not ask for approval.
+
+Emit the exact formal `$attention` result before the workflow-receipt block so every
+finding remains visible to the human. Then emit one **Pre-publication workflow receipts**
+block. This is mandatory; do not replace it with prose summary.
 
 For an ordinary Wayfinder-managed Spec, the block contains these exact receipt forms:
 
@@ -450,18 +483,25 @@ Missing mappings: 0
 Duplicate mappings: 0
 TICKET EXECUTION CLOSURE: VALID
 Dependency graph: VALID
-ATTENTION: COMPLETE
+ATTENTION PROTOCOL: VALID
+Checkpoint: $to-tickets pre-publication
+Status: <clear | findings-nonblocking>
+Finding count: <n>
+Attention Result SHA-256: <sha256>
 ```
 
 The three Project Delivery lines must be copied verbatim from the successful current-run
 `scripts.project_delivery guard` stdout. `$to-tickets` must not generate them itself.
 The decomposition, topology, coverage, execution-closure, and dependency-graph lines must
 be copied from successful current-run `scripts.spec_contract check-decomposition` stdout;
-prose reasoning is not a substitute.
+prose reasoning is not a substitute. The five Attention Protocol lines must be copied
+verbatim from the successful current-run `scripts.workflow_attention validate` stdout;
+`$to-tickets` must not synthesize a completion token or reconstruct that receipt itself.
 
 For an Independent ordinary Spec, omit only the three project-delivery guard lines. For
 Spec Review mode, substitute the exact remediation-ledger/contract receipts required by
-that mode while retaining any applicable delivery-guard receipt.
+that mode while retaining any applicable delivery-guard receipt and the same formal
+Attention Protocol receipt.
 
 Every line in the receipt block must come from the current run. Do not reconstruct it from
 memory, earlier runs, or a paraphrase. If any required receipt is missing, stale, nonzero,

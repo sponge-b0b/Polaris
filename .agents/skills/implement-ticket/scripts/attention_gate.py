@@ -4,11 +4,12 @@ import argparse
 import hashlib
 import json
 import os
-import re
 import stat
 import subprocess
 from pathlib import Path
 from typing import Any
+
+from scripts.workflow_attention import AttentionProtocolError, validate_file
 
 SCHEMA = "polaris.implement-ticket-attention/v1"
 POLICY_PREFIXES = (b".agents/skills/", b"docs/process/")
@@ -186,40 +187,15 @@ def _policy_sync_admissible(baseline: str, head: str, default_ref: str) -> bool:
 
 
 def _attention_result(path: Path, checkpoint: str) -> tuple[str, str]:
-    text = path.read_text(encoding="utf-8").strip()
-    clear = "\n".join(
-        (
-            "ATTENTION: CLEAR",
-            f"Checkpoint: {checkpoint}",
-            "Material concerns: 0",
+    try:
+        receipt = validate_file(
+            path,
+            checkpoint=checkpoint,
+            require_nonblocking=True,
         )
-    )
-    if text == clear:
-        status = "clear"
-    else:
-        lines = text.splitlines()
-        _need(
-            len(lines) >= 4
-            and lines[0].strip() == "ATTENTION: FINDINGS"
-            and lines[1].strip() == f"Checkpoint: {checkpoint}",
-            f"attention result: expected formal receipt for {checkpoint}",
-        )
-        _need(
-            any(re.fullmatch(r"\s*\d+\.\s+.+", line) for line in lines),
-            "attention result: FINDINGS receipt has no finding rows",
-        )
-        blocking = [
-            line.split(":", 1)[1].strip().lower()
-            for line in lines
-            if line.strip().startswith("Blocking basis:")
-        ]
-        _need(blocking, "attention result: FINDINGS receipt has no Blocking basis rows")
-        _need(
-            all(value == "none" for value in blocking),
-            "attention result: unresolved blocking Attention finding",
-        )
-        status = "findings-nonblocking"
-    return status, hashlib.sha256(text.encode("utf-8")).hexdigest()
+    except AttentionProtocolError as exc:
+        raise AttentionGateError(str(exc)) from exc
+    return receipt.status, receipt.result_sha256
 
 
 def default_receipt_path(ticket: int) -> Path:

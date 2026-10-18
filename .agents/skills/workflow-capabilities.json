@@ -44,6 +44,12 @@
       "owner": ["AGENTS.md", ".agents/skills/attention/SKILL.md"]
     },
     {
+      "id": "attention-producer-consumer-protocol-compatibility",
+      "status": "LOST / DEFECT",
+      "owner": [".agents/skills/attention/SKILL.md", "scripts/workflow_attention.py"],
+      "resolution": "RESTORED_BY_THIS_CHANGE"
+    },
+    {
       "id": "implement-ticket-attention-fail-closed",
       "status": "PRESERVED",
       "owner": [".agents/skills/implement-ticket/scripts/attention_gate.py"],
@@ -205,5 +211,28 @@
       "architecture-remediation",
       "spec-merge-cleanup"
     ]
+  },
+  "attention_protocol": {
+    "producer": ".agents/skills/attention/SKILL.md",
+    "shared_validator": "scripts/workflow_attention.py",
+    "formal_headers": [
+      "ATTENTION: CLEAR",
+      "ATTENTION: FINDINGS"
+    ],
+    "checkpoint_consumers": [
+      "wayfinder",
+      "to-specs",
+      "to-tickets",
+      "architecture-remediation",
+      "implement-ticket",
+      "verify-ticket-closure",
+      "verify-spec",
+      "review-spec"
+    ],
+    "machine_consumers": {
+      "wayfinder": ".agents/skills/wayfinder/scripts/route_handoff.py",
+      "to-tickets": ".agents/skills/to-tickets/SKILL.md",
+      "implement-ticket": ".agents/skills/implement-ticket/scripts/attention_gate.py"
+    }
   }
 }

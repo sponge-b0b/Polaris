@@ -10,6 +10,12 @@ The audit is semantic rather than line-count based. A removed file/section is sa
 its capability is still present, has a current equivalent owner, or was explicitly retired
 with a durable replacement. Omission is not retirement evidence.
 
+The audit now also checks **cross-skill protocol compatibility**. The mere presence of a
+producer capability and a consumer checkpoint is not sufficient: producer result schema,
+consumer-admitted status vocabulary, checkpoint identity, and any machine validator must
+agree. A consumer-defined synthetic receipt is a workflow defect even when both skills
+individually mention the same capability.
+
 Status vocabulary:
 
 - `PRESERVED` — the same lifecycle guarantee has a current owner.
@@ -17,25 +23,36 @@ Status vocabulary:
   still owned and enforced.
 - `INTENTIONALLY RETIRED` — the old capability/mechanism was explicitly retired and its
   surviving responsibility is named.
-- `LOST / DEFECT` — the migration removed a required capability without a current owner.
+- `LOST / DEFECT` — the migration removed or made incompatible a required capability.
 - `AMBIGUOUS` — evidence was insufficient to classify safely.
 
 The machine-readable companion is `.agents/skills/workflow-capabilities.json`.
 
 ## Result
 
-The audit found three unresolved migration losses, all in the cross-skill Human Handoff
-family:
+The audit originally found three unresolved migration losses in the cross-skill Human
+Handoff family:
 
 1. lifecycle-boundary classification (internal composition / ordinary return / in-skill
    HITL / Human Handoff);
 2. canonical artifact handoff command format;
 3. fresh-session durability before a Human Handoff.
 
-This recovery restores those three as one shared cross-skill invariant and adds
-`scripts/workflow_handoff.py` as the deterministic generator/validator. The existing
-Wayfinder Route Clarity gate delegates its artifact invocation line to that shared
-renderer.
+A later `$to-tickets` execution exposed a fourth migration loss that the original audit did
+not detect:
+
+4. **Attention producer/consumer protocol compatibility.** Pre-cutover `$to-tickets`
+   explicitly invoked `$attention` before proposal readiness. The migrated skill replaced
+   that formal producer result with a consumer-defined `ATTENTION: COMPLETE` receipt even
+   though `$attention` defines only `ATTENTION: CLEAR` and `ATTENTION: FINDINGS`. That
+   allowed proposal approval to proceed without mechanically proving a valid formal
+   Attention result.
+
+This recovery restores the first three as the shared Human Handoff invariant and restores
+the fourth through `scripts/workflow_attention.py`, the repository-wide deterministic
+Attention result validator. Existing machine-enforced Attention consumers delegate formal
+result parsing to that shared validator, and `$to-tickets` must validate a current formal
+result before asking for approval.
 
 No core lifecycle capability remains `AMBIGUOUS`. All other audited pre-cutover capabilities
 are preserved, replaced equivalently, or have explicit retirement evidence.
@@ -50,7 +67,8 @@ are preserved, replaced equivalently, or have explicit retirement evidence.
 | Fresh-session Handoff durability | LOST / DEFECT → restored | Shared README rule + required durability receipt in shared gate manifest |
 | Workflow architecture requires owner authorization | PRESERVED | `AGENTS.md` mandate/structural-mutation guard; current README change control |
 | Proactive Attention checkpoint roster | PRESERVED | `AGENTS.md`; `$attention` |
-| `$implement-ticket` Attention fail-closed behavior | PRESERVED / hardened after cutover | `c82e272d112f37480330667323fc9415c57ca58e` |
+| Attention producer/consumer protocol compatibility | LOST / DEFECT → restored | `$attention` formal output + `scripts/workflow_attention.py`; consumer regression tests reject invented headers |
+| `$implement-ticket` Attention fail-closed behavior | PRESERVED / hardened after cutover | `c82e272d...`; formal parsing now delegates to the shared validator |
 | Intake promotion remains human-owned | REPLACED-EQUIVALENT | Current lifecycle permits Wayfinder or bounded Independent CCL path; no automatic promotion |
 | Lifecycle re-entry/backward routing | PRESERVED | `$architecture-remediation`; `$to-specs`; review remediation routes |
 | Project focus distinct from dependency | PRESERVED / strengthened | `$project-delivery-management`; executable `scripts.project_delivery` guard |
@@ -76,7 +94,43 @@ are preserved, replaced equivalently, or have explicit retirement evidence.
 | Issue open/closed state is not sufficient lifecycle authority | PRESERVED | `$spec-merge-cleanup` exact recovery classification; Project remains downstream |
 | Provenance does not substitute for hierarchy/dependency truth | PRESERVED | `AGENTS.md`; `$to-specs`; Project Delivery rules |
 | Branch/baseline/readiness gates | PRESERVED / restored after cutover | `9802faf6...`; current `$to-tickets`, `$to-specs`, `$implement-ticket` |
-| Wayfinder Route Clarity terminal enforcement | PRESERVED / hardened after cutover | `c3ddbfdd...`; now delegates artifact line rendering to shared gate |
+| Wayfinder Route Clarity terminal enforcement | PRESERVED / hardened after cutover | `c3ddbfdd...`; artifact rendering uses shared Human Handoff gate and formal Attention parsing uses the shared Attention validator |
+
+## Attention protocol recovery
+
+The formal producer contract remains owned by `$attention`:
+
+```text
+ATTENTION: CLEAR
+Checkpoint: <checkpoint>
+Material concerns: 0
+```
+
+or:
+
+```text
+ATTENTION: FINDINGS
+Checkpoint: <checkpoint>
+
+1. <concise concern>
+   Observation: <...>
+   Why it matters: <...>
+   Authority: <...>
+   Recommendation/routing: <...>
+   Blocking basis: <existing workflow rule | none>
+```
+
+`scripts/workflow_attention.py` validates that exact grammar and checkpoint identity. A
+consumer that requires a nonblocking transition also requires every finding to carry
+`Blocking basis: none`.
+
+`ATTENTION: COMPLETE` is not a formal result and is rejected. The migration regression test
+scans every current `SKILL.md` for invented `ATTENTION:` result headers so a future consumer
+cannot silently introduce a third status vocabulary.
+
+The machine-readable manifest also names the formal producer, shared validator, checkpoint
+consumer roster, and current machine consumers. Machine consumers must delegate to the
+shared validator rather than reimplementing a weaker parser.
 
 ## Retirement evidence
 
@@ -98,6 +152,11 @@ all capability-level tests green. A migration may not make a capability disappea
 removing its prose/file. It must classify the capability as preserved, replaced-equivalent,
 or intentionally retired with an explicit current owner/replacement.
 
-For artifact Human Handoffs, the shared gate is now the canonical enforcement boundary.
+Cross-skill protocol compatibility is part of that proof. For each shared protocol, tests
+must bind the producer, legal result/status vocabulary, checkpoint consumers, and shared
+machine validator where one exists. A consumer may not invent a third result status or
+weaken required fields while still claiming the producer checkpoint completed.
+
+For artifact Human Handoffs, the shared gate is the canonical enforcement boundary.
 Workflow-specific gates may add stricter checks but must not duplicate or redefine the
 artifact invocation grammar.

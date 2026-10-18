@@ -7,224 +7,98 @@ disable-model-invocation: true
 
 # Implement Ticket
 
-`$implement-ticket` owns implementation and lifecycle completion of one published ticket.
-It does **not** decide what the ticket means.
+## Authoritative procedure composition
 
-For an ordinary CCL-backed ticket, the executable contract is derived mechanically:
+Before executing this skill, read `.agents/skills/implement-ticket/PROCEDURE.md` in full.
+That file preserves the complete established `$implement-ticket` procedure. This
+`SKILL.md` is the authoritative entrypoint and owns the execution-anchor corrections below;
+on conflict, this file wins. Failure to load the retained procedure is a hard blocker.
 
-```text
-current Spec contract
-+ ticket-coverage-manifest:v2
-+ this ticket destination
-        ↓
-polaris.ticket-contract/v1
-        ↓
-assigned OBL/IMP/TEST cells + parent EXC guardrails
-```
+The retained procedure continues to own Invocation termination, durable ticket recovery,
+hierarchy/dependency/project-delivery admission, architecture-blocker admission, deterministic
+contract construction, implementation scope, technical checks, Durable closure checkpoint
+v3, Independent closure dispatch, certified persistence/closure, and Frontier handoff except
+where this entrypoint explicitly replaces Ticket-baseline-relative candidate mechanics.
 
-The implementation actor may choose implementation-equivalent private mechanics. It may
-not add, remove, strengthen, weaken, or reinterpret a material semantic obligation.
+## Execution-anchor invariant
 
-## Invocation termination
-
-This invocation may stop only at exactly one of these terminal conditions:
-
-* **Completed** — all required implementation, verification, persistence, readback, ticket
-  closure, recovery reconciliation, and frontier handoff work for this invocation is done;
-* **Human Handoff** — a current owning workflow explicitly requires human authorization or
-  a material human decision before this invocation can legally continue;
-* **Hard Blocker** — a concrete external/environmental, branch, baseline, permission,
-  required-tool, persistence, or contradictory durable-state failure prevents further safe
-  work.
-
-Everything else is non-terminal. In particular, partial progress, an implementation/test
-failure, `TICKET CLOSURE: FAIL`, an open ticket, an `awaiting-closure-verification` or
-`verifier-failed` checkpoint, corrective edits that make prior evidence stale, remaining
-actionable in-scope work, and `TICKET CLOSURE: PASS` before exact persistence/closure do
-not authorize stopping.
-
-When none of the three terminal conditions applies, continue the lifecycle in the same
-invocation.
-
-## 1. Recover durable ticket state
-
-Assume no chat/session state.
-
-Read the current ticket, its native direct parent, parent Spec, current Spec body, current
-Ticket Coverage Manifest v2, native blockers/dependencies, branch/baseline state, current
-CCL ledger, and the one current closure checkpoint when present.
-
-Determine mode:
+`Ticket baseline` and `Execution Anchor` are different authorities:
 
 ```text
-ordinary
-    native parent = Parent Spec
+Ticket baseline
+    immutable per-ticket historical / lineage anchor
 
-remediation
-    native parent = conventional Spec Review
-    Parent Spec remains lifecycle/branch provenance
+Execution Anchor
+    exact fetched remote shared-Spec-branch commit at which this implementation attempt
+    begins, before this ticket makes substantive candidate changes
 ```
 
-Missing, ambiguous, or contradictory native/textual lineage fails closed. `$implement-ticket`
-validates hierarchy; `$to-tickets` owns repairing it.
+A pinned Ticket baseline remains immutable. Legitimate shared-branch advancement after that
+baseline may include accepted CCL/ADR/Spec reconciliation, prerequisite ticket completion,
+workflow-policy synchronization, or other already-durable shared-branch history. Such
+advancement is not automatically this ticket's implementation candidate.
 
-Resolve governance from the parent Spec's local provenance markers. Independent Specs never
-acquire a Wayfinder. For Wayfinder-managed Specs, perform the prescribed
-`$project-delivery-management reconcile` + guard calls and require an admitted ALLOWED
-result before substantive mutation.
+The current ticket candidate is **only** the Git-relevant path state that differs from the
+Execution Anchor (plus untracked non-ignored paths). Do not compute candidate identity from
+the historical Ticket baseline once an Execution Anchor has been admitted.
 
-Require open native ticket blockers to be closed. Resolve any current
-`architecture-blocker:v1`; unresolved/routed state follows its current owning handoff and
-never gets self-resolved by implementation.
+This distinction does not weaken fail-closed behavior. A new Execution Anchor may be minted
+only before substantive mutation, from a clean worktree at the exact fetched remote shared
+branch tip, after the current ticket contract and all admission guards validate. An existing
+current v3 closure checkpoint means resume that checkpoint's attempt; do not mint a fresh
+Execution Anchor to launder or hide an earlier candidate.
 
-## 2. Guard branch and ticket baseline
+## Guard branch, immutable Ticket baseline, and current remote state
 
-All tickets under one Spec use the published shared Spec branch. A declared Ticket branch
-must exactly equal the current branch before ordinary mutation.
+Apply the retained `## 1. Recover durable ticket state`, hierarchy, native blocker,
+architecture-blocker, and project-delivery guards first. Build and validate the exact current
+ticket/remediation contract before pre-mutation Attention.
 
-`Ticket baseline` is per-ticket and immutable after pinning:
+Keep the retained Ticket-baseline rules with these corrections:
 
-* `Pending` -> pin the exact pre-mutation shared-branch HEAD, persist it in the ticket,
-  and read it back;
-* full SHA -> require it to exist and be an ancestor of the current ticket candidate;
-* anything else -> fail closed.
+* `Pending` still pins the exact shared-branch HEAD before first substantive mutation and is
+  then immutable.
+* A full-SHA Ticket baseline must exist and be an ancestor of the admitted Execution Anchor.
+  Do not require the current shared branch to equal that historical SHA.
+* Never recompute or overwrite a pinned baseline merely because accepted upstream/shared
+  branch history advanced.
 
-Do not silently create/switch/repair the branch.
+Before a fresh pre-mutation Attention gate:
 
-### Live-WIP reslice recovery
+1. require a clean worktree and the exact declared ticket branch;
+2. fetch the actual remote ticket branch, not merely the local tracking ref;
+3. if local HEAD is behind the fetched remote tip and is its ancestor, fast-forward only
+   (`git merge --ff-only`) while still clean; this synchronization is shared-branch recovery,
+   not ticket candidate mutation;
+4. if local HEAD is ahead, diverged, dirty, or cannot fast-forward exactly, stop as a Hard
+   Blocker rather than guessing, resetting, stashing, or force-updating;
+5. re-run/re-read current parent Spec, coverage, ticket contract, native blockers,
+   architecture-blocker state, and project-delivery admission on that synchronized state;
+6. resolve the current `implement-ticket-closure-checkpoint:v3`. If one exists, use the
+   retained resume/dispatch rules and its recorded Execution Anchor. Do not start a new
+   pre-mutation attempt over it.
 
-If current durable state contains `ticket-reslice-recovery:v1`, preserve its established
-isolated-worktree safety invariant:
+The machine gate itself fetches the remote branch again and rejects a stale local HEAD, so a
+stale `origin/<branch>` tracking ref cannot satisfy this guard by itself.
 
-* the protected caller checkout is immutable donor/recovery state;
-* execute the actionable participant in an isolated worktree when the record requires it;
-* attribute every donor hunk/path to an exact durable owner before transplanting it;
-* never stash/reset/clean/overwrite the protected donor checkout;
-* native dependencies, not recovery metadata, determine actionability;
-* the participant closing second terminalizes the record as `source-reconciled` with both
-  exact certified completion commits;
-* ambiguous ownership or completion identity is a Hard Blocker.
+## Pre-mutation Attention and Execution Anchor capture
 
-This recovery mechanism transports WIP only. It cannot change the current ticket
-contract.
-
-## 3. Build the deterministic ticket contract
-
-### Ordinary CCL-backed ticket
-
-Take one exact current parent-Spec body snapshot and build the deterministic Spec contract:
-
-```bash
-python -m scripts.ccl_spec check <spec-body-file> contracts/ccl/transactions
-python -m scripts.spec_contract build <spec-issue-json> <spec-contract.json>
-python -m scripts.spec_contract check-coverage <spec-contract.json> <coverage.json>
-```
-
-Recover this published ticket's exact coverage `destination` from the current
-`ticket-coverage-manifest:v2` (for example `T1`). The destination is the route identity
-owned by `$to-tickets`; it is not the GitHub issue number and must not be inferred from the
-ticket title. Then bind this published ticket to that exact route:
-
-```bash
-python -m scripts.spec_contract build-ticket \
-  <spec-contract.json> \
-  <coverage.json> \
-  "<ticket-destination>" \
-  <ticket-body-file> \
-  <ticket-contract.json>
-```
-
-Require:
-
-```text
-TICKET CONTRACT: VALID
-```
-
-The resulting `polaris.ticket-contract/v1` owns ordinary ticket contract identity:
-
-* `spec_contract_hash`;
-* `ticket_contract_hash`;
-* exact assigned `OBL-*`, `IMP-*`, and `TEST-*` cells with current `cell_hash` values;
-* exact CCL addresses for assigned `OBL-*` cells;
-* every current parent `EXC-*` as a guardrail.
-
-All parent exclusions are transported as guardrails so implementation does not have to
-interpret which exclusions "probably apply". The verifier may later disposition an
-exclusion `not-applicable` only from concrete candidate evidence.
-
-The published ticket `## Contract cells` section must be the exact human-readable
-projection of those assigned cells. A stale hash, missing/extra cell, changed CCL address,
-or changed private/test requirement is a ticket/decomposition defect. Stop and return to
-`$to-tickets`; do not reconstruct intended meaning from ticket prose.
-
-### Spec Review remediation ticket
-
-A current Review Remediation Ticket does not use Root Blocker semantics.
-
-Recover the conventional Spec Review's one active v2 finding ledger and build the exact
-review remediation contract:
-
-```bash
-python -m scripts.review_remediation validate-ledger \
-  <spec-contract.json> <review-findings.json>
-
-python -m scripts.review_remediation validate-ticket \
-  <spec-contract.json> \
-  <review-findings.json> \
-  <ticket-body-file> \
-  <review-remediation-contract.json>
-```
-
-Require:
-
-```text
-REVIEW FINDING LEDGER: VALID
-REVIEW REMEDIATION CONTRACT: VALID
-```
-
-`polaris.review-remediation-contract/v1` is the executable remediation contract. It binds:
-
-* exact current `SPEC_CONTRACT_HASH`;
-* exact open Blocking `RF-*` findings owned by review remediation;
-* each selected finding's immutable `finding_hash` and frozen falsifier;
-* exact current affected Spec cells/hashes;
-* exact applicable Standards references;
-* every other current parent-Spec cell as a preservation guardrail.
-
-A remediation ticket may group several findings for execution convenience. Grouping does
-not create a new semantic invariant, root, sibling universe, or architecture obligation.
-
-If a finding is a cell-routing defect, planning-cell gap, or contract-authority gap, it is
-not admissible to this remediation contract. Route it to its owning workflow instead.
-
-## 4. Implement only the frozen ticket contract
-
-Before first substantive mutation, perform the `$attention` Sweep Procedure with the exact
-ticket contract, branch/baseline, candidate context, and materially implicated sibling/
-authority surfaces. Reading, listing, searching for, or otherwise discovering the
-`$attention` skill does **not** satisfy this checkpoint.
-
-Emit the formal `$attention` result with exactly:
+The retained formal `$attention` checkpoint remains mandatory with exactly:
 
 ```text
 Checkpoint: $implement-ticket pre-mutation
 ```
 
-A CLEAR result uses the normal three-line `$attention` form. A FINDINGS result must preserve
-each finding's `Blocking basis`. Route/disposition findings under current authority; a
-finding with a blocking basis other than `none` prevents implementation.
-
-Write the exact formal Attention result to a temporary file outside the repository candidate,
-then run the machine gate before any substantive mutation. Resolve the current default-branch
-ref first so policy-sync admission is checked against current policy:
+Write that exact formal result to a temporary file outside the candidate, then invoke the
+machine gate directly as documented; no `PYTHONPATH` workaround is required:
 
 ```bash
 python .agents/skills/implement-ticket/scripts/attention_gate.py pre-mutation \
   --ticket <ticket-number> \
   --contract <ticket-or-remediation-contract.json> \
-  --baseline <ticket-baseline> \
+  --baseline <immutable-ticket-baseline> \
   --branch <ticket-branch> \
-  --default-ref <current-default-branch-ref> \
+  --remote origin \
   --attention-result <pre-mutation-attention-result-file>
 ```
 
@@ -232,360 +106,96 @@ Require:
 
 ```text
 IMPLEMENT TICKET ATTENTION: PRE-MUTATION VALID
+Ticket baseline: <immutable sha>
+Execution Anchor: <exact fetched remote branch tip>
 ```
 
-The gate writes `polaris.implement-ticket-attention/v1` working safety state under the
-worktree's Git metadata. It fails if the worktree already contains candidate mutation, if a
-committed baseline→HEAD delta is anything other than an admissible default-branch
-workflow-policy synchronization, if contract/branch/baseline identity is wrong, if the
-checkpoint name is wrong, or if any formal Attention finding remains blocking. This makes
-the checkpoint non-retroactive: prose saying that a sweep happened is not evidence, and an
-agent cannot mint the pre-mutation receipt after implementation has already changed the
-candidate.
+Capture the exact `Execution Anchor` and `Attention Receipt Hash`. The receipt schema is
+`polaris.implement-ticket-attention/v2` and binds ticket, branch, immutable Ticket baseline,
+Execution Anchor, exact current contract hash, pre-mutation Attention result, and the clean
+candidate state relative to the Execution Anchor.
 
 No substantive mutation is allowed until this command succeeds.
 
-For each assigned cell:
+The old retained rule that admitted `baseline -> HEAD` only when it was default-branch
+workflow-policy synchronization is superseded. Non-retroactivity is now enforced by the
+clean exact-remote Execution Anchor plus the rule that HEAD may not change after the
+pre-mutation gate until certification/persistence.
 
-* `OBL-*` — implement the exact typed CCL semantics without changing their strength;
-* `IMP-*` — implement the exact private/mechanical planning obligation; equivalent private
-  mechanics are allowed only when the cell permits them;
-* `TEST-*` — create/adjust the exact requested proof/test capability;
-* `EXC-*` — do not implement excluded behavior and do not use an exclusion as positive work.
+## Candidate identity and pre-closure Attention
 
-Use `$coding-standards`, `$database-migrations`, `$wiki-sync`, `$verify-code`, repository
-architecture checks, documentation checks, and other established helpers when their
-current applicability rules select them. Observe the repository pytest service-preflight
-rule before any pytest command.
-
-The parent must fix known implementation/test/technical failures before dispatching closure
-verification. Passing technical checks are evidence, not semantic closure.
-
-### Material design gap
-
-If correct implementation requires a material semantic choice not present in assigned CCL
-assertions, implementation stops before choosing it.
-
-Classify:
+Every retained candidate-state algorithm remains byte-for-byte the same except replace the
+Git diff base `TICKET_BASELINE` with `EXECUTION_ANCHOR`:
 
 ```text
-planning-cell-gap
-    private/test work is missing but no new material semantics are required
-    -> $to-specs
-
-contract-authority-gap
-    a new/change material semantic decision is required
-    -> $architecture-remediation / owning semantic decision path
-
-cell-routing-defect
-    an existing exact current Spec cell is assigned incorrectly or absent from this ticket
-    -> $to-tickets
+path universe =
+    git diff --no-renames --name-only -z <execution-anchor> --
+    union untracked non-ignored paths
 ```
 
-Persist existing blocker/defect state through its owning workflow; do not create parallel
-semantic authority in this skill.
+This `TICKET_CLOSURE_STATE` therefore identifies only this attempt's candidate, excluding
+already-durable shared-branch history between Ticket baseline and Execution Anchor.
 
-## 5. Build the Implementation Evidence Index
-
-The implementation actor does **not** build a Ticket Acceptance Universe or assign its own
-semantic `proven` verdicts.
-
-After applicable implementation/checks are complete and before freezing the Implementation
-Evidence Index, perform the `$attention` Sweep Procedure again against the actual final
-public/durable change surface and emit the formal result with exactly:
-
-```text
-Checkpoint: $implement-ticket pre-closure
-```
-
-A blocking Attention finding must be dispositioned before closure dispatch. If disposition
-causes candidate mutation, rerun invalidated technical checks and repeat this pre-closure
-Attention checkpoint on the corrected candidate.
-
-Write the exact result to a temporary file outside the repository candidate and bind it to
-the current candidate:
+Before closure dispatch, run the retained pre-closure Attention sweep and bind it with:
 
 ```bash
 python .agents/skills/implement-ticket/scripts/attention_gate.py pre-closure \
   --ticket <ticket-number> \
   --contract <ticket-or-remediation-contract.json> \
-  --baseline <ticket-baseline> \
+  --baseline <immutable-ticket-baseline> \
   --branch <ticket-branch> \
+  --execution-anchor <execution-anchor> \
   --attention-result <pre-closure-attention-result-file>
 ```
 
-Require:
-
-```text
-IMPLEMENT TICKET ATTENTION: PRE-CLOSURE VALID
-```
-
-Capture the exact `Attention Receipt Hash` printed by that command. Immediately verify the
-same frozen receipt and candidate:
+Then verify the frozen receipt with:
 
 ```bash
 python .agents/skills/implement-ticket/scripts/attention_gate.py verify \
   --ticket <ticket-number> \
   --contract <ticket-or-remediation-contract.json> \
-  --baseline <ticket-baseline> \
+  --baseline <immutable-ticket-baseline> \
   --branch <ticket-branch> \
+  --execution-anchor <execution-anchor> \
   --expected-receipt-hash <attention-receipt-hash>
 ```
 
-Require:
+Require `IMPLEMENT TICKET ATTENTION: PRE-CLOSURE VALID` and then
+`IMPLEMENT TICKET ATTENTION: VALID`. The gate rejects any committed HEAD movement after the
+Execution Anchor and any stale candidate bytes.
 
-```text
-IMPLEMENT TICKET ATTENTION: VALID
-```
+## Durable closure checkpoint v3 and independent verifier binding
 
-Any candidate mutation after `pre-closure` makes the receipt stale and requires invalidated
-technical checks plus a fresh pre-closure Attention sweep/gate. Do not write the v3
-`awaiting-closure-verification` checkpoint until this verification succeeds.
-
-Then build only this concise retrieval index:
-
-```text
-Ticket Contract Hash: <hash>
-Attention Receipt Hash: <hash>
-Candidate state: <TICKET_CLOSURE_STATE>
-Changed/implemented surfaces: <compact path/component groups>
-
-Evidence:
-- <cell(s)> -> <implementation surface>; <test/check/evidence pointer>
-- ...
-
-Applicable technical checks:
-- <check> -> PASS on <candidate/scope identity>
-- ...
-
-Known unresolved implementation failures: 0
-Known unresolved design/architecture blockers: 0
-```
-
-Evidence rows are pointers for the independent verifier. They are not semantic PASS
-claims and need not be one row per predicate when cells share the same implementation
-surface.
-
-For remediation, also include the exact Review Remediation Contract Hash, selected `RF-*`
-identities, frozen falsifiers, Standards references, and preservation/proof pointers.
-
-## 6. Candidate identity
-
-Before closure dispatch compute `TICKET_CLOSURE_STATE` over the final Git-relevant path
-state relative to the immutable Ticket baseline.
-
-The path universe is the union of:
-
-* `git diff --no-renames --name-only -z <baseline> --`;
-* untracked non-ignored paths.
-
-For sorted raw paths hash:
-
-```text
-path\0<raw-path>\0
-state\0DELETED\0
-```
-
-for absent paths, otherwise:
-
-```text
-path\0<raw-path>\0
-mode\0<100644|100755|120000>\0
-sha256\0<final-content-or-symlink-target-sha256>\0
-```
-
-Hash that byte stream with SHA-256. This identity is independent of staged/untracked/
-committed representation when final bytes/mode are unchanged.
-
-Tracker-only tickets additionally bind the exact required tracker state.
-
-Use the same algorithm at dispatch, verifier-return admission, pre-persistence recheck,
-and stale-PASS detection.
-
-## 7. Durable closure checkpoint v3
-
-Use exactly one machine-managed comment:
-
-```text
-<!-- implement-ticket-closure-checkpoint:v3 -->
-```
-
-Persist at least:
+The retained `implement-ticket-closure-checkpoint:v3` schema is strengthened with:
 
 ```markdown
-<!-- implement-ticket-closure-checkpoint:v3 -->
-## Implement Ticket Closure Checkpoint
-
-**Version:** 3
-**Stage:** awaiting-closure-verification | verifier-failed | verifier-passed
-**Ticket:** #<ticket>
-**Mode:** ordinary | remediation
-**Ticket branch:** <branch>
-**Ticket baseline:** <sha>
-**Parent Spec:** #<spec>
-**Spec Contract Hash:** <hash>
-**Ticket Contract Hash:** <hash>
-**Attention Receipt Hash:** <hash>
-**Assigned cells:** <IDs>
-**CCL:** <exact inherited addresses | None>
-**Remediation parent:** <Spec Review #n | None>
-**Review Remediation Contract Hash:** <hash | None>
-**Review findings:** <RF IDs | None>
-**Candidate state:** <TICKET_CLOSURE_STATE>
-**Attempt:** <n>
-
-### Implementation Evidence Index
-<exact current index>
-
-### Last verifier result
-<None | exact current TICKET CLOSURE result>
-
-### Attempt history
-- Attempt <n> | <candidate> | <PASS|FAIL|invalid> | <summary>
+**Ticket baseline:** <immutable historical sha>
+**Execution Anchor:** <exact pre-mutation fetched shared-branch sha>
+**Candidate state:** <hash relative to Execution Anchor>
 ```
 
-Zero or one active v3 marker is allowed; more than one fails closed. POST/PATCH the one
-managed comment and read it back exactly after every write.
+Persist/read back the Execution Anchor anywhere the retained procedure currently binds
+Ticket baseline and candidate identity. Dispatch `$verify-ticket-closure` with both values.
+The verifier result must bind both values exactly.
 
-## 8. Independent closure dispatch
+An existing v3 checkpoint without an Execution Anchor is not silently upgraded by minting a
+new attempt over the same candidate. If its exact candidate was created under the older
+receipt schema, fail closed and route to the owning recovery path; do not retroactively
+assert a v2 pre-mutation receipt.
 
-After implementation and applicable technical checks are complete, before commit/push or
-ticket closure:
+## Persistence and representation independence
 
-1. recompute the exact ticket/remediation contract;
-2. recompute `TICKET_CLOSURE_STATE`;
-3. rerun `attention_gate.py verify` with the frozen `Attention Receipt Hash` and require
-   `IMPLEMENT TICKET ATTENTION: VALID` on that exact candidate;
-4. write/read back v3 `awaiting-closure-verification` with a new Attempt, exact candidate,
-   and exact Attention Receipt Hash;
-5. enter dispatcher-only mode;
-6. spawn exactly one genuinely fresh non-mutating `$verify-ticket-closure` verifier.
+Before commit/push, the Attention verifier runs while HEAD still equals the Execution Anchor.
+After independent closure PASS, commit only the exact certified candidate and push without
+force under the retained persistence rules.
 
-Pass only the exact durable inputs needed for certification:
+Representation independence is preserved: recomputing candidate content relative to the
+same Execution Anchor before and after committing the exact bytes yields the same candidate
+identity. Ticket baseline remains immutable lineage evidence and is never substituted for
+the Execution Anchor in candidate hashing.
 
-* ticket + parent Spec identity;
-* exact `polaris.ticket-contract/v1`;
-* branch/baseline/candidate state;
-* exact Attention Receipt Hash;
-* current coverage identity;
-* Implementation Evidence Index;
-* applicable terminal technical-check evidence;
-* for remediation, the exact `polaris.review-remediation-contract/v1`.
+## Frontier handoff
 
-Do not pass an alternate prose-derived semantic universe.
-
-While dispatcher-only the parent may only dispatch, receive the result, recompute exact
-candidate/tracker bindings, mechanically validate verdict shape/identity, and persist the
-result. It may not perform its own semantic closure review.
-
-## 9. Consume verifier result
-
-### Invalid result
-
-Missing/malformed/mismatched verifier output, including a missing/mismatched/stale Attention
-receipt admission, is neither PASS nor FAIL. Record the attempt as `invalid`, keep the
-candidate immutable, and dispatch a new fresh verifier if the candidate/bindings remain
-exact.
-
-### FAIL
-
-Persist the exact FAIL as `verifier-failed`, including all findings. Then route each
-finding by owner:
-
-* implementation/test defect inside assigned cells -> resume implementation now;
-* `cell-routing-defect` -> durable decomposition record + Human Handoff to `$to-tickets`;
-* `planning-cell-gap` -> Human Handoff to `$to-specs`;
-* `contract-authority-gap` / material design gap -> Human Handoff to
-  `$architecture-remediation` / governing semantic owner;
-* remediation finding violation -> resume implementation when implementation-owned;
-  route a newly proven contract/routing gap to its owning workflow.
-
-A contract/routing gap blocks local correction that depends on the missing authority.
-Preserve independent ordinary implementation findings, but do not guess the missing
-contract.
-
-After any candidate correction, the old verifier verdict and pre-closure Attention receipt
-are stale. Re-run invalidated technical checks, run the pre-closure Attention sweep/gate,
-build a new evidence index, and dispatch a fresh attempt.
-
-### PASS
-
-Require exact returned Ticket Contract Hash, Attention Receipt Hash, branch, baseline,
-candidate state, mode, and Review Remediation Contract Hash and selected finding identities
-when applicable.
-
-For the returned contract require:
-
-```text
-assigned cells unchecked: 0
-assigned cells violated: 0
-assigned cells unproven: 0
-exclusion guardrails unresolved: 0
-unresolved design/contract gaps: 0
-```
-
-Persist the exact PASS as `verifier-passed`. PASS means `CERTIFIED`, not `CLOSED`.
-
-## 10. Persist the exact certified candidate
-
-Before persistence:
-
-1. recompute ticket/remediation contract and candidate state;
-2. rerun `attention_gate.py verify` with the exact v3/PASS Attention Receipt Hash and
-   require `IMPLEMENT TICKET ATTENTION: VALID`;
-3. re-run project-delivery/actionability guard when required by current governance;
-4. require the v3 PASS still binds exactly;
-5. require no new blocker/contract/coverage change;
-6. run only checks invalidated since certification, if any; any candidate mutation requires
-   fresh pre-closure Attention binding and fresh certification.
-
-Commit only ticket-owned changes with an appropriate message. Push the shared Spec branch
-without force. Re-read the pushed commit and require the certified candidate content to
-match exactly.
-
-Persist the ticket's normal closure evidence including exact completion commit, Ticket
-Contract Hash, Attention Receipt Hash, candidate identity, terminal technical evidence, and
-verifier PASS.
-
-Close the ticket only after exact pushed readback and durable closure evidence succeed.
-Never rewrite a closed ticket to represent later work.
-
-Reconcile any active live-WIP recovery record under its order-independent terminalization
-rule. Never delete/reset a protected donor checkout while another nonterminal recovery
-record depends on it.
-
-## 11. Frontier handoff
-
-After closure, re-read the parent Spec's current v2 coverage, implementation tickets,
-native blockers, and current contract identity.
-
-If another implementation ticket is independently actionable, emit one copy-ready line per
-frontier ticket:
-
-```text
-$implement-ticket - <Ticket Title> (<Ticket URL>)
-```
-
-If all current executable cells are covered by durably closed tickets and no open ticket
-work remains, hand off:
-
-```text
-$verify-spec - <Spec Title> (<Spec URL>)
-```
-
-If current contract/coverage changed during closure, do not infer the frontier from stale
-state; return to `$to-tickets` as appropriate.
-
-## Non-goals
-
-`$implement-ticket` does not:
-
-* infer hidden obligations from Spec/ticket/ADR/wiki prose;
-* build an architecture/source-unit semantic universe;
-* create or revise CCL;
-* reslice tickets;
-* repair native ticket hierarchy;
-* certify its own candidate;
-* make a missing material design decision;
-* treat an unbound prose Attention statement as checkpoint completion;
-* treat a passing technical check as semantic closure.
+The retained Frontier handoff remains authoritative after exact persistence, ticket closure,
+and dependency/frontier readback. Execution-anchor recovery does not change native
+dependency actionability or authorize implementation of a blocked sibling.

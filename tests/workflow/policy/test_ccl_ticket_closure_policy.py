@@ -1,12 +1,19 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-IMPLEMENT = (
-    ROOT / ".agents/skills/implement-ticket/SKILL.md"
-).read_text(encoding="utf-8")
-VERIFY = (
-    ROOT / ".agents/skills/verify-ticket-closure/SKILL.md"
-).read_text(encoding="utf-8")
+
+
+def _composed_skill(relative: str) -> str:
+    skill = ROOT / relative / "SKILL.md"
+    text = skill.read_text(encoding="utf-8")
+    procedure = skill.parent / "PROCEDURE.md"
+    if procedure.exists():
+        text += "\n" + procedure.read_text(encoding="utf-8")
+    return text
+
+
+IMPLEMENT = _composed_skill(".agents/skills/implement-ticket")
+VERIFY = _composed_skill(".agents/skills/verify-ticket-closure")
 AGENTS = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
 README = (ROOT / ".agents/skills/README.md").read_text(encoding="utf-8")
 
@@ -70,6 +77,24 @@ def test_implement_ticket_attention_checkpoints_are_auditable() -> None:
     assert "No substantive mutation is allowed until" in IMPLEMENT
     assert "Checkpoint: $implement-ticket pre-closure" in IMPLEMENT
     assert "Do not write the\nv3 `awaiting-closure-verification` checkpoint until" in IMPLEMENT
+
+
+def test_execution_anchor_separates_lineage_from_candidate_identity() -> None:
+    for text in (IMPLEMENT, VERIFY):
+        assert "Ticket baseline" in text
+        assert "Execution Anchor" in text
+    assert "immutable per-ticket historical / lineage anchor" in IMPLEMENT
+    assert "exact fetched remote shared-Spec-branch commit" in IMPLEMENT
+    assert "diff base `TICKET_BASELINE` with `EXECUTION_ANCHOR`" in IMPLEMENT
+    assert "Candidate state: <hash relative to Execution Anchor>" in VERIFY
+
+
+def test_attention_gate_is_directly_executable_and_anchor_bound() -> None:
+    assert "no `PYTHONPATH` workaround is required" in IMPLEMENT
+    assert "--remote origin" in IMPLEMENT
+    assert "--execution-anchor <execution-anchor>" in IMPLEMENT
+    assert "polaris.implement-ticket-attention/v2" in IMPLEMENT
+    assert "v1 Attention receipt" in VERIFY
 
 
 def test_build_ticket_uses_published_coverage_destination() -> None:

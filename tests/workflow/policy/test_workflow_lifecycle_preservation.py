@@ -1,18 +1,21 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-TO_TICKETS = (
-    ROOT / ".agents/skills/to-tickets/SKILL.md"
-).read_text(encoding="utf-8")
-TO_SPECS = (
-    ROOT / ".agents/skills/to-specs/SKILL.md"
-).read_text(encoding="utf-8")
-IMPLEMENT = (
-    ROOT / ".agents/skills/implement-ticket/SKILL.md"
-).read_text(encoding="utf-8")
-WAYFINDER = (
-    ROOT / ".agents/skills/wayfinder/SKILL.md"
-).read_text(encoding="utf-8")
+
+
+def _composed_skill(relative: str) -> str:
+    skill = ROOT / relative / "SKILL.md"
+    text = skill.read_text(encoding="utf-8")
+    procedure = skill.parent / "PROCEDURE.md"
+    if procedure.exists():
+        text += "\n" + procedure.read_text(encoding="utf-8")
+    return text
+
+
+TO_TICKETS = _composed_skill(".agents/skills/to-tickets")
+TO_SPECS = _composed_skill(".agents/skills/to-specs")
+IMPLEMENT = _composed_skill(".agents/skills/implement-ticket")
+WAYFINDER = _composed_skill(".agents/skills/wayfinder")
 
 
 def test_to_tickets_preserves_prepublication_branch_guard_order() -> None:
@@ -61,6 +64,15 @@ def test_implement_ticket_has_explicit_terminal_state_contract() -> None:
         "continue the lifecycle in the same\ninvocation",
     ):
         assert phrase in IMPLEMENT
+
+
+def test_implement_ticket_separates_immutable_baseline_from_execution_anchor() -> None:
+    assert "## Execution-anchor invariant" in IMPLEMENT
+    assert "Ticket baseline" in IMPLEMENT
+    assert "Execution Anchor" in IMPLEMENT
+    assert "fetch the actual remote ticket branch" in IMPLEMENT
+    assert "fast-forward only" in IMPLEMENT
+    assert "Do not require the current shared branch to equal that historical SHA" in IMPLEMENT
 
 
 def test_wayfinder_returns_focus_choice_to_human_owner() -> None:

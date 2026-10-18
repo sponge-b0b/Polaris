@@ -6,14 +6,17 @@ import json
 import os
 import stat
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
+REPO_ROOT = Path(__file__).resolve().parents[4]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from scripts.workflow_attention import AttentionProtocolError, validate_file
 
-SCHEMA = "polaris.implement-ticket-attention/v1"
-POLICY_PREFIXES = (b".agents/skills/", b"docs/process/")
-POLICY_FILES = {b"AGENTS.md"}
+SCHEMA = "polaris.implement-ticket-attention/v2"
 CONTRACT_HASH_FIELDS = {
     "polaris.ticket-contract/v1": "ticket_contract_hash",
     "polaris.review-remediation-contract/v1": "remediation_contract_hash",
@@ -84,6 +87,10 @@ def _verify_commit(commit: str) -> None:
     _run_git("rev-parse", "--verify", f"{commit}^{{commit}}")
 
 
+def _resolve_commit(ref: str) -> str:
+    return str(_run_git("rev-parse", "--verify", f"{ref}^{{commit}}")).strip()
+
+
 def _is_ancestor(ancestor: str, descendant: str) -> bool:
     result = subprocess.run(
         ["git", "merge-base", "--is-ancestor", ancestor, descendant],
@@ -104,16 +111,16 @@ def _git_paths(*args: str) -> set[bytes]:
     return {item for item in output.split(b"\0") if item}
 
 
-def _changed_paths(baseline: str) -> set[bytes]:
-    return _git_paths("diff", "--no-renames", "--name-only", "-z", baseline, "--")
+def _changed_paths(anchor: str) -> set[bytes]:
+    return _git_paths("diff", "--no-renames", "--name-only", "-z", anchor, "--")
 
 
 def _untracked_paths() -> set[bytes]:
     return _git_paths("ls-files", "--others", "--exclude-standard", "-z")
 
 
-def _candidate_paths(baseline: str) -> list[bytes]:
-    return sorted(_changed_paths(baseline) | _untracked_paths())
+def _candidate_paths(anchor: str) -> list[bytes]:
+    return sorted(_changed_paths(anchor) | _untracked_paths())
 
 
 def _path_mode(path: bytes) -> bytes:
@@ -131,9 +138,9 @@ def _path_bytes(path: bytes) -> bytes:
     return Path(os.fsdecode(path)).read_bytes()
 
 
-def candidate_state(baseline: str) -> str:
+def candidate_state(execution_anchor: str) -> str:
     payload = bytearray()
-    for raw_path in _candidate_paths(baseline):
+    for raw_path in _candidate_paths(execution_anchor):
         payload.extend(b"path\0")
         payload.extend(raw_path)
         payload.extend(b"\0")
@@ -150,40 +157,38 @@ def candidate_state(baseline: str) -> str:
     return hashlib.sha256(bytes(payload)).hexdigest()
 
 
-def _is_policy_path(path: bytes) -> bool:
-    return path in POLICY_FILES or any(path.startswith(prefix) for prefix in POLICY_PREFIXES)
-
-
 def _worktree_clean() -> bool:
     return not _git_paths("status", "--porcelain", "-z")
 
 
-def _blob_at(ref: str, path: bytes) -> bytes | None:
-    decoded = os.fsdecode(path)
+def _validate_branch_name(branch: str) -> None:
     result = subprocess.run(
-        ["git", "show", f"{ref}:{decoded}"],
+        ["git", "check-ref-format", "--branch", branch],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    _need(result.returncode == 0, f"invalid branch name: {branch}")
+
+
+def _fetch_remote_branch(remote: str, branch: str) -> str:
+    _validate_branch_name(branch)
+    _need(remote != "" and not remote.startswith("-"), "invalid remote name")
+    remote_ref = f"refs/remotes/{remote}/{branch}"
+    fetchspec = f"+refs/heads/{branch}:{remote_ref}"
+    result = subprocess.run(
+        ["git", "fetch", "--quiet", "--no-tags", remote, fetchspec],
         check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        text=True,
     )
-    if result.returncode == 0:
-        return result.stdout
-    return None
-
-
-def _policy_sync_admissible(baseline: str, head: str, default_ref: str) -> bool:
-    _verify_commit(default_ref)
-    if head == baseline:
-        return True
-    paths = _git_paths(
-        "diff", "--no-renames", "--name-only", "-z", f"{baseline}..{head}", "--"
-    )
-    if not paths or any(not _is_policy_path(path) for path in paths):
-        return False
-    for path in paths:
-        if _blob_at(head, path) != _blob_at(default_ref, path):
-            return False
-    return True
+    if result.returncode:
+        raise AttentionGateError(
+            f"git fetch {remote} {branch} failed: {result.stderr.strip()}"
+        )
+    return _resolve_commit(remote_ref)
 
 
 def _attention_result(path: Path, checkpoint: str) -> tuple[str, str]:
@@ -229,34 +234,38 @@ def _common(
     contract: Path,
     baseline: str,
     branch: str,
+    execution_anchor: str,
 ) -> tuple[str, str, str]:
     _need(ticket > 0, "ticket: expected positive number")
     _verify_commit(baseline)
+    _verify_commit(execution_anchor)
+    _need(
+        _is_ancestor(baseline, execution_anchor),
+        "ticket baseline is not an ancestor of execution anchor",
+    )
     current_branch = _current_branch()
     _need(
         current_branch == branch,
         f"branch mismatch: expected {branch}, got {current_branch}",
     )
     head = _head()
-    _need(
-        _is_ancestor(baseline, head),
-        "baseline is not an ancestor of current HEAD",
-    )
     schema, digest = _contract_identity(contract)
     return schema, digest, head
 
 
 def record_pre_mutation(args: argparse.Namespace) -> dict[str, Any]:
+    _need(_worktree_clean(), "pre-mutation gate requires a clean worktree")
+    remote_anchor = _fetch_remote_branch(args.remote, args.branch)
     contract_schema, contract_hash, head = _common(
         ticket=args.ticket,
         contract=args.contract,
         baseline=args.baseline,
         branch=args.branch,
+        execution_anchor=remote_anchor,
     )
-    _need(_worktree_clean(), "pre-mutation gate requires a clean worktree")
     _need(
-        _policy_sync_admissible(args.baseline, head, args.default_ref),
-        "pre-mutation delta is not an admissible default-branch workflow-policy synchronization",
+        head == remote_anchor,
+        "current HEAD does not equal fetched remote branch tip; synchronize the clean shared branch before pre-mutation Attention",
     )
     attention_status, attention_hash = _attention_result(
         args.attention_result,
@@ -267,11 +276,13 @@ def record_pre_mutation(args: argparse.Namespace) -> dict[str, Any]:
         "ticket": args.ticket,
         "branch": args.branch,
         "baseline": args.baseline,
+        "execution_anchor": remote_anchor,
+        "remote": args.remote,
         "contract_schema": contract_schema,
         "contract_hash": contract_hash,
         "pre_mutation": {
             "head": head,
-            "candidate_state": candidate_state(args.baseline),
+            "candidate_state": candidate_state(remote_anchor),
             "attention_status": attention_status,
             "attention_result_sha256": attention_hash,
         },
@@ -287,12 +298,17 @@ def _require_identity(
     ticket: int,
     branch: str,
     baseline: str,
+    execution_anchor: str,
     contract_schema: str,
     contract_hash: str,
 ) -> None:
     _need(receipt.get("ticket") == ticket, "attention receipt: ticket mismatch")
     _need(receipt.get("branch") == branch, "attention receipt: branch mismatch")
     _need(receipt.get("baseline") == baseline, "attention receipt: baseline mismatch")
+    _need(
+        receipt.get("execution_anchor") == execution_anchor,
+        "attention receipt: execution anchor mismatch",
+    )
     _need(
         receipt.get("contract_schema") == contract_schema,
         "attention receipt: contract schema mismatch",
@@ -313,6 +329,7 @@ def record_pre_closure(args: argparse.Namespace) -> dict[str, Any]:
         contract=args.contract,
         baseline=args.baseline,
         branch=args.branch,
+        execution_anchor=args.execution_anchor,
     )
     receipt = _load_receipt(args.receipt)
     _require_identity(
@@ -320,11 +337,16 @@ def record_pre_closure(args: argparse.Namespace) -> dict[str, Any]:
         ticket=args.ticket,
         branch=args.branch,
         baseline=args.baseline,
+        execution_anchor=args.execution_anchor,
         contract_schema=contract_schema,
         contract_hash=contract_hash,
     )
     _need(
-        receipt["pre_mutation"].get("head") == head,
+        receipt["pre_mutation"].get("head") == args.execution_anchor,
+        "attention receipt: pre-mutation HEAD does not equal execution anchor",
+    )
+    _need(
+        head == args.execution_anchor,
         "attention receipt: HEAD changed after pre-mutation gate",
     )
     attention_status, attention_hash = _attention_result(
@@ -333,7 +355,7 @@ def record_pre_closure(args: argparse.Namespace) -> dict[str, Any]:
     )
     receipt["pre_closure"] = {
         "head": head,
-        "candidate_state": candidate_state(args.baseline),
+        "candidate_state": candidate_state(args.execution_anchor),
         "attention_status": attention_status,
         "attention_result_sha256": attention_hash,
     }
@@ -342,11 +364,12 @@ def record_pre_closure(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def verify(args: argparse.Namespace) -> dict[str, Any]:
-    contract_schema, contract_hash, _ = _common(
+    contract_schema, contract_hash, head = _common(
         ticket=args.ticket,
         contract=args.contract,
         baseline=args.baseline,
         branch=args.branch,
+        execution_anchor=args.execution_anchor,
     )
     receipt = _load_receipt(args.receipt)
     _require_identity(
@@ -354,11 +377,12 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         ticket=args.ticket,
         branch=args.branch,
         baseline=args.baseline,
+        execution_anchor=args.execution_anchor,
         contract_schema=contract_schema,
         contract_hash=contract_hash,
     )
     _need(
-        receipt["pre_mutation"].get("head") == _head(),
+        head == args.execution_anchor,
         "attention receipt: HEAD changed after pre-mutation gate",
     )
     pre_closure = receipt.get("pre_closure")
@@ -366,7 +390,7 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         isinstance(pre_closure, dict),
         "attention receipt: missing pre-closure gate",
     )
-    current_state = candidate_state(args.baseline)
+    current_state = candidate_state(args.execution_anchor)
     _need(
         pre_closure.get("candidate_state") == current_state,
         "attention receipt: pre-closure candidate state is stale",
@@ -382,6 +406,8 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
 def _print(status: str, receipt: dict[str, Any]) -> None:
     print(status)
     print(f"Ticket: #{receipt['ticket']}")
+    print(f"Ticket baseline: {receipt['baseline']}")
+    print(f"Execution Anchor: {receipt['execution_anchor']}")
     print(f"Contract Schema: {receipt['contract_schema']}")
     print(f"Contract Hash: {receipt['contract_hash']}")
     print(f"Attention Receipt Hash: {receipt_hash(receipt)}")
@@ -402,7 +428,9 @@ def _parser() -> argparse.ArgumentParser:
         if name in {"pre-mutation", "pre-closure"}:
             item.add_argument("--attention-result", type=Path, required=True)
         if name == "pre-mutation":
-            item.add_argument("--default-ref", default="origin/main")
+            item.add_argument("--remote", default="origin")
+        else:
+            item.add_argument("--execution-anchor", required=True)
         if name == "verify":
             item.add_argument("--expected-receipt-hash", required=True)
     return parser

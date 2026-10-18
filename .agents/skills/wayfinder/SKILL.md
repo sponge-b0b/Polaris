@@ -45,6 +45,31 @@ Before substantive work on an existing map:
 
 Never switch or broaden focus automatically.
 
+### Human focus handoff
+
+A guard failure caused only by the target Wayfinder not being focused is a human focus
+boundary, not a generic dead end and not permission for `$wayfinder` to choose focus.
+
+Do not mutate the decision/map and do not inspect or reproduce Project Delivery singleton
+logic to guess the current focused set. Surface this exact ownership handoff:
+
+```text
+PROJECT DELIVERY: HUMAN FOCUS HANDOFF
+Target Wayfinder: #<n>
+Reason: not focused
+Next human action:
+$project-delivery-management status
+```
+
+After the human sees current canonical delivery state, they may explicitly invoke the exact
+`focus`, `switch-focus`, or `parallel-focus` operation they choose. Resume Wayfinder work
+only after a later current-run `guard <Wayfinder>` returns exact
+`PROJECT DELIVERY GUARD: ALLOWED`.
+
+A guard failure for `not frontier-eligible`, invalid control state, or unreadable blockers
+is not a focus-choice handoff. Report the exact guard reason/blocker and stop without
+suggesting an ineligible focus mutation.
+
 ## Map model
 
 The map is one issue labelled `wayfinder:map` with:

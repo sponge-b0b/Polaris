@@ -25,6 +25,27 @@ assigned OBL/IMP/TEST cells + parent EXC guardrails
 The implementation actor may choose implementation-equivalent private mechanics. It may
 not add, remove, strengthen, weaken, or reinterpret a material semantic obligation.
 
+## Invocation termination
+
+This invocation may stop only at exactly one of these terminal conditions:
+
+* **Completed** — all required implementation, verification, persistence, readback, ticket
+  closure, recovery reconciliation, and frontier handoff work for this invocation is done;
+* **Human Handoff** — a current owning workflow explicitly requires human authorization or
+  a material human decision before this invocation can legally continue;
+* **Hard Blocker** — a concrete external/environmental, branch, baseline, permission,
+  required-tool, persistence, or contradictory durable-state failure prevents further safe
+  work.
+
+Everything else is non-terminal. In particular, partial progress, an implementation/test
+failure, `TICKET CLOSURE: FAIL`, an open ticket, an `awaiting-closure-verification` or
+`verifier-failed` checkpoint, corrective edits that make prior evidence stale, remaining
+actionable in-scope work, and `TICKET CLOSURE: PASS` before exact persistence/closure do
+not authorize stopping.
+
+When none of the three terminal conditions applies, continue the lifecycle in the same
+invocation.
+
 ## 1. Recover durable ticket state
 
 Assume no chat/session state.

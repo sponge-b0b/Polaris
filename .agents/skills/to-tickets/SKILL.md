@@ -497,7 +497,106 @@ block is complete. If the proposal changes materially, revalidate the determinis
 topology-derived decomposition, regenerate the receipt block from the new current run, and
 ask again.
 
+### Pre-publication Spec Branch Guard
+
+Human approval authorizes the approved ticket delta; it does not waive branch lifecycle
+safety. After approval and before **any** ticket mutation in Section 11, execute this guard
+for the Parent Spec. The guard applies equally to ordinary and Review Remediation tickets.
+
+All tickets for one Spec use exactly:
+
+```text
+SPEC_BRANCH=spec-<parent-spec-number>
+```
+
+and one fixed Parent Spec baseline. Before creating, updating, closing, labeling, parenting,
+or changing dependencies for any ticket, prove all of the following:
+
+1. **Branch identity** — local/remote branch state names exactly `SPEC_BRANCH`; no alternate
+   ticket/remediation branch is introduced.
+2. **Baseline authority** — the Parent Spec has exactly one current `## Workspace Metadata`
+   record with `**Branch:** SPEC_BRANCH` and one full 40-character
+   `**Baseline Commit Hash:** <sha>`, or first-use branch creation will persist exactly that
+   record before ticket publication.
+3. **Baseline ancestry** — the recorded/captured baseline exists and is an ancestor of the
+   current Spec branch; for first-use creation the newly created branch starts exactly at
+   the captured baseline.
+4. **Remote durability** — `origin/SPEC_BRANCH` exists after setup and the validated remote
+   head is read back exactly.
+5. **Upstream tracking** — when the caller checkout is used for an existing branch, the
+   local branch tracks exactly `origin/SPEC_BRANCH`.
+6. **GitHub Development linkage** — `gh issue develop --list <spec>` names exactly the
+   expected Spec branch, except for the narrow qualified legacy pre-existing-branch case
+   below.
+7. **Caller-worktree safety** — never stash, reset, clean, commit, discard, or relocate
+   unrelated caller work merely to pass this guard.
+
+#### First-use branch creation
+
+When neither local nor remote `SPEC_BRANCH` exists:
+
+* require the caller worktree clean;
+* fetch current `origin/main` and require the creation baseline to be the intended fixed
+  Parent Spec baseline/current synchronized main state;
+* create/link the branch through `gh issue develop <spec> --name "$SPEC_BRANCH" --base main
+  --checkout` rather than plain `git branch`;
+* push with upstream `origin/$SPEC_BRANCH` without force;
+* persist `## Workspace Metadata` on the Parent Spec only if no record exists, containing
+  the exact baseline and branch;
+* read back Development linkage, Workspace Metadata, upstream tracking, remote branch, and
+  branch head before continuing.
+
+Failure of `gh issue develop`, push, metadata persistence, or any readback is a hard branch
+guard failure. Do not fall back to a local-only branch.
+
+#### Existing durable branch
+
+When `origin/SPEC_BRANCH` already exists, do not delete/recreate, rename, reset, or move it
+merely to satisfy this workflow.
+
+If the caller worktree is dirty, validate the frozen remote Spec-branch head from an
+isolated temporary worktree; do not checkout/switch the protected caller worktree. Re-read
+the remote head immediately before publication and require it not to have moved during
+isolated validation.
+
+If the caller worktree is clean and the existing branch is used locally, require exact
+local branch identity and exact upstream `origin/SPEC_BRANCH`.
+
+#### Qualified legacy pre-existing branch reconciliation
+
+A remote branch that pre-dates this invocation may lack GitHub Development linkage only
+when current GitHub tooling exposes no supported operation to attach that already-existing
+branch. This is historical reconciliation, never an alternate branch-creation path.
+
+In that case require all of:
+
+* remote branch existed before this invocation;
+* branch name is exactly `SPEC_BRANCH`;
+* exactly one Workspace Metadata record names that branch and a full baseline SHA;
+* baseline commit exists and is an ancestor of the frozen current remote Spec branch;
+* no conflicting Development-linked branch exists for the Parent Spec; and
+* when a local checkout is used, it tracks exactly `origin/SPEC_BRANCH`.
+
+Any ambiguity fails closed. Never manufacture linkage by replacing a durable branch.
+
+On success emit and retain this current-run receipt:
+
+```text
+SPEC BRANCH GUARD: PASS
+Branch: spec-<parent-spec-number>
+Baseline: <full sha>
+Remote head: <full sha>
+Development linkage: linked | legacy-pre-existing-qualified
+```
+
+If any branch-rule predicate fails, stop before Section 11 with **zero ticket-publication
+mutations**. Do not weaken, bypass, or defer this guard because the approved decomposition
+or deterministic contract is otherwise valid.
+
 ## 11. Publication/readback
+
+Publication is reachable only from the exact human-approved proposal plus a current
+`SPEC BRANCH GUARD: PASS` receipt.
 
 Ordinary tickets are native children of the Parent Spec.
 
@@ -513,7 +612,15 @@ After mutation:
 * reread native hierarchy/dependencies;
 * validate ordinary ticket body against its exact route;
 * validate remediation ticket body against its exact remediation contract;
-* require branch/baseline/provenance equality with approved proposal.
+* require branch/baseline/provenance equality with approved proposal;
+* require every current implementation-ready ticket to carry `ready-for-agent` only after
+  these exact readbacks succeed.
+
+`ready-for-agent` is readiness projection, not contract or dependency authority. Do not
+apply it before the branch guard or before ticket/body/hierarchy/dependency validation. If
+this workflow proves an open ticket no longer represents a current implementation-ready
+contract, remove a stale `ready-for-agent` label as part of that reconciliation. Re-read
+label state after mutation.
 
 For ordinary Specs, persist exactly one current `ticket-coverage-manifest:v2`. Reconstruct
 `polaris.ticket-dependencies/v1` from native dependency readback and rerun

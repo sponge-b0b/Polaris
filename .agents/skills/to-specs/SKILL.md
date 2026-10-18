@@ -399,6 +399,28 @@ additionally require an ALLOWED current governor guard.
 Do not hand off a Spec whose Cross-Spec ownership integrity or execution topology check is
 unresolved.
 
+### Readiness label gate
+
+`ready-for-agent` is a downstream-readiness label, not semantic or dependency authority.
+Apply it to a Spec only after that exact current Spec is ticketing-ready under this skill:
+
+* CCL projection validates current;
+* planning cells and current execution topology validate current;
+* Cross-Spec ownership integrity is resolved;
+* concrete implementability has no unresolved material semantic choice;
+* `$attention` has completed for the current projection;
+* all known native Spec dependencies have been established;
+* the Spec is in the current frontier; and
+* every required current Wayfinder governor guard is ALLOWED.
+
+If any of those predicates is false, unknown, or later becomes stale while `$to-specs`
+owns the reconciliation, do not apply `ready-for-agent`; remove a stale label that this
+workflow can prove no longer represents current ticketing readiness. Label state never
+substitutes for any readiness proof above.
+
+After any label mutation, re-read the Spec and require exact label state before emitting a
+`$to-tickets` handoff.
+
 ## Human handoff
 
 Emit one line per actionable Spec:

@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-17] R3 Investment Intelligence correction overlap | accepted authority
+
+Recorded the accepted owner rule for future-effective target and complete claim-catalog corrections. Later immediate acts must explicitly cancel known pending overlaps or be interim until retained acts activate; complete ancestry and temporal cause remain implementation pending under ADR 0017.
+
 ## [2026-10-14] R3 Evidence entity registry | implemented boundary
 
 Marked Evidence `present` and added its domain and application routing anchors. Spec #357 introduced durable Evidence identity, bindings, correction, sufficiency, reconstruction, and current-basis implementation; the entity page already records the realized invariants. Concrete dependent writes remain planned in consuming Specs.

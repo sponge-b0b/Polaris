@@ -1,0 +1,566 @@
+{
+  "acceptance": {
+    "artifact": {
+      "kind": "github_issue_comment",
+      "ref": "https://github.com/sponge-b0b/Polaris/issues/401#issuecomment-6246071104"
+    },
+    "proposal_hash": "sha256:250672ecda3bc8a4bc15500f0c203409b18acdf813bf2cb8ba2f87341ea643d7"
+  },
+  "origin": {
+    "mode": "wayfinder-decision",
+    "sources": [
+      {
+        "content_sha256": "d5684034914c807017ba6ebb9e4cac5ee6806e4ceadc7de53cc56672187130f9",
+        "kind": "github_issue_comment",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/349#issuecomment-5883216448",
+        "role": "governing",
+        "source_id": "decision-349-resolution"
+      },
+      {
+        "content_sha256": "a0a5ed0a266a4a7e1dfc264a1dfc9c28f3f7d52511b3a099521861b52e86cb1e",
+        "kind": "github_issue_comment",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/350#issuecomment-5883593322",
+        "role": "governing",
+        "source_id": "decision-350-resolution"
+      },
+      {
+        "content_sha256": "596b8a76007b0582f62fa62e0ec44aef907f68f67a570c6b6e8fdb81db713169",
+        "kind": "github_issue_comment",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/351#issuecomment-5883743931",
+        "role": "governing",
+        "source_id": "decision-351-resolution"
+      },
+      {
+        "content_sha256": "095f1ff0b99ef30bfb81009434322bc5a603bfb4aa8d92e833d0b73f3943dcb7",
+        "kind": "github_issue_comment",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/355#issuecomment-5884135913",
+        "role": "governing",
+        "source_id": "decision-355-resolution"
+      },
+      {
+        "content_sha256": "0e663e8b4a0ca3fead187e16d650672c753008852a7aa134d5cf5677f3179ad2",
+        "kind": "github_issue_comment",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/364#issuecomment-6096295388",
+        "role": "governing",
+        "source_id": "decision-364-final-resolution"
+      },
+      {
+        "content_sha256": "8016e2c211c53447c693f1ae4e07516f341a881314b1c7f2c561db188a511808",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0006-evidence-assemble-decision-context-from-durable-evidence-bindings.md",
+        "role": "constraint",
+        "source_id": "adr-0006"
+      },
+      {
+        "content_sha256": "3629c72f113d7aad57b76aab09575dd5df962975bc01615fab7ac1e003ac91f0",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0007-investment-intelligence-persist-material-judgments-not-reasoning-traces.md",
+        "role": "constraint",
+        "source_id": "adr-0007"
+      },
+      {
+        "content_sha256": "b00191f3358a836cf91b179ef35b2eb9d1813b8ee4ca051a22b747344d81732a",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0011-platform-compose-r3-decision-memory-from-domain-owned-facts.md",
+        "role": "constraint",
+        "source_id": "adr-0011"
+      },
+      {
+        "content_sha256": "c0b9ee75558ac2e35e58fa2084e4ec142852e337f57e0932b9dcc713e9b5ca54",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0012-evidence-freeze-r3-identity-binding-and-reconstruction.md",
+        "role": "constraint",
+        "source_id": "adr-0012"
+      },
+      {
+        "content_sha256": "d91f582c1cea7eef06bc79f3c38c96d775ae9ddcfbba31883b9a15f0cfc5f7d3",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0013-evidence-complete-r3-claim-requirements-and-current-support-basis.md",
+        "role": "constraint",
+        "source_id": "adr-0013"
+      },
+      {
+        "content_sha256": "f74b0b50ee79966af8631a21fc8e8bc1aa21e0caadc8af8ecb47546740d64464",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0014-evidence-derive-r3-sufficiency-from-executable-requirements.md",
+        "role": "constraint",
+        "source_id": "adr-0014"
+      },
+      {
+        "content_sha256": "35d5661e2da092cca050b22b2f991130361d8aa1f2eac1a5212411ed1bc14f97",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0015-evidence-complete-r3-target-and-context-version-basis.md",
+        "role": "constraint",
+        "source_id": "adr-0015"
+      },
+      {
+        "content_sha256": "0b69132fcd5676f48683952384e210c18a8848f4e8d343567886223bdd81db27",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0016-evidence-attest-r3-temporal-current-basis-meaning.md",
+        "role": "constraint",
+        "source_id": "adr-0016"
+      },
+      {
+        "content_sha256": "2dfe4af3ed815435cff14f08bf740a8d18a663043abcd8d3bbcf86c6bec2ae22",
+        "kind": "github_issue_comment",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/401#issuecomment-6245930002",
+        "role": "governing",
+        "source_id": "decision-401-proposal"
+      }
+    ],
+    "wayfinder": {
+      "decision": 401,
+      "map": 348
+    }
+  },
+  "proposal_hash": "sha256:250672ecda3bc8a4bc15500f0c203409b18acdf813bf2cb8ba2f87341ea643d7",
+  "revisions": [
+    {
+      "assertions": [
+        {
+          "assertion_id": "slice.scope",
+          "authority": {
+            "source_ids": [
+              "decision-349-resolution"
+            ]
+          },
+          "constraint": {
+            "expression": "The first supported R3 slice covers one Portfolio; SPY is its only investable instrument and cash is represented only as Portfolio State. The user-initiated Investment Decision chooses increase, hold, or reduce SPY exposure over one explicit Investment Horizon. Canonical contracts remain instrument-identity based rather than hard-coded to SPY.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "r3_investment_decision"
+        },
+        {
+          "assertion_id": "view.material-content",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007"
+            ]
+          },
+          "constraint": {
+            "expression": "A materially relied-upon Investment View is an attributable, time-specific first-class judgment with opaque identity. Preserve formation time, Investment Horizon, material Evidence bindings, assumptions, uncertainty, material alternative explanation or dissent, invalidation conditions, and materially used Signal provenance where applicable. A materially new View appends rather than overwrites an earlier View.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "investment_view"
+        },
+        {
+          "assertion_id": "hypothesis.persistence",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007"
+            ]
+          },
+          "constraint": {
+            "expression": "An Investment Hypothesis is durable only when it materially shapes a View, challenge, Recommendation, or later Decision Evaluation; transient hypotheses remain reasoning-local.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "investment_hypothesis"
+        },
+        {
+          "assertion_id": "challenge.persistence",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007"
+            ]
+          },
+          "constraint": {
+            "mode": "durable"
+          },
+          "kind": "persistence",
+          "subject": "meaningful_challenge_result"
+        },
+        {
+          "assertion_id": "challenge.material",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007"
+            ]
+          },
+          "constraint": {
+            "expression": "Every View used to support a consequential Recommendation has a durable substantive challenge result. Preserve the strongest credible alternative explanation or competing material interpretation actually considered, material Conflicting Evidence, challenged assumptions or uncertainty or invalidation conditions, and the material basis for the disposition. A challenged=true flag alone is insufficient. No fixed model count, debate topology, or agent arrangement is required.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "meaningful_challenge_result"
+        },
+        {
+          "assertion_id": "challenge.disposition",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007"
+            ]
+          },
+          "constraint": {
+            "closure": "closed",
+            "members": [
+              "INCONCLUSIVE",
+              "QUALIFIED",
+              "REJECTED",
+              "SURVIVES_CHALLENGE"
+            ],
+            "name": "disposition"
+          },
+          "kind": "vocabulary",
+          "subject": "meaningful_challenge_result"
+        },
+        {
+          "assertion_id": "alternative.persistence",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007"
+            ]
+          },
+          "constraint": {
+            "expression": "Only Decision Alternatives that materially participate in comparison or later inform a Human Investment Decision need durable representation; transient brainstorming alternatives are not durable.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "decision_alternative"
+        },
+        {
+          "assertion_id": "alternative.minimum-set",
+          "authority": {
+            "source_ids": [
+              "decision-349-resolution",
+              "decision-351-resolution",
+              "adr-0007"
+            ]
+          },
+          "constraint": {
+            "expression": "For the first R3 SPY slice, the minimum economic alternatives are increase exposure, hold current exposure or deliberate no-action, and reduce exposure. This contract does not predefine Portfolio/Risk consequence payloads owned by Portfolio & Risk.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "decision_alternative"
+        },
+        {
+          "assertion_id": "recommendation.persistence",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007"
+            ]
+          },
+          "constraint": {
+            "mode": "durable"
+          },
+          "kind": "persistence",
+          "subject": "investment_recommendation"
+        },
+        {
+          "assertion_id": "recommendation.disposition",
+          "authority": {
+            "source_ids": [
+              "decision-349-resolution",
+              "decision-351-resolution",
+              "adr-0007"
+            ]
+          },
+          "constraint": {
+            "closure": "closed",
+            "members": [
+              "HOLD",
+              "INCREASE",
+              "REDUCE"
+            ],
+            "name": "preferred_economic_disposition"
+          },
+          "kind": "vocabulary",
+          "subject": "investment_recommendation"
+        },
+        {
+          "assertion_id": "recommendation.material-basis",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007"
+            ]
+          },
+          "constraint": {
+            "expression": "A durable Recommendation preserves its governing Investment Decision, formation time, explicit Investment Horizon, preferred economic disposition, materially relied-upon View(s), materially considered Decision Alternatives, material Evidence bindings, substantive challenge result(s), material Investment Uncertainty, Portfolio/Risk consequence references supplied by #352, and material assumptions, invalidation conditions, or Review Condition references where applicable. Proposed Action references are preserved only when a concrete candidate implementation is actually needed.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "investment_recommendation"
+        },
+        {
+          "assertion_id": "recommendation.history",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007"
+            ]
+          },
+          "constraint": {
+            "mode": "append-only"
+          },
+          "kind": "history",
+          "subject": "investment_recommendation"
+        },
+        {
+          "assertion_id": "recommendation.current-support",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007"
+            ]
+          },
+          "constraint": {
+            "mode": "derived"
+          },
+          "kind": "persistence",
+          "subject": "current_recommendation_support"
+        },
+        {
+          "assertion_id": "recommendation.no-reactivation",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007"
+            ]
+          },
+          "constraint": {
+            "expression": "Evidence refresh alone does not create a new Recommendation. A new attributable preference appends a new Recommendation even when its disposition repeats. A later Recommendation never rewrites an earlier one; an unsupported newer Recommendation does not reactivate an older one. Current support is derived from durable history, Decision applicability, and current Evidence/Risk fitness; no mutable authoritative current flag is the source of truth.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "investment_recommendation"
+        },
+        {
+          "assertion_id": "recommendation.human-boundary",
+          "authority": {
+            "source_ids": [
+              "decision-349-resolution",
+              "decision-351-resolution",
+              "adr-0007"
+            ]
+          },
+          "constraint": {
+            "disposition": "forbidden",
+            "surface": "human-decision-approval-admissibility-action-intent-order-execution-authority"
+          },
+          "kind": "boundary",
+          "subject": "investment_recommendation"
+        },
+        {
+          "assertion_id": "model.output-boundary",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007"
+            ]
+          },
+          "constraint": {
+            "disposition": "forbidden",
+            "surface": "canonical-business-judgment"
+          },
+          "kind": "boundary",
+          "subject": "model_provider_output"
+        },
+        {
+          "assertion_id": "target.judgment-revision",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007",
+              "decision-355-resolution",
+              "adr-0011",
+              "decision-364-final-resolution",
+              "adr-0015",
+              "adr-0016"
+            ]
+          },
+          "constraint": {
+            "expression": "For the five admitted target families—Investment Hypothesis, Investment View, meaningful-challenge result, Investment Recommendation, and Recommendation-withholding judgment—the owning domain issues an opaque root ID and positive root-local JudgmentRevision beginning at 1. Advance once per owner commit changing current interpreted assertion, support/provenance, validity, or applicability. Same-judgment correction retains the root; a new, reassessed, or superseding judgment receives a new root. Expose historical (T,K) support and withdrawn, contested, or invalid current interpretation; protect ClaimCatalogVersion separately.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "investment_intelligence_evidence_target"
+        },
+        {
+          "assertion_id": "target.claim-catalog",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007",
+              "decision-364-final-resolution",
+              "adr-0013",
+              "adr-0015"
+            ]
+          },
+          "constraint": {
+            "expression": "Each of the five admitted Investment Intelligence target families owns a complete versioned claim catalog. ClaimId is application-allocated opaque UUIDv4 identity meaningful only with the typed target. ClaimCatalogVersion is a positive target-local integer beginning at 1 and advances once for a committed change to current claim membership, proposition meaning, or surviving support; historical catalogs remain reconstructable. Retain a ClaimId only for the same evidentiary proposition within one root; materially changed proposition/scope and new, reassessed, or superseding roots receive fresh ClaimIds. Narrative text is never inferred into claims.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "investment_intelligence_evidence_target"
+        },
+        {
+          "assertion_id": "target.version-contract",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007",
+              "decision-364-final-resolution",
+              "adr-0013",
+              "adr-0015"
+            ]
+          },
+          "constraint": {
+            "expression": "The inward application contract exposes the authoritative target revision and ClaimCatalogVersion needed by Evidence admission, historical reconstruction, and command-basis revalidation.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "investment_intelligence_evidence_target"
+        },
+        {
+          "assertion_id": "basis.capture",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007",
+              "decision-364-final-resolution",
+              "adr-0013"
+            ]
+          },
+          "constraint": {
+            "expression": "When judgment formation consumes a current Evidence result, preserve its exact CurrentEvidenceBasis; never silently substitute newer support.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "investment_judgment_formation"
+        },
+        {
+          "assertion_id": "transaction.revalidation",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007",
+              "decision-364-final-resolution",
+              "adr-0013",
+              "adr-0015",
+              "adr-0016"
+            ]
+          },
+          "constraint": {
+            "expression": "External/model work remains outside store transactions. Before commit, re-resolve and atomically revalidate the complete material Decision, target, claim, requirement, Evidence-support, context, and time-sensitive basis; return typed StaleEvidenceBasis or a distinct no-basis outcome without silently rebasing or committing the judgment. The ordinary-work gate for the governing Decision remains independent and can still forbid the dependent write.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "investment_judgment_commit"
+        },
+        {
+          "assertion_id": "alternative.root-revision",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007",
+              "decision-364-final-resolution",
+              "adr-0015",
+              "adr-0016"
+            ]
+          },
+          "constraint": {
+            "expression": "Materially selected DecisionAlternativeId context facts expose owner-issued positive root-local revisions. Correction, retraction, restoration, contestation, or relationship change advances the root only when current content, applicability, support/provenance, or validity changes; a new alternative receives a new root. Protect a current-selection/absence guard when selection matters, and do not stale an exact-root read merely because a later alternative or judgment exists.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "decision_alternative_context"
+        },
+        {
+          "assertion_id": "temporal.owner-attestation",
+          "authority": {
+            "source_ids": [
+              "decision-351-resolution",
+              "adr-0007",
+              "decision-364-final-resolution",
+              "adr-0015",
+              "adr-0016"
+            ]
+          },
+          "constraint": {
+            "expression": "For exact reads and fresh trusted T=K commit revalidation, an Intelligence owner whose same-revision as-of meaning may change attests the complete typed historical meaning and verifiable temporal cause for the exact identity, revision, basis key, read boundary, provenance, fact/correction ancestry, effective/recorded history, and selection/absence history. Application validates owner proof and never infers lawful cause from two changed views or elapsed time.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "investment_intelligence_temporal_owner"
+        },
+        {
+          "assertion_id": "target.correction-overlap-admission",
+          "authority": {
+            "source_ids": [
+              "decision-401-proposal",
+              "adr-0013",
+              "adr-0015",
+              "adr-0016"
+            ]
+          },
+          "constraint": {
+            "expression": "For the same target root, the target assertion and complete claim catalog are distinct correction lanes. Each immutable owner correction act has an opaque owner-issued act reference typed by target family and root, distinct from JudgmentRevision and ClaimCatalogVersion, plus attribution, basis, effective/recorded/known boundaries, affected lane(s), and complete same-root correction ancestry. At atomic admission, an act changing a lane must explicitly resolve every already-known pending future-effective act whose effect would overlap on that lane: either supersede/cancel that pending act, or retain it as the scheduled successor and expressly bound the new act as interim until the retained act's effective boundary. A multi-lane act resolves each affected lane in the same commit. Validate the complete post-commit known effective timeline at all relevant boundaries; every lane has a determinate selected interpretation or an explicit owner-contested interpretation. An unresolved overlap, missing ancestry, or implicit precedence is rejected without commit. Recorded recency, effective-time recency, UUID/database order, and owner-version order never choose a winner.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "investment_intelligence_evidence_target"
+        },
+        {
+          "assertion_id": "target.correction-overlap-temporal",
+          "authority": {
+            "source_ids": [
+              "decision-401-proposal",
+              "adr-0013",
+              "adr-0015",
+              "adr-0016"
+            ]
+          },
+          "constraint": {
+            "expression": "Reconstruct each target and complete claim-catalog lane at (effective_at=T, known_at=K) only from acts known by K and effective by T, their explicit ancestry/supersession and interval bounds, never from later knowledge. In the A/B/C overlap, future B recorded at K1 leaves A current before T3; immediate C recorded at K2<T3 is inadmissible without explicit B resolution. If C cancels B, C governs from K2 through T3 and later until another lawful change. If C retains B as scheduled successor, C governs only from K2 until T3 and B governs beginning T3. Reads with K before K2 preserve the then-known B schedule. The same rule governs complete catalog membership, proposition meaning, and surviving support; original and defeated acts remain inspectable.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "investment_intelligence_evidence_target"
+        },
+        {
+          "assertion_id": "target.correction-overlap-version-basis",
+          "authority": {
+            "source_ids": [
+              "decision-401-proposal",
+              "adr-0013",
+              "adr-0015",
+              "adr-0016"
+            ]
+          },
+          "constraint": {
+            "expression": "A valid future-only B append at K1 advances neither current owner version. A C commit at K2 advances JudgmentRevision once iff current target assertion, support/provenance, validity, or applicability changes, and ClaimCatalogVersion once iff current catalog membership, proposition meaning, or surviving support changes; advance both when both change. Clock activation of retained B at T3 creates no synthetic owner commit or version advance. Complete owner-attested temporal-cause witnesses bind typed root, act references, both version histories, exact (T,K) boundary, owner provenance, selected/pending/defeated ancestry, explicit overlap resolution, interval and effective/recorded/known history, and applicable selection/absence guards. A lawful material same-version target change maps to TARGET_CHANGED and claim change to CLAIM_CHANGED, with both when independently applicable; broken protected ancestry/selection/absence guards add NEGATIVE_PREDICATE_BROKEN. A still-future or canceled B with unchanged exact-key meaning causes no stale result. Missing/incomplete/contested meaning returns its distinct no-basis result; contradictory or unexplained owner history is INVALID_HISTORY. Application validates owner proof and never infers precedence, fabricates a version, or adds a stale category.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "investment_intelligence_evidence_target"
+        }
+      ],
+      "contract_id": "investment-intelligence.r3-judgments",
+      "display": {
+        "summary": "Durable material judgments, versioned target-owned claims, Recommendation history, and exact Evidence-basis consumption.",
+        "title": "R3 Investment Intelligence Judgments"
+      },
+      "operation": "revise",
+      "owner": "investment-intelligence",
+      "revision": 2,
+      "scope": {
+        "release": [
+          "R3"
+        ]
+      },
+      "supersedes_revision": 1
+    }
+  ],
+  "schema": "polaris.ccl/v1"
+}

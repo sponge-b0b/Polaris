@@ -9,193 +9,145 @@ disable-model-invocation: true
 
 ## Authoritative procedure composition
 
-Before executing this skill, read `.agents/skills/implement-ticket/PROCEDURE.md` in full.
-That file preserves the complete established `$implement-ticket` procedure. This
-`SKILL.md` is the authoritative entrypoint and owns the execution-anchor corrections below;
-on conflict, this file wins. Failure to load the retained procedure is a hard blocker.
+Before executing this skill, read both of these files in full:
+
+1. `.agents/skills/implement-ticket/PROCEDURE.md`
+2. `.agents/skills/implement-ticket/EXECUTION_ANCHOR.md`
+
+`PROCEDURE.md` preserves the complete established `$implement-ticket` lifecycle.
+`EXECUTION_ANCHOR.md` preserves the accepted Execution Anchor correction that separates
+historical ticket lineage from the current attempt's candidate. This `SKILL.md` is the
+authoritative entrypoint and adds the control-plane mutation boundary below. On conflict,
+this file wins. Failure to load either retained file is a Hard Blocker.
 
 The retained procedure continues to own Invocation termination, durable ticket recovery,
-hierarchy/dependency/project-delivery admission, architecture-blocker admission, deterministic
-contract construction, implementation scope, technical checks, Durable closure checkpoint
-v3, Independent closure dispatch, certified persistence/closure, and Frontier handoff except
-where this entrypoint explicitly replaces Ticket-baseline-relative candidate mechanics.
+hierarchy/dependency/project-delivery admission, architecture-blocker admission,
+deterministic contract construction, implementation scope, technical checks, Durable
+closure checkpoint v3, Independent closure dispatch, certified persistence/closure, and
+Frontier handoff except where the retained Execution Anchor correction or this entrypoint
+explicitly overrides older mechanics.
 
 ## Execution-anchor invariant
 
-`Ticket baseline` and `Execution Anchor` are different authorities:
+Retain the accepted distinction exactly:
 
 ```text
 Ticket baseline
     immutable per-ticket historical / lineage anchor
 
 Execution Anchor
-    exact fetched remote shared-Spec-branch commit at which this implementation attempt
-    begins, before this ticket makes substantive candidate changes
+    exact fetched remote shared-Spec-branch commit at which the current implementation
+    attempt begins, before substantive ticket-owned mutation
 ```
 
-A pinned Ticket baseline remains immutable. Legitimate shared-branch advancement after that
-baseline may include accepted CCL/ADR/Spec reconciliation, prerequisite ticket completion,
-workflow-policy synchronization, or other already-durable shared-branch history. Such
-advancement is not automatically this ticket's implementation candidate.
+Do not require the current shared branch to equal that historical SHA. Before a fresh
+attempt, fetch the actual remote ticket branch and, only while clean, fast-forward only when
+the local branch is strictly behind and is an ancestor. The pre-mutation machine gate remains
+directly executable; no `PYTHONPATH` workaround is required.
 
-The current ticket candidate is **only** the Git-relevant path state that differs from the
-Execution Anchor (plus untracked non-ignored paths). Do not compute candidate identity from
-the historical Ticket baseline once an Execution Anchor has been admitted.
-
-This distinction does not weaken fail-closed behavior. A new Execution Anchor may be minted
-only before substantive mutation, from a clean worktree at the exact fetched remote shared
-branch tip, after the current ticket contract and all admission guards validate. An existing
-current v3 closure checkpoint means resume that checkpoint's attempt; do not mint a fresh
-Execution Anchor to launder or hide an earlier candidate.
-
-## Guard branch, immutable Ticket baseline, and current remote state
-
-Apply the retained `## 1. Recover durable ticket state`, hierarchy, native blocker,
-architecture-blocker, and project-delivery guards first. Build and validate the exact current
-ticket/remediation contract before pre-mutation Attention.
-
-Keep the retained Ticket-baseline rules with these corrections:
-
-* `Pending` still pins the exact shared-branch HEAD before first substantive mutation and is
-  then immutable.
-* A full-SHA Ticket baseline must exist and be an ancestor of the admitted Execution Anchor.
-  Do not require the current shared branch to equal that historical SHA.
-* Never recompute or overwrite a pinned baseline merely because accepted upstream/shared
-  branch history advanced.
-
-Before a fresh pre-mutation Attention gate:
-
-1. require a clean worktree and the exact declared ticket branch;
-2. fetch the actual remote ticket branch, not merely the local tracking ref;
-3. if local HEAD is behind the fetched remote tip and is its ancestor, fast-forward only
-   (`git merge --ff-only`) while still clean; this synchronization is shared-branch recovery,
-   not ticket candidate mutation;
-4. if local HEAD is ahead, diverged, dirty, or cannot fast-forward exactly, stop as a Hard
-   Blocker rather than guessing, resetting, stashing, or force-updating;
-5. re-run/re-read current parent Spec, coverage, ticket contract, native blockers,
-   architecture-blocker state, and project-delivery admission on that synchronized state;
-6. resolve the current `implement-ticket-closure-checkpoint:v3`. If one exists, use the
-   retained resume/dispatch rules and its recorded Execution Anchor. Do not start a new
-   pre-mutation attempt over it.
-
-The machine gate itself fetches the remote branch again and rejects a stale local HEAD, so a
-stale `origin/<branch>` tracking ref cannot satisfy this guard by itself.
-
-## Pre-mutation Attention and Execution Anchor capture
-
-The retained formal `$attention` checkpoint remains mandatory with exactly:
+The retained Execution Anchor correction replaces the candidate diff base `TICKET_BASELINE`
+with `EXECUTION_ANCHOR`. The formal pre-mutation invocation still includes:
 
 ```text
-Checkpoint: $implement-ticket pre-mutation
+--remote origin
+polaris.implement-ticket-attention/v2
 ```
 
-Write that exact formal result to a temporary file outside the candidate, then invoke the
-machine gate directly as documented; no `PYTHONPATH` workaround is required:
+and all pre-closure/verification invocations still bind:
+
+```text
+--execution-anchor <execution-anchor>
+```
+
+No substantive mutation is allowed until the formal pre-mutation gate succeeds.
+
+## Control-plane mutation boundary
+
+An ordinary `$implement-ticket` invocation has **zero authority** to alter repository
+workflow/control-plane or semantic-authority files. Product implementation scope, a
+duplicate-code finding, formatting, architecture verification, wiki synchronization, test
+repair, or any other delegated skill does not expand this authority.
+
+The protected control plane is machine-defined by `scripts.workflow_candidate_guard` and
+includes at minimum:
+
+- `.agents/**`;
+- `AGENTS.md`;
+- `.github/**`;
+- `tests/workflow/**`;
+- `docs/process/**`;
+- `contracts/ccl/**`;
+- `docs/adr/**`;
+- `scripts/workflow_*.py`;
+- the repository delivery/contract tooling enumerated by the guard.
+
+There is deliberately **no `$implement-ticket` bypass flag**. A ticket that genuinely needs
+to change these authorities is not an ordinary implementation candidate; stop and route the
+change to the owning workflow/authority process. Human approval of product implementation,
+ticket scope, or a scanner repair is not equivalent to control-plane authorization.
+
+### Mandatory candidate guard
+
+After the Execution Anchor is captured, run:
 
 ```bash
-python .agents/skills/implement-ticket/scripts/attention_gate.py pre-mutation \
-  --ticket <ticket-number> \
-  --contract <ticket-or-remediation-contract.json> \
-  --baseline <immutable-ticket-baseline> \
-  --branch <ticket-branch> \
-  --remote origin \
-  --attention-result <pre-mutation-attention-result-file>
+python -m scripts.workflow_candidate_guard check \
+  --anchor <execution-anchor>
 ```
 
 Require:
 
 ```text
-IMPLEMENT TICKET ATTENTION: PRE-MUTATION VALID
-Ticket baseline: <immutable sha>
-Execution Anchor: <exact fetched remote branch tip>
+WORKFLOW CANDIDATE GUARD: VALID
+Protected control-plane paths: 0
 ```
 
-Capture the exact `Execution Anchor` and `Attention Receipt Hash`. The receipt schema is
-`polaris.implement-ticket-attention/v2` and binds ticket, branch, immutable Ticket baseline,
-Execution Anchor, exact current contract hash, pre-mutation Attention result, and the clean
-candidate state relative to the Execution Anchor.
+Run this guard:
 
-No substantive mutation is allowed until this command succeeds.
+1. immediately after every substantive mutation batch;
+2. before and after any delegated skill that may repair candidate bytes, including
+   `$deduplicate-code`, `$format-code`, and `$verify-code`;
+3. before the pre-closure Attention sweep;
+4. before writing the v3 `awaiting-closure-verification` checkpoint;
+5. again after any retry mutation and before persistence.
 
-The old retained rule that admitted `baseline -> HEAD` only when it was default-branch
-workflow-policy synchronization is superseded. Non-retroactivity is now enforced by the
-clean exact-remote Execution Anchor plus the rule that HEAD may not change after the
-pre-mutation gate until certification/persistence.
+If the guard reports a protected path, stop normal implementation immediately. Do not
+refactor, suppress, format, "fix", or otherwise continue changing that path.
 
-## Candidate identity and pre-closure Attention
-
-Every retained candidate-state algorithm remains byte-for-byte the same except replace the
-Git diff base `TICKET_BASELINE` with `EXECUTION_ANCHOR`:
-
-```text
-path universe =
-    git diff --no-renames --name-only -z <execution-anchor> --
-    union untracked non-ignored paths
-```
-
-This `TICKET_CLOSURE_STATE` therefore identifies only this attempt's candidate, excluding
-already-durable shared-branch history between Ticket baseline and Execution Anchor.
-
-Before closure dispatch, run the retained pre-closure Attention sweep and bind it with:
+The only candidate-local mutation allowed while recovering from this violation is exact
+restoration of the protected paths to the Execution Anchor:
 
 ```bash
-python .agents/skills/implement-ticket/scripts/attention_gate.py pre-closure \
-  --ticket <ticket-number> \
-  --contract <ticket-or-remediation-contract.json> \
-  --baseline <immutable-ticket-baseline> \
-  --branch <ticket-branch> \
-  --execution-anchor <execution-anchor> \
-  --attention-result <pre-closure-attention-result-file>
+python -m scripts.workflow_candidate_guard restore-protected \
+  --anchor <execution-anchor>
+python -m scripts.workflow_candidate_guard check \
+  --anchor <execution-anchor>
 ```
 
-Then verify the frozen receipt with:
+`restore-protected` is intentionally narrow: it restores/deletes only protected candidate
+paths and preserves all non-protected product candidate work. After restoration, all
+technical evidence that depended on the removed workflow/control-plane mutations is stale
+and must be recomputed as applicable.
 
-```bash
-python .agents/skills/implement-ticket/scripts/attention_gate.py verify \
-  --ticket <ticket-number> \
-  --contract <ticket-or-remediation-contract.json> \
-  --baseline <immutable-ticket-baseline> \
-  --branch <ticket-branch> \
-  --execution-anchor <execution-anchor> \
-  --expected-receipt-hash <attention-receipt-hash>
-```
+## Delegated duplicate-code boundary
 
-Require `IMPLEMENT TICKET ATTENTION: PRE-CLOSURE VALID` and then
-`IMPLEMENT TICKET ATTENTION: VALID`. The gate rejects any committed HEAD movement after the
-Execution Anchor and any stale candidate bytes.
+When invoking `$deduplicate-code` in `ticket-differential` mode, supply the exact
+`EXECUTION_ANCHOR`, not the immutable historical `TICKET_BASELINE`, as the differential
+comparison base. Shared-branch changes between Ticket baseline and Execution Anchor are
+already-durable upstream history and are not ticket-attributable duplicate debt.
 
-## Durable closure checkpoint v3 and independent verifier binding
+`$deduplicate-code` never authorizes a protected control-plane edit. If a scanner relation
+would require changing a protected path, the ticket repair loop must leave that path
+untouched and report the finding/routing to the owning workflow instead.
 
-The retained `implement-ticket-closure-checkpoint:v3` schema is strengthened with:
+## Closure and independent verifier
 
-```markdown
-**Ticket baseline:** <immutable historical sha>
-**Execution Anchor:** <exact pre-mutation fetched shared-branch sha>
-**Candidate state:** <hash relative to Execution Anchor>
-```
+The pre-closure Attention gate and candidate identity remain Execution-Anchor-bound.
+Immediately before them, require a fresh successful candidate guard. The independent
+`$verify-ticket-closure` invocation must independently run the same guard against the same
+Execution Anchor. Any protected candidate path makes verification invalid: emit neither
+`TICKET CLOSURE: PASS` nor `TICKET CLOSURE: FAIL` until the candidate is restored to an
+admissible product-only state.
 
-Persist/read back the Execution Anchor anywhere the retained procedure currently binds
-Ticket baseline and candidate identity. Dispatch `$verify-ticket-closure` with both values.
-The verifier result must bind both values exactly.
-
-An existing v3 checkpoint without an Execution Anchor is not silently upgraded by minting a
-new attempt over the same candidate. If its exact candidate was created under the older
-receipt schema, fail closed and route to the owning recovery path; do not retroactively
-assert a v2 pre-mutation receipt.
-
-## Persistence and representation independence
-
-Before commit/push, the Attention verifier runs while HEAD still equals the Execution Anchor.
-After independent closure PASS, commit only the exact certified candidate and push without
-force under the retained persistence rules.
-
-Representation independence is preserved: recomputing candidate content relative to the
-same Execution Anchor before and after committing the exact bytes yields the same candidate
-identity. Ticket baseline remains immutable lineage evidence and is never substituted for
-the Execution Anchor in candidate hashing.
-
-## Frontier handoff
-
-The retained Frontier handoff remains authoritative after exact persistence, ticket closure,
-and dependency/frontier readback. Execution-anchor recovery does not change native
-dependency actionability or authorize implementation of a blocked sibling.
+All retained persistence, exact-candidate, dependency/frontier, and Human Handoff rules
+remain unchanged.

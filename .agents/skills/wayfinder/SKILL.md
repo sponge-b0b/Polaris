@@ -225,6 +225,58 @@ independent semantic challenger domains around accepted CCL assertions.
 If closure finds a missing semantic choice, route it to its owning decision. If it finds
 only an implementation-equivalent private mechanic, do not create architecture work.
 
+### Specification handoff gate
+
+When Route Clarity resolves to downstream specification or specification reconciliation,
+Wayfinder may not terminate successfully from prose alone. Generate and admit the exact
+terminal handoff mechanically from the final durable map snapshot and the formal Route
+Clarity Attention result.
+
+Capture the final map after all resolution/map/project-delivery mutations:
+
+```bash
+gh issue view <wayfinder-map> --repo <owner/repo> --json title,url,body \
+  > <wayfinder-map-json>
+```
+
+Write the exact formal `$attention` result for this checkpoint to a temporary file outside
+repository candidate state. The checkpoint must be exactly:
+
+```text
+Checkpoint: $wayfinder route clarity
+```
+
+A `FINDINGS` result must use the complete `$attention` finding shape. Only findings whose
+`Blocking basis` is `none` are compatible with a specification handoff; a blocking finding
+means Route Clarity is not terminal yet.
+
+Then run:
+
+```bash
+python .agents/skills/wayfinder/scripts/route_handoff.py specification \
+  --map-json <wayfinder-map-json> \
+  --attention-result <route-clarity-attention-result>
+```
+
+Require exact first line:
+
+```text
+WAYFINDER HANDOFF: SPECIFICATION
+```
+
+The helper does not decide semantic Route Clarity. It admits terminal output only after that
+decision exists. It validates formal Attention shape, map identity, and any current
+`continuation-reconciliation:v1` record. When continuation status is `required`, it requires
+full canonical authority SHA, continuation branch, exact conflict paths, and `$to-specs` as
+reconciliation owner.
+
+A failed gate means Wayfinder has **not** terminated successfully. Do not replace the failed
+handoff with explanatory prose.
+
+For a successful specification/reconciliation terminal, the final user-visible response
+must end with the helper stdout **byte-for-byte as one terminal block**. Do not paraphrase,
+omit, reorder, or replace the generated `$to-specs` command or reconciliation coordinates.
+
 ## Invocation flow
 
 ### Chart the Map
@@ -250,7 +302,9 @@ only an implementation-equivalent private mechanic, do not create architecture w
 8. atomically persist CCL + ADR/docs/wiki when required;
 9. persist resolution/close ticket/update map;
 10. reconcile project-delivery state;
-11. run Route Clarity or hand off the next frontier decision.
+11. run Route Clarity; when it resolves to specification/reconciliation, pass the
+   Specification handoff gate and emit its exact terminal block; otherwise hand off the next
+   frontier decision.
 
 ## Human handoffs
 
@@ -260,15 +314,23 @@ Next frontier decision:
 $wayfinder - <Decision Title> (<Decision URL>)
 ```
 
-Route clear for specification:
+Route clear for specification is machine-generated. The canonical terminal shape is:
 
 ```text
+WAYFINDER HANDOFF: SPECIFICATION
 $to-specs - <Wayfinder Map Title> (<Map URL>)
+Canonical authority: <full main SHA>        # only when continuation reconciliation is required
+Continuation branch: <branch>              # only when continuation reconciliation is required
+Conflict paths: <exact paths>               # only when continuation reconciliation is required
+Route Clarity Attention SHA-256: <sha256>
 ```
 
-When continuation inheritance requires semantic reconciliation, include canonical authority
-commit, continuation branch, and exact conflict paths. `$to-specs` owns downstream Spec
-reconciliation.
+The `route_handoff.py specification` stdout is the handoff authority for terminal output.
+Successful specification/reconciliation termination without that exact emitted stdout is an
+invalid Wayfinder termination, even when explanatory prose correctly names `$to-specs`.
+
+When continuation inheritance requires semantic reconciliation, `$to-specs` owns downstream
+Spec reconciliation.
 
 Wayfinder never implements destination code, lets implementation choose missing semantics,
 reinterprets CCL through downstream prose, mutates CCL outside `$contract-ledger`, or

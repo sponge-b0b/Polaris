@@ -1,25 +1,17 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import re
 from pathlib import Path
 from typing import Any
 
+from scripts.workflow_attention import AttentionProtocolError, validate_file
 from scripts.workflow_handoff import render_artifact_line
 
 CHECKPOINT = "$wayfinder route clarity"
 CONTINUATION_MARKER = "<!-- continuation-reconciliation:v1 -->"
 FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
-FINDING = re.compile(r"(?ms)^(\d+)\.\s+.+?(?=^\d+\.\s+|\Z)")
-FIELD_PATTERNS = {
-    "Observation": re.compile(r"(?m)^\s*Observation:\s*(.+?)\s*$"),
-    "Why it matters": re.compile(r"(?m)^\s*Why it matters:\s*(.+?)\s*$"),
-    "Authority": re.compile(r"(?m)^\s*Authority:\s*(.+?)\s*$"),
-    "Recommendation/routing": re.compile(r"(?m)^\s*Recommendation/routing:\s*(.+?)\s*$"),
-    "Blocking basis": re.compile(r"(?m)^\s*Blocking basis:\s*(.+?)\s*$"),
-}
 CONTINUATION_FIELD = {
     "Status": re.compile(r"(?m)^\*\*Status:\*\*\s*(.+?)\s*$"),
     "Canonical authority": re.compile(r"(?m)^\*\*Canonical authority:\*\*\s*(.+?)\s*$"),
@@ -45,43 +37,25 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 
 def _validate_attention(path: Path) -> str:
-    raw = path.read_text(encoding="utf-8").strip()
-    lines = raw.splitlines()
-    _need(lines, "attention: empty result")
-
-    if lines[0] == "ATTENTION: CLEAR":
-        _need(
-            lines == [
-                "ATTENTION: CLEAR",
-                f"Checkpoint: {CHECKPOINT}",
-                "Material concerns: 0",
-            ],
-            "attention: CLEAR result must use the exact three-line Route Clarity form",
+    try:
+        receipt = validate_file(
+            path,
+            checkpoint=CHECKPOINT,
+            require_nonblocking=True,
         )
-        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
-
-    _need(lines[0] == "ATTENTION: FINDINGS", "attention: invalid result header")
-    _need(
-        len(lines) >= 4 and lines[1] == f"Checkpoint: {CHECKPOINT}",
-        "attention: wrong or missing Route Clarity checkpoint",
-    )
-    findings_text = "\n".join(lines[2:]).strip()
-    findings = list(FINDING.finditer(findings_text))
-    _need(findings, "attention: FINDINGS result has no findings")
-
-    for finding in findings:
-        block = finding.group(0)
-        values: dict[str, str] = {}
-        for name, pattern in FIELD_PATTERNS.items():
-            match = pattern.search(block)
-            _need(match is not None, f"attention: finding missing {name}")
-            values[name] = match.group(1).strip()
-        _need(
-            values["Blocking basis"].lower() == "none",
-            f"attention: blocking finding prevents specification handoff: {values['Blocking basis']}",
-        )
-
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    except AttentionProtocolError as exc:
+        message = str(exc)
+        if "unsupported formal result header" in message:
+            message = "attention: invalid result header"
+        elif "CLEAR must use the exact three-line form" in message:
+            message = "attention: CLEAR result must use the exact three-line Route Clarity form"
+        elif "unresolved blocking finding" in message:
+            message = message.replace(
+                "attention result: unresolved blocking finding(s):",
+                "attention: blocking finding prevents specification handoff:",
+            )
+        raise HandoffError(message) from exc
+    return receipt.result_sha256
 
 
 def _continuation(body: str) -> dict[str, str] | None:

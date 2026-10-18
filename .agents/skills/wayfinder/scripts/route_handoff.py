@@ -7,6 +7,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from scripts.workflow_handoff import render_artifact_line
+
 CHECKPOINT = "$wayfinder route clarity"
 CONTINUATION_MARKER = "<!-- continuation-reconciliation:v1 -->"
 FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -145,7 +147,7 @@ def specification_handoff(map_json: Path, attention_result: Path) -> str:
 
     lines = [
         "WAYFINDER HANDOFF: SPECIFICATION",
-        f"$to-specs - {title.strip()} ({url})",
+        render_artifact_line("$to-specs", title.strip(), url),
     ]
     if continuation and continuation["Status"] == "required":
         lines.extend(

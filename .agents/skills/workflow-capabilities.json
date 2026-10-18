@@ -1,0 +1,209 @@
+{
+  "schema": "polaris.workflow-capabilities/v1",
+  "migration_baseline": "1aef553b36f2907dbe7d811de4d6d5456b243952",
+  "audited_pre_repair_head": "c3ddbfdda26fc8d825ba5a6fdab58e754e212a93",
+  "status_vocabulary": [
+    "PRESERVED",
+    "REPLACED-EQUIVALENT",
+    "INTENTIONALLY RETIRED",
+    "LOST / DEFECT",
+    "AMBIGUOUS"
+  ],
+  "capabilities": [
+    {
+      "id": "cross-skill-authority-layering",
+      "status": "PRESERVED",
+      "owner": ["AGENTS.md", ".agents/skills/README.md"]
+    },
+    {
+      "id": "human-handoff-boundary-classification",
+      "status": "LOST / DEFECT",
+      "owner": [".agents/skills/README.md", "scripts/workflow_handoff.py"],
+      "resolution": "RESTORED_BY_THIS_CHANGE"
+    },
+    {
+      "id": "canonical-artifact-human-handoff-format",
+      "status": "LOST / DEFECT",
+      "owner": [".agents/skills/README.md", "scripts/workflow_handoff.py"],
+      "resolution": "RESTORED_BY_THIS_CHANGE"
+    },
+    {
+      "id": "fresh-session-handoff-durability",
+      "status": "LOST / DEFECT",
+      "owner": [".agents/skills/README.md", "scripts/workflow_handoff.py"],
+      "resolution": "RESTORED_BY_THIS_CHANGE"
+    },
+    {
+      "id": "workflow-change-owner-authorization",
+      "status": "PRESERVED",
+      "owner": ["AGENTS.md", ".agents/skills/README.md"]
+    },
+    {
+      "id": "proactive-attention-checkpoint-roster",
+      "status": "PRESERVED",
+      "owner": ["AGENTS.md", ".agents/skills/attention/SKILL.md"]
+    },
+    {
+      "id": "implement-ticket-attention-fail-closed",
+      "status": "PRESERVED",
+      "owner": [".agents/skills/implement-ticket/scripts/attention_gate.py"],
+      "evidence": ["c82e272d112f37480330667323fc9415c57ca58e"]
+    },
+    {
+      "id": "pre-workflow-intake-human-promotion",
+      "status": "REPLACED-EQUIVALENT",
+      "owner": [".agents/skills/README.md", ".agents/skills/wayfinder/SKILL.md"]
+    },
+    {
+      "id": "lifecycle-reentry-and-backward-routing",
+      "status": "PRESERVED",
+      "owner": [".agents/skills/architecture-remediation/SKILL.md", ".agents/skills/spec-merge-cleanup/SKILL.md"]
+    },
+    {
+      "id": "project-delivery-focus-vs-dependency",
+      "status": "PRESERVED",
+      "owner": [".agents/skills/project-delivery-management/SKILL.md", "scripts/project_delivery.py"]
+    },
+    {
+      "id": "spec-in-place-reconciliation",
+      "status": "REPLACED-EQUIVALENT",
+      "owner": [".agents/skills/to-specs/SKILL.md"],
+      "evidence": ["14d4dbd4bdd2ff92c34c5e781b809ec460ca17d0"]
+    },
+    {
+      "id": "ticket-current-state-reconciliation",
+      "status": "REPLACED-EQUIVALENT",
+      "owner": [".agents/skills/to-tickets/SKILL.md"]
+    },
+    {
+      "id": "live-wip-ticket-reslicing",
+      "status": "PRESERVED",
+      "owner": [".agents/skills/to-tickets/SKILL.md"],
+      "marker": "ticket-reslice-recovery:v1"
+    },
+    {
+      "id": "single-conventional-spec-review-owner",
+      "status": "PRESERVED",
+      "owner": [".agents/skills/review-spec/SKILL.md", ".agents/skills/spec-merge-cleanup/SKILL.md"]
+    },
+    {
+      "id": "review-finding-continuity",
+      "status": "REPLACED-EQUIVALENT",
+      "owner": [".agents/skills/review-spec/SKILL.md", "scripts/review_remediation.py"],
+      "marker": "review-spec-finding-ledger:v2"
+    },
+    {
+      "id": "decomposition-defect-durable-routing",
+      "status": "REPLACED-EQUIVALENT",
+      "owner": [".agents/skills/to-tickets/SKILL.md", ".agents/skills/verify-spec/SKILL.md"],
+      "marker": "decomposition-defects:v1"
+    },
+    {
+      "id": "architecture-blocker-durable-report",
+      "status": "PRESERVED",
+      "owner": [".agents/skills/architecture-remediation/SKILL.md"],
+      "marker": "architecture-blocker:v1"
+    },
+    {
+      "id": "architecture-owner-reentry",
+      "status": "PRESERVED",
+      "owner": [".agents/skills/architecture-remediation/SKILL.md"]
+    },
+    {
+      "id": "root-blocker-separate-closure-verifier",
+      "status": "INTENTIONALLY RETIRED",
+      "owner": [".agents/skills/verify-ticket-closure/SKILL.md"],
+      "replacement": "review-remediation-contract/v1 + $verify-ticket-closure",
+      "evidence": ["f699a1c6f96a6bf5883d59366f68da84893cdd1d"]
+    },
+    {
+      "id": "review-remediation-helper-skill",
+      "status": "INTENTIONALLY RETIRED",
+      "owner": [".agents/skills/review-spec/SKILL.md", ".agents/skills/to-tickets/SKILL.md"],
+      "replacement": "review-spec-finding-ledger:v2 + current $to-tickets"
+    },
+    {
+      "id": "spec-remediation-helper-skill",
+      "status": "INTENTIONALLY RETIRED",
+      "owner": [".agents/skills/to-specs/SKILL.md"],
+      "replacement": "permanent in-place reconciliation",
+      "evidence": ["14d4dbd4bdd2ff92c34c5e781b809ec460ca17d0"]
+    },
+    {
+      "id": "ticket-remediation-helper-skill",
+      "status": "INTENTIONALLY RETIRED",
+      "owner": [".agents/skills/to-tickets/SKILL.md"],
+      "replacement": "current deterministic ordinary/review ticket reconciliation"
+    },
+    {
+      "id": "spec-completion-idempotent-recovery",
+      "status": "PRESERVED",
+      "owner": [".agents/skills/spec-merge-cleanup/SKILL.md"]
+    },
+    {
+      "id": "project-projection-non-authority",
+      "status": "PRESERVED",
+      "owner": ["AGENTS.md", ".agents/skills/README.md", ".agents/skills/project-tracking/SKILL.md"]
+    },
+    {
+      "id": "native-dependency-truth",
+      "status": "PRESERVED",
+      "owner": ["AGENTS.md", ".agents/skills/project-delivery-management/SKILL.md", ".agents/skills/to-specs/SKILL.md"]
+    },
+    {
+      "id": "independent-spec-governance",
+      "status": "PRESERVED",
+      "owner": ["AGENTS.md", ".agents/skills/architecture-remediation/SKILL.md"]
+    },
+    {
+      "id": "ticket-closure-independent-proof",
+      "status": "PRESERVED",
+      "owner": ["AGENTS.md", ".agents/skills/verify-ticket-closure/SKILL.md"]
+    },
+    {
+      "id": "integrated-spec-independent-proof",
+      "status": "PRESERVED",
+      "owner": [".agents/skills/verify-spec/SKILL.md", ".agents/skills/verify-spec-closure/SKILL.md"]
+    },
+    {
+      "id": "review-independent-adversarial-proof",
+      "status": "PRESERVED",
+      "owner": [".agents/skills/review-spec/SKILL.md"]
+    },
+    {
+      "id": "issue-state-not-lifecycle-authority",
+      "status": "PRESERVED",
+      "owner": [".agents/skills/spec-merge-cleanup/SKILL.md", ".agents/skills/project-tracking/SKILL.md"]
+    },
+    {
+      "id": "provenance-not-hierarchy",
+      "status": "PRESERVED",
+      "owner": ["AGENTS.md", ".agents/skills/to-specs/SKILL.md", ".agents/skills/project-delivery-management/SKILL.md"]
+    },
+    {
+      "id": "branch-baseline-and-readiness-gates",
+      "status": "PRESERVED",
+      "owner": [".agents/skills/to-tickets/SKILL.md", ".agents/skills/to-specs/SKILL.md", ".agents/skills/implement-ticket/SKILL.md"],
+      "evidence": ["9802faf61d78aaae7e2371544ff1adbe0bcdfd11"]
+    },
+    {
+      "id": "wayfinder-route-clarity-terminal-gate",
+      "status": "PRESERVED",
+      "owner": [".agents/skills/wayfinder/scripts/route_handoff.py"],
+      "evidence": ["c3ddbfdda26fc8d825ba5a6fdab58e754e212a93"]
+    }
+  ],
+  "human_handoff": {
+    "shared_gate": "scripts/workflow_handoff.py",
+    "required_by": [
+      "wayfinder",
+      "to-specs",
+      "to-tickets",
+      "implement-ticket",
+      "verify-spec",
+      "review-spec",
+      "architecture-remediation",
+      "spec-merge-cleanup"
+    ]
+  }
+}

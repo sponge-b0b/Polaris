@@ -133,5 +133,61 @@ label state after mutation.
 
 ## 12. Frontier handoff
 
-The retained Frontier handoff is unchanged. A ticket with `architecture-blocker:v1` is
-admissible only in `resolved` state; `unresolved` or `routed` blocks implementation handoff.
+After publication/readback is complete, evaluate the **complete actionable frontier**. Use
+the retained Section 12 actionability predicates for every current open ticket in the
+current `$to-tickets` scope. Do not stop after the first actionable ticket and do not use
+`ready-for-agent` alone as actionability authority.
+
+Collect every ticket that satisfies all current predicates. Preserve deterministic ordering:
+
+* ordinary tickets: ordinary destination/topology order (`T1`, `T2`, ...), restricted to the
+  currently actionable subset;
+* review-remediation tickets: review-remediation proposal alias order, restricted to the
+  currently actionable subset.
+
+If zero tickets are actionable, do not emit an implementation Human Handoff and do not
+invent an empty manifest. Report the exact durable blocker/dependency state that prevents a
+frontier and remain at the owning workflow boundary.
+
+If one or more tickets are actionable, create one `polaris.workflow-handoff/v1` manifest
+with:
+
+```text
+boundary: human-lifecycle
+durability.verified: true
+handoffs: one handoff entry for every actionable ticket
+```
+
+Every handoff entry uses destination `$implement-ticket` and the ticket's exact current
+tracker title plus canonical GitHub issue URL. The durability sources must be sufficient for
+a fresh `$implement-ticket` session to recover all correctness-critical state. At minimum
+include the current Parent Spec URL and every actionable ticket URL; include additional
+durable managed-comment/artifact URLs when they are required for fresh-session recovery.
+Sources must be canonical and unique.
+
+Generate the terminal handoff only through the shared gate:
+
+```bash
+python -m scripts.workflow_handoff generate \
+  --manifest <handoff-manifest.json> \
+  > <handoff-output.txt>
+python -m scripts.workflow_handoff verify \
+  --manifest <handoff-manifest.json> \
+  --output <handoff-output.txt>
+```
+
+Require exact:
+
+```text
+WORKFLOW HANDOFF: VALID
+```
+
+The user-visible terminal Human Handoff block must then reproduce the generated
+`<handoff-output.txt>` **byte-for-byte**. It therefore begins with `WORKFLOW HANDOFF: READY`,
+contains one `$implement-ticket - <Ticket Title> (<Ticket URL>)` line for **every**
+actionable frontier ticket in the deterministic order above, and ends with the verified
+fresh-session durability receipt and manifest SHA-256.
+
+Do not emit a bare `$implement-ticket` line, do not manually reconstruct the generated
+block, do not omit a second or later independently actionable ticket, and do not terminate
+this invocation as a successful Human Handoff if generation or verification fails.

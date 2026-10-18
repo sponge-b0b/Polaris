@@ -34,19 +34,44 @@ Receive and bind:
 * branch + immutable Ticket baseline;
 * exact `TICKET_CLOSURE_STATE`;
 * exact `polaris.ticket-contract/v1` and Ticket Contract Hash;
+* exact Attention Receipt Hash;
 * parent Spec Contract Hash and current coverage identity;
 * Implementation Evidence Index;
 * terminal technical-check evidence;
 * prior unresolved verifier findings on retry;
 * exact `polaris.review-remediation-contract/v1` when mode is remediation.
 
-Recompute/read enough durable state to ensure these identities are still exact. Candidate
-mutation, contract/coverage mutation, verifier mutation/delegation, or ambiguous durable
-state invalidates the run. Return invalid verification; emit neither PASS nor FAIL.
+Before semantic proof, write/recover the exact supplied ordinary ticket contract or review
+remediation contract as one JSON file and mechanically admit the Attention lifecycle state:
+
+```bash
+python .agents/skills/implement-ticket/scripts/attention_gate.py verify \
+  --ticket <ticket-number> \
+  --contract <ticket-or-remediation-contract.json> \
+  --baseline <ticket-baseline> \
+  --branch <ticket-branch> \
+  --expected-receipt-hash <attention-receipt-hash>
+```
+
+Require:
+
+```text
+IMPLEMENT TICKET ATTENTION: VALID
+```
+
+and require the printed candidate state to equal the exact dispatched
+`TICKET_CLOSURE_STATE`. A missing local receipt, missing pre-mutation or pre-closure gate,
+wrong contract/branch/baseline, mismatched receipt hash, or stale candidate is invalid
+verification: emit neither PASS nor FAIL. Do not reconstruct or self-assert a replacement
+Attention receipt in the verifier.
+
+Recompute/read enough durable state to ensure all remaining identities are still exact.
+Candidate mutation, contract/coverage mutation, verifier mutation/delegation, or ambiguous
+durable state invalidates the run. Return invalid verification; emit neither PASS nor FAIL.
 
 Direct human invocation is recovery entry only. Recover `$implement-ticket`'s durable v3
-checkpoint and resume its recorded dispatcher/persistence state; the top-level
-implementation actor may not certify its own candidate.
+checkpoint and its exact Attention Receipt Hash, then resume its recorded dispatcher/
+persistence state; the top-level implementation actor may not certify its own candidate.
 
 ## 2. Frozen contract boundary
 
@@ -270,6 +295,7 @@ TICKET CLOSURE: PASS
 Ticket: #<n>
 Mode: <ordinary|remediation>
 Ticket Contract Hash: <hash>
+Attention Receipt Hash: <hash>
 Spec Contract Hash: <hash>
 Ticket baseline: <sha>
 Candidate state: <hash>
@@ -297,6 +323,7 @@ TICKET CLOSURE: FAIL
 Ticket: #<n>
 Mode: <ordinary|remediation>
 Ticket Contract Hash: <hash>
+Attention Receipt Hash: <hash>
 Spec Contract Hash: <hash>
 Ticket baseline: <sha>
 Candidate state: <hash>
@@ -321,6 +348,7 @@ reconstructing semantics:
 Retry state:
 - prior candidate identity
 - exact ticket/spec contract hashes
+- exact Attention Receipt Hash
 - finding IDs and falsifiers
 - proof/evidence dependency pointers
 - reusable evidence with invalidation boundary
@@ -340,4 +368,5 @@ routing.
 * create/revise CCL;
 * repair implementation;
 * mutate repository/tracker state;
+* mint or repair an Attention receipt;
 * suppress a current in-contract defect because an earlier attempt passed.

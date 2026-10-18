@@ -526,8 +526,7 @@ or changing dependencies for any ticket, prove all of the following:
 5. **Upstream tracking** — when the caller checkout is used for an existing branch, the
    local branch tracks exactly `origin/SPEC_BRANCH`.
 6. **GitHub Development linkage** — `gh issue develop --list <spec>` names exactly the
-   expected Spec branch, except for the narrow qualified legacy pre-existing-branch case
-   below.
+   expected Spec branch.
 7. **Caller-worktree safety** — never stash, reset, clean, commit, discard, or relocate
    unrelated caller work merely to pass this guard.
 
@@ -562,22 +561,11 @@ isolated validation.
 If the caller worktree is clean and the existing branch is used locally, require exact
 local branch identity and exact upstream `origin/SPEC_BRANCH`.
 
-#### Qualified legacy pre-existing branch reconciliation
-
-A remote branch that pre-dates this invocation may lack GitHub Development linkage only
-when current GitHub tooling exposes no supported operation to attach that already-existing
-branch. This is historical reconciliation, never an alternate branch-creation path.
-
-In that case require all of:
-
-* remote branch existed before this invocation;
-* branch name is exactly `SPEC_BRANCH`;
-* exactly one Workspace Metadata record names that branch and a full baseline SHA;
-* baseline commit exists and is an ancestor of the frozen current remote Spec branch;
-* no conflicting Development-linked branch exists for the Parent Spec; and
-* when a local checkout is used, it tracks exactly `origin/SPEC_BRANCH`.
-
-Any ambiguity fails closed. Never manufacture linkage by replacing a durable branch.
+A pre-existing remote branch without the exact GitHub Development linkage is invalid
+runtime lifecycle state. Permanent skills do not embed migration/backfill compatibility
+paths. Stop with zero ticket-publication mutations and route the branch-linkage repair to
+an explicitly authorized out-of-band administrative operation; do not recreate, rename,
+reset, or replace the durable branch to manufacture linkage.
 
 On success emit and retain this current-run receipt:
 
@@ -586,7 +574,7 @@ SPEC BRANCH GUARD: PASS
 Branch: spec-<parent-spec-number>
 Baseline: <full sha>
 Remote head: <full sha>
-Development linkage: linked | legacy-pre-existing-qualified
+Development linkage: linked
 ```
 
 If any branch-rule predicate fails, stop before Section 11 with **zero ticket-publication

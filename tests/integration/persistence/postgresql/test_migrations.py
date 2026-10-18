@@ -45,6 +45,15 @@ CORRECTION_TABLE_NAMES = {
     "evidence_assessment_corrections",
     "evidence_correction_command_receipts",
 }
+INVESTMENT_INTELLIGENCE_TABLE_NAMES = {
+    "investment_hypotheses",
+    "investment_views",
+    "meaningful_challenges",
+    "decision_alternatives",
+    "decision_alternative_revisions",
+    "decision_alternative_selections",
+    "investment_intelligence_command_receipts",
+}
 EVIDENCE_IDENTITY_COLUMNS = (
     ("evidence_observations", "observation_id"),
     ("evidence_bindings", "binding_id"),
@@ -466,6 +475,7 @@ def test_requirement_revision_downgrades_to_evidence_foundation_and_reupgrades(
                 "evidence_binding_command_receipts",
                 *SUFFICIENCY_TABLE_NAMES,
                 *CORRECTION_TABLE_NAMES,
+                *INVESTMENT_INTELLIGENCE_TABLE_NAMES,
             }
         )
         | {"alembic_version"},
@@ -485,6 +495,7 @@ def test_binding_revision_downgrades_to_requirement_foundation_and_reupgrades(
                 "evidence_binding_command_receipts",
                 *SUFFICIENCY_TABLE_NAMES,
                 *CORRECTION_TABLE_NAMES,
+                *INVESTMENT_INTELLIGENCE_TABLE_NAMES,
             }
         )
         | {"alembic_version"},
@@ -497,7 +508,12 @@ def test_sufficiency_revision_downgrades_to_executable_requirements_and_reupgrad
     _assert_revision_round_trip(
         postgres_target,
         "0005_sufficiency_requirements",
-        (POLARIS_TABLE_NAMES - SUFFICIENCY_TABLE_NAMES - CORRECTION_TABLE_NAMES)
+        (
+            POLARIS_TABLE_NAMES
+            - SUFFICIENCY_TABLE_NAMES
+            - CORRECTION_TABLE_NAMES
+            - INVESTMENT_INTELLIGENCE_TABLE_NAMES
+        )
         | {"alembic_version"},
     )
 
@@ -508,7 +524,12 @@ def test_correction_revision_downgrades_to_assessments_and_reupgrades(
     _assert_revision_round_trip(
         postgres_target,
         "0006_sufficiency_assessments",
-        (POLARIS_TABLE_NAMES - CORRECTION_TABLE_NAMES) | {"alembic_version"},
+        (
+            POLARIS_TABLE_NAMES
+            - CORRECTION_TABLE_NAMES
+            - INVESTMENT_INTELLIGENCE_TABLE_NAMES
+        )
+        | {"alembic_version"},
     )
 
 
@@ -523,3 +544,14 @@ def test_support_epoch_revision_downgrades_and_reupgrades(
     command.upgrade(alembic, "head")
     columns = asyncio.run(_column_names(postgres_target, "evidence_support_versions"))
     assert {"observation_id", "assessment_id"} <= columns
+
+
+def test_investment_intelligence_revision_downgrades_and_reupgrades(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    _assert_revision_round_trip(
+        postgres_target,
+        "0008_support_epochs",
+        (POLARIS_TABLE_NAMES - INVESTMENT_INTELLIGENCE_TABLE_NAMES)
+        | {"alembic_version"},
+    )

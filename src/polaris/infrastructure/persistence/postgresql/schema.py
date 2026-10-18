@@ -1044,6 +1044,124 @@ CONFIGURATION_TABLE_NAMES = frozenset(
         "evidence_requirement_definitions",
     }
 )
+
+
+def _intelligence_decision_id() -> Column[Any]:
+    return Column(
+        "decision_id",
+        UUID(as_uuid=True),
+        ForeignKey("investment_decisions.decision_id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+
+
+def _intelligence_judgment_content() -> tuple[Column[Any], Column[Any]]:
+    return (
+        Column("formed_at", DateTime(timezone=True), nullable=False),
+        Column("payload", JSONB, nullable=False),
+    )
+
+
+investment_hypotheses = Table(
+    "investment_hypotheses",
+    metadata,
+    _row_id(),
+    Column("hypothesis_id", UUID(as_uuid=True), nullable=False, unique=True),
+    _intelligence_decision_id(),
+    Column("material_to_id", UUID(as_uuid=True), nullable=False),
+    Column("material_to_family", String(48), nullable=False),
+    *_intelligence_judgment_content(),
+)
+investment_views = Table(
+    "investment_views",
+    metadata,
+    _row_id(),
+    Column("view_id", UUID(as_uuid=True), nullable=False, unique=True),
+    _intelligence_decision_id(),
+    *_intelligence_judgment_content(),
+)
+meaningful_challenges = Table(
+    "meaningful_challenges",
+    metadata,
+    _row_id(),
+    Column("challenge_id", UUID(as_uuid=True), nullable=False, unique=True),
+    Column(
+        "view_id",
+        UUID(as_uuid=True),
+        ForeignKey("investment_views.view_id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    _intelligence_decision_id(),
+    *_intelligence_judgment_content(),
+)
+decision_alternatives = Table(
+    "decision_alternatives",
+    metadata,
+    _row_id(),
+    Column("alternative_id", UUID(as_uuid=True), nullable=False, unique=True),
+    _intelligence_decision_id(),
+)
+decision_alternative_revisions = Table(
+    "decision_alternative_revisions",
+    metadata,
+    _row_id(),
+    Column(
+        "alternative_id",
+        UUID(as_uuid=True),
+        ForeignKey("decision_alternatives.alternative_id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    Column("revision", Integer, nullable=False),
+    Column("recorded_at", DateTime(timezone=True), nullable=False),
+    Column("payload", JSONB, nullable=False),
+    CheckConstraint("revision >= 1", name="revision_positive"),
+    UniqueConstraint(
+        "alternative_id", "revision", name="uq_decision_alternative_root_revision"
+    ),
+)
+decision_alternative_selections = Table(
+    "decision_alternative_selections",
+    metadata,
+    _row_id(),
+    _intelligence_decision_id(),
+    Column("selection_revision", Integer, nullable=False),
+    Column(
+        "selected_alternative_id",
+        UUID(as_uuid=True),
+        ForeignKey("decision_alternatives.alternative_id", ondelete="RESTRICT"),
+    ),
+    Column("recorded_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint("selection_revision >= 1", name="selection_revision_positive"),
+    UniqueConstraint(
+        "decision_id",
+        "selection_revision",
+        name="uq_alternative_selection_decision_revision",
+    ),
+)
+investment_intelligence_command_receipts = Table(
+    "investment_intelligence_command_receipts",
+    metadata,
+    _row_id(),
+    Column("operation_id", UUID(as_uuid=True), nullable=False, unique=True),
+    Column("request_fingerprint", String(64), nullable=False),
+    Column("judgment_ids", JSONB, nullable=False),
+    Column("committed_at", DateTime(timezone=True), nullable=False),
+    _request_fingerprint_constraint(),
+)
+INVESTMENT_INTELLIGENCE_TABLE_NAMES = frozenset(
+    {
+        "investment_hypotheses",
+        "investment_views",
+        "meaningful_challenges",
+        "decision_alternatives",
+        "decision_alternative_revisions",
+        "decision_alternative_selections",
+        "investment_intelligence_command_receipts",
+    }
+)
 POLARIS_TABLE_NAMES = (
-    DECISION_TABLE_NAMES | EVIDENCE_TABLE_NAMES | CONFIGURATION_TABLE_NAMES
+    DECISION_TABLE_NAMES
+    | EVIDENCE_TABLE_NAMES
+    | CONFIGURATION_TABLE_NAMES
+    | INVESTMENT_INTELLIGENCE_TABLE_NAMES
 )

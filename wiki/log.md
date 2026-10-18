@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-17] Foundational Investment Intelligence judgments | #398 realized
+
+Marked Investment Intelligence `present` and recorded the first R3 judgment persistence and Application slice: typed Views, material Hypotheses, substantive challenge results, and material Decision Alternatives with append-only root-local revisions and guarded selection. The broader Recommendation, withholding, and Evidence target/catalog contracts remain pending in later #358 tickets.
+
 ## [2026-10-14] R3 Evidence entity registry | implemented boundary
 
 Marked Evidence `present` and added its domain and application routing anchors. Spec #357 introduced durable Evidence identity, bindings, correction, sufficiency, reconstruction, and current-basis implementation; the entity page already records the realized invariants. Concrete dependent writes remain planned in consuming Specs.

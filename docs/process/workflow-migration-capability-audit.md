@@ -38,7 +38,7 @@ Handoff family:
 2. canonical artifact handoff command format;
 3. fresh-session durability before a Human Handoff.
 
-A later `$to-tickets` execution exposed a fourth migration loss that the original audit did
+Later `$to-tickets` executions exposed two additional migration losses that the original audit did
 not detect:
 
 4. **Attention producer/consumer protocol compatibility.** Pre-cutover `$to-tickets`
@@ -47,12 +47,18 @@ not detect:
    though `$attention` defines only `ATTENTION: CLEAR` and `ATTENTION: FINDINGS`. That
    allowed proposal approval to proceed without mechanically proving a valid formal
    Attention result.
+5. **Routed architecture-blocker finalization.** Pre-cutover `$to-tickets` owned the
+   deterministic `routed -> resolved` transition after accepted authority and Parent-Spec
+   reconciliation. The migrated skill still prohibited implementation handoff while a
+   blocker remained `routed`, while `$implement-ticket` still prohibited self-resolution,
+   but the transition owner itself disappeared. That created a durable lifecycle dead end.
 
-This recovery restores the first three as the shared Human Handoff invariant and restores
-the fourth through `scripts/workflow_attention.py`, the repository-wide deterministic
-Attention result validator. Existing machine-enforced Attention consumers delegate formal
-result parsing to that shared validator, and `$to-tickets` must validate a current formal
-result before asking for approval.
+This recovery restores the first three as the shared Human Handoff invariant, restores the
+fourth through `scripts/workflow_attention.py`, and restores the fifth as a narrow
+`$to-tickets` blocker-finalization gate plus a machine-checked state-transition ownership
+manifest. Existing machine-enforced Attention consumers delegate formal result parsing to
+the shared validator, and durable workflow state machines must now prove that every
+nonterminal state has at least one explicit current transition owner.
 
 No core lifecycle capability remains `AMBIGUOUS`. All other audited pre-cutover capabilities
 are preserved, replaced equivalently, or have explicit retirement evidence.
@@ -79,6 +85,7 @@ are preserved, replaced equivalently, or have explicit retirement evidence.
 | Review finding continuity | REPLACED-EQUIVALENT | `review-spec-finding-ledger:v2` / `polaris.review-findings/v2` |
 | Decomposition-defect durable routing | REPLACED-EQUIVALENT | `decomposition-defects:v1`; `$to-tickets` / `$to-specs` routing |
 | Durable architecture-blocker report | PRESERVED | `$architecture-remediation`; `architecture-blocker:v1` |
+| Routed architecture-blocker finalization | LOST / DEFECT → restored | `$to-tickets` deterministic `routed -> resolved` gate after accepted authority + Parent-Spec consumption |
 | Closed Wayfinder authoritative re-entry | PRESERVED | `$architecture-remediation` reopens exact governing map when required |
 | Separate Root Blocker closure verifier | INTENTIONALLY RETIRED | `f699a1c6...`: current review remediation uses `review-remediation-contract/v1` + `$verify-ticket-closure` |
 | `$review-spec-remediation` helper | INTENTIONALLY RETIRED | v2 finding ledger is consumed directly by current `$to-tickets` |
@@ -132,6 +139,28 @@ The machine-readable manifest also names the formal producer, shared validator, 
 consumer roster, and current machine consumers. Machine consumers must delegate to the
 shared validator rather than reimplementing a weaker parser.
 
+## Durable workflow state-transition ownership
+
+The audit now treats durable workflow-state reachability as a first-class invariant. It is
+not enough for a marker schema to survive a migration: every nonterminal state must retain
+at least one legal outbound transition with an explicit current owner, and downstream
+consumers must agree on which states are admissible.
+
+The machine-readable `state_machines` section currently closes `architecture-blocker:v1`:
+
+```text
+unresolved -> routed    owner: $architecture-remediation
+unresolved -> resolved  owner: $architecture-remediation
+routed -> resolved      owner: $to-tickets
+resolved                terminal/admissible downstream state
+```
+
+`scripts/workflow_state_ownership.py` validates that declared states/transitions are
+well-formed and that every nonterminal state has an outbound owned transition. Policy tests
+also bind the `routed -> resolved` transition specifically to current `$to-tickets` and
+require downstream `$implement-ticket` to admit only `resolved`. This prevents a migration
+from preserving a durable marker while deleting the only workflow capable of advancing it.
+
 ## Retirement evidence
 
 The audit treats a removed helper as intentional only when the migration history states the
@@ -156,6 +185,11 @@ Cross-skill protocol compatibility is part of that proof. For each shared protoc
 must bind the producer, legal result/status vocabulary, checkpoint consumers, and shared
 machine validator where one exists. A consumer may not invent a third result status or
 weaken required fields while still claiming the producer checkpoint completed.
+
+Durable state-transition ownership is also part of that proof. Every declared nonterminal
+workflow state must retain at least one explicit legal outbound transition owner; every
+transition must name valid source/destination states and an existing owner; and downstream
+consumer admission must not require a state that no current workflow can reach.
 
 For artifact Human Handoffs, the shared gate is the canonical enforcement boundary.
 Workflow-specific gates may add stricter checks but must not duplicate or redefine the

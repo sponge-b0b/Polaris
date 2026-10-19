@@ -15,8 +15,9 @@ projection, stable planning cells, execution topology, planning-source partition
 Cross-Spec ownership integrity, concrete implementability, Spec reconciliation, native
 dependency ownership, readiness labels, and fail-closed routing. This `SKILL.md` is the
 authoritative entrypoint and adds the machine-enforced planning-worktree, cross-Spec
-execution-feasibility, and outbound Human Handoff gates below. On conflict, this file wins.
-Failure to load the retained procedure is a Hard Blocker.
+execution-feasibility, legacy-completed compatibility, and outbound Human Handoff gates
+below. On conflict, this file wins. Failure to load the retained procedure is a Hard
+Blocker.
 
 ## Clean/current planning-worktree gate
 
@@ -70,9 +71,17 @@ contains at least:
 number, title, url, state, body, blockedBy
 ```
 
-The manifest also contains the canonical `spec_order` from the planning source and exactly
-one `unit_analysis` record for every current `EU-*` in each Spec's actual
-`spec-execution-topology:v1`.
+The manifest also contains the canonical `spec_order` from the planning source.
+
+### Current/open and topology-bearing Specs
+
+Every OPEN Spec must contain a current `spec-execution-topology:v1` marker. A missing
+topology on an OPEN Spec is always invalid.
+
+For every Spec that has execution topology, including a CLOSED Spec created under the
+topology regime, the manifest must contain exactly one `unit_analysis` record for every
+current/historical `EU-*` in that Spec's actual topology. Such a Spec may not use the
+legacy-completed compatibility path to skip unit analysis.
 
 Each execution-unit analysis must state:
 
@@ -84,6 +93,46 @@ Each execution-unit analysis must state:
 - if no external provider is required, an explicit `local_completion_attestation` with
   `result: true`, reason, and non-empty basis. An empty provider list without that positive
   attestation is invalid.
+
+### Immutable legacy-completed Specs
+
+A CLOSED Spec that predates `spec-execution-topology:v1` is immutable delivery history.
+Do **not** retrofit synthetic `EU-*` topology, planning cells, or CCL markers merely to make
+the feasibility gate accept it.
+
+A topology-less Spec may participate in the bounded sibling/provider set only when all of
+the following are true:
+
+- the fresh issue snapshot says exactly `CLOSED`;
+- its manifest entry contains `legacy_completed`;
+- `legacy_completed.result` is exactly `true`;
+- `legacy_completed.reason` is non-empty;
+- `legacy_completed.completion_basis` is a non-empty list of exact durable sources proving
+  that the provider capability was completed/accepted;
+- `unit_analysis` is absent or empty.
+
+Example:
+
+```json
+{
+  "issue_json": "357.json",
+  "legacy_completed": {
+    "result": true,
+    "reason": "completed before execution-topology manifests were introduced",
+    "completion_basis": [
+      "https://github.com/<owner>/<repo>/issues/357",
+      "https://github.com/<owner>/<repo>/issues/357#issuecomment-<verification>"
+    ]
+  }
+}
+```
+
+This is a compatibility attestation only. It means the CLOSED provider is already durable
+for dependency purposes; it does not create retroactive execution-unit authority, make the
+Spec actionable again, or permit an OPEN topology-less Spec. A CLOSED Spec that already
+contains topology must still use normal `unit_analysis`.
+
+### Completion-path analysis
 
 Do not derive provider requirements merely from textual CCL overlap. Trace the actual
 **production success and proof path** implied by the frozen cells: required authoritative
@@ -106,11 +155,12 @@ SPEC EXECUTION FEASIBILITY: VALID
 Unprotected pending provider requirements: 0
 ```
 
-The machine gate parses each supplied Spec's actual execution topology and requires exact
-unit-analysis coverage. For every declared provider requirement, an open provider must be
-protected by a native prerequisite path from the consumer Spec; a closed provider is already
-durable. A required open provider with no such path makes the plan invalid even when every
-individual Spec's `derive-decomposition` result is valid.
+The machine gate parses every topology-bearing supplied Spec and requires exact
+unit-analysis coverage. It separately validates immutable `legacy_completed` entries for
+CLOSED pre-topology Specs. For every declared provider requirement, an open provider must
+be protected by a native prerequisite path from the consumer Spec; a closed provider is
+already durable. A required open provider with no such path makes the plan invalid even
+when every individual Spec's `derive-decomposition` result is valid.
 
 If this gate is invalid, `$to-specs` owns reconciliation under the retained rules when the
 accepted partition already determines ownership. Reconcile the existing open Spec(s) in

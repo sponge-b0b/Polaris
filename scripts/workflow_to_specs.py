@@ -33,7 +33,11 @@ class SpecSnapshot:
     url: str
     state: str
     blocked_by: tuple[int, ...]
-    topology_units: tuple[str, ...]
+    topology_units: tuple[str, ...] | None
+
+    @property
+    def is_legacy_completed(self) -> bool:
+        return self.state == "CLOSED" and self.topology_units is None
 
 
 def _need(condition: bool, message: str) -> None:
@@ -79,11 +83,18 @@ def _extract_blockers(issue: dict[str, Any], number: int) -> tuple[int, ...]:
     return tuple(result)
 
 
-def _extract_topology(issue: dict[str, Any], number: int) -> tuple[str, ...]:
+def _extract_topology(
+    issue: dict[str, Any], number: int, state: str
+) -> tuple[str, ...] | None:
     body = issue.get("body")
     _need(isinstance(body, str), f"spec #{number}: issue snapshot missing body")
     match = TOPOLOGY_PATTERN.search(body)
-    _need(match is not None, f"spec #{number}: missing spec-execution-topology:v1")
+    if match is None:
+        _need(
+            state == "CLOSED",
+            f"spec #{number}: open spec missing spec-execution-topology:v1",
+        )
+        return None
     try:
         topology = json.loads(match.group(1))
     except json.JSONDecodeError as exc:
@@ -129,13 +140,14 @@ def _load_snapshot(path: Path) -> SpecSnapshot:
         isinstance(state, str) and state.upper() in {"OPEN", "CLOSED"},
         f"spec #{number}: state must be OPEN/CLOSED",
     )
+    normalized_state = state.upper()
     return SpecSnapshot(
         number=number,
         title=title.strip(),
         url=url.strip(),
-        state=state.upper(),
+        state=normalized_state,
         blocked_by=_extract_blockers(issue, number),
-        topology_units=_extract_topology(issue, number),
+        topology_units=_extract_topology(issue, number, normalized_state),
     )
 
 
@@ -152,6 +164,35 @@ def _require_nonempty_strings(value: Any, label: str) -> tuple[str, ...]:
         )
         normalized.append(item.strip())
     return tuple(normalized)
+
+
+def _validate_legacy_completed(
+    snapshot: SpecSnapshot, entry: dict[str, Any], analyses: Any
+) -> None:
+    legacy = entry.get("legacy_completed")
+    _need(
+        isinstance(legacy, dict),
+        f"spec #{snapshot.number}: closed legacy spec without topology requires "
+        "legacy_completed attestation",
+    )
+    _need(
+        legacy.get("result") is True,
+        f"spec #{snapshot.number}: legacy_completed.result must be true",
+    )
+    reason = legacy.get("reason")
+    _need(
+        isinstance(reason, str) and reason.strip() != "",
+        f"spec #{snapshot.number}: legacy_completed reason required",
+    )
+    _require_nonempty_strings(
+        legacy.get("completion_basis"),
+        f"spec #{snapshot.number} legacy_completed completion_basis",
+    )
+    _need(
+        analyses in (None, []),
+        f"spec #{snapshot.number}: legacy completed spec without topology must not "
+        "invent unit_analysis",
+    )
 
 
 def _reachable(graph: dict[int, tuple[int, ...]], start: int, target: int) -> bool:
@@ -206,6 +247,16 @@ def validate_manifest(
         snapshot = _load_snapshot(_resolve(base, issue_json))
         snapshots.append(snapshot)
         analyses = entry.get("unit_analysis")
+        if snapshot.is_legacy_completed:
+            _validate_legacy_completed(snapshot, entry, analyses)
+            analyses_by_spec[snapshot.number] = []
+            continue
+
+        _need(
+            "legacy_completed" not in entry,
+            f"spec #{snapshot.number}: legacy_completed is allowed only for a CLOSED "
+            "spec that lacks spec-execution-topology:v1",
+        )
         _need(
             isinstance(analyses, list),
             f"spec #{snapshot.number}: unit_analysis list required",
@@ -231,6 +282,9 @@ def validate_manifest(
     errors: list[str] = []
 
     for snapshot in snapshots:
+        if snapshot.is_legacy_completed:
+            continue
+
         analyses = analyses_by_spec[snapshot.number]
         unit_ids: list[str] = []
         for analysis in analyses:
@@ -328,9 +382,11 @@ def validate_manifest(
 
         if len(set(unit_ids)) != len(unit_ids):
             errors.append(f"spec #{snapshot.number}: duplicate unit_analysis unit_id")
-        if set(unit_ids) != set(snapshot.topology_units):
-            missing = sorted(set(snapshot.topology_units) - set(unit_ids))
-            extra = sorted(set(unit_ids) - set(snapshot.topology_units))
+        topology_units = snapshot.topology_units
+        assert topology_units is not None
+        if set(unit_ids) != set(topology_units):
+            missing = sorted(set(topology_units) - set(unit_ids))
+            extra = sorted(set(unit_ids) - set(topology_units))
             errors.append(
                 f"spec #{snapshot.number}: unit_analysis must exactly cover current topology; "
                 f"missing={missing} extra={extra}"
@@ -358,13 +414,15 @@ def validate_manifest(
 
 def check_feasibility(path: Path) -> str:
     manifest, snapshots, frontier = validate_manifest(path)
-    unit_count = sum(len(item.topology_units) for item in snapshots)
+    unit_count = sum(len(item.topology_units or ()) for item in snapshots)
+    legacy_count = sum(item.is_legacy_completed for item in snapshots)
     frontier_text = ", ".join(f"#{number}" for number in frontier) or "none"
     return "\n".join(
         [
             "SPEC EXECUTION FEASIBILITY: VALID",
             f"Specs analyzed: {len(snapshots)}",
             f"Execution units analyzed: {unit_count}",
+            f"Legacy completed Specs: {legacy_count}",
             "Unprotected pending provider requirements: 0",
             f"Actionable frontier: {frontier_text}",
             f"Feasibility manifest SHA-256: {_manifest_hash(manifest)}",

@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-19] R3 actual Portfolio State | historical owner fact established
+
+Marked Portfolio & Risk present and recorded the implemented actual-State identity, external source provenance, append-only history, and inward `(T,K)` read capability. The accepted projected consequence and Risk portions remain planned.
+
 ## [2026-10-17] R3 Investment Intelligence correction overlap | accepted authority
 
 Recorded the accepted owner rule for future-effective target and complete claim-catalog corrections. Later immediate acts must explicitly cancel known pending overlaps or be interim until retained acts activate; complete ancestry and temporal cause remain implementation pending under ADR 0017.

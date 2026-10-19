@@ -11,7 +11,7 @@ The pre-greenfield registry remains historical donor/reference material under `l
 | [Investment Decisions](entities/investment-decisions.md) | Domain | pending | — | First-class Investment Decision identity, lifecycle continuity, resolution, deferral, supersession, and renewal semantics. |
 | [Evidence](entities/evidence.md) | Domain | present | `src/polaris/domain/evidence/`, `src/polaris/application/evidence/` | Attributable Evidence identity, provenance, temporal fitness, sufficiency, and judgment-support bindings. |
 | [Investment Intelligence](entities/investment-intelligence.md) | Domain | pending | — | Attributable investment hypotheses, views, uncertainty, alternatives, signals, recommendations, and proposed actions. |
-| [Portfolio & Risk](entities/portfolio-risk.md) | Domain | pending | — | Portfolio identity and state, exposure/allocation distinctions, projected consequences, Portfolio Risk, mandates, and deterministic constraints. |
+| [Portfolio & Risk](entities/portfolio-risk.md) | Domain | present | `src/polaris/domain/portfolio.py` | Portfolio identity and state, exposure/allocation distinctions, projected consequences, Portfolio Risk, mandates, and deterministic constraints. |
 | [Governance & Authority](entities/governance-authority.md) | Domain | pending | — | Policy, admissibility, power-specific authority acts, human investment judgment, contestability, and residual-risk acceptance. |
 | [Action Continuity](entities/action-continuity.md) | Domain | pending | — | Post-human Action Intent and reconciliation between intended consequence and authoritative external activity. |
 | [Learning](entities/learning.md) | Domain | pending | — | Outcome, Decision Evaluation, Lesson, and hindsight-faithful retrospective learning semantics. |

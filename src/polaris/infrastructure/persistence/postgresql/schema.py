@@ -16,6 +16,7 @@ from sqlalchemy import (
     Index,
     Integer,
     MetaData,
+    Numeric,
     String,
     Table,
     Text,
@@ -1045,5 +1046,34 @@ CONFIGURATION_TABLE_NAMES = frozenset(
     }
 )
 POLARIS_TABLE_NAMES = (
-    DECISION_TABLE_NAMES | EVIDENCE_TABLE_NAMES | CONFIGURATION_TABLE_NAMES
+    DECISION_TABLE_NAMES
+    | EVIDENCE_TABLE_NAMES
+    | CONFIGURATION_TABLE_NAMES
+    | frozenset({"portfolio_states"})
+)
+
+
+portfolio_states = Table(
+    "portfolio_states",
+    metadata,
+    Column("state_id", UUID(as_uuid=True), primary_key=True),
+    Column("portfolio_id", UUID(as_uuid=True), nullable=False),
+    Column("as_of", DateTime(timezone=True), nullable=False),
+    Column("known_at", DateTime(timezone=True), nullable=False),
+    Column("source_system", Text, nullable=False),
+    Column("source_record_reference", Text, nullable=False),
+    Column("source_observed_at", DateTime(timezone=True), nullable=False),
+    Column("currency", String(3), nullable=False),
+    Column("capital_basis", Numeric, nullable=False),
+    Column("cash", Numeric, nullable=False),
+    Column("instrument_id", UUID(as_uuid=True), nullable=False),
+    Column("position_quantity", Numeric, nullable=False),
+    Column("position_value", Numeric, nullable=False),
+    Column("exposure_value", Numeric, nullable=False),
+    Column("allocation_fraction", Numeric, nullable=False),
+    Column("interpretation_basis", Text, nullable=False),
+    Column("uncertainty", Text),
+    CheckConstraint("capital_basis > 0", name="positive_capital_basis"),
+    CheckConstraint("known_at >= source_observed_at", name="known_after_source"),
+    Index("ix_portfolio_states_history", "portfolio_id", "as_of", "known_at"),
 )

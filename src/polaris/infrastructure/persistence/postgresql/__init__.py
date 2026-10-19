@@ -5,6 +5,7 @@ from .correction_store import PostgresEvidenceCorrectionStore
 from .decisions import create_postgres_engine
 from .evidence_reconstruction_store import PostgresHistoricalEvidenceStore
 from .evidence_store import PostgresEvidenceStore
+from .portfolio_states import PostgresPortfolioStateStore
 from .relationship_store import PostgresDecisionStore
 from .requirement_store import PostgresEvidenceRequirementStore
 from .schema import (
@@ -28,6 +29,7 @@ __all__ = [
     "PostgresEvidenceRequirementStore",
     "PostgresEvidenceStore",
     "PostgresHistoricalEvidenceStore",
+    "PostgresPortfolioStateStore",
     "PostgresEvidenceSufficiencyStore",
     "PostgresEvidenceSupportEpochStore",
     "create_postgres_engine",

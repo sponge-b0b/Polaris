@@ -45,6 +45,7 @@ CORRECTION_TABLE_NAMES = {
     "evidence_assessment_corrections",
     "evidence_correction_command_receipts",
 }
+PORTFOLIO_TABLE_NAMES = {"portfolio_states"}
 EVIDENCE_IDENTITY_COLUMNS = (
     ("evidence_observations", "observation_id"),
     ("evidence_bindings", "binding_id"),
@@ -200,6 +201,9 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
     correction_migration = Path(
         "migrations/versions/0007_evidence_corrections.py"
     ).read_text(encoding="utf-8")
+    portfolio_migration = Path(
+        "migrations/versions/0009_portfolio_states.py"
+    ).read_text(encoding="utf-8")
     assert "down_revision: str | None = None" in decision_migration
     assert (
         'down_revision: str | None = "0001_decision_persistence"' in evidence_migration
@@ -223,6 +227,7 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
         'down_revision: str | None = "0006_sufficiency_assessments"'
         in correction_migration
     )
+    assert 'down_revision: str | None = "0008_support_epochs"' in portfolio_migration
     assert "legacy" not in decision_migration.lower()
     assert "legacy" not in evidence_migration.lower()
     assert "legacy" not in requirement_migration.lower()
@@ -230,6 +235,7 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
     assert "legacy" not in sufficiency_requirement_migration.lower()
     assert "legacy" not in sufficiency_assessment_migration.lower()
     assert "legacy" not in correction_migration.lower()
+    assert "legacy" not in portfolio_migration.lower()
 
     tables = asyncio.run(_table_names(postgres_target))
     assert tables == POLARIS_TABLE_NAMES | {"alembic_version"}
@@ -466,6 +472,7 @@ def test_requirement_revision_downgrades_to_evidence_foundation_and_reupgrades(
                 "evidence_binding_command_receipts",
                 *SUFFICIENCY_TABLE_NAMES,
                 *CORRECTION_TABLE_NAMES,
+                *PORTFOLIO_TABLE_NAMES,
             }
         )
         | {"alembic_version"},
@@ -485,6 +492,7 @@ def test_binding_revision_downgrades_to_requirement_foundation_and_reupgrades(
                 "evidence_binding_command_receipts",
                 *SUFFICIENCY_TABLE_NAMES,
                 *CORRECTION_TABLE_NAMES,
+                *PORTFOLIO_TABLE_NAMES,
             }
         )
         | {"alembic_version"},
@@ -497,7 +505,12 @@ def test_sufficiency_revision_downgrades_to_executable_requirements_and_reupgrad
     _assert_revision_round_trip(
         postgres_target,
         "0005_sufficiency_requirements",
-        (POLARIS_TABLE_NAMES - SUFFICIENCY_TABLE_NAMES - CORRECTION_TABLE_NAMES)
+        (
+            POLARIS_TABLE_NAMES
+            - SUFFICIENCY_TABLE_NAMES
+            - CORRECTION_TABLE_NAMES
+            - PORTFOLIO_TABLE_NAMES
+        )
         | {"alembic_version"},
     )
 
@@ -508,7 +521,8 @@ def test_correction_revision_downgrades_to_assessments_and_reupgrades(
     _assert_revision_round_trip(
         postgres_target,
         "0006_sufficiency_assessments",
-        (POLARIS_TABLE_NAMES - CORRECTION_TABLE_NAMES) | {"alembic_version"},
+        (POLARIS_TABLE_NAMES - CORRECTION_TABLE_NAMES - PORTFOLIO_TABLE_NAMES)
+        | {"alembic_version"},
     )
 
 
@@ -523,3 +537,47 @@ def test_support_epoch_revision_downgrades_and_reupgrades(
     command.upgrade(alembic, "head")
     columns = asyncio.run(_column_names(postgres_target, "evidence_support_versions"))
     assert {"observation_id", "assessment_id"} <= columns
+
+
+def test_portfolio_state_revision_round_trips_with_owned_history_schema(
+    postgres_target: PostgresTestTarget,
+) -> None:
+    expected_columns = (
+        {"state_id", "portfolio_id", "as_of", "known_at", "instrument_id"}
+        | {
+            "source_system",
+            "source_record_reference",
+            "source_observed_at",
+            "currency",
+            "interpretation_basis",
+        }
+        | {
+            "capital_basis",
+            "cash",
+            "position_quantity",
+            "position_value",
+            "exposure_value",
+            "allocation_fraction",
+            "uncertainty",
+        }
+    )
+    assert asyncio.run(_column_names(postgres_target, "portfolio_states")) == (
+        expected_columns
+    )
+    constraints = asyncio.run(_constraint_names(postgres_target, "portfolio_states"))
+    assert {
+        "ck_portfolio_states_positive_capital_basis",
+        "ck_portfolio_states_known_after_source",
+    } <= constraints
+    assert (
+        asyncio.run(_column_default(postgres_target, "portfolio_states", "state_id"))
+        is None
+    )
+    _assert_revision_round_trip(
+        postgres_target,
+        "0008_support_epochs",
+        (POLARIS_TABLE_NAMES - PORTFOLIO_TABLE_NAMES) | {"alembic_version"},
+    )
+    assert asyncio.run(_column_names(postgres_target, "portfolio_states")) == (
+        expected_columns
+    )

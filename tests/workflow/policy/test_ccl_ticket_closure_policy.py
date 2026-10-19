@@ -102,3 +102,19 @@ def test_build_ticket_uses_published_coverage_destination() -> None:
     assert "for example `T1`" in IMPLEMENT
     assert '"<ticket-destination>"' in IMPLEMENT
     assert '"#<ticket-number>"' not in IMPLEMENT
+
+
+def test_verifier_result_finalization_is_same_context_and_non_appealable() -> None:
+    assert "result-finalization handshake" in IMPLEMENT
+    assert "result-finalization handshake" in VERIFY
+    assert "TICKET CLOSURE RESULT: CONFIRMED" in IMPLEMENT
+    assert "TICKET CLOSURE RESULT: CONFIRMED" in VERIFY
+    assert "TICKET CLOSURE: INVALID" in IMPLEMENT
+    assert "TICKET CLOSURE: INVALID" in VERIFY
+    assert "self-contradictory-verdict" in IMPLEMENT
+    assert "self-contradictory-verdict" in VERIFY
+    assert "same verifier context" in IMPLEMENT
+    assert "same verifier context" in VERIFY
+    assert "may not create an INVALID payload" in IMPLEMENT
+    assert "Free-form follow-up" in IMPLEMENT
+    assert "Retracted result SHA-256" in VERIFY

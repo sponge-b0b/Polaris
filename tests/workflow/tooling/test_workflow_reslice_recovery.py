@@ -104,7 +104,9 @@ def test_source_first_cannot_use_prerequisite_complete() -> None:
     except module.RecoveryError as exc:
         assert "destination-first" in str(exc)
     else:
-        raise AssertionError("expected invalid source-first prerequisite-complete state")
+        raise AssertionError(
+            "expected invalid source-first prerequisite-complete state"
+        )
 
 
 def test_terminal_requires_both_completion_commits() -> None:

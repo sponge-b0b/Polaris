@@ -125,10 +125,14 @@ def parse_record(text: str) -> RecoveryRecord:
     if len(native_order) < 2 or len(set(native_order)) != len(native_order):
         raise RecoveryError("Native execution order must contain unique issue numbers")
     if source_ticket not in native_order or destination_ticket not in native_order:
-        raise RecoveryError("Native execution order must contain Source and Destination")
+        raise RecoveryError(
+            "Native execution order must contain Source and Destination"
+        )
     source_index = native_order.index(source_ticket)
     destination_index = native_order.index(destination_ticket)
-    derived_order = "source-first" if source_index < destination_index else "destination-first"
+    derived_order = (
+        "source-first" if source_index < destination_index else "destination-first"
+    )
 
     explicit_order = fields.get("Execution order")
     if explicit_order is None:
@@ -136,7 +140,9 @@ def parse_record(text: str) -> RecoveryRecord:
         order_source = "derived-legacy"
     else:
         if explicit_order not in {"source-first", "destination-first"}:
-            raise RecoveryError("Execution order must be source-first or destination-first")
+            raise RecoveryError(
+                "Execution order must be source-first or destination-first"
+            )
         if explicit_order != derived_order:
             raise RecoveryError("Execution order contradicts Native execution order")
         execution_order = explicit_order
@@ -156,11 +162,18 @@ def parse_record(text: str) -> RecoveryRecord:
 
     if status == "pending-prerequisite":
         if source_completion != "Pending" or destination_completion != "Pending":
-            raise RecoveryError("pending-prerequisite requires both completions Pending")
+            raise RecoveryError(
+                "pending-prerequisite requires both completions Pending"
+            )
     elif status == "source-complete":
         if execution_order != "source-first":
-            raise RecoveryError("source-complete is valid only for source-first recovery")
-        if not HEX40.fullmatch(source_completion) or destination_completion != "Pending":
+            raise RecoveryError(
+                "source-complete is valid only for source-first recovery"
+            )
+        if (
+            not HEX40.fullmatch(source_completion)
+            or destination_completion != "Pending"
+        ):
             raise RecoveryError(
                 "source-complete requires Source completion SHA and Destination Pending"
             )
@@ -169,17 +182,22 @@ def parse_record(text: str) -> RecoveryRecord:
             raise RecoveryError(
                 "prerequisite-complete is valid only for destination-first recovery"
             )
-        if source_completion != "Pending" or not HEX40.fullmatch(destination_completion):
+        if (
+            source_completion != "Pending"
+            or not HEX40.fullmatch(destination_completion)
+        ):
             raise RecoveryError(
-                "prerequisite-complete requires Destination completion SHA and Source Pending"
+                "prerequisite-complete requires Destination completion SHA "
+                "and Source Pending"
             )
         if not HEX40.fullmatch(destination_baseline):
             raise RecoveryError(
                 "prerequisite-complete requires pinned Destination baseline SHA"
             )
     elif status == "source-reconciled":
-        if not HEX40.fullmatch(source_completion) or not HEX40.fullmatch(
-            destination_completion
+        if (
+            not HEX40.fullmatch(source_completion)
+            or not HEX40.fullmatch(destination_completion)
         ):
             raise RecoveryError(
                 "source-reconciled requires both exact completion commit SHAs"

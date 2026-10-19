@@ -373,7 +373,7 @@ proven: <n>
 not-applicable: <n>
 violated: <n>
 unproven: <n>
-uncontrolledu checked: 0
+unchecked: 0
 Exclusion guardrails unresolved: <n>
 Prior findings still-open: <n>
 Unresolved design/contract gaps: <n>

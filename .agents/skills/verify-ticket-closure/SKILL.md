@@ -69,6 +69,60 @@ candidate state derived from Ticket baseline, or a protected control-plane candi
 invalid verification: emit neither PASS nor FAIL. Never mint, repair, or reinterpret an
 Execution Anchor in the verifier.
 
+## Result-finalization and verifier self-retraction
+
+A retained PASS/FAIL result is **not admissible by `$implement-ticket` until one exact
+result-finalization handshake completes in this same verifier context**. The parent supplies
+the SHA-256 of the exact PASS/FAIL bytes it received and asks only for result finalization;
+it may not argue findings, introduce new evidence, suggest a desired outcome, or ask the
+verifier to reinterpret the frozen contract.
+
+During finalization, re-check only the internal consistency of the exact returned result
+against the already-bound deterministic contract and already-used evidence. Confirm that:
+
+* every finding/falsifier is derived from an assigned cell, applicable exclusion, or valid
+  gap classification rather than an out-of-contract semantic assumption;
+* the result does not contain mutually incompatible claims about the same frozen predicate;
+* PASS/FAIL completeness and failure-saturation statements are internally consistent with
+  the result's own per-cell and guardrail dispositions.
+
+Do not inspect new candidate evidence, mutate anything, broaden the semantic universe, or
+invent a new finding during this handshake.
+
+If the exact result remains internally consistent, return exactly:
+
+```text
+TICKET CLOSURE RESULT: CONFIRMED
+Result SHA-256: <sha256 of exact PASS/FAIL bytes supplied by parent>
+Ticket: #<n>
+Ticket Contract Hash: <hash>
+Attention Receipt Hash: <hash>
+Execution Anchor: <sha>
+Candidate state: <hash>
+```
+
+If this verifier discovers that its own exact PASS/FAIL is internally contradictory or
+relied on an out-of-contract semantic assumption, it must retract that result itself and
+return exactly:
+
+```text
+TICKET CLOSURE: INVALID
+Invalid reason: self-contradictory-verdict
+Retracted result SHA-256: <sha256 of exact PASS/FAIL bytes supplied by parent>
+Retracted verdict: <PASS|FAIL>
+Ticket: #<n>
+Ticket Contract Hash: <hash>
+Attention Receipt Hash: <hash>
+Execution Anchor: <sha>
+Candidate state: <hash>
+Contradiction: <concise verifier-owned description of the incompatible or out-of-contract claim>
+```
+
+`INVALID` is not PASS or FAIL and carries no implementation finding. After emitting it,
+this verifier context is finished and must not emit a replacement semantic verdict. Only
+the same verifier context may retract its own result; neither `$implement-ticket` nor a
+human may manufacture this payload on the verifier's behalf.
+
 ## Frozen result identity
 
 Every retained PASS/FAIL result contract is strengthened to include:

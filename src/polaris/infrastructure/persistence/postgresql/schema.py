@@ -18,15 +18,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import UUID
 
+from . import schema_foundation as _foundation
 from .schema_foundation import *  # noqa: F401,F403
-from .schema_foundation import (
-    POLARIS_TABLE_NAMES as _FOUNDATION_TABLE_NAMES,
-    metadata,
-)
 
 portfolio_states = Table(
     "portfolio_states",
-    metadata,
+    _foundation.metadata,
     Column("state_id", UUID(as_uuid=True), primary_key=True),
     Column("portfolio_id", UUID(as_uuid=True), nullable=False),
     Column("as_of", DateTime(timezone=True), nullable=False),
@@ -49,4 +46,4 @@ portfolio_states = Table(
     Index("ix_portfolio_states_history", "portfolio_id", "as_of", "known_at"),
 )
 
-POLARIS_TABLE_NAMES = _FOUNDATION_TABLE_NAMES | frozenset({"portfolio_states"})
+POLARIS_TABLE_NAMES = _foundation.POLARIS_TABLE_NAMES | frozenset({"portfolio_states"})

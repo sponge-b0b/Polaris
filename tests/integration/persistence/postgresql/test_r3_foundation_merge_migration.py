@@ -29,9 +29,9 @@ def test_r3_foundation_merge_revision_preserves_both_certified_heads(
     intelligence_migration = Path(
         "migrations/versions/0009_investment_intelligence_judgments.py"
     ).read_text(encoding="utf-8")
-    portfolio_migration = Path("migrations/versions/0009_portfolio_states.py").read_text(
-        encoding="utf-8"
-    )
+    portfolio_migration = Path(
+        "migrations/versions/0009_portfolio_states.py"
+    ).read_text(encoding="utf-8")
     merge_migration = Path(
         "migrations/versions/0010_merge_r3_foundations.py"
     ).read_text(encoding="utf-8")

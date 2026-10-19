@@ -14,10 +14,9 @@ Before executing this skill, read `.agents/skills/to-specs/PROCEDURE.md` in full
 projection, stable planning cells, execution topology, planning-source partition,
 Cross-Spec ownership integrity, concrete implementability, Spec reconciliation, native
 dependency ownership, readiness labels, and fail-closed routing. This `SKILL.md` is the
-authoritative entrypoint and adds the machine-enforced planning-worktree, cross-Spec
-execution-feasibility, legacy-completed compatibility, and outbound Human Handoff gates
-below. On conflict, this file wins. Failure to load the retained procedure is a Hard
-Blocker.
+authoritative entrypoint and adds the machine-enforced planning-worktree, execution-
+feasibility, legacy-completed compatibility, and outbound Human Handoff gates below. On
+conflict, this file wins. Failure to load the retained procedure is a Hard Blocker.
 
 ## Clean/current planning-worktree gate
 
@@ -45,12 +44,18 @@ fails, use a separate clean planning worktree containing the current workflow re
 not stash, reset, clean, merge, or otherwise disturb an active implementation candidate to
 make `$to-specs` runnable.
 
-## Machine-enforced cross-Spec execution feasibility
+## Machine-enforced execution feasibility
 
 The retained Cross-Spec ownership-integrity rules remain authoritative. In particular, an
 upstream Spec cannot be ticketing-ready when one of its execution units requires
 completion-time proof from a sibling provider capability that is still open and is not a
 native prerequisite of that consumer.
+
+The same fail-closed rule applies **inside one Spec**. An execution unit cannot be
+implementation-ready when completion or proof of one of its frozen cells requires a fact,
+producer capability, historical record, transaction participant, or proof surface owned by
+a different execution unit that is not already a transitive prerequisite of the consumer.
+A structurally acyclic topology can therefore still be execution-infeasible.
 
 Local structural success is **not** sufficient:
 
@@ -58,7 +63,7 @@ Local structural success is **not** sufficient:
 CCL projection valid
 + derive-decomposition valid
 + acyclic local execution topology
-!= cross-Spec execution feasibility
+!= execution feasibility
 ```
 
 Before publication/readiness mutation and again immediately before frontier handoff, build
@@ -87,12 +92,23 @@ Each execution-unit analysis must state:
 
 - `completion_basis`: non-empty exact durable/CCL evidence used to reason about the unit's
   production completion path;
-- `provider_requirements`: every sibling/provider capability whose production
+- `provider_requirements`: every sibling/provider Spec capability whose production
   implementation must already exist for this unit itself to be completed and proved;
-- for each provider requirement: exact provider Spec number, reason, and non-empty basis;
-- if no external provider is required, an explicit `local_completion_attestation` with
-  `result: true`, reason, and non-empty basis. An empty provider list without that positive
-  attestation is invalid.
+- for each external provider requirement: exact provider Spec number, reason, and non-empty
+  basis;
+- `local_provider_requirements`: every **different execution unit in the same Spec** whose
+  production capability must already exist for this unit itself to be completed and proved;
+- for each local provider requirement: exact `provider_unit`, reason, and non-empty basis;
+- if neither external nor local providers are required, an explicit
+  `local_completion_attestation` with `result: true`, reason, and non-empty basis. Empty
+  external/local provider lists without that positive attestation are invalid.
+
+`local_provider_requirements` is mandatory even when empty. A same-unit capability is not a
+local provider edge; use `local_completion_attestation` when the unit can produce and prove
+its own required capability. A distinct local provider must be in the current topology and
+must be reachable through the consumer unit's transitive `depends_on` prerequisites. A
+consumer may never declare a downstream or unrelated local execution unit as a completion
+provider.
 
 ### Immutable legacy-completed Specs
 
@@ -135,11 +151,17 @@ contains topology must still use normal `unit_analysis`.
 ### Completion-path analysis
 
 Do not derive provider requirements merely from textual CCL overlap. Trace the actual
-**production success and proof path** implied by the frozen cells: required authoritative
+**production success and proof path** implied by every frozen cell: required authoritative
 reads, typed owner/absence guards, transaction participants, provider-produced facts,
-composition boundaries, and any other completion-time capability. Test doubles, optional
-injection seams, local mocks, or a structurally valid ticket decomposition do not establish
-production provider availability.
+historical facts/judgments named by an assertion, composition boundaries, and any other
+completion-time capability. This trace must cover both sibling Specs and distinct execution
+units in the same Spec. Test doubles, optional injection seams, local mocks, or a
+structurally valid ticket decomposition do not establish production provider availability.
+
+For a local execution-unit provider, record the exact unit whose production output is
+needed. The machine gate checks the current topology. If `EU-A` needs `EU-B` to complete,
+`EU-B` must be a transitive prerequisite of `EU-A`; if `EU-B` is downstream or unrelated,
+the topology is execution-infeasible even when it is acyclic and every cell is mapped once.
 
 Validate with:
 
@@ -153,22 +175,27 @@ Require exact:
 ```text
 SPEC EXECUTION FEASIBILITY: VALID
 Unprotected pending provider requirements: 0
+Unprotected downstream local provider requirements: 0
 ```
 
 The machine gate parses every topology-bearing supplied Spec and requires exact
 unit-analysis coverage. It separately validates immutable `legacy_completed` entries for
-CLOSED pre-topology Specs. For every declared provider requirement, an open provider must
-be protected by a native prerequisite path from the consumer Spec; a closed provider is
-already durable. A required open provider with no such path makes the plan invalid even
-when every individual Spec's `derive-decomposition` result is valid.
+CLOSED pre-topology Specs. For every declared external provider requirement, an open
+provider must be protected by a native prerequisite path from the consumer Spec; a closed
+provider is already durable. For every declared local provider requirement, the named
+execution unit must be a current unit and a transitive prerequisite of the consumer. A
+required open sibling provider without a native path, or a required local provider that is
+downstream/unrelated, makes the plan invalid even when every individual Spec's
+`derive-decomposition` result is valid.
 
 If this gate is invalid, `$to-specs` owns reconciliation under the retained rules when the
 accepted partition already determines ownership. Reconcile the existing open Spec(s) in
-place by the finest coherent lawful change: split/defer the consumer completion/proof unit,
-establish the exact prerequisite relation, or otherwise repair the execution topology
-without inventing semantics. Preserve existing Spec identities, closed ticket history, and
-live WIP recovery handles. If the accepted partition cannot determine the repair, fail
-closed to the planning owner rather than guessing.
+place by the finest coherent lawful change: move/split/defer the consumer completion/proof
+unit, establish the exact prerequisite relation, or otherwise repair the execution topology
+without inventing semantics. A frozen material cell may not be split merely to make the
+machine gate pass; if the accepted CCL/planning authority does not permit a lawful cell or
+unit repair, fail closed to the planning owner. Preserve existing Spec identities, closed
+ticket history, and live WIP recovery handles.
 
 `$attention` must inspect the completed execution-feasibility manifest before any frontier
 handoff. Attention does not replace the machine gate.
@@ -178,7 +205,7 @@ handoff. Attention does not replace the machine gate.
 A Spec is actionable for `$to-tickets` only when all retained readiness predicates pass
 **and** the current execution-feasibility manifest is valid. `ready-for-agent`, current
 Ticket Contract hashes, local decomposition validity, or zero native blockers cannot
-substitute for cross-Spec execution feasibility.
+substitute for execution feasibility.
 
 If the feasibility repair changes a Spec's planning cells, execution topology, or native
 prerequisites, re-run every retained projection/decomposition/readback gate invalidated by

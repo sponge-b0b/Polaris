@@ -92,6 +92,38 @@ An ordinary `$implement-ticket` invocation still has **zero authority** to alter
 **workflow/control-plane** or semantic-authority files. There is deliberately **no `$implement-ticket` bypass flag**.
 The retained `scripts.workflow_candidate_guard check` and `restore-protected` mechanics remain mandatory.
 
+## Independent verifier result-finalization boundary
+
+The retained dispatcher-only rule is strengthened as follows. After receiving one exact
+PASS/FAIL payload from the fresh `$verify-ticket-closure` context, do **not** yet admit or
+route that verdict. First compute SHA-256 over the exact returned bytes and send that same
+verifier context one fixed result-finalization request containing only that digest and the
+instruction to execute its authoritative result-finalization contract.
+
+During this handshake the parent remains dispatcher-only. It must not debate a finding,
+provide new evidence, suggest that the verifier is wrong, request a different semantic
+interpretation, or perform its own semantic appeal. The same verifier must return exactly
+one of the authoritative forms defined by `$verify-ticket-closure`:
+
+* `TICKET CLOSURE RESULT: CONFIRMED` bound to the exact result SHA-256 and exact ticket /
+  contract / Attention / Execution Anchor / candidate identities; or
+* `TICKET CLOSURE: INVALID` with `Invalid reason: self-contradictory-verdict`, bound to the
+  exact retracted result SHA-256 and the same identities.
+
+Mechanically reject a confirmation/retraction whose digest or identities do not match the
+exact dispatched attempt.
+
+A confirmed result proceeds through the retained PASS/FAIL admission path unchanged. A
+self-retracted result is neither PASS nor FAIL: preserve the original PASS/FAIL bytes as
+retracted evidence in the v3 attempt history, record the attempt as `invalid`, keep the
+candidate immutable, retire that verifier context, and dispatch one new fresh verifier if
+candidate/contract/coverage/Attention bindings remain exact.
+
+`$implement-ticket` may not create an INVALID payload, infer self-contradiction on the
+verifier's behalf, or semantically overrule a confirmed PASS/FAIL. Free-form follow-up with
+a verifier after PASS/FAIL is prohibited; the one fixed result-finalization handshake is the
+only same-context post-result interaction.
+
 ## Retained Human Handoff boundary
 
 Every terminal **Human Handoff** from `$implement-ticket` remains bound to the shared gate,

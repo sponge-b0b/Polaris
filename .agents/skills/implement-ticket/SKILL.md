@@ -11,32 +11,94 @@ disable-model-invocation: true
 
 Before executing this skill, read all of these files in full:
 
-1. `.agents/skills/implement-ticket/PROCEDURE.md`
-2. `.agents/skills/implement-ticket/EXECUTION_ANCHOR.md`
-3. `.agents/skills/implement-ticket/CONTROL_PLANE.md`
+1. `.agents/skills/implement-ticket/ROUTING_CONTROL_PLANE.md`
+2. `.agents/skills/to-tickets/TICKET_RESLICE_RECOVERY.md`
 
-`PROCEDURE.md` preserves the complete established implementation lifecycle.
-`EXECUTION_ANCHOR.md` preserves the accepted Execution Anchor correction.
-`CONTROL_PLANE.md` preserves the previously authoritative entrypoint through the protected
-control-plane boundary and shared Human Handoff repair.
+`ROUTING_CONTROL_PLANE.md` preserves the previously authoritative `$implement-ticket`
+entrypoint and recursively composes `PROCEDURE.md`, `EXECUTION_ANCHOR.md`, and
+`CONTROL_PLANE.md`, including the protected workflow/control-plane boundary, durable routing
+defects, deterministic ticket contract, Attention, closure, and shared Human Handoff rules.
+`TICKET_RESLICE_RECOVERY.md` is the canonical durable contract for every
+`ticket-reslice-recovery:v1` record and overrides the shorter recovery summary retained in
+`PROCEDURE.md`. On any other conflict, this file wins. Failure to load either file is a Hard
+Blocker.
 
-This `SKILL.md` is now the authoritative entrypoint and adds the durable machine-readable
-cell-routing-defect evidence boundary below. On conflict, this file wins. Failure to load any
-retained file is a Hard Blocker.
+All retained requirements remain mandatory unless explicitly overridden here.
 
-All requirements in the retained files remain mandatory unless explicitly overridden here.
+## Execution-anchor invariant
 
-## Retained control-plane and handoff contract
+Retain the accepted distinction between the immutable historical **Ticket baseline** and the
+current attempt's **Execution Anchor**. Do not require the current shared branch to equal that
+historical SHA. Before a fresh attempt, fetch the actual remote ticket branch and, only while
+clean, fast-forward only when the local branch is strictly behind and is an ancestor. The
+retained Execution Anchor and Attention-gate rules remain mandatory.
 
-An ordinary `$implement-ticket` invocation still has zero authority to alter repository
-workflow/control-plane or semantic-authority files. There is deliberately **no `$implement-ticket` bypass flag**.
+## Live-WIP recovery consumption boundary
+
+Before ordinary Ticket-baseline handling, inspect durable recovery state exactly as required
+by the shared contract. Any current recovery record that names this ticket as Source or
+Destination must be read back and machine-validated before substantive mutation:
+
+```bash
+python -m scripts.workflow_reslice_recovery validate \
+  --body <recovery-comment-body-file>
+```
+
+Require `TICKET RESLICE RECOVERY: VALID`. Malformed, duplicate, contradictory, ambiguous, or
+native-order-inconsistent recovery state is a Hard Blocker.
+
+Native dependencies determine actionability. Recovery metadata never makes a blocked ticket
+actionable and never changes its deterministic ticket contract.
+
+### Source-first recovery
+
+When native order places Source transitively upstream of Destination:
+
+- Source executes first from an isolated worktree at the exact current remote shared-branch
+  tip while preserving its pinned historical Ticket baseline;
+- the isolated worktree receives a fresh Execution Anchor and a fresh pre-mutation Attention
+  receipt bound to the **current** reconciled Ticket Contract Hash;
+- an old Attention receipt from the protected donor is recovery evidence only;
+- transplant only Source-owned donor items. `shared dependency` items remain Source-owned and
+  become ordinary committed upstream behavior for the later Destination;
+- after exact certification/push/readback/closure, update the same recovery record to
+  `source-complete` with the exact Source completion commit and machine-validate/read back it;
+- intermediate native tickets execute normally;
+- Destination executes only when its blockers close, from an isolated worktree at current
+  remote tip; if its Ticket baseline is `Pending`, pin that isolated HEAD and read it back;
+- after exact Destination closure, populate Destination baseline/completion commit and
+  terminalize the same record as `source-reconciled` with both completion commits.
+
+### Destination-first recovery
+
+When native order places Destination transitively upstream of Source, preserve the historical
+prerequisite-extract lifecycle from the shared contract:
+
+- Destination executes first in an isolated worktree and, after closure, updates the record
+  to `prerequisite-complete` with exact Destination baseline/completion commit;
+- Source later executes from a new isolated worktree at current remote tip containing the
+  prerequisite completion, re-attributing donor WIP against current contracts;
+- after Source closure, populate its exact completion commit and terminalize as
+  `source-reconciled`.
+
+For either order, the protected donor checkout remains immutable. Recompute its strong
+fingerprint before every Human Handoff/ordinary return and before retiring any isolated
+participant worktree. The second participating closer terminalizes the same managed record;
+do not create a replacement record.
+
+## Retained protected control-plane boundary
+
+An ordinary `$implement-ticket` invocation still has **zero authority** to alter repository
+**workflow/control-plane** or semantic-authority files. There is deliberately **no `$implement-ticket` bypass flag**.
 The retained `scripts.workflow_candidate_guard check` and `restore-protected` mechanics remain mandatory.
 
-Every terminal **Human Handoff** from `$implement-ticket` still uses the shared handoff gate.
-This includes verifier `cell-routing-defect` -> `$to-tickets`, verifier `planning-cell-gap` -> `$to-specs`,
-and `contract-authority-gap` routing to its exact semantic owner.
+## Retained Human Handoff boundary
 
-The retained downstream artifact rules remain exact:
+Every terminal **Human Handoff** from `$implement-ticket` remains bound to the shared gate,
+including verifier `cell-routing-defect` -> `$to-tickets`, verifier `planning-cell-gap` -> `$to-specs`,
+and `contract-authority-gap` routing. A recommendation, prose instruction, or bare downstream skill command is **not** a Human Handoff.
+
+The exact downstream artifact rules remain:
 
 - `$to-tickets` receives the exact current Parent Spec issue.
 - `$to-specs` receives the exact current planning source for the Parent Spec.
@@ -44,7 +106,7 @@ The retained downstream artifact rules remain exact:
 - `$implement-ticket` receives each exact current actionable ticket issue.
 - `$verify-spec` receives the exact current Parent Spec issue.
 
-The shared gate remains:
+Generate/verify terminal handoffs only with:
 
 ```bash
 python -m scripts.workflow_handoff generate \
@@ -55,89 +117,8 @@ python -m scripts.workflow_handoff verify \
   --output <handoff-output.txt>
 ```
 
-and still requires `WORKFLOW HANDOFF: VALID`. The terminal output remains byte-for-byte generated output.
-A recommendation, prose instruction, or bare downstream skill command is **not** a Human Handoff.
-Do not emit a bare `$to-specs`, `$to-tickets`, `$architecture-remediation`, `$implement-ticket`, or `$verify-spec` line as a terminal Human Handoff.
-
-For a normal post-closure frontier, evaluate the complete current actionable ticket frontier.
-Do not stop after the first actionable ticket. Emit one manifest handoff entry per actionable ticket.
-
-## Durable cell-routing-defect evidence boundary
-
-A `cell-routing-defect` is correctness-critical planning evidence. It must not exist only as
-free-form prose that a later `$to-tickets` or `$to-specs` session can overlook.
-
-Before any terminal Human Handoff caused by a `cell-routing-defect`, persist or update exactly
-one durable ticket comment containing a machine-readable `workflow-routing-defect:v1` marker.
-The marker must be validated before it is posted.
-
-Create the marker JSON outside the repository candidate and run:
-
-```bash
-python -m scripts.workflow_routing_defects validate-marker \
-  --file <routing-defect-marker.json>
-```
-
-Require exact:
-
-```text
-WORKFLOW ROUTING DEFECT MARKER: VALID
-```
-
-Then persist the exact validated object inside this comment marker:
-
-```text
-<!-- workflow-routing-defect:v1
-{
-  "schema": "polaris.workflow-routing-defect/v1",
-  "defect_id": "<stable id>",
-  "status": "open",
-  "classification": "cell-routing-defect",
-  "source_ticket": <current ticket>,
-  "parent_spec": <current parent Spec>,
-  "affected_cells": ["<exact current Spec cell>", "..."],
-  "required_local_provider_cells": ["<exact same-Spec provider cell>", "..."],
-  "reason": "<why the current assigned route cannot complete/prove the affected cell>",
-  "basis": ["<durable ticket/spec/verification source>", "..."]
-}
--->
-```
-
-Rules:
-
-- `defect_id` is stable across retries of the same defect; do not create duplicate open
-  markers for one defect.
-- `affected_cells` names the exact current Spec cells whose present route is defective.
-- When completion depends on existing cells elsewhere in the same Parent Spec,
-  `required_local_provider_cells` must name those exact provider cells. Do not record
-  historical ticket numbers or execution-unit IDs as the provider authority.
-- If a routing defect is proven but the exact same-Spec provider cells cannot yet be
-  identified without making a planning choice, use an empty `required_local_provider_cells`
-  list. This intentionally causes the upstream `$to-specs` routing-defect gate to fail closed
-  rather than allowing the defect to be silently omitted.
-- `reason` and `basis` must make the completion/proof dependency recoverable from durable
-  state without chat context.
-- Read the comment back after POST/PATCH and require the exact marker object to be present.
-- Include that exact comment URL in the outbound shared-handoff durability sources.
-
-This marker does not change semantic authority, ticket coverage, Spec topology, or native
-GitHub dependencies. It is durable defect evidence only. `$implement-ticket` must not mark it
-`resolved` merely because implementation stopped. The owning reconciliation workflow may
-resolve/replace the routing state only after durable topology/coverage readback proves the
-defect no longer blocks the current route.
-
-## Interaction with existing routing
-
-The retained classification still applies:
-
-```text
-cell-routing-defect -> $to-tickets
-```
-
-The machine marker does not skip `$to-tickets`. It ensures that if deterministic ticket
-projection reveals that the defect is actually upstream Spec-topology infeasibility, a later
-`$to-specs` run can mechanically discover and enforce the already-proven dependency instead
-of relying on a prompt reminder or model memory.
-
-No terminal routing handoff for a `cell-routing-defect` is valid unless the marker-validation
-receipt, durable comment readback, and shared `WORKFLOW HANDOFF: VALID` receipt all exist.
+Require `WORKFLOW HANDOFF: VALID` and reproduce the generated block **byte-for-byte**. For a
+normal post-closure frontier, evaluate the **complete current actionable ticket** frontier;
+Do not stop after the first actionable ticket. Emit one manifest handoff entry for each
+current actionable ticket. Do not emit a bare `$to-specs`, `$to-tickets`, `$architecture-remediation`,
+`$implement-ticket`, or `$verify-spec` line as a terminal Human Handoff.

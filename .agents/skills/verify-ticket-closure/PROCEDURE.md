@@ -249,6 +249,44 @@ cannot determine correct behavior without a material choice or contains a real c
 Continue proving all independently provable assigned cells after a failure so one attempt
 returns the complete current failure set. Do not broaden beyond the frozen contract.
 
+### Bounded counterexample-class saturation
+
+Failure saturation is both **cell-complete** and, for every failed negative/proof cell,
+**counterexample-class-complete**. Finding one concrete escape is not permission to return
+immediately when the same frozen predicate is enforced across other materially distinct
+candidate surfaces.
+
+When an assigned cell or applicable exclusion first becomes `violated` or `unproven`
+because of a concrete falsifier:
+
+1. Freeze a bounded set of materially distinct counterexample classes from the exact frozen
+   predicate plus the candidate surfaces already present or directly implicated by current
+   evidence. Do not invent hypothetical architectures or search outside the contract.
+2. For every applicable class, exercise or inspect at least one representative falsifier,
+   unless existing evidence proves the whole class covered. Record one of:
+   `escape-confirmed | covered | not-applicable | blocked-by-explicit-gap`.
+3. Treat different enforcement surfaces as different classes when defeating them requires
+   materially different mechanics. Typical classes, only when actually implicated, include
+   domain/model invariants; production composition/runtime/API boundaries; persistence
+   model/schema/adapters; migration/DDL mechanics; the executed durable schema; wire/config
+   boundaries; and the proof/test harness itself.
+4. Group syntactic variants that share the same causal escape class. This rule does **not**
+   require exhaustive bug search, mutation testing of every token, or multiple equivalent
+   examples after one representative falsifier establishes the class.
+5. Do not recurse indefinitely from newly discovered implementation details. Expand the
+   frozen class set only when current evidence reveals an already-existing materially
+   distinct enforcement surface capable of defeating the same predicate.
+
+A terminal FAIL may claim `Failure saturation: complete` only when every assigned cell and
+exclusion is dispositioned **and** every applicable counterexample class for each failed
+negative/proof cell is dispositioned. Any unchecked applicable counterexample class keeps
+failure saturation incomplete and forbids a terminal FAIL.
+
+This bounded rule is specifically intended to avoid serial verifier attempts where one
+TEST/proof cell has several materially distinct escape surfaces (for example, modeled
+schema assertions versus migration mechanics versus the executed durable schema) that can
+be challenged in the same immutable verification attempt.
+
 ## 7. PASS/FAIL completeness
 
 Before either terminal verdict require:
@@ -282,7 +320,8 @@ unresolved design/contract gaps: 0
 ```
 
 FAIL requires a complete finding list and failure saturation over the exact frozen ticket
-contract.
+contract, including bounded counterexample-class saturation for every failed negative/proof
+cell.
 
 ## 8. Result contract
 
@@ -328,18 +367,25 @@ Spec Contract Hash: <hash>
 Ticket baseline: <sha>
 Candidate state: <hash>
 Failure saturation: complete
+Counterexample-class saturation: complete
 Assigned cells: <n>
 proven: <n>
 not-applicable: <n>
 violated: <n>
 unproven: <n>
-unchecked: 0
+uncontrolledu checked: 0
 Exclusion guardrails unresolved: <n>
 Prior findings still-open: <n>
 Unresolved design/contract gaps: <n>
+Counterexample classes:
+- <failed cell / class / surface / escape-confirmed|covered|not-applicable|blocked-by-explicit-gap / falsifier-or-evidence>
 Findings:
 - <classification / owner / cells / CCL / falsifier / evidence>
 ```
+
+If no failed negative/proof cell requires counterexample classes, return
+`Counterexample classes: None applicable`; the saturation field remains `complete` only
+when that disposition is justified by the exact failure set.
 
 Also preserve concise retry state sufficient to re-evaluate prior findings/evidence without
 reconstructing semantics:
@@ -350,6 +396,7 @@ Retry state:
 - exact ticket/spec contract hashes
 - exact Attention Receipt Hash
 - finding IDs and falsifiers
+- counterexample classes and their dispositions
 - proof/evidence dependency pointers
 - reusable evidence with invalidation boundary
 ```

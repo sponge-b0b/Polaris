@@ -118,3 +118,15 @@ def test_verifier_result_finalization_is_same_context_and_non_appealable() -> No
     assert "may not create an INVALID payload" in IMPLEMENT
     assert "Free-form follow-up" in IMPLEMENT
     assert "Retracted result SHA-256" in VERIFY
+
+
+def test_verifier_failure_saturates_bounded_counterexample_classes() -> None:
+    assert "Bounded counterexample-class saturation" in VERIFY
+    assert "counterexample-class-complete" in VERIFY
+    assert "at least one representative falsifier" in VERIFY
+    assert "does **not**\n   require exhaustive bug search" in VERIFY
+    assert "migration/DDL mechanics" in VERIFY
+    assert "executed durable schema" in VERIFY
+    assert "Any unchecked applicable counterexample class" in VERIFY
+    assert "Counterexample-class saturation: complete" in VERIFY
+    assert "counterexample classes and their dispositions" in VERIFY

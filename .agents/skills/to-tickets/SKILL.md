@@ -15,15 +15,35 @@ Before executing this skill, read all of these files in full:
 2. `.agents/skills/to-tickets/CONTROL_PLANE.md`
 3. `.agents/skills/to-tickets/TICKET_RESLICE_RECOVERY.md`
 
+Compatibility form retained for policy validation: read `.agents/skills/to-tickets/PROCEDURE.md` in full.
+
 `CONTROL_PLANE.md` preserves the previously authoritative `$to-tickets` entrypoint,
 including architecture-blocker finalization, human approval, publication/readback, and the
 complete actionable frontier / shared Human Handoff contract. `PROCEDURE.md` preserves the
 deterministic ticketing lifecycle. `TICKET_RESLICE_RECOVERY.md` is the canonical durable
 contract for live-WIP reslicing and overrides any shorter or older recovery summary in the
-retained files. On any other conflict, this file wins. Failure to load any required file is a
-Hard Blocker.
+retained files. On any other conflict, this file wins; on conflict, this file wins. Failure to
+load any required file is a Hard Blocker.
 
 All retained requirements remain mandatory unless explicitly overridden here.
+
+## 9A. Routed architecture-blocker finalization
+
+The retained Section 9A remains authoritative. A deterministic `routed -> resolved`
+transition must PATCH that same managed comment in place and must finish with:
+
+```text
+Unresolved/routed blockers remaining on design-ready tickets: 0
+```
+
+Before approval, the retained Attention consumer remains mandatory:
+
+```bash
+python -m scripts.workflow_attention validate \
+  --result <attention-result-file> \
+  --checkpoint '$to-tickets pre-publication' \
+  --require-nonblocking
+```
 
 ## Live-WIP reslice durability boundary
 

@@ -149,5 +149,101 @@ Execution Anchor. Any protected candidate path makes verification invalid: emit 
 `TICKET CLOSURE: PASS` nor `TICKET CLOSURE: FAIL` until the candidate is restored to an
 admissible product-only state.
 
-All retained persistence, exact-candidate, dependency/frontier, and Human Handoff rules
-remain unchanged.
+All retained persistence, exact-candidate, and dependency/frontier rules remain unchanged.
+The retained Human Handoff prose is overridden by the shared outbound gate below wherever
+the retained procedure would otherwise terminate with a manually constructed downstream
+skill line.
+
+## Outbound Human Handoff boundary
+
+Every terminal **Human Handoff** from `$implement-ticket` must use the shared
+`polaris.workflow-handoff/v1` gate. This applies to every outbound lifecycle transition,
+including:
+
+- verifier `cell-routing-defect` -> `$to-tickets`;
+- verifier `planning-cell-gap` -> `$to-specs`;
+- verifier `contract-authority-gap` or material design gap -> the exact owning
+  `$architecture-remediation` / semantic workflow;
+- pre-implementation routing for the same material-design/decomposition classes;
+- architecture-blocker or changed-contract/coverage routing owned by another workflow;
+- post-closure frontier handoff to one or more `$implement-ticket` invocations; and
+- completed-ticket handoff to `$verify-spec`.
+
+A recommendation, prose instruction, or bare downstream skill command is **not** a Human
+Handoff and does not satisfy an invocation terminal condition.
+
+### Route artifact and durability
+
+Before generating a handoff, resolve the exact downstream invocation artifact from durable
+state; do not invent it from chat memory.
+
+- `$to-tickets` receives the exact current Parent Spec issue.
+- `$to-specs` receives the exact current planning source for the Parent Spec: its governing
+  Wayfinder issue when Wayfinder-managed, or its exact Independent planning-source issue.
+  A current Spec issue is a durability source, not a substitute planning source.
+- `$architecture-remediation` or another semantic owner receives the exact durable artifact
+  selected by that owning workflow's current routing contract.
+- `$implement-ticket` receives each exact current actionable ticket issue.
+- `$verify-spec` receives the exact current Parent Spec issue.
+
+If the required downstream artifact cannot be resolved uniquely from current durable state,
+do not manufacture a handoff; remain blocked at the owning boundary and report the exact
+ambiguity.
+
+Every handoff manifest uses:
+
+```text
+schema: polaris.workflow-handoff/v1
+boundary: human-lifecycle
+durability.verified: true
+```
+
+Its `durability.sources` must be canonical, unique, and sufficient for a fresh downstream
+session to reconstruct correctness-critical state. For a verifier-failure route, include at
+minimum the current ticket URL, Parent Spec URL, and the exact downstream planning/authority
+artifact URL when distinct. For normal post-closure frontier handoff, include the Parent
+Spec URL plus every handed-off ticket URL. Add managed-comment or other durable artifact
+URLs whenever they are necessary for fresh-session recovery.
+
+### Complete frontier
+
+For a normal post-closure frontier, evaluate the complete current actionable ticket
+frontier. Do not stop after the first actionable ticket. Emit one manifest handoff entry
+for every independently actionable ticket in deterministic ticket/topology order.
+
+If all executable ticket work is durably closed and the Spec is ready for integrated
+verification, emit exactly one `$verify-spec` handoff entry for the Parent Spec.
+
+If zero downstream artifacts are actionable and another workflow is not required, do not
+invent an empty Human Handoff manifest; report the exact current blocker/completion state
+under the retained lifecycle rules.
+
+### Shared generation and verification gate
+
+Create the manifest outside the repository candidate, then generate and verify the terminal
+output only through the shared gate:
+
+```bash
+python -m scripts.workflow_handoff generate \
+  --manifest <handoff-manifest.json> \
+  > <handoff-output.txt>
+python -m scripts.workflow_handoff verify \
+  --manifest <handoff-manifest.json> \
+  --output <handoff-output.txt>
+```
+
+Require exact:
+
+```text
+WORKFLOW HANDOFF: VALID
+```
+
+The user-visible terminal Human Handoff block must reproduce `<handoff-output.txt>`
+**byte-for-byte**. It begins with `WORKFLOW HANDOFF: READY`, contains the exact generated
+downstream command line(s), and ends with the verified fresh-session durability receipt and
+manifest SHA-256.
+
+Do not emit a bare `$to-specs`, `$to-tickets`, `$architecture-remediation`,
+`$implement-ticket`, or `$verify-spec` line as a terminal Human Handoff. Do not manually
+reconstruct the generated block. Do not claim the `Human Handoff` terminal condition if
+generation or verification fails.

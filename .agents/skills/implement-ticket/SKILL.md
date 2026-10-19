@@ -25,6 +25,14 @@ Blocker.
 
 All retained requirements remain mandatory unless explicitly overridden here.
 
+## Execution-anchor invariant
+
+Retain the accepted distinction between the immutable historical **Ticket baseline** and the
+current attempt's **Execution Anchor**. Do not require the current shared branch to equal that
+historical SHA. Before a fresh attempt, fetch the actual remote ticket branch and, only while
+clean, fast-forward only when the local branch is strictly behind and is an ancestor. The
+retained Execution Anchor and Attention-gate rules remain mandatory.
+
 ## Live-WIP recovery consumption boundary
 
 Before ordinary Ticket-baseline handling, inspect durable recovery state exactly as required
@@ -86,9 +94,9 @@ The retained `scripts.workflow_candidate_guard check` and `restore-protected` me
 
 ## Retained Human Handoff boundary
 
-**Every terminal Human Handoff from `$implement-ticket`** remains bound to the shared gate,
+Every terminal **Human Handoff** from `$implement-ticket` remains bound to the shared gate,
 including verifier `cell-routing-defect` -> `$to-tickets`, verifier `planning-cell-gap` -> `$to-specs`,
-and `contract-authority-gap` routing. **A recommendation, prose instruction, or bare downstream skill command is not a Human** Handoff.
+and `contract-authority-gap` routing. A recommendation, prose instruction, or bare downstream skill command is **not** a Human Handoff.
 
 The exact downstream artifact rules remain:
 
@@ -96,10 +104,7 @@ The exact downstream artifact rules remain:
 - `$to-specs` receives the exact current planning source for the Parent Spec.
 - A current Spec issue is a durability source, not a substitute planning source.
 - `$implement-ticket` receives each exact current actionable ticket issue.
-- `$verify-spec` receives the exact Parent Spec issue.
-
-Compatibility assertions retained by workflow policy tests:
-`$to-tickets` receives the exact current Parent Spec issue; `$to-specs` receives the exact current planning source for the Parent Spec; `$implement-ticket` receives each exact current actionable ticket issue; `$verify-spec` receives the exact Parent Spec issue.
+- `$verify-spec` receives the exact current Parent Spec issue.
 
 Generate/verify terminal handoffs only with:
 
@@ -114,5 +119,6 @@ python -m scripts.workflow_handoff verify \
 
 Require `WORKFLOW HANDOFF: VALID` and reproduce the generated block **byte-for-byte**. For a
 normal post-closure frontier, evaluate the **complete current actionable ticket** frontier;
-**Do not stop after the first actionable ticket**. Do not emit a bare `$to-specs`, `$to-tickets`, `$architecture-remediation`,
+Do not stop after the first actionable ticket. Emit one manifest handoff entry for each
+current actionable ticket. Do not emit a bare `$to-specs`, `$to-tickets`, `$architecture-remediation`,
 `$implement-ticket`, or `$verify-spec` line as a terminal Human Handoff.

@@ -13,6 +13,8 @@ Before executing this skill, read all of these files in full:
 
 1. `.agents/skills/implement-ticket/ROUTING_CONTROL_PLANE.md`
 2. `.agents/skills/to-tickets/TICKET_RESLICE_RECOVERY.md`
+3. `.agents/skills/WORKFLOW_INVOCATION_JOURNAL.md`
+4. `.agents/skills/implement-ticket/WORKFLOW_INVOCATION_JOURNAL.md`
 
 `ROUTING_CONTROL_PLANE.md` preserves the previously authoritative `$implement-ticket`
 entrypoint and recursively composes `PROCEDURE.md`, `EXECUTION_ANCHOR.md`, and
@@ -20,8 +22,16 @@ entrypoint and recursively composes `PROCEDURE.md`, `EXECUTION_ANCHOR.md`, and
 defects, deterministic ticket contract, Attention, closure, and shared Human Handoff rules.
 `TICKET_RESLICE_RECOVERY.md` is the canonical durable contract for every
 `ticket-reslice-recovery:v1` record and overrides the shorter recovery summary retained in
-`PROCEDURE.md`. On any other conflict, this file wins. Failure to load either file is a Hard
-Blocker.
+`PROCEDURE.md`. `WORKFLOW_INVOCATION_JOURNAL.md` at the skills root owns the shared WIJ
+storage/schema/non-authority contract; this skill's WIJ document owns only `$implement-ticket`
+integration and resume classification. On any other conflict, this file wins. Failure to
+load either retained execution/recovery authority file is a Hard Blocker.
+
+WIJ is a best-effort execution optimization, never a lifecycle prerequisite. Journal failure,
+loss, corruption, ambiguity, or incompatibility must degrade to the ordinary current
+`$implement-ticket` reconstruction and must not create a new blocker or termination state.
+Only an explicit `resume $implement-ticket - <Title> (<URL>)` invocation may consume an old
+journal; an ordinary invocation starts fresh.
 
 All retained requirements remain mandatory unless explicitly overridden here.
 

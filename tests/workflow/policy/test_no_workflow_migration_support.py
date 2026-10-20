@@ -122,9 +122,13 @@ def test_architecture_remediation_routes_to_canonical_semantic_owners() -> None:
 
 
 def test_current_reconciliation_is_general_not_migration_specific() -> None:
-    path = ROOT / ".agents/skills/to-specs/SKILL.md"
-    text = path.read_text(encoding="utf-8")
-    assert "## Permanent reconciliation rule" in text
-    assert "existing open Spec" in text
-    assert "Legacy Spec migration" not in text
-    assert "$to-remediation-specs" not in text
+    root = ROOT / ".agents/skills/to-specs"
+    entrypoint = (root / "SKILL.md").read_text(encoding="utf-8")
+    procedure = (root / "PROCEDURE.md").read_text(encoding="utf-8")
+
+    assert "`.agents/skills/to-specs/PROCEDURE.md`" in entrypoint
+    assert "## Permanent reconciliation rule" in procedure
+    assert "existing open Spec" in procedure
+    for text in (entrypoint, procedure):
+        assert "Legacy Spec migration" not in text
+        assert "$to-remediation-specs" not in text

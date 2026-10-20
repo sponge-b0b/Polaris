@@ -2,14 +2,22 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 
+COMPOSED_AUTHORITY_FILES = (
+    "SKILL.md",
+    "PROCEDURE.md",
+    "EXECUTION_ANCHOR.md",
+    "CONTROL_PLANE.md",
+    "ROUTING_CONTROL_PLANE.md",
+)
+
 
 def _composed_skill(relative: str) -> str:
-    skill = ROOT / relative / "SKILL.md"
-    text = skill.read_text(encoding="utf-8")
-    procedure = skill.parent / "PROCEDURE.md"
-    if procedure.exists():
-        text += "\n" + procedure.read_text(encoding="utf-8")
-    return text
+    root = ROOT / relative
+    return "\n".join(
+        (root / name).read_text(encoding="utf-8")
+        for name in COMPOSED_AUTHORITY_FILES
+        if (root / name).exists()
+    )
 
 
 TO_TICKETS = _composed_skill(".agents/skills/to-tickets")

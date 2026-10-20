@@ -38,9 +38,7 @@ SUPPORTED_EVENT_TYPES = frozenset(
         "invocation_abandoned",
     }
 )
-TERMINAL_EVENT_TYPES = frozenset(
-    {"invocation_completed", "invocation_abandoned"}
-)
+TERMINAL_EVENT_TYPES = frozenset({"invocation_completed", "invocation_abandoned"})
 SKILL_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 FORBIDDEN_KEY_RE = re.compile(
@@ -122,9 +120,7 @@ class LoadedInvocation:
 
     @property
     def terminal(self) -> bool:
-        return bool(
-            self.events and self.events[-1]["type"] in TERMINAL_EVENT_TYPES
-        )
+        return bool(self.events and self.events[-1]["type"] in TERMINAL_EVENT_TYPES)
 
 
 @dataclass(frozen=True)
@@ -208,9 +204,7 @@ def common_journal_roots(cwd: Path | None = None) -> tuple[Path, ...]:
     worktrees = common / "worktrees"
     if worktrees.is_dir():
         roots.update(
-            child / ROOT_RELATIVE
-            for child in worktrees.iterdir()
-            if child.is_dir()
+            child / ROOT_RELATIVE for child in worktrees.iterdir() if child.is_dir()
         )
     return tuple(sorted(roots))
 
@@ -326,12 +320,15 @@ def _validate_metadata_identity(value: dict[str, Any]) -> None:
 
 def _atomic_write_json(path: Path, value: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(
-        value,
-        indent=2,
-        sort_keys=True,
-        ensure_ascii=False,
-    ) + "\n"
+    payload = (
+        json.dumps(
+            value,
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=False,
+        )
+        + "\n"
+    )
     fd, temp_name = tempfile.mkstemp(
         prefix=f".{path.name}.",
         dir=path.parent,
@@ -474,9 +471,7 @@ def _expect(data: dict[str, Any], key: str, kind: str, label: str) -> Any:
         "str": lambda item: isinstance(item, str) and bool(item.strip()),
         "bool": lambda item: isinstance(item, bool),
         "int": lambda item: (
-            isinstance(item, int)
-            and not isinstance(item, bool)
-            and item >= 0
+            isinstance(item, int) and not isinstance(item, bool) and item >= 0
         ),
         "dict": lambda item: isinstance(item, dict),
         "strlist": _is_string_list,
@@ -488,26 +483,20 @@ def _expect(data: dict[str, Any], key: str, kind: str, label: str) -> Any:
 
 
 def _is_string_list(value: Any) -> bool:
-    return isinstance(value, list) and all(
-        isinstance(item, str) for item in value
-    )
+    return isinstance(value, list) and all(isinstance(item, str) for item in value)
 
 
 def _validate_authority_snapshot(data: dict[str, Any]) -> None:
     files = data.get("files")
     if not isinstance(files, list) or not files:
-        raise JournalError(
-            "authority_snapshot: files must be a non-empty array"
-        )
+        raise JournalError("authority_snapshot: files must be a non-empty array")
     for item in files:
         _validate_authority_file(item)
 
 
 def _validate_authority_file(value: Any) -> None:
     if not isinstance(value, dict):
-        raise JournalError(
-            "authority_snapshot: each file must be an object"
-        )
+        raise JournalError("authority_snapshot: each file must be an object")
     _expect(value, "path", "str", "authority_snapshot file")
     digest = _expect(
         value,
@@ -537,9 +526,7 @@ def _validate_external_write(data: dict[str, Any]) -> None:
 
 def _validate_child_result(data: dict[str, Any]) -> None:
     if HEX64_RE.fullmatch(data["result_sha256"]) is None:
-        raise JournalError(
-            "child_result_observed: result_sha256 must be 64 hex"
-        )
+        raise JournalError("child_result_observed: result_sha256 must be 64 hex")
 
 
 def _validate_completed(data: dict[str, Any]) -> None:
@@ -582,9 +569,7 @@ def _validate_event_input(
     if event_type not in SUPPORTED_EVENT_TYPES:
         raise JournalError(f"event input: unsupported type {event_type!r}")
     if candidate is not None and not isinstance(candidate, str):
-        raise JournalError(
-            "event input: candidate_state must be string or null"
-        )
+        raise JournalError("event input: candidate_state must be string or null")
     if not isinstance(data, dict):
         raise JournalError("event input: data must be object")
     _validate_no_secrets(data, "event data")
@@ -606,13 +591,9 @@ def _validate_bootstrap_event(
     sequence: int | None,
 ) -> None:
     if not stored or sequence != 1:
-        raise JournalError(
-            "invocation_started is valid only as bootstrap event 1"
-        )
+        raise JournalError("invocation_started is valid only as bootstrap event 1")
     if candidate is not None or data:
-        raise JournalError(
-            "invocation_started requires null candidate and empty data"
-        )
+        raise JournalError("invocation_started requires null candidate and empty data")
 
 
 def _parse_stored_event(
@@ -712,9 +693,7 @@ def _try_parse_event(
     previous_hash: str,
     events: list[dict[str, Any]],
 ) -> dict[str, Any] | str:
-    terminal_seen = bool(
-        events and events[-1]["type"] in TERMINAL_EVENT_TYPES
-    )
+    terminal_seen = bool(events and events[-1]["type"] in TERMINAL_EVENT_TYPES)
     try:
         return _parse_stored_event(
             line,
@@ -750,13 +729,9 @@ def _validate_directory_identity(
     metadata: dict[str, Any],
 ) -> None:
     if directory.name != metadata["invocation_id"]:
-        raise JournalError(
-            "journal directory does not match invocation_id"
-        )
+        raise JournalError("journal directory does not match invocation_id")
     if directory.parent.name != metadata["skill"]:
-        raise JournalError(
-            "journal skill directory does not match metadata skill"
-        )
+        raise JournalError("journal skill directory does not match metadata skill")
 
 
 def _assert_local_journal_path(path: Path, cwd: Path | None) -> None:
@@ -851,10 +826,7 @@ def _locate_from_scan(
 ) -> LocateResult:
     if degraded:
         reason = "; ".join(degraded)
-        reason += (
-            "; automatic reuse skipped because journal identity may be "
-            "ambiguous"
-        )
+        reason += "; automatic reuse skipped because journal identity may be ambiguous"
         return LocateResult(LocateStatus.DEGRADED, (), reason)
     if len(matches) == 1:
         return LocateResult(LocateStatus.FOUND, tuple(matches))
@@ -1101,21 +1073,14 @@ def _locate_command(args: argparse.Namespace) -> None:
         {
             "status": result.status.value,
             "reason": result.reason,
-            "matches": [
-                _loaded_payload(item, "FOUND")
-                for item in result.matches
-            ],
+            "matches": [_loaded_payload(item, "FOUND") for item in result.matches],
         },
     )
 
 
 def _inspect_command(args: argparse.Namespace) -> None:
     loaded = load_invocation(args.journal)
-    status = (
-        "VALID"
-        if loaded.health is JournalHealth.HEALTHY
-        else "DEGRADED"
-    )
+    status = "VALID" if loaded.health is JournalHealth.HEALTHY else "DEGRADED"
     print(f"WORKFLOW JOURNAL: {status}")
     print(f"Invocation: {loaded.metadata['invocation_id']}")
     print(f"Events: {len(loaded.events)}")

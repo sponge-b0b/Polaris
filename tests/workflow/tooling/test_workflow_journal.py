@@ -101,9 +101,7 @@ def test_append_hash_chain_and_partial_tail_use_valid_prefix(repo: Path) -> None
         cwd=repo,
     )
 
-    assert loaded.events[1]["previous_event_sha256"] == loaded.events[0][
-        "event_sha256"
-    ]
+    assert loaded.events[1]["previous_event_sha256"] == loaded.events[0]["event_sha256"]
     with (loaded.path / "events.jsonl").open("ab") as handle:
         handle.write(b'{"schema":"broken"')
 

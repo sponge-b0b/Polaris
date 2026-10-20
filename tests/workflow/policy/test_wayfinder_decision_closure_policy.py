@@ -16,7 +16,9 @@ def test_wayfinder_requires_machine_decision_closure_gate() -> None:
 
 
 def test_wayfinder_cannot_close_before_wiki_sync_receipt() -> None:
-    assert "A failed or missing closure gate means the decision remains open" in WAYFINDER
+    assert (
+        "A failed or missing closure gate means the decision remains open" in WAYFINDER
+    )
     assert "close the decision" in WAYFINDER
     assert "mutate the map frontier" in WAYFINDER
     assert "NO_DURABLE_KNOWLEDGE_CHANGED" in WAYFINDER

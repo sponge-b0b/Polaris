@@ -3,11 +3,16 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
-from scripts.workflow_attention import AttentionProtocolError, validate_file
-from scripts.workflow_handoff import render_artifact_line
+REPO_ROOT = Path(__file__).resolve().parents[4]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.workflow_attention import AttentionProtocolError, validate_file  # noqa: E402
+from scripts.workflow_handoff import render_artifact_line  # noqa: E402
 
 CHECKPOINT = "$wayfinder route clarity"
 CONTINUATION_MARKER = "<!-- continuation-reconciliation:v1 -->"

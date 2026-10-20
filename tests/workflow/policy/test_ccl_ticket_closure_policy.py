@@ -3,13 +3,23 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 
 
+COMPOSED_AUTHORITY_FILES = (
+    "SKILL.md",
+    "PROCEDURE.md",
+    "EXECUTION_ANCHOR.md",
+    "CONTROL_PLANE.md",
+    "ROUTING_CONTROL_PLANE.md",
+)
+
+
 def _composed_skill(relative: str) -> str:
-    skill = ROOT / relative / "SKILL.md"
-    text = skill.read_text(encoding="utf-8")
-    procedure = skill.parent / "PROCEDURE.md"
-    if procedure.exists():
-        text += "\n" + procedure.read_text(encoding="utf-8")
-    return text
+    root = ROOT / relative
+    parts = [
+        (root / name).read_text(encoding="utf-8")
+        for name in COMPOSED_AUTHORITY_FILES
+        if (root / name).exists()
+    ]
+    return "\n".join(parts)
 
 
 IMPLEMENT = _composed_skill(".agents/skills/implement-ticket")
@@ -76,7 +86,11 @@ def test_implement_ticket_attention_checkpoints_are_auditable() -> None:
     assert "Checkpoint: $implement-ticket pre-mutation" in IMPLEMENT
     assert "No substantive mutation is allowed until" in IMPLEMENT
     assert "Checkpoint: $implement-ticket pre-closure" in IMPLEMENT
-    assert "Do not write the\nv3 `awaiting-closure-verification` checkpoint until" in IMPLEMENT
+    assert "Do not write the v3" in IMPLEMENT
+    assert (
+        "`awaiting-closure-verification` checkpoint until this verification succeeds"
+        in IMPLEMENT
+    )
 
 
 def test_execution_anchor_separates_lineage_from_candidate_identity() -> None:
@@ -113,7 +127,7 @@ def test_verifier_result_finalization_is_same_context_and_non_appealable() -> No
     assert "TICKET CLOSURE: INVALID" in VERIFY
     assert "self-contradictory-verdict" in IMPLEMENT
     assert "self-contradictory-verdict" in VERIFY
-    assert "same verifier context" in IMPLEMENT
+    assert "same-context post-result interaction" in IMPLEMENT
     assert "same verifier context" in VERIFY
     assert "may not create an INVALID payload" in IMPLEMENT
     assert "Free-form follow-up" in IMPLEMENT

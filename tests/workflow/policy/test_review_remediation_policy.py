@@ -2,17 +2,31 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 
+COMPOSED_AUTHORITY_FILES = (
+    "SKILL.md",
+    "PROCEDURE.md",
+    "EXECUTION_ANCHOR.md",
+    "CONTROL_PLANE.md",
+    "ROUTING_CONTROL_PLANE.md",
+)
+
+
+def _composed_skill(name: str) -> str:
+    root = ROOT / ".agents/skills" / name
+    return "\n".join(
+        (root / filename).read_text(encoding="utf-8")
+        for filename in COMPOSED_AUTHORITY_FILES
+        if (root / filename).exists()
+    )
+
+
 REVIEW = (ROOT / ".agents/skills/review-spec/SKILL.md").read_text(encoding="utf-8")
-TICKETS = (ROOT / ".agents/skills/to-tickets/SKILL.md").read_text(encoding="utf-8")
-IMPLEMENT = (
-    ROOT / ".agents/skills/implement-ticket/SKILL.md"
-).read_text(encoding="utf-8")
-CLOSURE = (
-    ROOT / ".agents/skills/verify-ticket-closure/SKILL.md"
-).read_text(encoding="utf-8")
-CLEANUP = (
-    ROOT / ".agents/skills/spec-merge-cleanup/SKILL.md"
-).read_text(encoding="utf-8")
+TICKETS = _composed_skill("to-tickets")
+IMPLEMENT = _composed_skill("implement-ticket")
+CLOSURE = _composed_skill("verify-ticket-closure")
+CLEANUP = (ROOT / ".agents/skills/spec-merge-cleanup/SKILL.md").read_text(
+    encoding="utf-8"
+)
 AGENTS = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
 README = (ROOT / ".agents/skills/README.md").read_text(encoding="utf-8")
 

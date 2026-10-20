@@ -129,6 +129,29 @@ After authoritative Spec completion is proven, close the conventional Spec Revie
 
 The v2 finding ledger and Exit Receipt remain historical completion evidence on the closed review issue. Do not rewrite them during cleanup.
 
+### Best-effort Workflow Invocation Journal GC
+
+After authoritative Spec completion is proven, perform best-effort cleanup of disposable
+Workflow Invocation Journals whose exact immutable `lifecycle_scope` is this Spec. The
+canonical WIJ contract is `.agents/skills/WORKFLOW_INVOCATION_JOURNAL.md`.
+
+Run:
+
+```bash
+python -m scripts.workflow_journal gc \
+  --lifecycle-scope-url <canonical Spec issue URL>
+```
+
+`WORKFLOW JOURNAL GC: COMPLETE` is the ordinary result. `WORKFLOW JOURNAL GC: DEGRADED`, a
+missing helper, unreadable journal storage, or any other WIJ cleanup failure is report-only
+cleanup degradation: continue the authoritative Spec-completion workflow without rollback,
+without reopening any lifecycle artifact, and without restoring a deleted Spec branch.
+
+GC may remove terminal or nonterminal journals for the completed Spec. It matches exact
+`lifecycle_scope` identity, never branch-name inference. Independent clones outside the
+repository's Git common directory remain outside this cleanup boundary and disappear with
+their clone.
+
 ## 8. Reconcile every governing Wayfinder
 
 Spec closure is the native dependency-completion boundary; do not write a second synthetic satisfaction marker.
@@ -157,8 +180,9 @@ If projection fails after lifecycle completion, report `PROJECT TRACKING: DRIFT`
 
 Success requires the current v2 finding ledger to validate against the current deterministic Spec contract; the Exit Receipt to bind the current semantic candidate and ledger hash; zero open Blocking findings/routing defects/contract-planning gaps; exactly one authoritative Spec completion transition or an exact post-completion recovery; closed conventional Spec Review; safe branch cleanup for branch-backed work; an explicit completion disposition for every unambiguously recovered governor; project-delivery reconciliation after completion transitions; and one complete Project reconstruction/projection attempt.
 
+WIJ garbage collection is best-effort housekeeping and is deliberately not a success criterion.
 A cleanup failure after authoritative Spec completion never invalidates the completion transition. Resume from durable state and perform only remaining idempotent work.
 
 ## Non-goals
 
-`$spec-merge-cleanup` does not interpret review prose into findings, parse historical remediation compatibility receipt fields, consume legacy finding-ledger markers as current state, reopen a completed Spec because cleanup/project projection failed, guess Wayfinder governance, use Project projection as lifecycle authority, force-delete a drifted branch, or create semantic requirements.
+`$spec-merge-cleanup` does not interpret review prose into findings, parse historical remediation compatibility receipt fields, consume legacy finding-ledger markers as current state, reopen a completed Spec because cleanup/project projection failed, guess Wayfinder governance, use Project projection as lifecycle authority, force-delete a drifted branch, create semantic requirements, or make WIJ cleanup a prerequisite for completion.

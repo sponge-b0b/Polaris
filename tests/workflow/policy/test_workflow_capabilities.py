@@ -141,10 +141,15 @@ def test_machine_attention_consumers_use_shared_validator() -> None:
     assert consumers == expected
 
     for consumer, relative in consumers.items():
-        text = (ROOT / relative).read_text(encoding="utf-8")
+        path = ROOT / relative
+        text = path.read_text(encoding="utf-8")
         if consumer == "to-tickets":
             assert "python -m scripts.workflow_attention validate" in text
             assert "--require-nonblocking" in text
+        elif consumer == "implement-ticket":
+            assert "attention_gate_impl" in text
+            impl = path.with_name("attention_gate_impl.py").read_text(encoding="utf-8")
+            assert "from scripts.workflow_attention import" in impl
         else:
             assert "scripts.workflow_attention" in text
 

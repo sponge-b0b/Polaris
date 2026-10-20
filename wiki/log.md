@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-20] R3 Portfolio Evidence target corrections | owner history implemented
+
+Recorded the realized consequence and Risk Evidence target owner: complete versioned claim catalogs, separate target and catalog correction lanes, explicit future-overlap resolution, `(T,K)` owner witnesses, and immutable PostgreSQL acts. Updated `portfolio-risk`, `evidence`, and `durable-persistence`; context ownership and Recommendation consumption remain planned.
+
 ## [2026-10-20] R3 Portfolio Evidence target correction overlap | accepted authority
 
 Recorded ADR 0019’s accepted Portfolio & Risk rule for future-effective same-root target and complete claim-catalog corrections. Known pending overlaps require explicit cancellation or interim retention, with coherent selected lanes and owner-attested temporal cause. Concrete correction implementation remains pending.

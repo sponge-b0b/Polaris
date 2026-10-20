@@ -157,6 +157,15 @@ class PostgresPortfolioRiskStore:
                     .returning(portfolio_risk_assessments)
                 )
                 row = result.mappings().one()
+                from .portfolio_judgment_history import (
+                    insert_initial_portfolio_judgment_act,
+                )
+
+                await insert_initial_portfolio_judgment_act(
+                    connection,
+                    _from_row(row).assessment,
+                    row["known_at"],
+                )
         except IntegrityError as exc:
             if getattr(exc.orig, "sqlstate", None) == "23505":
                 raise PortfolioRiskConflict(

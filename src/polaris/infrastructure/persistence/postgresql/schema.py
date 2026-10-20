@@ -154,10 +154,49 @@ portfolio_risk_assessments = Table(
     ),
 )
 
+portfolio_judgment_acts = Table(
+    "portfolio_judgment_acts",
+    _foundation.metadata,
+    Column("act_id", UUID(as_uuid=True), primary_key=True),
+    Column("sequence", Integer, nullable=False),
+    Column("consequence_id", UUID(as_uuid=True)),
+    Column("assessment_id", UUID(as_uuid=True)),
+    Column("effective_at", DateTime(timezone=True), nullable=False),
+    Column("recorded_at", DateTime(timezone=True), nullable=False),
+    Column("known_at", DateTime(timezone=True), nullable=False),
+    Column("judgment_revision", Integer, nullable=False),
+    Column("claim_catalog_version", Integer, nullable=False),
+    Column("act", JSONB, nullable=False),
+    CheckConstraint(
+        "(consequence_id IS NULL) <> (assessment_id IS NULL)",
+        name="one_portfolio_judgment_root",
+    ),
+    CheckConstraint("judgment_revision > 0", name="positive_judgment_revision"),
+    CheckConstraint("sequence > 0", name="positive_sequence"),
+    CheckConstraint("claim_catalog_version > 0", name="positive_catalog_version"),
+    CheckConstraint("known_at >= recorded_at", name="known_after_recorded"),
+    CheckConstraint("jsonb_typeof(act) = 'object'", name="act_object"),
+    ForeignKeyConstraint(
+        ["consequence_id"],
+        ["projected_portfolio_consequences.consequence_id"],
+        name="fk_portfolio_judgment_consequence",
+    ),
+    ForeignKeyConstraint(
+        ["assessment_id"],
+        ["portfolio_risk_assessments.assessment_id"],
+        name="fk_portfolio_judgment_assessment",
+    ),
+    UniqueConstraint("consequence_id", "sequence", name="uq_consequence_act_sequence"),
+    UniqueConstraint("assessment_id", "sequence", name="uq_risk_act_sequence"),
+    Index("ix_portfolio_judgment_consequence_history", "consequence_id", "known_at"),
+    Index("ix_portfolio_judgment_risk_history", "assessment_id", "known_at"),
+)
+
 POLARIS_TABLE_NAMES = _foundation.POLARIS_TABLE_NAMES | frozenset(
     {
         "portfolio_states",
         "projected_portfolio_consequences",
         "portfolio_risk_assessments",
+        "portfolio_judgment_acts",
     }
 )

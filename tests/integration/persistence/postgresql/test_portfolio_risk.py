@@ -26,6 +26,7 @@ from polaris.domain.decisions import (
     TriggerProvenance,
 )
 from polaris.domain.evidence.judgments import PortfolioRiskAssessmentRef
+from polaris.domain.portfolio_judgment_history import PendingDisposition
 from polaris.infrastructure.persistence.postgresql import (
     PostgresDecisionStore,
     PostgresInvestmentIntelligenceStore,
@@ -46,6 +47,7 @@ from tests.domain.test_portfolio_consequences import (
 )
 from tests.domain.test_portfolio_risk import _support
 
+from ._portfolio_judgment_history_support import prove_durable_corrections
 from .conftest import PostgresTestTarget, postgres_row_counts, postgres_store
 
 
@@ -136,6 +138,12 @@ def test_risk_history_preserves_actual_and_projected_judgments_after_restart(
             assert projected.assessment.unresolved
             assert projected.assessment.dimensions[1].value is None
             assert projected.assessment.uncertainty[-1] == consequences[0].uncertainty
+            await prove_durable_corrections(
+                engine, actual.assessment, PendingDisposition.CANCEL
+            )
+            await prove_durable_corrections(
+                engine, projected.assessment, PendingDisposition.RETAIN
+            )
             assert await postgres_row_counts(engine, portfolio_risk_assessments) == (2,)
             with pytest.raises(PortfolioRiskConflict):
                 await store.append(

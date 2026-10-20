@@ -44,7 +44,7 @@ def validate_text(
 ) -> AttentionReceipt:
     raw = text.strip()
     lines = raw.splitlines()
-    _need(lines, "attention result: empty result")
+    _need(bool(lines), "attention result: empty result")
     _need(lines[0] in VALID_HEADERS, "attention result: unsupported formal result header")
 
     digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
@@ -70,7 +70,7 @@ def validate_text(
     )
     findings_text = "\n".join(lines[2:]).strip()
     findings = list(FINDING.finditer(findings_text))
-    _need(findings, "attention result: FINDINGS receipt has no finding rows")
+    _need(bool(findings), "attention result: FINDINGS receipt has no finding rows")
 
     blocking_bases: list[str] = []
     for finding in findings:

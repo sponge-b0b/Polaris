@@ -10,6 +10,10 @@ from .portfolio_consequences import (
     PostgresPortfolioConsequenceStore,
     create_postgres_portfolio_consequence_service,
 )
+from .portfolio_risk import (
+    PostgresPortfolioRiskStore,
+    create_postgres_portfolio_risk_service,
+)
 from .portfolio_states import PostgresPortfolioStateStore
 from .relationship_store import PostgresDecisionStore
 from .requirement_store import PostgresEvidenceRequirementStore
@@ -40,6 +44,8 @@ __all__ = [
     "PostgresPortfolioConsequenceStore",
     "create_postgres_portfolio_consequence_service",
     "PostgresPortfolioStateStore",
+    "PostgresPortfolioRiskStore",
+    "create_postgres_portfolio_risk_service",
     "PostgresEvidenceSufficiencyStore",
     "PostgresEvidenceSupportEpochStore",
     "create_postgres_engine",

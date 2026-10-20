@@ -6,6 +6,8 @@ certified Portfolio State table from #404 so both sibling ``0009`` migration
 branches share one runtime metadata registry without rewriting either migration.
 """
 
+from typing import Any
+
 from sqlalchemy import (
     CheckConstraint,
     Column,
@@ -19,10 +21,27 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 
 from . import schema_foundation as _foundation
 from .schema_foundation import *  # noqa: F401,F403
+
+
+def _portfolio_actor_columns() -> tuple[Column[Any], ...]:
+    return (
+        Column("actor_attribution_kind", String(16), nullable=False),
+        Column("actor_id", UUID(as_uuid=True)),
+        Column("actor_candidate_ids", ARRAY(UUID(as_uuid=True))),
+    )
+
+
+def _portfolio_source_fk(name: str) -> ForeignKeyConstraint:
+    return ForeignKeyConstraint(
+        ["source_state_id", "source_as_of"],
+        ["portfolio_states.state_id", "portfolio_states.as_of"],
+        name=name,
+    )
+
 
 portfolio_states = Table(
     "portfolio_states",
@@ -70,9 +89,7 @@ projected_portfolio_consequences = Table(
     Column("economic_benefits", ARRAY(Text), nullable=False),
     Column("adverse_possibilities", ARRAY(Text), nullable=False),
     Column("material_risk_changes", ARRAY(Text), nullable=False),
-    Column("actor_attribution_kind", String(16), nullable=False),
-    Column("actor_id", UUID(as_uuid=True)),
-    Column("actor_candidate_ids", ARRAY(UUID(as_uuid=True))),
+    *_portfolio_actor_columns(),
     Column("formed_at", DateTime(timezone=True), nullable=False),
     Column("known_at", DateTime(timezone=True), nullable=False),
     Column("uncertainty", Text, nullable=False),
@@ -89,11 +106,7 @@ projected_portfolio_consequences = Table(
         name="change_resolution",
     ),
     *_foundation._actor_attribution_constraints(),
-    ForeignKeyConstraint(
-        ["source_state_id", "source_as_of"],
-        ["portfolio_states.state_id", "portfolio_states.as_of"],
-        name="fk_consequence_source_state_as_of",
-    ),
+    _portfolio_source_fk("fk_consequence_source_state_as_of"),
     ForeignKeyConstraint(
         ["alternative_id", "alternative_revision"],
         [
@@ -105,6 +118,46 @@ projected_portfolio_consequences = Table(
     Index("ix_projected_consequence_alternative", "alternative_id", "known_at"),
 )
 
+portfolio_risk_assessments = Table(
+    "portfolio_risk_assessments",
+    _foundation.metadata,
+    Column("assessment_id", UUID(as_uuid=True), primary_key=True),
+    Column("source_state_id", UUID(as_uuid=True), nullable=False),
+    Column("source_as_of", DateTime(timezone=True), nullable=False),
+    Column("projected_consequence_id", UUID(as_uuid=True)),
+    Column("horizon", Text, nullable=False),
+    Column("scenario", Text, nullable=False),
+    Column("support_basis", Text, nullable=False),
+    Column("evidence_ids", ARRAY(UUID(as_uuid=True)), nullable=False),
+    Column("assumptions", ARRAY(Text), nullable=False),
+    Column("downside_fraction", Numeric),
+    Column("market_volatility_fraction", Numeric),
+    Column("objective_shortfall_amount", Numeric),
+    Column("dimensions", JSONB, nullable=False),
+    Column("support_uncertainty", ARRAY(Text), nullable=False),
+    Column("uncertainty", ARRAY(Text), nullable=False),
+    *_portfolio_actor_columns(),
+    Column("formed_at", DateTime(timezone=True), nullable=False),
+    Column("known_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint("jsonb_typeof(dimensions) = 'array'", name="dimensions_array"),
+    CheckConstraint("jsonb_array_length(dimensions) > 0", name="dimensions_present"),
+    *_foundation._actor_attribution_constraints(),
+    _portfolio_source_fk("fk_risk_source_state_as_of"),
+    ForeignKeyConstraint(
+        ["projected_consequence_id"],
+        ["projected_portfolio_consequences.consequence_id"],
+        name="fk_risk_projected_consequence",
+    ),
+    Index("ix_portfolio_risk_source_history", "source_state_id", "known_at"),
+    Index(
+        "ix_portfolio_risk_projection_history", "projected_consequence_id", "known_at"
+    ),
+)
+
 POLARIS_TABLE_NAMES = _foundation.POLARIS_TABLE_NAMES | frozenset(
-    {"portfolio_states", "projected_portfolio_consequences"}
+    {
+        "portfolio_states",
+        "projected_portfolio_consequences",
+        "portfolio_risk_assessments",
+    }
 )

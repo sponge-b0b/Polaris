@@ -30,6 +30,20 @@ def _texts(values: tuple[str, ...], field: str) -> None:
         _text(value, field)
 
 
+def _validate_portfolio_judgment(
+    horizon: InvestmentHorizon,
+    attribution: ActorAttribution,
+    source_as_of: datetime,
+    formed_at: datetime,
+) -> None:
+    if type(horizon) is not InvestmentHorizon:
+        raise TypeError("horizon must be InvestmentHorizon")
+    if not is_actor_attribution(attribution):
+        raise TypeError("attribution must identify an actor status")
+    _aware(source_as_of, "source_as_of")
+    _aware(formed_at, "formed_at")
+
+
 @dataclass(frozen=True, slots=True)
 class ProjectedChange:
     """A consequence delta, or an explicitly unresolved material delta."""
@@ -76,12 +90,9 @@ class ProjectedPortfolioConsequence:
             raise TypeError("alternative must be DecisionAlternativeVersionRef")
         if type(self.source_state_id) is not PortfolioStateId:
             raise TypeError("source_state_id must be PortfolioStateId")
-        if type(self.horizon) is not InvestmentHorizon:
-            raise TypeError("horizon must be InvestmentHorizon")
-        if not is_actor_attribution(self.attribution):
-            raise TypeError("attribution must identify an actor status")
-        _aware(self.source_as_of, "source_as_of")
-        _aware(self.formed_at, "formed_at")
+        _validate_portfolio_judgment(
+            self.horizon, self.attribution, self.source_as_of, self.formed_at
+        )
         if self.exposure_change is None and self.allocation_change is None:
             raise ValueError("SPY exposure or allocation change is required")
         for field in ("exposure_change", "allocation_change", "cash_effect"):

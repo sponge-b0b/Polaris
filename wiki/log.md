@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-19] R3 Portfolio Risk | attributable assessment producer established
+
+Recorded typed actual-State and projected-consequence Risk assessments with distinct material dimensions, explicit unresolved support, Evidence references, assumptions, uncertainty, attribution, and append-only PostgreSQL history. Evidence target/context version ownership and Recommendation consumption remain planned in their respective follow-on work.
+
 ## [2026-10-19] R3 projected Portfolio consequence | hypothetical producer established
 
 Recorded the typed Portfolio consequence producer for the complete material Alternative set read through the Investment Intelligence owner, with exact actual-State and as-of binding, explicit horizon and assumptions, material projected changes, unresolved precision, attribution, and append-only PostgreSQL persistence. Risk assessment, Evidence target ownership, and Recommendation consumption remain planned.

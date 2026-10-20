@@ -15,7 +15,7 @@ def test_spec_merge_cleanup_owns_final_best_effort_journal_gc() -> None:
     assert "WORKFLOW JOURNAL GC: DEGRADED" in text
     assert "Do not roll back authoritative Spec completion" in text
     assert "WIJ garbage collection is best-effort housekeeping" in text
-    assert "not a success criterion" in text
+    assert "make WIJ cleanup a prerequisite for completion" in text
     assert text.index("Reconstruct Project projection once") < text.index(
         "Final best-effort Workflow Invocation Journal GC"
     )

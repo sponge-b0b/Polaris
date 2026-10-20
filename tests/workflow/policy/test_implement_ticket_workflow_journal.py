@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[3]
 SHARED = ROOT / ".agents/skills/WORKFLOW_INVOCATION_JOURNAL.md"
 IMPLEMENT = ROOT / ".agents/skills/implement-ticket/WORKFLOW_INVOCATION_JOURNAL.md"
@@ -15,12 +14,14 @@ def test_shared_contract_is_non_authoritative_and_non_blocking() -> None:
     text = SHARED.read_text(encoding="utf-8")
 
     assert "WIJ failure is never a workflow failure" in text
-    assert "not semantic, contract, dependency, candidate, closure, review, or lifecycle" in text
+    assert "not semantic, contract, dependency, candidate, closure" in text
+    assert "Current repository/tracker authority always wins" in text
     assert "git rev-parse --absolute-git-dir" in text
+    assert "Single-writer invariant" in text
     assert "Path-aware selective invalidation is explicitly deferred beyond V1" in text
 
 
-def test_implement_ticket_contract_requires_explicit_resume_and_current_authority() -> None:
+def test_implement_ticket_contract_requires_current_authority() -> None:
     text = IMPLEMENT.read_text(encoding="utf-8")
 
     assert "Only an explicit `resume $implement-ticket" in text

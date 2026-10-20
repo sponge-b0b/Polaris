@@ -80,7 +80,10 @@ def test_implement_ticket_separates_immutable_baseline_from_execution_anchor() -
     assert "Execution Anchor" in IMPLEMENT
     assert "fetch the actual remote ticket branch" in IMPLEMENT
     assert "fast-forward only" in IMPLEMENT
-    assert "Do not require the current shared branch to equal that historical SHA" in IMPLEMENT
+    assert (
+        "Do not require the current shared branch to equal that historical SHA"
+        in IMPLEMENT
+    )
 
 
 def test_wayfinder_returns_focus_choice_to_human_owner() -> None:

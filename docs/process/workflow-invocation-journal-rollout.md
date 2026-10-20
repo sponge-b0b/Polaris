@@ -48,6 +48,9 @@ logic:
 Ordinary branches in one checkout share one administrative journal root. Linked worktrees
 receive distinct Git directories and therefore isolated WIJ roots automatically.
 
+V1 assumes one writer per invocation journal. Independent verifier/reviewer contexts use
+separate child journals instead of concurrent parent writes.
+
 ## V1 reuse policy
 
 V1 deliberately uses conservative exact-state reuse. Candidate-bound deterministic evidence
@@ -68,7 +71,8 @@ non-blocking degradation and the owning workflow continues from current authorit
 
 A valid journal prefix may be recovered after a truncated tail or later corruption. Events
 form a lightweight SHA-256 hash chain so accidental middle-of-file edits are detected rather
-than silently reused.
+than silently reused. Event payloads also carry stable V1 structural shapes so a later
+context does not have to guess whether, for example, `check` meant `check_id`.
 
 ## Initial adopter: `$implement-ticket`
 
@@ -116,7 +120,10 @@ Evaluate measured value and semantics before integrating:
 * `$project-delivery-management`
 
 `$spec-merge-cleanup` is nevertheless the designated lifecycle owner for best-effort WIJ GC
-after authoritative Spec completion.
+after authoritative Spec completion. GC runs as final housekeeping after the remaining
+Review, Wayfinder, project-delivery, and Project projection work has been attempted so a
+future resumable cleanup invocation does not delete its own active journal prematurely.
+Unreadable/corrupt metadata is reported as degraded cleanup rather than silently skipped.
 
 ### Helpers
 
@@ -144,6 +151,9 @@ V1 is not ready for production workflow reuse until tests prove at least:
 * interior parse/hash corruption uses only the prior valid prefix;
 * unsupported schema degrades without stopping work;
 * hard interruption without an interruption checkpoint remains discoverable;
+* event payload shapes remain stable across fresh contexts;
+* duplicate bootstrap and post-terminal events are rejected/degraded;
+* machine operation statuses are unambiguous;
 * exact same candidate + compatible authority can reuse eligible deterministic PASS evidence;
 * a one-byte candidate difference prevents candidate-bound evidence reuse;
 * workflow-authority change triggers conservative reconciliation;
@@ -153,6 +163,7 @@ V1 is not ready for production workflow reuse until tests prove at least:
 * external writes are re-read from their owning system;
 * raw unfinalized verifier PASS/FAIL cannot be salvaged from WIJ;
 * lifecycle-scope GC removes only exact matching Spec journals and remains non-blocking;
+* corrupt GC metadata is reported as degradation because scope cannot be proven;
 * obvious credential material is rejected;
 * deleting the whole WIJ directory mid-ticket leaves `$implement-ticket` behavior correct.
 

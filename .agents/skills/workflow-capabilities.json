@@ -46,6 +46,15 @@
       "resolution": "RESTORED_BY_THIS_CHANGE"
     },
     {
+      "id": "workflow-invocation-resumability",
+      "status": "PRESERVED",
+      "owner": [
+        ".agents/skills/README.md",
+        ".agents/skills/WORKFLOW_INVOCATION_JOURNAL.md",
+        "scripts/workflow_journal.py"
+      ]
+    },
+    {
       "id": "workflow-change-owner-authorization",
       "status": "PRESERVED",
       "owner": [

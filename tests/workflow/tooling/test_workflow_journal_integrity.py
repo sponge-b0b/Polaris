@@ -9,7 +9,6 @@ import pytest
 
 from scripts import workflow_journal as journal
 
-
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "scripts/workflow_journal.py"
 
@@ -20,8 +19,7 @@ def git(cwd: Path, *args: str) -> str:
         cwd=cwd,
         check=True,
         text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
     )
     return result.stdout.strip()
 
@@ -62,7 +60,6 @@ def test_empty_events_file_is_degraded(repo: Path) -> None:
     (loaded.path / "events.jsonl").write_bytes(b"")
 
     reread = journal.load_invocation(loaded.path)
-
     assert reread.health is journal.JournalHealth.DEGRADED
     assert reread.events == ()
     assert reread.reason == "missing invocation_started event"
@@ -79,23 +76,18 @@ def test_event_after_terminal_uses_only_terminal_prefix(repo: Path) -> None:
         },
         cwd=repo,
     )
-    event = {
-        "schema": journal.EVENT_SCHEMA,
-        "sequence": 3,
-        "event_id": "f" * 32,
-        "recorded_at": "2026-10-20T00:00:00Z",
-        "invocation_id": loaded.metadata["invocation_id"],
-        "type": "work_completed",
-        "candidate_state": None,
-        "data": {"work_id": "illegal-after-terminal"},
-        "previous_event_sha256": loaded.events[-1]["event_sha256"],
-    }
-    event["event_sha256"] = journal._event_hash(event)
+    event = journal._new_event(
+        metadata=loaded.metadata,
+        sequence=3,
+        event_type="work_completed",
+        candidate_state=None,
+        data={"work_id": "illegal-after-terminal"},
+        previous_hash=loaded.events[-1]["event_sha256"],
+    )
     with (loaded.path / "events.jsonl").open("ab") as handle:
         handle.write(journal._canonical(event) + b"\n")
 
     reread = journal.load_invocation(loaded.path)
-
     assert reread.health is journal.JournalHealth.DEGRADED
     assert len(reread.events) == 2
     assert "event follows terminal event" in (reread.reason or "")
@@ -124,11 +116,16 @@ def test_directory_metadata_identity_mismatch_is_unusable(repo: Path) -> None:
     moved = loaded.path.parent / "wrong-name"
     loaded.path.rename(moved)
 
-    with pytest.raises(journal.JournalError, match="directory does not match invocation_id"):
+    with pytest.raises(
+        journal.JournalError,
+        match="directory does not match invocation_id",
+    ):
         journal.load_invocation(moved)
 
 
-def test_cli_operational_degradation_is_exit_zero_outside_git(tmp_path: Path) -> None:
+def test_cli_operational_degradation_is_exit_zero_outside_git(
+    tmp_path: Path,
+) -> None:
     result = subprocess.run(
         [
             sys.executable,
@@ -144,8 +141,7 @@ def test_cli_operational_degradation_is_exit_zero_outside_git(tmp_path: Path) ->
         cwd=tmp_path,
         check=False,
         text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
     )
 
     assert result.returncode == 0
@@ -172,3 +168,70 @@ def test_gc_failure_is_nonthrowing(
     assert result.removed == 0
     assert result.failed == 1
     assert "simulated permission failure" in result.failures[0]
+
+
+def test_second_invocation_started_is_rejected(repo: Path) -> None:
+    loaded = journal.start_invocation(manifest(), cwd=repo)
+    with pytest.raises(journal.JournalError, match="bootstrap event 1"):
+        journal.append_event(
+            loaded.path,
+            {
+                "type": "invocation_started",
+                "candidate_state": None,
+                "data": {},
+            },
+            cwd=repo,
+        )
+
+
+def test_event_payload_shape_is_validated(repo: Path) -> None:
+    loaded = journal.start_invocation(manifest(), cwd=repo)
+    with pytest.raises(journal.JournalError, match="check_id"):
+        journal.append_event(
+            loaded.path,
+            {
+                "type": "check_result",
+                "candidate_state": "a" * 64,
+                "data": {"check": "mypy", "result": "pass"},
+            },
+            cwd=repo,
+        )
+
+
+def test_machine_status_matches_operation(repo: Path, tmp_path: Path) -> None:
+    manifest_path = tmp_path / "manifest.json"
+    output_path = tmp_path / "result.json"
+    manifest_path.write_text(json.dumps(manifest()), encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "start",
+            "--manifest",
+            str(manifest_path),
+            "--json-output",
+            str(output_path),
+        ],
+        cwd=repo,
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["status"] == "STARTED"
+
+
+def test_gc_corrupt_metadata_reports_degraded(repo: Path) -> None:
+    loaded = journal.start_invocation(manifest(), cwd=repo)
+    (loaded.path / "metadata.json").write_text("{bad", encoding="utf-8")
+
+    result = journal.gc_lifecycle_scope(
+        "https://github.com/sponge-b0b/Polaris/issues/359",
+        cwd=repo,
+    )
+
+    assert result.failed == 1
+    assert "metadata unavailable" in result.failures[0]

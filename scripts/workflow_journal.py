@@ -701,7 +701,11 @@ def main() -> int:
                 }
             )
             loaded = append_event(args.journal, event)
-            print(f"WORKFLOW JOURNAL: {args.command.upper()}D")
+            print(
+                "WORKFLOW JOURNAL: COMPLETED"
+                if args.command == "complete"
+                else "WORKFLOW JOURNAL: ABANDONED"
+            )
             print(f"Invocation: {loaded.metadata['invocation_id']}")
             _emit_json(args.json_output, _loaded_payload(loaded))
         elif args.command == "gc":

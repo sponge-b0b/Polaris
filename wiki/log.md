@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-19] R3 projected Portfolio consequence | hypothetical producer established
+
+Recorded the typed Portfolio consequence producer for the complete material Alternative set read through the Investment Intelligence owner, with exact actual-State and as-of binding, explicit horizon and assumptions, material projected changes, unresolved precision, attribution, and append-only PostgreSQL persistence. Risk assessment, Evidence target ownership, and Recommendation consumption remain planned.
+
 ## [2026-10-19] R3 actual Portfolio State | historical owner fact established
 
 Marked Portfolio & Risk present and recorded the implemented actual-State identity, external source provenance, append-only history, and inward `(T,K)` read capability. The accepted projected consequence and Risk portions remain planned.

@@ -6,6 +6,10 @@ from .decisions import create_postgres_engine
 from .evidence_reconstruction_store import PostgresHistoricalEvidenceStore
 from .evidence_store import PostgresEvidenceStore
 from .investment_intelligence import PostgresInvestmentIntelligenceStore
+from .portfolio_consequences import (
+    PostgresPortfolioConsequenceStore,
+    create_postgres_portfolio_consequence_service,
+)
 from .portfolio_states import PostgresPortfolioStateStore
 from .relationship_store import PostgresDecisionStore
 from .requirement_store import PostgresEvidenceRequirementStore
@@ -33,6 +37,8 @@ __all__ = [
     "PostgresEvidenceStore",
     "PostgresHistoricalEvidenceStore",
     "PostgresInvestmentIntelligenceStore",
+    "PostgresPortfolioConsequenceStore",
+    "create_postgres_portfolio_consequence_service",
     "PostgresPortfolioStateStore",
     "PostgresEvidenceSufficiencyStore",
     "PostgresEvidenceSupportEpochStore",

@@ -18,7 +18,9 @@ _INVESTMENT_INTELLIGENCE_TABLE_NAMES = {
     "investment_intelligence_command_receipts",
 }
 _portfolio.PORTFOLIO_TABLE_NAMES = (
-    _portfolio.PORTFOLIO_TABLE_NAMES | _INVESTMENT_INTELLIGENCE_TABLE_NAMES
+    _portfolio.PORTFOLIO_TABLE_NAMES
+    | _INVESTMENT_INTELLIGENCE_TABLE_NAMES
+    | {"projected_portfolio_consequences"}
 )
 
 from ._migration_tests_portfolio_base import *  # noqa: E402,F401,F403

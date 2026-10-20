@@ -19,7 +19,7 @@ _INVESTMENT_INTELLIGENCE_TABLE_NAMES = frozenset(
     }
 )
 _SIBLING_0009_TABLE_NAMES = _INVESTMENT_INTELLIGENCE_TABLE_NAMES | frozenset(
-    {"portfolio_states"}
+    {"portfolio_states", "projected_portfolio_consequences"}
 )
 
 

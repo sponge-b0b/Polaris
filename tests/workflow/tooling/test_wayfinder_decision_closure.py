@@ -69,7 +69,9 @@ def _receipt(*, wiki_disposition: str = "NO_DURABLE_KNOWLEDGE_CHANGED") -> dict:
                     "candidate_entity_claim": "evidence / sufficiency count unit",
                     "routing_basis": "inline citation and changed authority",
                     "disposition": "not-affected",
-                    "reason_evidence": "Existing invariant already states observation identity.",
+                    "reason_evidence": (
+                        "Existing invariant already states observation identity."
+                    ),
                 }
             ],
             "mutations": [],
@@ -83,7 +85,12 @@ def _write_receipt(tmp_path: Path, value: dict) -> Path:
     return path
 
 
-def _stub_repo(monkeypatch: pytest.MonkeyPatch, *, clean: bool = True, head: str = COMMIT) -> None:
+def _stub_repo(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    clean: bool = True,
+    head: str = COMMIT,
+) -> None:
     monkeypatch.setattr(decision_closure, "_repo_head", lambda _root: head)
     monkeypatch.setattr(decision_closure, "_repo_clean", lambda _root: clean)
 
@@ -93,7 +100,9 @@ def test_ccl_backed_noop_wiki_receipt_allows_closure(
 ) -> None:
     _write_repo_files(tmp_path)
     _stub_repo(monkeypatch)
-    output = decision_closure.validate_closure(tmp_path, _write_receipt(tmp_path, _receipt()))
+    output = decision_closure.validate_closure(
+        tmp_path, _write_receipt(tmp_path, _receipt())
+    )
     assert output.splitlines()[0] == "WAYFINDER DECISION CLOSURE: ALLOWED"
     assert "Decision: #417" in output
     assert "Wiki sync: NO_DURABLE_KNOWLEDGE_CHANGED" in output
@@ -107,7 +116,9 @@ def test_noop_wiki_receipt_rejects_affected_candidate(
     receipt = _receipt()
     receipt["wiki_sync"]["affected_knowledge_routing"][0]["disposition"] = "affected"
     with pytest.raises(decision_closure.ClosureError, match="affected candidate"):
-        decision_closure.validate_closure(tmp_path, _write_receipt(tmp_path, receipt))
+        decision_closure.validate_closure(
+            tmp_path, _write_receipt(tmp_path, receipt)
+        )
 
 
 def test_wiki_receipt_rejects_unresolved_candidate(
@@ -116,9 +127,13 @@ def test_wiki_receipt_rejects_unresolved_candidate(
     _write_repo_files(tmp_path)
     _stub_repo(monkeypatch)
     receipt = _receipt()
-    receipt["wiki_sync"]["affected_knowledge_routing"][0]["disposition"] = "unresolved"
+    receipt["wiki_sync"]["affected_knowledge_routing"][0]["disposition"] = (
+        "unresolved"
+    )
     with pytest.raises(decision_closure.ClosureError, match="unresolved/unsupported"):
-        decision_closure.validate_closure(tmp_path, _write_receipt(tmp_path, receipt))
+        decision_closure.validate_closure(
+            tmp_path, _write_receipt(tmp_path, receipt)
+        )
 
 
 def test_ccl_backed_decision_rejects_missing_wiki_sync(
@@ -128,8 +143,12 @@ def test_ccl_backed_decision_rejects_missing_wiki_sync(
     _stub_repo(monkeypatch)
     receipt = _receipt()
     receipt["wiki_sync"] = {"disposition": "NOT-APPLICABLE"}
-    with pytest.raises(decision_closure.ClosureError, match="CCL-backed decisions require"):
-        decision_closure.validate_closure(tmp_path, _write_receipt(tmp_path, receipt))
+    with pytest.raises(
+        decision_closure.ClosureError, match="CCL-backed decisions require"
+    ):
+        decision_closure.validate_closure(
+            tmp_path, _write_receipt(tmp_path, receipt)
+        )
 
 
 def test_updated_wiki_receipt_requires_log_and_existing_mutations(
@@ -141,7 +160,9 @@ def test_updated_wiki_receipt_requires_log_and_existing_mutations(
     receipt["wiki_sync"]["affected_knowledge_routing"][0]["disposition"] = "affected"
     receipt["wiki_sync"]["mutations"] = ["wiki/entities/evidence.md"]
     with pytest.raises(decision_closure.ClosureError, match="wiki/log.md"):
-        decision_closure.validate_closure(tmp_path, _write_receipt(tmp_path, receipt))
+        decision_closure.validate_closure(
+            tmp_path, _write_receipt(tmp_path, receipt)
+        )
 
 
 def test_adr_receipt_must_bind_proposal_and_transaction(
@@ -149,9 +170,13 @@ def test_adr_receipt_must_bind_proposal_and_transaction(
 ) -> None:
     _write_repo_files(tmp_path)
     _stub_repo(monkeypatch)
-    (tmp_path / ADR_PATH).write_text("---\nstatus: accepted\n---\n", encoding="utf-8")
+    (tmp_path / ADR_PATH).write_text(
+        "---\nstatus: accepted\n---\n", encoding="utf-8"
+    )
     with pytest.raises(decision_closure.ClosureError, match="accepted proposal"):
-        decision_closure.validate_closure(tmp_path, _write_receipt(tmp_path, _receipt()))
+        decision_closure.validate_closure(
+            tmp_path, _write_receipt(tmp_path, _receipt())
+        )
 
 
 def test_canonical_commit_and_clean_worktree_are_required(
@@ -159,12 +184,18 @@ def test_canonical_commit_and_clean_worktree_are_required(
 ) -> None:
     _write_repo_files(tmp_path)
     _stub_repo(monkeypatch, head="3" * 40)
-    with pytest.raises(decision_closure.ClosureError, match="HEAD is not canonical commit"):
-        decision_closure.validate_closure(tmp_path, _write_receipt(tmp_path, _receipt()))
+    with pytest.raises(
+        decision_closure.ClosureError, match="HEAD is not canonical commit"
+    ):
+        decision_closure.validate_closure(
+            tmp_path, _write_receipt(tmp_path, _receipt())
+        )
 
     _stub_repo(monkeypatch, clean=False)
     with pytest.raises(decision_closure.ClosureError, match="clean worktree"):
-        decision_closure.validate_closure(tmp_path, _write_receipt(tmp_path, _receipt()))
+        decision_closure.validate_closure(
+            tmp_path, _write_receipt(tmp_path, _receipt())
+        )
 
 
 def test_non_material_decision_allows_explicit_not_applicable_children(
@@ -184,6 +215,8 @@ def test_non_material_decision_allows_explicit_not_applicable_children(
         "adr": {"disposition": "NOT-APPLICABLE"},
         "wiki_sync": {"disposition": "NOT-APPLICABLE"},
     }
-    output = decision_closure.validate_closure(tmp_path, _write_receipt(tmp_path, receipt))
+    output = decision_closure.validate_closure(
+        tmp_path, _write_receipt(tmp_path, receipt)
+    )
     assert "ADR: NOT-APPLICABLE" in output
     assert "Wiki sync: NOT-APPLICABLE" in output

@@ -24,9 +24,9 @@ REVIEW = (ROOT / ".agents/skills/review-spec/SKILL.md").read_text(encoding="utf-
 TICKETS = _composed_skill("to-tickets")
 IMPLEMENT = _composed_skill("implement-ticket")
 CLOSURE = _composed_skill("verify-ticket-closure")
-CLEANUP = (
-    ROOT / ".agents/skills/spec-merge-cleanup/SKILL.md"
-).read_text(encoding="utf-8")
+CLEANUP = (ROOT / ".agents/skills/spec-merge-cleanup/SKILL.md").read_text(
+    encoding="utf-8"
+)
 AGENTS = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
 README = (ROOT / ".agents/skills/README.md").read_text(encoding="utf-8")
 

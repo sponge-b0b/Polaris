@@ -87,7 +87,10 @@ def test_implement_ticket_attention_checkpoints_are_auditable() -> None:
     assert "No substantive mutation is allowed until" in IMPLEMENT
     assert "Checkpoint: $implement-ticket pre-closure" in IMPLEMENT
     assert "Do not write the v3" in IMPLEMENT
-    assert "`awaiting-closure-verification` checkpoint until this verification succeeds" in IMPLEMENT
+    assert (
+        "`awaiting-closure-verification` checkpoint until this verification succeeds"
+        in IMPLEMENT
+    )
 
 
 def test_execution_anchor_separates_lineage_from_candidate_identity() -> None:

@@ -116,9 +116,7 @@ def test_noop_wiki_receipt_rejects_affected_candidate(
     receipt = _receipt()
     receipt["wiki_sync"]["affected_knowledge_routing"][0]["disposition"] = "affected"
     with pytest.raises(decision_closure.ClosureError, match="affected candidate"):
-        decision_closure.validate_closure(
-            tmp_path, _write_receipt(tmp_path, receipt)
-        )
+        decision_closure.validate_closure(tmp_path, _write_receipt(tmp_path, receipt))
 
 
 def test_wiki_receipt_rejects_unresolved_candidate(
@@ -127,13 +125,9 @@ def test_wiki_receipt_rejects_unresolved_candidate(
     _write_repo_files(tmp_path)
     _stub_repo(monkeypatch)
     receipt = _receipt()
-    receipt["wiki_sync"]["affected_knowledge_routing"][0]["disposition"] = (
-        "unresolved"
-    )
+    receipt["wiki_sync"]["affected_knowledge_routing"][0]["disposition"] = "unresolved"
     with pytest.raises(decision_closure.ClosureError, match="unresolved/unsupported"):
-        decision_closure.validate_closure(
-            tmp_path, _write_receipt(tmp_path, receipt)
-        )
+        decision_closure.validate_closure(tmp_path, _write_receipt(tmp_path, receipt))
 
 
 def test_ccl_backed_decision_rejects_missing_wiki_sync(
@@ -146,9 +140,7 @@ def test_ccl_backed_decision_rejects_missing_wiki_sync(
     with pytest.raises(
         decision_closure.ClosureError, match="CCL-backed decisions require"
     ):
-        decision_closure.validate_closure(
-            tmp_path, _write_receipt(tmp_path, receipt)
-        )
+        decision_closure.validate_closure(tmp_path, _write_receipt(tmp_path, receipt))
 
 
 def test_updated_wiki_receipt_requires_log_and_existing_mutations(
@@ -160,9 +152,7 @@ def test_updated_wiki_receipt_requires_log_and_existing_mutations(
     receipt["wiki_sync"]["affected_knowledge_routing"][0]["disposition"] = "affected"
     receipt["wiki_sync"]["mutations"] = ["wiki/entities/evidence.md"]
     with pytest.raises(decision_closure.ClosureError, match="wiki/log.md"):
-        decision_closure.validate_closure(
-            tmp_path, _write_receipt(tmp_path, receipt)
-        )
+        decision_closure.validate_closure(tmp_path, _write_receipt(tmp_path, receipt))
 
 
 def test_adr_receipt_must_bind_proposal_and_transaction(
@@ -170,9 +160,7 @@ def test_adr_receipt_must_bind_proposal_and_transaction(
 ) -> None:
     _write_repo_files(tmp_path)
     _stub_repo(monkeypatch)
-    (tmp_path / ADR_PATH).write_text(
-        "---\nstatus: accepted\n---\n", encoding="utf-8"
-    )
+    (tmp_path / ADR_PATH).write_text("---\nstatus: accepted\n---\n", encoding="utf-8")
     with pytest.raises(decision_closure.ClosureError, match="accepted proposal"):
         decision_closure.validate_closure(
             tmp_path, _write_receipt(tmp_path, _receipt())

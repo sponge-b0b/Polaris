@@ -38,8 +38,8 @@ currently required incomplete step.
 
 ## Authority snapshot
 
-The invocation should record the materially relevant current workflow authority, including
-at least the active versions of:
+Record `authority_snapshot` with a `files` array containing the materially relevant current
+workflow authority, including at least the active versions of:
 
 ```text
 AGENTS.md
@@ -53,14 +53,14 @@ AGENTS.md
 .agents/skills/to-tickets/TICKET_RESLICE_RECOVERY.md
 ```
 
-A material authority change makes prior workflow-dependent evidence ineligible for automatic
-reuse in V1. Historical journal facts remain readable; current rules decide what must be
-re-run.
+Each row records exact repository path plus SHA-256 of the consumed bytes. A material
+authority change makes prior workflow-dependent evidence ineligible for automatic reuse in
+V1. Historical journal facts remain readable; current rules decide what must be re-run.
 
 ## Binding snapshot
 
-After current authoritative recovery/contracts are established, record the exact current
-bindings when applicable:
+After current authoritative recovery/contracts are established, record `binding_snapshot`
+with one `data.bindings` object containing the exact current bindings when applicable:
 
 ```text
 mode
@@ -80,8 +80,8 @@ authority.
 ## Pre-mutation Attention
 
 After the required `$implement-ticket pre-mutation` Attention sweep and machine gate succeed,
-record `check_result` with `check_id: attention-pre-mutation` and the exact receipt/binding
-pointer available from the authoritative gate.
+record `check_result` with `check_id: attention-pre-mutation`, `result: pass`, and the exact
+receipt/binding pointer available from the authoritative gate.
 
 The journal entry is never proof that the gate ran. Existing Attention Git-metadata state and
 current gate rules remain authoritative. WIJ loss must not create a new pre-mutation blocker;
@@ -183,8 +183,8 @@ child evidence.
 
 A raw verifier PASS/FAIL is not admissible until the current same-context result-finalization
 handshake completes. If context is lost after raw PASS/FAIL but before required finalization,
-the WIJ may record that the raw result occurred, but it cannot salvage or certify the
-verdict. Follow current closure rules and dispatch a fresh verifier attempt when required.
+the WIJ may record that the raw result occurred, but it cannot salvage or certify the verdict.
+Follow current closure rules and dispatch a fresh verifier attempt when required.
 
 A finalized result already durably admitted to v3 is recovered from v3, not from WIJ.
 
@@ -199,7 +199,8 @@ results as non-reusable.
 
 Commit, push, exact remote readback, closure evidence, ticket closure, and recovery-record
 updates may be recorded as `external_write` events only after their ordinary required
-readback succeeds.
+readback succeeds. Use `system`, `operation`, and `readback.verified: true`; additional target
+or receipt fields may identify the durable artifact.
 
 On resume, verify Git/GitHub again. A journal claim never substitutes for the current remote
 branch, closure evidence, ticket state, or recovery record.

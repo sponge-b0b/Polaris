@@ -73,7 +73,7 @@ def _extract_ccl_manifest(body: str) -> dict[str, Any]:
     )
     obligations = manifest.get("obligations")
     _need(
-        isinstance(obligations, list) and obligations,
+        isinstance(obligations, list) and bool(obligations),
         "Spec CCL manifest: no obligations",
     )
     return manifest
@@ -99,7 +99,7 @@ def _plan_cells(
     if content == "None.":
         return []
     lines = [line.strip() for line in content.splitlines() if line.strip()]
-    _need(lines, f"Spec: ## {section} must contain stable-ID bullets or None.")
+    _need(bool(lines), f"Spec: ## {section} must contain stable-ID bullets or None.")
     cells: list[dict[str, Any]] = []
     seen: set[str] = set()
     for line in lines:
@@ -142,13 +142,13 @@ def _material_cells(manifest: dict[str, Any]) -> list[dict[str, Any]]:
         source_ref = obligation.get("source_ref")
         refs = obligation.get("ccl")
         _need(
-            isinstance(source_ref, str) and source_ref.strip(),
+            isinstance(source_ref, str) and bool(source_ref.strip()),
             f"{where}: invalid source_ref",
         )
         _need(
             isinstance(refs, list)
-            and refs
-            and all(isinstance(ref, str) and ref for ref in refs),
+            and bool(refs)
+            and all(isinstance(ref, str) and bool(ref) for ref in refs),
             f"{where}: invalid ccl",
         )
         _need(len(refs) == len(set(refs)), f"{where}: duplicate ccl reference")
@@ -246,7 +246,7 @@ def validate_coverage(contract: dict[str, Any], coverage: dict[str, Any]) -> Non
             f"coverage: stale cell hash {cell_id}",
         )
         _need(
-            isinstance(row["destination"], str) and row["destination"].strip(),
+            isinstance(row["destination"], str) and bool(row["destination"].strip()),
             f"coverage.routes: missing destination for {cell_id}",
         )
         seen.add(cell_id)
@@ -334,7 +334,7 @@ def _dependency_graph(
         destination = row["destination"]
         depends_on = row["depends_on"]
         _need(
-            isinstance(destination, str) and destination.strip(),
+            isinstance(destination, str) and bool(destination.strip()),
             "dependencies.tickets: missing destination",
         )
         _need(destination not in graph, f"dependencies: duplicate ticket {destination}")
@@ -469,7 +469,7 @@ def build_execution_topology(
     )
     units = manifest.get("units")
     _need(
-        isinstance(units, list) and units,
+        isinstance(units, list) and bool(units),
         "execution topology.units: expected non-empty list",
     )
     cells = {cell["cell"]: cell for cell in contract["cells"]}
@@ -499,8 +499,8 @@ def build_execution_topology(
         seen_units.add(unit_id)
         _need(
             isinstance(unit_cells, list)
-            and unit_cells
-            and all(isinstance(item, str) and item for item in unit_cells),
+            and bool(unit_cells)
+            and all(isinstance(item, str) and bool(item) for item in unit_cells),
             f"{where}.cells: expected non-empty cell list",
         )
         _need(
@@ -526,8 +526,7 @@ def build_execution_topology(
         seen_cells.update(unit_cells)
         _need(
             any(
-                cells[cell_id]["kind"] == "material-contract"
-                for cell_id in unit_cells
+                cells[cell_id]["kind"] == "material-contract" for cell_id in unit_cells
             ),
             f"{where}: atomic execution unit requires at least one OBL cell",
         )
@@ -571,10 +570,7 @@ def build_execution_topology(
             + ", ".join(sorted(unknown_dependencies)),
         )
 
-    graph = {
-        row["unit_id"]: tuple(row["depends_on"])
-        for row in normalized_units
-    }
+    graph = {row["unit_id"]: tuple(row["depends_on"]) for row in normalized_units}
     visiting: set[str] = set()
     visited: set[str] = set()
 
@@ -687,8 +683,7 @@ def validate_decomposition(
         (row["cell"], row["cell_hash"]) for row in coverage["exclusions"]
     }
     expected_exclusions = {
-        (row["cell"], row["cell_hash"])
-        for row in expected_coverage["exclusions"]
+        (row["cell"], row["cell_hash"]) for row in expected_coverage["exclusions"]
     }
     _need(
         actual_exclusions == expected_exclusions,
@@ -715,17 +710,15 @@ def build_ticket_contract(
 ) -> dict[str, Any]:
     """Build one deterministic ordinary-ticket contract from Spec coverage."""
     _need(
-        isinstance(destination, str) and destination.strip(),
+        isinstance(destination, str) and bool(destination.strip()),
         "ticket: missing destination",
     )
     validate_coverage(contract, coverage)
     cells = {cell["cell"]: cell for cell in contract["cells"]}
     assigned_ids = [
-        row["cell"]
-        for row in coverage["routes"]
-        if row["destination"] == destination
+        row["cell"] for row in coverage["routes"] if row["destination"] == destination
     ]
-    _need(assigned_ids, f"ticket: no cells routed to {destination}")
+    _need(bool(assigned_ids), f"ticket: no cells routed to {destination}")
     assigned = [cells[cell_id] for cell_id in assigned_ids]
     exclusions = [cell for cell in contract["cells"] if cell["kind"] == "exclusion"]
     identity = {
@@ -916,8 +909,7 @@ def main() -> int:
             print(f"Ticket Contract Hash: {ticket_contract['ticket_contract_hash']}")
             print(f"Assigned cells: {len(ticket_contract['assigned_cells'])}")
             print(
-                "Exclusion guardrails: "
-                f"{len(ticket_contract['exclusion_guardrails'])}"
+                f"Exclusion guardrails: {len(ticket_contract['exclusion_guardrails'])}"
             )
             return 0
         current = build_contract(_load_issue_body(Path(args.issue_json)))

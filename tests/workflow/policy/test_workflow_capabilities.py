@@ -22,7 +22,9 @@ def test_migration_capability_ledger_has_no_unresolved_items() -> None:
     assert data["migration_baseline"] == "1aef553b36f2907dbe7d811de4d6d5456b243952"
     assert len(data["capabilities"]) >= 31
 
-    ambiguous = [row["id"] for row in data["capabilities"] if row["status"] == "AMBIGUOUS"]
+    ambiguous = [
+        row["id"] for row in data["capabilities"] if row["status"] == "AMBIGUOUS"
+    ]
     unresolved_losses = [
         row["id"]
         for row in data["capabilities"]
@@ -175,11 +177,15 @@ def test_durable_state_transition_ownership_is_closed() -> None:
 
 def test_architecture_blocker_routed_state_has_current_finalization_owner() -> None:
     machine = _manifest()["state_machines"]["architecture-blocker:v1"]
-    transitions = {(row["from"], row["to"]): row["owner"] for row in machine["transitions"]}
+    transitions = {
+        (row["from"], row["to"]): row["owner"] for row in machine["transitions"]
+    }
     assert transitions[("routed", "resolved")] == "to-tickets"
     assert machine["consumers"]["implement-ticket"]["admissible_states"] == ["resolved"]
 
-    to_tickets = (ROOT / machine["owner_skills"]["to-tickets"]).read_text(encoding="utf-8")
+    to_tickets = (ROOT / machine["owner_skills"]["to-tickets"]).read_text(
+        encoding="utf-8"
+    )
     for phrase in (
         "## 9A. Routed architecture-blocker finalization",
         "routed -> resolved",

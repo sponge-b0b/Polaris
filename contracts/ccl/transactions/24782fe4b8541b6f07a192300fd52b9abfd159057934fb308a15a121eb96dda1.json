@@ -1,0 +1,366 @@
+{
+  "acceptance": {
+    "artifact": {
+      "kind": "github_issue_comment",
+      "ref": "https://github.com/sponge-b0b/Polaris/issues/417#issuecomment-6289952523"
+    },
+    "proposal_hash": "sha256:24782fe4b8541b6f07a192300fd52b9abfd159057934fb308a15a121eb96dda1"
+  },
+  "origin": {
+    "mode": "wayfinder-decision",
+    "sources": [
+      {
+        "content_sha256": "a0a5ed0a266a4a7e1dfc264a1dfc9c28f3f7d52511b3a099521861b52e86cb1e",
+        "kind": "github_issue_comment",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/350#issuecomment-5883593322",
+        "role": "governing",
+        "source_id": "decision-350-resolution"
+      },
+      {
+        "content_sha256": "0e663e8b4a0ca3fead187e16d650672c753008852a7aa134d5cf5677f3179ad2",
+        "kind": "github_issue_comment",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/364#issuecomment-6096295388",
+        "role": "governing",
+        "source_id": "decision-364-final-resolution"
+      },
+      {
+        "content_sha256": "8016e2c211c53447c693f1ae4e07516f341a881314b1c7f2c561db188a511808",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0006-evidence-assemble-decision-context-from-durable-evidence-bindings.md",
+        "role": "constraint",
+        "source_id": "adr-0006"
+      },
+      {
+        "content_sha256": "c0b9ee75558ac2e35e58fa2084e4ec142852e337f57e0932b9dcc713e9b5ca54",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0012-evidence-freeze-r3-identity-binding-and-reconstruction.md",
+        "role": "constraint",
+        "source_id": "adr-0012"
+      },
+      {
+        "content_sha256": "d91f582c1cea7eef06bc79f3c38c96d775ae9ddcfbba31883b9a15f0cfc5f7d3",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0013-evidence-complete-r3-claim-requirements-and-current-support-basis.md",
+        "role": "constraint",
+        "source_id": "adr-0013"
+      },
+      {
+        "content_sha256": "f74b0b50ee79966af8631a21fc8e8bc1aa21e0caadc8af8ecb47546740d64464",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0014-evidence-derive-r3-sufficiency-from-executable-requirements.md",
+        "role": "constraint",
+        "source_id": "adr-0014"
+      },
+      {
+        "content_sha256": "35d5661e2da092cca050b22b2f991130361d8aa1f2eac1a5212411ed1bc14f97",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0015-evidence-complete-r3-target-and-context-version-basis.md",
+        "role": "constraint",
+        "source_id": "adr-0015"
+      },
+      {
+        "content_sha256": "0b69132fcd5676f48683952384e210c18a8848f4e8d343567886223bdd81db27",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0016-evidence-attest-r3-temporal-current-basis-meaning.md",
+        "role": "constraint",
+        "source_id": "adr-0016"
+      },
+      {
+        "content_sha256": "4f3f858132c68e24c65a0662b9aa348afdbce73c7da7aa73b4f4e4f7997504fc",
+        "kind": "github_issue_comment",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/417#issuecomment-6289882023",
+        "role": "governing",
+        "source_id": "decision-417-proposal"
+      }
+    ],
+    "wayfinder": {
+      "decision": 417,
+      "map": 348
+    }
+  },
+  "proposal_hash": "sha256:24782fe4b8541b6f07a192300fd52b9abfd159057934fb308a15a121eb96dda1",
+  "revisions": [
+    {
+      "assertions": [
+        {
+          "assertion_id": "context.assembly",
+          "authority": {
+            "source_ids": [
+              "decision-350-resolution",
+              "adr-0006"
+            ]
+          },
+          "constraint": {
+            "expression": "Decision Context is an assembled, time-specific historical view over canonical domain facts, not a separately authoritative persisted aggregate. The same underlying fact may participate in Decision Context and an Evidence role without becoming two facts. Historical reconstruction distinguishes what applied from what information was available to the particular judgment.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "decision_context"
+        },
+        {
+          "assertion_id": "observation.material-persistence",
+          "authority": {
+            "source_ids": [
+              "decision-350-resolution",
+              "adr-0006",
+              "adr-0012"
+            ]
+          },
+          "constraint": {
+            "expression": "Material Evidence observations are durable first-class facts with opaque identity, attributable source provenance/authority, subject/reference identity, temporal provenance, and reconstructable retained representation/reference. Later information cannot become retroactively available to an earlier judgment.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "evidence_observation"
+        },
+        {
+          "assertion_id": "binding.material-persistence",
+          "authority": {
+            "source_ids": [
+              "decision-350-resolution",
+              "adr-0006",
+              "adr-0012"
+            ]
+          },
+          "constraint": {
+            "expression": "Judgment-relative Evidence bindings durably preserve material Judgment-Time Availability, actual use, Evidence role, Freshness Requirement basis/result, and material qualifications. Evidence fitness is use-specific and distinct from availability, sufficiency, relevance, materiality, and authority.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "evidence_binding"
+        },
+        {
+          "assertion_id": "availability.vocabulary",
+          "authority": {
+            "source_ids": [
+              "decision-350-resolution",
+              "adr-0006"
+            ]
+          },
+          "constraint": {
+            "closure": "closed",
+            "members": [
+              "AVAILABLE",
+              "UNKNOWN",
+              "UNAVAILABLE"
+            ],
+            "name": "judgment_time_availability"
+          },
+          "kind": "vocabulary",
+          "subject": "evidence_binding"
+        },
+        {
+          "assertion_id": "freshness.vocabulary",
+          "authority": {
+            "source_ids": [
+              "decision-350-resolution",
+              "adr-0006"
+            ]
+          },
+          "constraint": {
+            "closure": "closed",
+            "members": [
+              "FRESH",
+              "INDETERMINATE",
+              "STALE"
+            ],
+            "name": "historical_freshness"
+          },
+          "kind": "vocabulary",
+          "subject": "evidence_binding"
+        },
+        {
+          "assertion_id": "sufficiency.vocabulary",
+          "authority": {
+            "source_ids": [
+              "decision-350-resolution",
+              "adr-0006",
+              "decision-364-final-resolution",
+              "adr-0013"
+            ]
+          },
+          "constraint": {
+            "closure": "closed",
+            "members": [
+              "INDETERMINATE",
+              "INSUFFICIENT",
+              "SUFFICIENT"
+            ],
+            "name": "sufficiency"
+          },
+          "kind": "vocabulary",
+          "subject": "evidence_assessment"
+        },
+        {
+          "assertion_id": "correction.history",
+          "authority": {
+            "source_ids": [
+              "decision-350-resolution",
+              "adr-0006",
+              "decision-364-final-resolution",
+              "adr-0012"
+            ]
+          },
+          "constraint": {
+            "mode": "append-only"
+          },
+          "kind": "history",
+          "subject": "evidence_observation_correction"
+        },
+        {
+          "assertion_id": "claim.catalog",
+          "authority": {
+            "source_ids": [
+              "decision-364-final-resolution",
+              "adr-0012",
+              "adr-0013"
+            ]
+          },
+          "constraint": {
+            "expression": "Each admitted EvidenceJudgmentRef family may expose zero or more explicitly declared material claims. A target declares a separate claim whenever Evidence role, availability, freshness, sufficiency, or contestation can differ for that proposition; judgment-wide scope is valid only when the relation truly applies to the whole target. Claim identity is the typed pair (EvidenceJudgmentRef, ClaimId); claims are target-owned, catalogs are complete/versioned, and narrative text is never inferred into claims.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "evidence_judgment_target"
+        },
+        {
+          "assertion_id": "requirement.authority",
+          "authority": {
+            "source_ids": [
+              "decision-364-final-resolution",
+              "adr-0013",
+              "adr-0014"
+            ]
+          },
+          "constraint": {
+            "expression": "Configuration owns immutable requirement definitions and their version history; Evidence owns deterministic interpretation/evaluation of those definitions and their eligible support.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "evidence_sufficiency_requirement"
+        },
+        {
+          "assertion_id": "requirement.evaluator",
+          "authority": {
+            "source_ids": [
+              "decision-364-final-resolution",
+              "adr-0014",
+              "decision-417-proposal"
+            ]
+          },
+          "constraint": {
+            "expression": "A sufficiency requirement uses the executable MinimumEligibleEvidence(minimum_distinct_observations, qualifying_roles) predicate, not free-text meaning, caller-selected contributing bindings, or caller-authored dispositions. Evidence deterministically evaluates the complete eligible binding universe. Satisfaction and every lower or upper disposition bound count distinct EvidenceObservationId values: multiple eligible binding roots referencing one observation count once. Immutable proof preserves the counted observation identities and every qualifying contributor or deficiency-witness binding root with its interpreted EvidenceFactRef support.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "evidence_sufficiency_requirement"
+        },
+        {
+          "assertion_id": "requirement.negative-witness",
+          "authority": {
+            "source_ids": [
+              "decision-364-final-resolution",
+              "adr-0014"
+            ]
+          },
+          "constraint": {
+            "expression": "NOT_APPLICABLE requires an authoritative Configuration-issued negative-applicability witness; missing, zero, stale, or unavailable bindings do not by themselves establish non-applicability.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "evidence_sufficiency_requirement"
+        },
+        {
+          "assertion_id": "basis.complete",
+          "authority": {
+            "source_ids": [
+              "decision-364-final-resolution",
+              "adr-0013",
+              "adr-0015",
+              "adr-0016"
+            ]
+          },
+          "constraint": {
+            "expression": "CurrentEvidenceBasis protects the exact BasisScopeKey and the complete positive and negative dependency universe: Evidence support, typed target-owner revisions, claim-catalog versions, requirement versions, typed canonical-context versions, and selected-or-absent guards. A global epoch, untyped hash, timestamp, or partial owner view is not a substitute for complete typed dependencies and reconstructable history.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "current_evidence_basis"
+        },
+        {
+          "assertion_id": "basis.stale-vocabulary",
+          "authority": {
+            "source_ids": [
+              "decision-364-final-resolution",
+              "adr-0013",
+              "adr-0016"
+            ]
+          },
+          "constraint": {
+            "closure": "closed",
+            "members": [
+              "CLAIM_CHANGED",
+              "DECISION_CHANGED",
+              "EVIDENCE_SUPPORT_CHANGED",
+              "NEGATIVE_PREDICATE_BROKEN",
+              "REQUIREMENTS_CHANGED",
+              "SUPPORT_CHANGED_BY_TIME",
+              "TARGET_CHANGED"
+            ],
+            "name": "category"
+          },
+          "kind": "vocabulary",
+          "subject": "stale_evidence_basis"
+        },
+        {
+          "assertion_id": "basis.temporal-meaning",
+          "authority": {
+            "source_ids": [
+              "decision-364-final-resolution",
+              "adr-0015",
+              "adr-0016"
+            ]
+          },
+          "constraint": {
+            "expression": "At exact read and fresh trusted T=K revalidation, each materially used owner whose as-of meaning may change without a version advance attests complete typed meaning and verifiable temporal cause bound to exact identity/version/basis/read boundary/provenance and complete effective/recorded and correction ancestry, including applicable selection/absence history. Lawful governing Decision drift maps to DECISION_CHANGED; target-root drift to TARGET_CHANGED; claim drift to CLAIM_CHANGED; requirement drift to REQUIREMENTS_CHANGED; positive canonical-context or Evidence-support drift to EVIDENCE_SUPPORT_CHANGED with exact typed changed references; broken negative guards to NEGATIVE_PREDICATE_BROKEN; independent time-only fitness drift to SUPPORT_CHANGED_BY_TIME. Missing or incomplete meaning yields a distinct no-basis outcome; unexplained or contradictory same-version meaning is INVALID_HISTORY. Application never infers cause from elapsed time or a difference between two views; no synthetic clock version or eighth stale category is introduced.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "current_evidence_basis"
+        },
+        {
+          "assertion_id": "basis.atomic-commit",
+          "authority": {
+            "source_ids": [
+              "decision-364-final-resolution",
+              "adr-0013",
+              "adr-0015",
+              "adr-0016"
+            ]
+          },
+          "constraint": {
+            "expression": "A dependent write performs fresh trusted T=K reconstruction of the complete owner/Evidence universe and atomically validates prior/fresh typed witnesses against authoritative history. Return all independently applicable stale categories with exact typed changed references and broken guards. Stale or no-basis outcomes commit no dependent judgment and require a fresh read; never silently substitute newer support.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "current_evidence_basis"
+        }
+      ],
+      "contract_id": "evidence.r3-current-basis",
+      "display": {
+        "summary": "Durable judgment-relative Evidence, typed sufficiency, and complete current-basis semantics.",
+        "title": "R3 Evidence and Current Basis"
+      },
+      "operation": "revise",
+      "owner": "evidence",
+      "revision": 2,
+      "scope": {
+        "release": [
+          "R3"
+        ]
+      },
+      "supersedes_revision": 1
+    }
+  ],
+  "schema": "polaris.ccl/v1"
+}

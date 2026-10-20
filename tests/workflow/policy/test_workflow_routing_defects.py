@@ -38,7 +38,10 @@ def test_implement_ticket_persists_machine_routing_defect_marker() -> None:
         "WORKFLOW ROUTING DEFECT MARKER: VALID",
         "workflow-routing-defect:v1",
         "required_local_provider_cells",
-        "Include that exact comment URL in the outbound shared-handoff durability sources.",
+        (
+            "Include that exact comment URL in the outbound shared-handoff "
+            "durability sources."
+        ),
         "cell-routing-defect -> $to-tickets",
     ):
         assert phrase in routing

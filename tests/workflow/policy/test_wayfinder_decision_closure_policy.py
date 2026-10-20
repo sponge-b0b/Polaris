@@ -14,7 +14,10 @@ def test_wayfinder_requires_machine_decision_closure_gate() -> None:
 
 
 def test_wayfinder_cannot_close_before_wiki_sync_receipt() -> None:
-    assert "Do not post final resolution, close the decision, or mutate the map frontier" in WAYFINDER
+    assert (
+        "Do not post final resolution, close the decision, or mutate the map frontier"
+        in WAYFINDER
+    )
     assert "NO_DURABLE_KNOWLEDGE_CHANGED" in WAYFINDER
     assert "CCL-backed" in WAYFINDER
     assert "$wiki-sync" in WAYFINDER

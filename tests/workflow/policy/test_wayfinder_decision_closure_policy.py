@@ -10,14 +10,15 @@ def test_wayfinder_requires_machine_decision_closure_gate() -> None:
     assert "decision_closure.py" in WAYFINDER
     assert "WAYFINDER DECISION CLOSURE: ALLOWED" in WAYFINDER
     assert "polaris.wayfinder-decision-closure/v1" in WAYFINDER
-    assert "Affected Knowledge Routing Record" in WAYFINDER
+    assert '"affected_knowledge_routing"' in WAYFINDER
+    assert "complete Affected Knowledge" in WAYFINDER
+    assert "Routing Record required by its own workflow" in WAYFINDER
 
 
 def test_wayfinder_cannot_close_before_wiki_sync_receipt() -> None:
-    assert (
-        "Do not post final resolution, close the decision, or mutate the map frontier"
-        in WAYFINDER
-    )
+    assert "A failed or missing closure gate means the decision remains open" in WAYFINDER
+    assert "close the decision" in WAYFINDER
+    assert "mutate the map frontier" in WAYFINDER
     assert "NO_DURABLE_KNOWLEDGE_CHANGED" in WAYFINDER
     assert "CCL-backed" in WAYFINDER
     assert "$wiki-sync" in WAYFINDER

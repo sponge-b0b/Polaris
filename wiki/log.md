@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-20] R3 Portfolio Evidence target correction overlap | accepted authority
+
+Recorded ADR 0019’s accepted Portfolio & Risk rule for future-effective same-root target and complete claim-catalog corrections. Known pending overlaps require explicit cancellation or interim retention, with coherent selected lanes and owner-attested temporal cause. Concrete Portfolio implementation remains pending.
+
 ## [2026-10-17] R3 Investment Intelligence correction overlap | accepted authority
 
 Recorded the accepted owner rule for future-effective target and complete claim-catalog corrections. Later immediate acts must explicitly cancel known pending overlaps or be interim until retained acts activate; complete ancestry and temporal cause remain implementation pending under ADR 0017.

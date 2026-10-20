@@ -9,7 +9,6 @@ import pytest
 
 from scripts import workflow_journal as journal
 
-
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "scripts/workflow_journal.py"
 
@@ -20,8 +19,7 @@ def git(cwd: Path, *args: str) -> str:
         cwd=cwd,
         check=True,
         text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
     )
     return result.stdout.strip()
 
@@ -73,8 +71,7 @@ def test_cli_operational_degradation_is_exit_zero(tmp_path: Path) -> None:
         cwd=tmp_path,
         check=False,
         text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
     )
 
     assert result.returncode == 0
@@ -82,7 +79,10 @@ def test_cli_operational_degradation_is_exit_zero(tmp_path: Path) -> None:
     assert "Fallback: workflow execution remains authoritative" in result.stdout
 
 
-def test_cli_malformed_manifest_degrades_without_stopping(repo: Path, tmp_path: Path) -> None:
+def test_cli_malformed_manifest_degrades_without_stopping(
+    repo: Path,
+    tmp_path: Path,
+) -> None:
     source = tmp_path / "bad.json"
     source.write_text(json.dumps({"schema": "wrong"}), encoding="utf-8")
 
@@ -91,8 +91,7 @@ def test_cli_malformed_manifest_degrades_without_stopping(repo: Path, tmp_path: 
         cwd=repo,
         check=False,
         text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
     )
 
     assert result.returncode == 0

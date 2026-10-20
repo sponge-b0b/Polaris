@@ -3,11 +3,19 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
-from scripts.workflow_attention import AttentionProtocolError, validate_file
-from scripts.workflow_handoff import render_artifact_line
+REPO_ROOT = Path(__file__).resolve().parents[4]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.workflow_attention import (  # noqa: E402
+    AttentionProtocolError,
+    validate_file,
+)
+from scripts.workflow_handoff import render_artifact_line  # noqa: E402
 
 CHECKPOINT = "$wayfinder route clarity"
 CONTINUATION_MARKER = "<!-- continuation-reconciliation:v1 -->"
@@ -17,7 +25,9 @@ CONTINUATION_FIELD = {
     "Canonical authority": re.compile(r"(?m)^\*\*Canonical authority:\*\*\s*(.+?)\s*$"),
     "Continuation branch": re.compile(r"(?m)^\*\*Continuation branch:\*\*\s*(.+?)\s*$"),
     "Conflict paths": re.compile(r"(?m)^\*\*Conflict paths:\*\*\s*(.+?)\s*$"),
-    "Reconciliation owner": re.compile(r"(?m)^\*\*Reconciliation owner:\*\*\s*(.+?)\s*$"),
+    "Reconciliation owner": re.compile(
+        r"(?m)^\*\*Reconciliation owner:\*\*\s*(.+?)\s*$"
+    ),
 }
 
 
@@ -48,7 +58,10 @@ def _validate_attention(path: Path) -> str:
         if "unsupported formal result header" in message:
             message = "attention: invalid result header"
         elif "CLEAR must use the exact three-line form" in message:
-            message = "attention: CLEAR result must use the exact three-line Route Clarity form"
+            message = (
+                "attention: CLEAR result must use the exact three-line "
+                "Route Clarity form"
+            )
         elif "unresolved blocking finding" in message:
             message = message.replace(
                 "attention result: unresolved blocking finding(s):",
@@ -65,9 +78,7 @@ def _continuation(body: str) -> dict[str, str] | None:
         return None
 
     block = body.split(CONTINUATION_MARKER, 1)[1]
-    block = re.sub(
-        r"^\s*## Continuation Reconciliation\s*\n", "", block, count=1
-    )
+    block = re.sub(r"^\s*## Continuation Reconciliation\s*\n", "", block, count=1)
     block = re.split(r"(?m)^##\s+", block, maxsplit=1)[0]
     values: dict[str, str] = {}
     for name, pattern in CONTINUATION_FIELD.items():
@@ -107,10 +118,15 @@ def specification_handoff(map_json: Path, attention_result: Path) -> str:
     title = snapshot.get("title")
     url = snapshot.get("url")
     body = snapshot.get("body")
-    _need(isinstance(title, str) and title.strip(), "map snapshot: missing title")
     _need(
-        isinstance(url, str)
-        and re.fullmatch(r"https://github\.com/[^/\s]+/[^/\s]+/issues/\d+", url),
+        bool(isinstance(title, str) and title.strip()),
+        "map snapshot: missing title",
+    )
+    _need(
+        bool(
+            isinstance(url, str)
+            and re.fullmatch(r"https://github\.com/[^/\s]+/[^/\s]+/issues/\d+", url)
+        ),
         "map snapshot: invalid issue URL",
     )
     _need(isinstance(body, str), "map snapshot: missing body")

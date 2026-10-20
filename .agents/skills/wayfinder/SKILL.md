@@ -169,6 +169,80 @@ A CCL-backed acceptance is one authority transaction. When repository files chan
 Persistence failure never changes the accepted semantic hash. The decision remains open
 until canonical repository authority is durable.
 
+## Decision closure gate
+
+An accepted decision may not proceed from canonical repository persistence to final
+resolution by prose alone. Before posting final resolution, closing the decision, or
+mutating the Wayfinder map frontier, generate a structured closure receipt outside
+repository candidate state and pass the machine gate:
+
+```bash
+python .agents/skills/wayfinder/scripts/decision_closure.py \
+  --repo-root <clean-canonical-authority-worktree> \
+  --receipt <decision-closure-receipt.json>
+```
+
+Require exact first line:
+
+```text
+WAYFINDER DECISION CLOSURE: ALLOWED
+```
+
+The receipt schema is:
+
+```json
+{
+  "schema": "polaris.wayfinder-decision-closure/v1",
+  "decision": {
+    "number": 123,
+    "url": "https://github.com/<owner>/<repo>/issues/123"
+  },
+  "canonical_commit": "<full 40-hex commit>",
+  "semantic_mode": "ccl-backed",
+  "ccl_proposal": "sha256:<64-hex>",
+  "ccl_transaction": "contracts/ccl/transactions/<64-hex>.json",
+  "adr": {
+    "disposition": "CREATED | UPDATED | UNCHANGED | NOT-QUALIFIED",
+    "path": "docs/adr/<qualified-adr>.md | null",
+    "projection_check": "PASS | N/A"
+  },
+  "wiki_sync": {
+    "disposition": "UPDATED | NO_DURABLE_KNOWLEDGE_CHANGED",
+    "affected_knowledge_routing": [
+      {
+        "candidate": "WK-1",
+        "changed_surface_authority": "<exact source>",
+        "candidate_entity_claim": "<exact entity + claim/section>",
+        "routing_basis": "<routing evidence>",
+        "disposition": "affected | not-affected",
+        "reason_evidence": "<non-empty reason/evidence>"
+      }
+    ],
+    "mutations": ["wiki/<changed-path>"]
+  }
+}
+```
+
+For a CCL-backed decision, `$wiki-sync` is mandatory even when no wiki text changes. A
+claimed no-op is valid only after `$wiki-sync` has produced the complete Affected Knowledge
+Routing Record required by its own workflow. `NO_DURABLE_KNOWLEDGE_CHANGED` is rejected if
+any candidate remains `affected`, unresolved, or lacks reason/evidence. `UPDATED` requires
+at least one affected candidate, exact `wiki/` mutation paths, and `wiki/log.md`.
+
+The gate independently requires the persisted transaction to match the accepted proposal,
+requires its origin to be `wayfinder-decision` with durable acceptance, checks any qualified
+ADR binds the exact proposal/transaction, and requires the gate worktree to be clean at the
+recorded canonical commit. `NOT-QUALIFIED` is legal only as the `$to-adr-doc` disposition;
+it is not permission to skip `$wiki-sync` for a CCL-backed decision.
+
+For a genuinely non-material planning decision, use `semantic_mode: non-material`, omit CCL
+coordinates, and record exact `NOT-APPLICABLE` child dispositions. Do not manufacture CCL,
+ADR, or wiki work merely to satisfy the gate.
+
+A failed or missing closure gate means the decision remains open. Do not post final
+resolution, close the decision, or mutate the map frontier, even when the semantic answer
+and repository persistence are otherwise correct.
+
 ## Continuation reconciliation
 
 If accepted authority must be inherited into an existing continuation branch, attempt a
@@ -192,11 +266,12 @@ Record an actual conflict with one machine-managed block:
 
 ## Resolution persistence
 
-Only after required repository authority is canonical:
+Only after required repository authority is canonical **and the Decision closure gate has
+returned `WAYFINDER DECISION CLOSURE: ALLOWED`**:
 
 1. post a concise final resolution comment;
 2. include proposal hash, transaction path, contract@revision identities, ADR path when any,
-   and canonical commit for CCL-backed decisions;
+   canonical commit, and Decision closure receipt SHA-256 for CCL-backed decisions;
 3. close the decision ticket;
 4. append it to `Decisions so far`;
 5. update newly surfaced tickets/fog/out-of-scope state;
@@ -300,9 +375,10 @@ omit, reorder, or replace the generated `$to-specs` command or reconciliation co
 6. prepare exact CCL proposal when material semantics change;
 7. run human gate and persist acceptance;
 8. atomically persist CCL + ADR/docs/wiki when required;
-9. persist resolution/close ticket/update map;
-10. reconcile project-delivery state;
-11. run Route Clarity; when it resolves to specification/reconciliation, pass the
+9. pass the Decision closure gate against the clean canonical authority worktree;
+10. persist resolution/close ticket/update map;
+11. reconcile project-delivery state;
+12. run Route Clarity; when it resolves to specification/reconciliation, pass the
    Specification handoff gate and emit its exact terminal block; otherwise hand off the next
    frontier decision.
 

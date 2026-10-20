@@ -14,7 +14,9 @@ FIELD_PATTERNS = {
     "Observation": re.compile(r"(?m)^\s*Observation:\s*(.+?)\s*$"),
     "Why it matters": re.compile(r"(?m)^\s*Why it matters:\s*(.+?)\s*$"),
     "Authority": re.compile(r"(?m)^\s*Authority:\s*(.+?)\s*$"),
-    "Recommendation/routing": re.compile(r"(?m)^\s*Recommendation/routing:\s*(.+?)\s*$"),
+    "Recommendation/routing": re.compile(
+        r"(?m)^\s*Recommendation/routing:\s*(.+?)\s*$"
+    ),
     "Blocking basis": re.compile(r"(?m)^\s*Blocking basis:\s*(.+?)\s*$"),
 }
 
@@ -44,18 +46,24 @@ def validate_text(
 ) -> AttentionReceipt:
     raw = text.strip()
     lines = raw.splitlines()
-    _need(lines, "attention result: empty result")
-    _need(lines[0] in VALID_HEADERS, "attention result: unsupported formal result header")
+    _need(bool(lines), "attention result: empty result")
+    _need(
+        lines[0] in VALID_HEADERS, "attention result: unsupported formal result header"
+    )
 
     digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
     if lines[0] == CLEAR_HEADER:
         _need(
-            lines == [
+            lines
+            == [
                 CLEAR_HEADER,
                 f"Checkpoint: {checkpoint}",
                 "Material concerns: 0",
             ],
-            f"attention result: expected formal receipt for {checkpoint}; CLEAR must use the exact three-line form",
+            (
+                f"attention result: expected formal receipt for {checkpoint}; "
+                "CLEAR must use the exact three-line form"
+            ),
         )
         return AttentionReceipt(
             checkpoint=checkpoint,
@@ -70,7 +78,7 @@ def validate_text(
     )
     findings_text = "\n".join(lines[2:]).strip()
     findings = list(FINDING.finditer(findings_text))
-    _need(findings, "attention result: FINDINGS receipt has no finding rows")
+    _need(bool(findings), "attention result: FINDINGS receipt has no finding rows")
 
     blocking_bases: list[str] = []
     for finding in findings:

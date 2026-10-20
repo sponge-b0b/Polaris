@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-20] R3 Portfolio Evidence target correction overlap | accepted authority
+
+Recorded ADR 0019’s accepted Portfolio & Risk rule for future-effective same-root target and complete claim-catalog corrections. Known pending overlaps require explicit cancellation or interim retention, with coherent selected lanes and owner-attested temporal cause. Concrete correction implementation remains pending.
+
 ## [2026-10-19] R3 Portfolio Risk | attributable assessment producer established
 
 Recorded typed actual-State and projected-consequence Risk assessments with distinct material dimensions, explicit unresolved support, Evidence references, assumptions, uncertainty, attribution, and append-only PostgreSQL history. Evidence target/context version ownership and Recommendation consumption remain planned in their respective follow-on work.

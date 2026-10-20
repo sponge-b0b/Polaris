@@ -53,7 +53,7 @@ def _sample_spec() -> str:
         '{"obligation_id":"OBL-001","source_ref":"Decision #1",'
         '"ccl":["demo.contract@1#behavior"]}]}'
     )
-    return f'''<!-- spec-contract-ccl:v1
+    return f"""<!-- spec-contract-ccl:v1
 {manifest}
 -->
 
@@ -68,7 +68,7 @@ Generated projection.
 
 ## Out of Scope
 - `EXC-001` — Do not redesign unrelated storage.
-'''
+"""
 
 
 def test_transition_adapters_are_not_permanent_skills() -> None:

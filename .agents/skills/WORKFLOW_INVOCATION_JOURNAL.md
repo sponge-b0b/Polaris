@@ -70,6 +70,63 @@ A journal uses:
 
 No WIJ file may live in the candidate working tree.
 
+## Shared CLI
+
+The canonical helper is:
+
+```bash
+python -m scripts.workflow_journal <command> ...
+```
+
+V1 commands are:
+
+```text
+start
+append
+locate
+inspect
+complete
+abandon
+gc
+```
+
+`start` accepts `--manifest <json>` using `polaris.workflow-invocation-start/v1` and may
+write a machine-readable result through `--json-output <path>`. `append` accepts
+`--journal <invocation-dir>` plus `--event <json>` and may also write `--json-output`.
+`locate` accepts exact `--skill`, `--repository`, and `--subject-url` identity. `inspect`,
+`complete`, and `abandon` operate on one exact invocation directory. `gc` accepts one exact
+`--lifecycle-scope-url`.
+
+The helper supplies sequence numbers, event IDs, timestamps, invocation IDs, and event hashes;
+callers do not manufacture them.
+
+Expected WIJ operational degradation is deliberately exit-code zero so a shell using
+`set -e` cannot turn a disposable-journal problem into a workflow stop. Human output begins
+with an explicit `WORKFLOW JOURNAL:` or `WORKFLOW JOURNAL GC:` status, and `--json-output`
+provides structured machine consumption. CLI syntax/programming errors handled by
+`argparse` may still return its ordinary nonzero usage status.
+
+Examples:
+
+```bash
+python -m scripts.workflow_journal start \
+  --manifest /tmp/wij-start.json \
+  --json-output /tmp/wij-start-result.json
+
+python -m scripts.workflow_journal locate \
+  --skill implement-ticket \
+  --repository sponge-b0b/Polaris \
+  --subject-url https://github.com/sponge-b0b/Polaris/issues/407 \
+  --json-output /tmp/wij-locate.json
+
+python -m scripts.workflow_journal append \
+  --journal <invocation-dir> \
+  --event /tmp/wij-event.json
+```
+
+The CLI never decides workflow meaning. A `FOUND` journal is only evidence the consuming
+skill may reconcile; it is not permission to skip current authority checks.
+
 ## Invocation metadata
 
 `metadata.json` is immutable after creation and uses schema

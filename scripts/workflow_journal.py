@@ -9,7 +9,7 @@ import secrets
 import shutil
 import subprocess
 import tempfile
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -38,7 +38,9 @@ SUPPORTED_EVENT_TYPES = frozenset(
         "invocation_abandoned",
     }
 )
-TERMINAL_EVENT_TYPES = frozenset({"invocation_completed", "invocation_abandoned"})
+TERMINAL_EVENT_TYPES = frozenset(
+    {"invocation_completed", "invocation_abandoned"}
+)
 SKILL_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 FORBIDDEN_KEY_RE = re.compile(
@@ -52,6 +54,45 @@ FORBIDDEN_VALUE_PATTERNS = (
     re.compile(r"\bBearer\s+[A-Za-z0-9._~+/=-]{12,}\b", re.IGNORECASE),
     re.compile(r"\bsk-[A-Za-z0-9_-]{12,}\b"),
 )
+
+EVENT_REQUIRED_FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
+    "work_completed": (("work_id", "str"),),
+    "check_result": (("check_id", "str"), ("result", "str")),
+    "external_write": (
+        ("system", "str"),
+        ("operation", "str"),
+        ("readback", "dict"),
+    ),
+    "frontier": (
+        ("phase", "str"),
+        ("completed", "strlist"),
+        ("pending", "strlist"),
+    ),
+    "interruption_checkpoint": (
+        ("reason", "str"),
+        ("phase", "str"),
+        ("next_expected_action", "str"),
+    ),
+    "resume_started": (("previous_last_sequence", "int"),),
+    "resume_reconciled": (
+        ("authority_compatible", "bool"),
+        ("bindings_compatible", "bool"),
+        ("reusable", "strlist"),
+        ("redo", "strlist"),
+        ("resume_point", "str"),
+    ),
+    "child_invocation_started": (
+        ("role", "str"),
+        ("skill", "str"),
+        ("child_invocation_id", "str"),
+    ),
+    "child_result_observed": (
+        ("child_invocation_id", "str"),
+        ("result", "str"),
+        ("result_sha256", "str"),
+    ),
+    "invocation_abandoned": (("reason", "str"),),
+}
 
 
 class JournalHealth(StrEnum):
@@ -81,7 +122,9 @@ class LoadedInvocation:
 
     @property
     def terminal(self) -> bool:
-        return bool(self.events and self.events[-1]["type"] in TERMINAL_EVENT_TYPES)
+        return bool(
+            self.events and self.events[-1]["type"] in TERMINAL_EVENT_TYPES
+        )
 
 
 @dataclass(frozen=True)
@@ -118,7 +161,8 @@ def _run_git(
 
 
 def _utc_now() -> str:
-    return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+    value = datetime.now(UTC).isoformat(timespec="seconds")
+    return value.replace("+00:00", "Z")
 
 
 def _canonical(value: Any) -> bytes:
@@ -135,14 +179,22 @@ def _sha256(value: Any) -> str:
 
 
 def journal_root(cwd: Path | None = None) -> Path:
-    git_dir = _run_git("rev-parse", "--absolute-git-dir", cwd=cwd).stdout.strip()
+    git_dir = _run_git(
+        "rev-parse",
+        "--absolute-git-dir",
+        cwd=cwd,
+    ).stdout.strip()
     if not git_dir:
         raise JournalError("git returned an empty administrative directory")
     return Path(git_dir) / ROOT_RELATIVE
 
 
 def _common_git_dir(cwd: Path | None = None) -> Path:
-    common = _run_git("rev-parse", "--git-common-dir", cwd=cwd).stdout.strip()
+    common = _run_git(
+        "rev-parse",
+        "--git-common-dir",
+        cwd=cwd,
+    ).stdout.strip()
     if not common:
         raise JournalError("git returned an empty common administrative directory")
     if os.path.isabs(common):
@@ -165,20 +217,30 @@ def common_journal_roots(cwd: Path | None = None) -> tuple[Path, ...]:
 
 def _validate_no_secrets(value: Any, path: str = "value") -> None:
     if isinstance(value, dict):
-        for key, child in value.items():
-            if not isinstance(key, str):
-                raise JournalError(f"{path}: object keys must be strings")
-            if FORBIDDEN_KEY_RE.search(key):
-                raise JournalError(
-                    f"{path}.{key}: secret-bearing field names are not allowed"
-                )
-            _validate_no_secrets(child, f"{path}.{key}")
-    elif isinstance(value, list):
+        _validate_secret_mapping(value, path)
+        return
+    if isinstance(value, list):
         for index, child in enumerate(value):
             _validate_no_secrets(child, f"{path}[{index}]")
-    elif isinstance(value, str):
-        if any(pattern.search(value) for pattern in FORBIDDEN_VALUE_PATTERNS):
-            raise JournalError(f"{path}: value resembles credential material")
+        return
+    if isinstance(value, str):
+        _validate_secret_string(value, path)
+
+
+def _validate_secret_mapping(value: dict[Any, Any], path: str) -> None:
+    for key, child in value.items():
+        if not isinstance(key, str):
+            raise JournalError(f"{path}: object keys must be strings")
+        if FORBIDDEN_KEY_RE.search(key):
+            raise JournalError(
+                f"{path}.{key}: secret-bearing field names are not allowed"
+            )
+        _validate_no_secrets(child, f"{path}.{key}")
+
+
+def _validate_secret_string(value: str, path: str) -> None:
+    if any(pattern.search(value) for pattern in FORBIDDEN_VALUE_PATTERNS):
+        raise JournalError(f"{path}: value resembles credential material")
 
 
 def _validate_artifact(value: Any, label: str) -> dict[str, Any]:
@@ -216,11 +278,17 @@ def _validate_start_manifest(value: Any) -> dict[str, Any]:
     return {
         "skill": skill,
         "repository": {"identity": identity.strip()},
-        "subject": _validate_artifact(value.get("subject"), "start manifest subject"),
+        "subject": _validate_artifact(
+            value.get("subject"),
+            "start manifest subject",
+        ),
         "lifecycle_scope": (
             None
             if scope is None
-            else _validate_artifact(scope, "start manifest lifecycle_scope")
+            else _validate_artifact(
+                scope,
+                "start manifest lifecycle_scope",
+            )
         ),
     }
 
@@ -229,10 +297,23 @@ def _validate_metadata(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict) or value.get("schema") != METADATA_SCHEMA:
         schema = value.get("schema") if isinstance(value, dict) else None
         raise JournalError(f"metadata: unsupported schema {schema!r}")
+    _validate_metadata_identity(value)
+    _validate_artifact(value.get("subject"), "metadata subject")
+    scope = value.get("lifecycle_scope")
+    if scope is not None:
+        _validate_artifact(scope, "metadata lifecycle_scope")
+    checkout = value.get("checkout")
+    if not isinstance(checkout, dict):
+        raise JournalError("metadata: checkout object required")
+    if not isinstance(checkout.get("initial_head"), str):
+        raise JournalError("metadata: checkout.initial_head required")
+    return value
+
+
+def _validate_metadata_identity(value: dict[str, Any]) -> None:
     invocation_id = value.get("invocation_id")
     skill = value.get("skill")
     repository = value.get("repository")
-    checkout = value.get("checkout")
     if not isinstance(invocation_id, str) or not invocation_id:
         raise JournalError("metadata: invocation_id required")
     if not isinstance(skill, str) or SKILL_RE.fullmatch(skill) is None:
@@ -241,21 +322,20 @@ def _validate_metadata(value: Any) -> dict[str, Any]:
         raise JournalError("metadata: repository object required")
     if not isinstance(repository.get("identity"), str):
         raise JournalError("metadata: repository.identity required")
-    _validate_artifact(value.get("subject"), "metadata subject")
-    scope = value.get("lifecycle_scope")
-    if scope is not None:
-        _validate_artifact(scope, "metadata lifecycle_scope")
-    if not isinstance(checkout, dict):
-        raise JournalError("metadata: checkout object required")
-    if not isinstance(checkout.get("initial_head"), str):
-        raise JournalError("metadata: checkout.initial_head required")
-    return value
 
 
 def _atomic_write_json(path: Path, value: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
-    fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    payload = json.dumps(
+        value,
+        indent=2,
+        sort_keys=True,
+        ensure_ascii=False,
+    ) + "\n"
+    fd, temp_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        dir=path.parent,
+    )
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(payload)
@@ -336,34 +416,9 @@ def start_invocation(
     )
     directory = journal_root(cwd) / normalized["skill"] / invocation_id
     directory.mkdir(parents=True, exist_ok=False)
-    metadata = {
-        "schema": METADATA_SCHEMA,
-        "invocation_id": invocation_id,
-        "skill": normalized["skill"],
-        "started_at": now,
-        "repository": normalized["repository"],
-        "subject": normalized["subject"],
-        "lifecycle_scope": normalized["lifecycle_scope"],
-        "checkout": {
-            "initial_branch": _branch(cwd),
-            "initial_head": _run_git("rev-parse", "HEAD", cwd=cwd).stdout.strip(),
-        },
-    }
+    metadata = _build_metadata(normalized, invocation_id, now, cwd)
     try:
-        _atomic_write_json(directory / "metadata.json", metadata)
-        events_path = directory / "events.jsonl"
-        events_path.touch(exist_ok=False)
-        _append_line(
-            events_path,
-            _new_event(
-                metadata=metadata,
-                sequence=1,
-                event_type="invocation_started",
-                candidate_state=None,
-                data={},
-                previous_hash=_sha256(metadata),
-            ),
-        )
+        _write_bootstrap(directory, metadata)
         return load_invocation(directory)
     except Exception:
         try:
@@ -373,88 +428,144 @@ def start_invocation(
         raise
 
 
+def _build_metadata(
+    normalized: dict[str, Any],
+    invocation_id: str,
+    now: str,
+    cwd: Path | None,
+) -> dict[str, Any]:
+    return {
+        "schema": METADATA_SCHEMA,
+        "invocation_id": invocation_id,
+        "skill": normalized["skill"],
+        "started_at": now,
+        "repository": normalized["repository"],
+        "subject": normalized["subject"],
+        "lifecycle_scope": normalized["lifecycle_scope"],
+        "checkout": {
+            "initial_branch": _branch(cwd),
+            "initial_head": _run_git(
+                "rev-parse",
+                "HEAD",
+                cwd=cwd,
+            ).stdout.strip(),
+        },
+    }
+
+
+def _write_bootstrap(directory: Path, metadata: dict[str, Any]) -> None:
+    _atomic_write_json(directory / "metadata.json", metadata)
+    events_path = directory / "events.jsonl"
+    events_path.touch(exist_ok=False)
+    bootstrap = _new_event(
+        metadata=metadata,
+        sequence=1,
+        event_type="invocation_started",
+        candidate_state=None,
+        data={},
+        previous_hash=_sha256(metadata),
+    )
+    _append_line(events_path, bootstrap)
+
+
 def _expect(data: dict[str, Any], key: str, kind: str, label: str) -> Any:
     value = data.get(key)
-    valid = {
-        "str": isinstance(value, str) and bool(value.strip()),
-        "bool": isinstance(value, bool),
-        "int": isinstance(value, int) and not isinstance(value, bool) and value >= 0,
-        "dict": isinstance(value, dict),
-        "strlist": isinstance(value, list)
-        and all(isinstance(item, str) for item in value),
-    }.get(kind, False)
-    if not valid:
+    validators: dict[str, Callable[[Any], bool]] = {
+        "str": lambda item: isinstance(item, str) and bool(item.strip()),
+        "bool": lambda item: isinstance(item, bool),
+        "int": lambda item: (
+            isinstance(item, int)
+            and not isinstance(item, bool)
+            and item >= 0
+        ),
+        "dict": lambda item: isinstance(item, dict),
+        "strlist": _is_string_list,
+    }
+    validator = validators.get(kind)
+    if validator is None or not validator(value):
         raise JournalError(f"{label}: {key} must be {kind}")
     return value
 
 
-def _validate_event_data(event_type: str, data: dict[str, Any]) -> None:
-    required = {
-        "work_completed": (("work_id", "str"),),
-        "check_result": (("check_id", "str"), ("result", "str")),
-        "external_write": (
-            ("system", "str"),
-            ("operation", "str"),
-            ("readback", "dict"),
-        ),
-        "frontier": (
-            ("phase", "str"),
-            ("completed", "strlist"),
-            ("pending", "strlist"),
-        ),
-        "interruption_checkpoint": (
-            ("reason", "str"),
-            ("phase", "str"),
-            ("next_expected_action", "str"),
-        ),
-        "resume_started": (("previous_last_sequence", "int"),),
-        "resume_reconciled": (
-            ("authority_compatible", "bool"),
-            ("bindings_compatible", "bool"),
-            ("reusable", "strlist"),
-            ("redo", "strlist"),
-            ("resume_point", "str"),
-        ),
-        "child_invocation_started": (
-            ("role", "str"),
-            ("skill", "str"),
-            ("child_invocation_id", "str"),
-        ),
-        "child_result_observed": (
-            ("child_invocation_id", "str"),
-            ("result", "str"),
-            ("result_sha256", "str"),
-        ),
-        "invocation_abandoned": (("reason", "str"),),
-    }
-    for key, kind in required.get(event_type, ()):
-        _expect(data, key, kind, event_type)
-    if event_type == "authority_snapshot":
-        files = data.get("files")
-        if not isinstance(files, list) or not files:
-            raise JournalError("authority_snapshot: files must be a non-empty array")
-        for item in files:
-            if not isinstance(item, dict):
-                raise JournalError("authority_snapshot: each file must be an object")
-            _expect(item, "path", "str", "authority_snapshot file")
-            digest = _expect(item, "sha256", "str", "authority_snapshot file")
-            if HEX64_RE.fullmatch(digest) is None:
-                raise JournalError("authority_snapshot: sha256 must be 64 hex")
-    elif event_type == "binding_snapshot":
-        bindings = data.get("bindings")
-        if not isinstance(bindings, dict) or not bindings:
-            raise JournalError("binding_snapshot: bindings must be non-empty")
-    elif event_type == "check_result" and data["result"] not in {"pass", "fail"}:
+def _is_string_list(value: Any) -> bool:
+    return isinstance(value, list) and all(
+        isinstance(item, str) for item in value
+    )
+
+
+def _validate_authority_snapshot(data: dict[str, Any]) -> None:
+    files = data.get("files")
+    if not isinstance(files, list) or not files:
+        raise JournalError(
+            "authority_snapshot: files must be a non-empty array"
+        )
+    for item in files:
+        _validate_authority_file(item)
+
+
+def _validate_authority_file(value: Any) -> None:
+    if not isinstance(value, dict):
+        raise JournalError(
+            "authority_snapshot: each file must be an object"
+        )
+    _expect(value, "path", "str", "authority_snapshot file")
+    digest = _expect(
+        value,
+        "sha256",
+        "str",
+        "authority_snapshot file",
+    )
+    if HEX64_RE.fullmatch(digest) is None:
+        raise JournalError("authority_snapshot: sha256 must be 64 hex")
+
+
+def _validate_binding_snapshot(data: dict[str, Any]) -> None:
+    bindings = data.get("bindings")
+    if not isinstance(bindings, dict) or not bindings:
+        raise JournalError("binding_snapshot: bindings must be non-empty")
+
+
+def _validate_check_result(data: dict[str, Any]) -> None:
+    if data["result"] not in {"pass", "fail"}:
         raise JournalError("check_result: result must be pass or fail")
-    elif event_type == "external_write":
-        if data["readback"].get("verified") is not True:
-            raise JournalError("external_write: readback.verified must be true")
-    elif event_type == "child_result_observed":
-        if HEX64_RE.fullmatch(data["result_sha256"]) is None:
-            raise JournalError("child_result_observed: result_sha256 must be 64 hex")
-    elif event_type == "invocation_completed":
-        if data != {"outcome": "success"}:
-            raise JournalError("invocation_completed: outcome must be success")
+
+
+def _validate_external_write(data: dict[str, Any]) -> None:
+    if data["readback"].get("verified") is not True:
+        raise JournalError("external_write: readback.verified must be true")
+
+
+def _validate_child_result(data: dict[str, Any]) -> None:
+    if HEX64_RE.fullmatch(data["result_sha256"]) is None:
+        raise JournalError(
+            "child_result_observed: result_sha256 must be 64 hex"
+        )
+
+
+def _validate_completed(data: dict[str, Any]) -> None:
+    if data != {"outcome": "success"}:
+        raise JournalError("invocation_completed: outcome must be success")
+
+
+EVENT_SPECIAL_VALIDATORS: dict[
+    str,
+    Callable[[dict[str, Any]], None],
+] = {
+    "authority_snapshot": _validate_authority_snapshot,
+    "binding_snapshot": _validate_binding_snapshot,
+    "check_result": _validate_check_result,
+    "external_write": _validate_external_write,
+    "child_result_observed": _validate_child_result,
+    "invocation_completed": _validate_completed,
+}
+
+
+def _validate_event_data(event_type: str, data: dict[str, Any]) -> None:
+    for key, kind in EVENT_REQUIRED_FIELDS.get(event_type, ()):
+        _expect(data, key, kind, event_type)
+    validator = EVENT_SPECIAL_VALIDATORS.get(event_type)
+    if validator is not None:
+        validator(data)
 
 
 def _validate_event_input(
@@ -471,20 +582,37 @@ def _validate_event_input(
     if event_type not in SUPPORTED_EVENT_TYPES:
         raise JournalError(f"event input: unsupported type {event_type!r}")
     if candidate is not None and not isinstance(candidate, str):
-        raise JournalError("event input: candidate_state must be string or null")
+        raise JournalError(
+            "event input: candidate_state must be string or null"
+        )
     if not isinstance(data, dict):
         raise JournalError("event input: data must be object")
     _validate_no_secrets(data, "event data")
     if event_type == "invocation_started":
-        if not stored or sequence != 1:
-            raise JournalError("invocation_started is valid only as bootstrap event 1")
-        if candidate is not None or data:
-            raise JournalError(
-                "invocation_started requires null candidate and empty data"
-            )
+        _validate_bootstrap_event(candidate, data, stored, sequence)
     else:
         _validate_event_data(event_type, data)
-    return {"type": event_type, "candidate_state": candidate, "data": data}
+    return {
+        "type": event_type,
+        "candidate_state": candidate,
+        "data": data,
+    }
+
+
+def _validate_bootstrap_event(
+    candidate: str | None,
+    data: dict[str, Any],
+    stored: bool,
+    sequence: int | None,
+) -> None:
+    if not stored or sequence != 1:
+        raise JournalError(
+            "invocation_started is valid only as bootstrap event 1"
+        )
+    if candidate is not None or data:
+        raise JournalError(
+            "invocation_started requires null candidate and empty data"
+        )
 
 
 def _parse_stored_event(
@@ -498,13 +626,29 @@ def _parse_stored_event(
     if terminal_seen:
         raise JournalError("event follows terminal event")
     event = json.loads(raw)
+    _validate_stored_event_envelope(event, metadata, sequence)
+    _validate_event_input(event, stored=True, sequence=sequence)
+    _validate_stored_event_hashes(event, previous_hash)
+    return event
+
+
+def _validate_stored_event_envelope(
+    event: Any,
+    metadata: dict[str, Any],
+    sequence: int,
+) -> None:
     if not isinstance(event, dict) or event.get("schema") != EVENT_SCHEMA:
         raise JournalError("unsupported event schema")
     if event.get("invocation_id") != metadata["invocation_id"]:
         raise JournalError("invocation identity mismatch")
     if event.get("sequence") != sequence:
         raise JournalError("sequence mismatch")
-    _validate_event_input(event, stored=True, sequence=sequence)
+
+
+def _validate_stored_event_hashes(
+    event: dict[str, Any],
+    previous_hash: str,
+) -> None:
     if event.get("previous_event_sha256") != previous_hash:
         raise JournalError("previous-event hash mismatch")
     digest = event.get("event_sha256")
@@ -514,7 +658,20 @@ def _parse_stored_event(
     unhashed.pop("event_sha256", None)
     if _event_hash(unhashed) != digest:
         raise JournalError("event hash mismatch")
-    return event
+
+
+def _read_events_bytes(
+    directory: Path,
+) -> tuple[bytes, str | None]:
+    try:
+        raw = (directory / "events.jsonl").read_bytes()
+    except OSError as exc:
+        raise JournalError(f"events unreadable: {exc}") from exc
+    if not raw or raw.endswith(b"\n"):
+        return raw, None
+    cut = raw.rfind(b"\n")
+    prefix = raw[: cut + 1] if cut >= 0 else b""
+    return prefix, "partial final event ignored"
 
 
 def _parse_events(
@@ -522,31 +679,23 @@ def _parse_events(
     metadata: dict[str, Any],
 ) -> tuple[tuple[dict[str, Any], ...], JournalHealth, str | None]:
     try:
-        raw = (directory / "events.jsonl").read_bytes()
-    except OSError as exc:
-        return (), JournalHealth.DEGRADED, f"events unreadable: {exc}"
-    tail_reason = None
-    if raw and not raw.endswith(b"\n"):
-        tail_reason = "partial final event ignored"
-        cut = raw.rfind(b"\n")
-        raw = raw[: cut + 1] if cut >= 0 else b""
+        raw, tail_reason = _read_events_bytes(directory)
+    except JournalError as exc:
+        return (), JournalHealth.DEGRADED, str(exc)
     events: list[dict[str, Any]] = []
     previous_hash = _sha256(metadata)
     for index, line in enumerate(raw.splitlines(), start=1):
-        try:
-            event = _parse_stored_event(
-                line,
-                metadata=metadata,
-                sequence=index,
-                previous_hash=previous_hash,
-                terminal_seen=bool(
-                    events and events[-1]["type"] in TERMINAL_EVENT_TYPES
-                ),
-            )
-        except (json.JSONDecodeError, JournalError) as exc:
-            return tuple(events), JournalHealth.DEGRADED, f"event {index}: {exc}"
-        events.append(event)
-        previous_hash = event["event_sha256"]
+        parsed = _try_parse_event(
+            line,
+            metadata,
+            index,
+            previous_hash,
+            events,
+        )
+        if isinstance(parsed, str):
+            return tuple(events), JournalHealth.DEGRADED, parsed
+        events.append(parsed)
+        previous_hash = parsed["event_sha256"]
     if not events:
         return (), JournalHealth.DEGRADED, "missing invocation_started event"
     if events[0]["type"] != "invocation_started":
@@ -556,6 +705,28 @@ def _parse_events(
     return tuple(events), JournalHealth.HEALTHY, None
 
 
+def _try_parse_event(
+    line: bytes,
+    metadata: dict[str, Any],
+    sequence: int,
+    previous_hash: str,
+    events: list[dict[str, Any]],
+) -> dict[str, Any] | str:
+    terminal_seen = bool(
+        events and events[-1]["type"] in TERMINAL_EVENT_TYPES
+    )
+    try:
+        return _parse_stored_event(
+            line,
+            metadata=metadata,
+            sequence=sequence,
+            previous_hash=previous_hash,
+            terminal_seen=terminal_seen,
+        )
+    except (json.JSONDecodeError, JournalError) as exc:
+        return f"event {sequence}: {exc}"
+
+
 def load_invocation(path: Path | str) -> LoadedInvocation:
     directory = Path(path)
     try:
@@ -563,12 +734,29 @@ def load_invocation(path: Path | str) -> LoadedInvocation:
         metadata = _validate_metadata(json.loads(raw))
     except (OSError, json.JSONDecodeError, JournalError) as exc:
         raise JournalError(f"journal metadata unavailable: {exc}") from exc
-    if directory.name != metadata["invocation_id"]:
-        raise JournalError("journal directory does not match invocation_id")
-    if directory.parent.name != metadata["skill"]:
-        raise JournalError("journal skill directory does not match metadata skill")
+    _validate_directory_identity(directory, metadata)
     events, health, reason = _parse_events(directory, metadata)
-    return LoadedInvocation(directory, metadata, events, health, reason)
+    return LoadedInvocation(
+        directory,
+        metadata,
+        events,
+        health,
+        reason,
+    )
+
+
+def _validate_directory_identity(
+    directory: Path,
+    metadata: dict[str, Any],
+) -> None:
+    if directory.name != metadata["invocation_id"]:
+        raise JournalError(
+            "journal directory does not match invocation_id"
+        )
+    if directory.parent.name != metadata["skill"]:
+        raise JournalError(
+            "journal skill directory does not match metadata skill"
+        )
 
 
 def _assert_local_journal_path(path: Path, cwd: Path | None) -> None:
@@ -606,6 +794,79 @@ def append_event(
     return load_invocation(directory)
 
 
+def _is_target_invocation(
+    loaded: LoadedInvocation,
+    repository: str,
+    subject_url: str,
+) -> bool:
+    return (
+        loaded.metadata["repository"]["identity"] == repository
+        and loaded.metadata["subject"]["url"] == subject_url
+    )
+
+
+def _scan_resumable(
+    base: Path,
+    repository: str,
+    subject_url: str,
+) -> tuple[list[LoadedInvocation], list[str]]:
+    matches: list[LoadedInvocation] = []
+    degraded: list[str] = []
+    for child in sorted(base.iterdir()):
+        if not child.is_dir():
+            continue
+        loaded, error = _load_resumable_child(
+            child,
+            repository,
+            subject_url,
+        )
+        if error:
+            degraded.append(error)
+        elif loaded is not None:
+            matches.append(loaded)
+    return matches, degraded
+
+
+def _load_resumable_child(
+    child: Path,
+    repository: str,
+    subject_url: str,
+) -> tuple[LoadedInvocation | None, str | None]:
+    try:
+        loaded = load_invocation(child)
+    except JournalError as exc:
+        return None, f"{child.name}: {exc}"
+    if not _is_target_invocation(loaded, repository, subject_url):
+        return None, None
+    if loaded.health is not JournalHealth.HEALTHY:
+        return None, f"{child.name}: {loaded.reason}"
+    if loaded.terminal:
+        return None, None
+    return loaded, None
+
+
+def _locate_from_scan(
+    matches: list[LoadedInvocation],
+    degraded: list[str],
+) -> LocateResult:
+    if degraded:
+        reason = "; ".join(degraded)
+        reason += (
+            "; automatic reuse skipped because journal identity may be "
+            "ambiguous"
+        )
+        return LocateResult(LocateStatus.DEGRADED, (), reason)
+    if len(matches) == 1:
+        return LocateResult(LocateStatus.FOUND, tuple(matches))
+    if len(matches) > 1:
+        return LocateResult(
+            LocateStatus.AMBIGUOUS,
+            tuple(matches),
+            f"{len(matches)} matching nonterminal journals",
+        )
+    return LocateResult(LocateStatus.NONE, ())
+
+
 def locate_resumable(
     *,
     skill: str,
@@ -621,39 +882,12 @@ def locate_resumable(
         return LocateResult(LocateStatus.DEGRADED, (), str(exc))
     if not base.is_dir():
         return LocateResult(LocateStatus.NONE, ())
-    matches: list[LoadedInvocation] = []
-    degraded: list[str] = []
-    for child in sorted(base.iterdir()):
-        if not child.is_dir():
-            continue
-        try:
-            loaded = load_invocation(child)
-        except JournalError as exc:
-            degraded.append(f"{child.name}: {exc}")
-            continue
-        target = (
-            loaded.metadata["repository"]["identity"] == repository
-            and loaded.metadata["subject"]["url"] == subject_url
-        )
-        if not target:
-            continue
-        if loaded.health is not JournalHealth.HEALTHY:
-            degraded.append(f"{child.name}: {loaded.reason}")
-        elif not loaded.terminal:
-            matches.append(loaded)
-    if degraded:
-        reason = "; ".join(degraded)
-        reason += "; automatic reuse skipped because journal identity may be ambiguous"
-        return LocateResult(LocateStatus.DEGRADED, (), reason)
-    if len(matches) == 1:
-        return LocateResult(LocateStatus.FOUND, tuple(matches))
-    if len(matches) > 1:
-        return LocateResult(
-            LocateStatus.AMBIGUOUS,
-            tuple(matches),
-            f"{len(matches)} matching nonterminal journals",
-        )
-    return LocateResult(LocateStatus.NONE, ())
+    matches, degraded = _scan_resumable(
+        base,
+        repository,
+        subject_url,
+    )
+    return _locate_from_scan(matches, degraded)
 
 
 def _iter_invocation_dirs(root: Path) -> Iterable[Path]:
@@ -668,7 +902,9 @@ def _iter_invocation_dirs(root: Path) -> Iterable[Path]:
     )
 
 
-def _gc_metadata(directory: Path) -> tuple[dict[str, Any] | None, str | None]:
+def _gc_metadata(
+    directory: Path,
+) -> tuple[dict[str, Any] | None, str | None]:
     try:
         raw = (directory / "metadata.json").read_text(encoding="utf-8")
         return _validate_metadata(json.loads(raw)), None
@@ -676,7 +912,10 @@ def _gc_metadata(directory: Path) -> tuple[dict[str, Any] | None, str | None]:
         return None, f"{directory}: metadata unavailable: {exc}"
 
 
-def gc_lifecycle_scope(scope_url: str, cwd: Path | None = None) -> GcResult:
+def gc_lifecycle_scope(
+    scope_url: str,
+    cwd: Path | None = None,
+) -> GcResult:
     try:
         roots = common_journal_roots(cwd)
     except JournalError as exc:
@@ -690,17 +929,33 @@ def gc_lifecycle_scope(scope_url: str, cwd: Path | None = None) -> GcResult:
             if error:
                 failures.append(error)
                 continue
-            assert metadata is not None
+            if metadata is None:
+                continue
             scope = metadata.get("lifecycle_scope")
-            if not isinstance(scope, dict) or scope.get("url") != scope_url:
+            if not _scope_matches(scope, scope_url):
                 continue
             matched += 1
-            try:
-                shutil.rmtree(directory)
+            if _remove_invocation(directory, failures):
                 removed += 1
-            except OSError as exc:
-                failures.append(f"{directory}: {exc}")
-    return GcResult(matched, removed, len(failures), tuple(failures))
+    return GcResult(
+        matched,
+        removed,
+        len(failures),
+        tuple(failures),
+    )
+
+
+def _scope_matches(scope: Any, scope_url: str) -> bool:
+    return isinstance(scope, dict) and scope.get("url") == scope_url
+
+
+def _remove_invocation(directory: Path, failures: list[str]) -> bool:
+    try:
+        shutil.rmtree(directory)
+    except OSError as exc:
+        failures.append(f"{directory}: {exc}")
+        return False
+    return True
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -710,7 +965,10 @@ def _read_json(path: Path) -> dict[str, Any]:
     return value
 
 
-def _loaded_payload(loaded: LoadedInvocation, status: str) -> dict[str, Any]:
+def _loaded_payload(
+    loaded: LoadedInvocation,
+    status: str,
+) -> dict[str, Any]:
     return {
         "status": status,
         "health": loaded.health.value,
@@ -749,33 +1007,54 @@ def _degraded(message: str, json_output: Path | None = None) -> int:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
-    start = sub.add_parser("start")
-    start.add_argument("--manifest", type=Path, required=True)
-    start.add_argument("--json-output", type=Path)
-    append = sub.add_parser("append")
-    append.add_argument("--journal", type=Path, required=True)
-    append.add_argument("--event", type=Path, required=True)
-    append.add_argument("--json-output", type=Path)
-    locate = sub.add_parser("locate")
-    locate.add_argument("--skill", required=True)
-    locate.add_argument("--repository", required=True)
-    locate.add_argument("--subject-url", required=True)
-    locate.add_argument("--json-output", type=Path)
-    inspect = sub.add_parser("inspect")
-    inspect.add_argument("--journal", type=Path, required=True)
-    inspect.add_argument("--json-output", type=Path)
-    complete = sub.add_parser("complete")
-    complete.add_argument("--journal", type=Path, required=True)
-    complete.add_argument("--candidate-state")
-    complete.add_argument("--json-output", type=Path)
-    abandon = sub.add_parser("abandon")
-    abandon.add_argument("--journal", type=Path, required=True)
-    abandon.add_argument("--reason", required=True)
-    abandon.add_argument("--json-output", type=Path)
-    gc = sub.add_parser("gc")
-    gc.add_argument("--lifecycle-scope-url", required=True)
-    gc.add_argument("--json-output", type=Path)
+    _configure_start_parser(sub.add_parser("start"))
+    _configure_append_parser(sub.add_parser("append"))
+    _configure_locate_parser(sub.add_parser("locate"))
+    _configure_inspect_parser(sub.add_parser("inspect"))
+    _configure_complete_parser(sub.add_parser("complete"))
+    _configure_abandon_parser(sub.add_parser("abandon"))
+    _configure_gc_parser(sub.add_parser("gc"))
     return parser
+
+
+def _configure_start_parser(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--json-output", type=Path)
+
+
+def _configure_append_parser(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--journal", type=Path, required=True)
+    parser.add_argument("--event", type=Path, required=True)
+    parser.add_argument("--json-output", type=Path)
+
+
+def _configure_locate_parser(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--skill", required=True)
+    parser.add_argument("--repository", required=True)
+    parser.add_argument("--subject-url", required=True)
+    parser.add_argument("--json-output", type=Path)
+
+
+def _configure_inspect_parser(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--journal", type=Path, required=True)
+    parser.add_argument("--json-output", type=Path)
+
+
+def _configure_complete_parser(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--journal", type=Path, required=True)
+    parser.add_argument("--candidate-state")
+    parser.add_argument("--json-output", type=Path)
+
+
+def _configure_abandon_parser(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--journal", type=Path, required=True)
+    parser.add_argument("--reason", required=True)
+    parser.add_argument("--json-output", type=Path)
+
+
+def _configure_gc_parser(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--lifecycle-scope-url", required=True)
+    parser.add_argument("--json-output", type=Path)
 
 
 def _start_command(args: argparse.Namespace) -> None:
@@ -783,15 +1062,24 @@ def _start_command(args: argparse.Namespace) -> None:
     print("WORKFLOW JOURNAL: STARTED")
     print(f"Invocation: {loaded.metadata['invocation_id']}")
     print(f"Journal: {loaded.path}")
-    _emit_json(args.json_output, _loaded_payload(loaded, "STARTED"))
+    _emit_json(
+        args.json_output,
+        _loaded_payload(loaded, "STARTED"),
+    )
 
 
 def _append_command(args: argparse.Namespace) -> None:
-    loaded = append_event(args.journal, _read_json(args.event))
+    loaded = append_event(
+        args.journal,
+        _read_json(args.event),
+    )
     print("WORKFLOW JOURNAL: APPENDED")
     print(f"Invocation: {loaded.metadata['invocation_id']}")
     print(f"Sequence: {loaded.events[-1]['sequence']}")
-    _emit_json(args.json_output, _loaded_payload(loaded, "APPENDED"))
+    _emit_json(
+        args.json_output,
+        _loaded_payload(loaded, "APPENDED"),
+    )
 
 
 def _locate_command(args: argparse.Namespace) -> None:
@@ -813,14 +1101,21 @@ def _locate_command(args: argparse.Namespace) -> None:
         {
             "status": result.status.value,
             "reason": result.reason,
-            "matches": [_loaded_payload(item, "FOUND") for item in result.matches],
+            "matches": [
+                _loaded_payload(item, "FOUND")
+                for item in result.matches
+            ],
         },
     )
 
 
 def _inspect_command(args: argparse.Namespace) -> None:
     loaded = load_invocation(args.journal)
-    status = "VALID" if loaded.health is JournalHealth.HEALTHY else "DEGRADED"
+    status = (
+        "VALID"
+        if loaded.health is JournalHealth.HEALTHY
+        else "DEGRADED"
+    )
     print(f"WORKFLOW JOURNAL: {status}")
     print(f"Invocation: {loaded.metadata['invocation_id']}")
     print(f"Events: {len(loaded.events)}")
@@ -830,7 +1125,10 @@ def _inspect_command(args: argparse.Namespace) -> None:
         print(f"Reason: {loaded.reason}")
     if loaded.health is JournalHealth.DEGRADED:
         print("Fallback: workflow execution remains authoritative")
-    _emit_json(args.json_output, _loaded_payload(loaded, status))
+    _emit_json(
+        args.json_output,
+        _loaded_payload(loaded, status),
+    )
 
 
 def _complete_command(args: argparse.Namespace) -> None:
@@ -844,7 +1142,10 @@ def _complete_command(args: argparse.Namespace) -> None:
     )
     print("WORKFLOW JOURNAL: COMPLETED")
     print(f"Invocation: {loaded.metadata['invocation_id']}")
-    _emit_json(args.json_output, _loaded_payload(loaded, "COMPLETED"))
+    _emit_json(
+        args.json_output,
+        _loaded_payload(loaded, "COMPLETED"),
+    )
 
 
 def _abandon_command(args: argparse.Namespace) -> None:
@@ -858,7 +1159,10 @@ def _abandon_command(args: argparse.Namespace) -> None:
     )
     print("WORKFLOW JOURNAL: ABANDONED")
     print(f"Invocation: {loaded.metadata['invocation_id']}")
-    _emit_json(args.json_output, _loaded_payload(loaded, "ABANDONED"))
+    _emit_json(
+        args.json_output,
+        _loaded_payload(loaded, "ABANDONED"),
+    )
 
 
 def _gc_command(args: argparse.Namespace) -> None:
@@ -882,7 +1186,7 @@ def _gc_command(args: argparse.Namespace) -> None:
     )
 
 
-COMMANDS = {
+COMMANDS: dict[str, Callable[[argparse.Namespace], None]] = {
     "start": _start_command,
     "append": _append_command,
     "locate": _locate_command,
@@ -898,7 +1202,10 @@ def main() -> int:
     try:
         COMMANDS[args.command](args)
     except (JournalError, json.JSONDecodeError, OSError) as exc:
-        return _degraded(str(exc), getattr(args, "json_output", None))
+        return _degraded(
+            str(exc),
+            getattr(args, "json_output", None),
+        )
     return 0
 
 

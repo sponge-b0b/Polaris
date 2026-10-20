@@ -16,8 +16,7 @@ def git(cwd: Path, *args: str) -> str:
         cwd=cwd,
         check=True,
         text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
     )
     return result.stdout.strip()
 
@@ -75,9 +74,7 @@ def test_start_is_git_admin_only(repo: Path) -> None:
 
 def test_normal_branch_switch_keeps_same_root(repo: Path) -> None:
     first = journal.journal_root(repo)
-
     git(repo, "switch", "-c", "spec-359")
-
     assert journal.journal_root(repo) == first
 
 
@@ -138,14 +135,12 @@ def test_interior_hash_corruption_uses_only_prior_prefix(repo: Path) -> None:
         },
         cwd=repo,
     )
-    lines = (loaded.path / "events.jsonl").read_text(encoding="utf-8").splitlines()
+    path = loaded.path / "events.jsonl"
+    lines = path.read_text(encoding="utf-8").splitlines()
     second = json.loads(lines[1])
     second["data"]["work_id"] = "tampered"
     lines[1] = json.dumps(second, sort_keys=True, separators=(",", ":"))
-    (loaded.path / "events.jsonl").write_text(
-        "\n".join(lines) + "\n",
-        encoding="utf-8",
-    )
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     degraded = journal.load_invocation(loaded.path)
     assert degraded.health is journal.JournalHealth.DEGRADED
@@ -223,5 +218,4 @@ def test_gc_exact_lifecycle_scope_across_worktrees(
 def test_delete_all_wij_files_degrades_to_current_none_behavior(repo: Path) -> None:
     journal.start_invocation(manifest(), cwd=repo)
     shutil.rmtree(journal.journal_root(repo))
-
     assert locate(repo).status is journal.LocateStatus.NONE

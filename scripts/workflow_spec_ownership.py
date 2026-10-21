@@ -4,22 +4,37 @@ import argparse
 import hashlib
 import json
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from scripts import spec_contract, workflow_to_specs
+from scripts import spec_contract
 
-SCHEMA = workflow_to_specs.SCHEMA
+SCHEMA = "polaris.to-specs-execution-feasibility/v1"
+_TOPOLOGY_MARKER = "spec-execution-topology:v1"
 CONTROL_PLANE_PATHS = (
     ".agents/skills/to-specs/SKILL.md",
-    ".agents/skills/to-specs/RETAINED_SKILL.md",
     ".agents/skills/to-specs/PROCEDURE.md",
+    "scripts/spec_contract.py",
+    "scripts/workflow_to_specs.py",
     "scripts/workflow_spec_ownership.py",
 )
 
 
 class OwnershipError(RuntimeError):
     pass
+
+
+@dataclass(frozen=True)
+class SpecSnapshot:
+    number: int
+    state: str
+    blocked_by: tuple[int, ...]
+    has_topology: bool
+
+    @property
+    def is_legacy_completed(self) -> bool:
+        return self.state == "CLOSED" and not self.has_topology
 
 
 def _need(ok: bool, message: str) -> None:
@@ -41,8 +56,7 @@ def _git(repo: Path, *args: str) -> str:
         ["git", *args],
         cwd=repo,
         check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         text=True,
     )
     if result.returncode != 0:
@@ -80,7 +94,7 @@ def _strings(value: Any, label: str, *, allow_empty: bool = False) -> list[str]:
     _need(isinstance(value, list), f"{label}: list required")
     _need(allow_empty or bool(value), f"{label}: non-empty list required")
     _need(
-        all(isinstance(item, str) and item.strip() for item in value),
+        all(isinstance(item, str) and bool(item.strip()) for item in value),
         f"{label}: non-empty strings required",
     )
     result = [item.strip() for item in value]
@@ -90,7 +104,11 @@ def _strings(value: Any, label: str, *, allow_empty: bool = False) -> list[str]:
 
 def _entry_path(base: Path, entry: dict[str, Any]) -> Path:
     value = entry.get("issue_json")
-    _need(isinstance(value, str) and value.strip(), "manifest: issue_json required")
+    _need(
+        isinstance(value, str) and bool(value.strip()),
+        "manifest: issue_json required",
+    )
+    assert isinstance(value, str)
     path = Path(value)
     return path if path.is_absolute() else base / path
 
@@ -98,7 +116,88 @@ def _entry_path(base: Path, entry: dict[str, Any]) -> Path:
 def _body(issue: dict[str, Any], number: int) -> str:
     body = issue.get("body")
     _need(isinstance(body, str), f"spec #{number}: issue snapshot missing body")
+    assert isinstance(body, str)
     return body
+
+
+def _extract_blockers(issue: dict[str, Any], number: int) -> tuple[int, ...]:
+    _need("blockedBy" in issue, f"spec #{number}: issue snapshot must include blockedBy")
+    blocked = issue["blockedBy"]
+    if isinstance(blocked, dict):
+        nodes = blocked.get("nodes")
+        _need(
+            isinstance(nodes, list),
+            f"spec #{number}: blockedBy.nodes must be a list",
+        )
+    elif isinstance(blocked, list):
+        nodes = blocked
+    else:
+        raise OwnershipError(f"spec #{number}: unsupported blockedBy shape")
+    assert isinstance(nodes, list)
+
+    result: list[int] = []
+    for node in nodes:
+        _need(isinstance(node, dict), f"spec #{number}: blockedBy node must be object")
+        assert isinstance(node, dict)
+        blocker = node.get("number")
+        _need(
+            isinstance(blocker, int) and blocker > 0,
+            f"spec #{number}: blocker number invalid",
+        )
+        assert isinstance(blocker, int)
+        result.append(blocker)
+    _need(len(result) == len(set(result)), f"spec #{number}: duplicate native blocker")
+    return tuple(result)
+
+
+def _load_snapshot(path: Path) -> SpecSnapshot:
+    issue = _load(path)
+    number = issue.get("number")
+    state = issue.get("state")
+    title = issue.get("title")
+    url = issue.get("url")
+    _need(isinstance(number, int) and number > 0, f"{path}: invalid issue number")
+    assert isinstance(number, int)
+    _need(
+        isinstance(title, str) and bool(title.strip()),
+        f"spec #{number}: title required",
+    )
+    _need(
+        isinstance(url, str) and url.startswith("https://github.com/"),
+        f"spec #{number}: canonical GitHub URL required",
+    )
+    _need(
+        isinstance(state, str) and state.upper() in {"OPEN", "CLOSED"},
+        f"spec #{number}: state must be OPEN/CLOSED",
+    )
+    assert isinstance(state, str)
+    body = _body(issue, number)
+    has_topology = _TOPOLOGY_MARKER in body
+    normalized_state = state.upper()
+    _need(
+        normalized_state == "CLOSED" or has_topology,
+        f"spec #{number}: open spec missing spec-execution-topology:v1",
+    )
+    return SpecSnapshot(
+        number=number,
+        state=normalized_state,
+        blocked_by=_extract_blockers(issue, number),
+        has_topology=has_topology,
+    )
+
+
+def _reachable(graph: dict[Any, tuple[Any, ...]], start: Any, target: Any) -> bool:
+    todo = list(graph.get(start, ()))
+    seen: set[Any] = set()
+    while todo:
+        current = todo.pop()
+        if current == target:
+            return True
+        if current in seen:
+            continue
+        seen.add(current)
+        todo.extend(graph.get(current, ()))
+    return False
 
 
 def _contract_and_topology(
@@ -129,11 +228,14 @@ def _unit_maps(
 def _analysis_by_unit(entry: dict[str, Any], spec: int) -> dict[str, dict[str, Any]]:
     rows = entry.get("unit_analysis")
     _need(isinstance(rows, list), f"spec #{spec}: unit_analysis list required")
+    assert isinstance(rows, list)
     result: dict[str, dict[str, Any]] = {}
     for row in rows:
         _need(isinstance(row, dict), f"spec #{spec}: unit_analysis row must be object")
+        assert isinstance(row, dict)
         unit = row.get("unit_id")
         _need(isinstance(unit, str), f"spec #{spec}: unit_analysis unit_id required")
+        assert isinstance(unit, str)
         _need(unit not in result, f"spec #{spec}: duplicate unit_analysis {unit}")
         result[unit] = row
     return result
@@ -153,14 +255,17 @@ def _material_rows(
     value: Any, expected: set[str], spec: int
 ) -> dict[str, dict[str, Any]]:
     _need(isinstance(value, list), f"spec #{spec}: ownership material list required")
+    assert isinstance(value, list)
     result: dict[str, dict[str, Any]] = {}
     for row in value:
         _need(
             isinstance(row, dict),
             f"spec #{spec}: material ownership row must be object",
         )
+        assert isinstance(row, dict)
         cell = row.get("cell")
         _need(isinstance(cell, str), f"spec #{spec}: material ownership cell required")
+        assert isinstance(cell, str)
         _need(cell not in result, f"spec #{spec}: duplicate material ownership {cell}")
         result[cell] = row
     _need(
@@ -176,14 +281,17 @@ def _planning_rows(
     value: Any, expected: set[str], spec: int
 ) -> dict[str, dict[str, Any]]:
     _need(isinstance(value, list), f"spec #{spec}: ownership planning list required")
+    assert isinstance(value, list)
     result: dict[str, dict[str, Any]] = {}
     for row in value:
         _need(
             isinstance(row, dict),
             f"spec #{spec}: planning ownership row must be object",
         )
+        assert isinstance(row, dict)
         cell = row.get("cell")
         _need(isinstance(cell, str), f"spec #{spec}: planning ownership cell required")
+        assert isinstance(cell, str)
         _need(cell not in result, f"spec #{spec}: duplicate planning ownership {cell}")
         result[cell] = row
     _need(
@@ -197,71 +305,11 @@ def _planning_rows(
 
 def _text_evidence(row: dict[str, Any], label: str) -> None:
     reason = row.get("reason")
-    _need(isinstance(reason, str) and reason.strip(), f"{label}: reason required")
+    _need(
+        isinstance(reason, str) and bool(reason.strip()),
+        f"{label}: reason required",
+    )
     _strings(row.get("basis"), f"{label} basis")
-
-
-def _check_consumed(
-    *,
-    spec: int,
-    cell: str,
-    row: dict[str, Any],
-    cells: dict[str, dict[str, Any]],
-    cell_units: dict[str, str],
-    analyses: dict[str, dict[str, Any]],
-    snapshots: dict[int, workflow_to_specs.SpecSnapshot],
-    issues: dict[int, dict[str, Any]],
-    spec_graph: dict[int, tuple[int, ...]],
-    errors: list[str],
-) -> None:
-    label = f"spec #{spec} {cell}"
-    provider = row.get("provider_spec")
-    if not isinstance(provider, int) or provider <= 0 or provider == spec:
-        errors.append(
-            f"{label}: consumed-boundary provider_spec must be another Spec"
-        )
-        return
-    provider_snapshot = snapshots.get(provider)
-    if provider_snapshot is None:
-        errors.append(f"{label}: provider Spec #{provider} absent from bounded set")
-        return
-    try:
-        provider_cells = _strings(
-            row.get("provider_cells"),
-            f"{label} provider_cells",
-            allow_empty=True,
-        )
-    except OwnershipError as exc:
-        errors.append(str(exc))
-        return
-    if provider_snapshot.is_legacy_completed:
-        if provider_cells:
-            errors.append(
-                f"{label}: legacy provider must not invent provider cells"
-            )
-    else:
-        _check_provider_cells(
-            label=label,
-            cell=cell,
-            provider=provider,
-            provider_cells=provider_cells,
-            cells=cells,
-            issues=issues,
-            errors=errors,
-        )
-    if provider_snapshot.state == "OPEN" and not workflow_to_specs._reachable(
-        spec_graph, spec, provider
-    ):
-        errors.append(
-            f"{label}: open provider #{provider} is downstream/unrelated; "
-            "no native prerequisite path protects the consumer"
-        )
-    unit = cell_units[cell]
-    if not _provider_declared(analyses.get(unit, {}), provider):
-        errors.append(
-            f"{label}: provider #{provider} is not declared in {unit} "
-            "unit_analysis.provider_requirements"
-        )
 
 
 def _check_provider_cells(
@@ -286,15 +334,68 @@ def _check_provider_cells(
     for provider_cell in provider_cells:
         item = provider_by_cell.get(provider_cell)
         if item is None or item["kind"] != "material-contract":
-            errors.append(
-                f"{label}: invalid provider material cell {provider_cell}"
-            )
+            errors.append(f"{label}: invalid provider material cell {provider_cell}")
             continue
         covered.update(item["ccl"])
     missing = set(cells[cell]["ccl"]) - covered
     if missing:
+        errors.append(f"{label}: provider cells do not cover CCL refs {sorted(missing)}")
+
+
+def _check_consumed(
+    *,
+    spec: int,
+    cell: str,
+    row: dict[str, Any],
+    cells: dict[str, dict[str, Any]],
+    cell_units: dict[str, str],
+    analyses: dict[str, dict[str, Any]],
+    snapshots: dict[int, SpecSnapshot],
+    issues: dict[int, dict[str, Any]],
+    spec_graph: dict[int, tuple[int, ...]],
+    errors: list[str],
+) -> None:
+    label = f"spec #{spec} {cell}"
+    provider = row.get("provider_spec")
+    if not isinstance(provider, int) or provider <= 0 or provider == spec:
+        errors.append(f"{label}: consumed-boundary provider_spec must be another Spec")
+        return
+    provider_snapshot = snapshots.get(provider)
+    if provider_snapshot is None:
+        errors.append(f"{label}: provider Spec #{provider} absent from bounded set")
+        return
+    try:
+        provider_cells = _strings(
+            row.get("provider_cells"),
+            f"{label} provider_cells",
+            allow_empty=True,
+        )
+    except OwnershipError as exc:
+        errors.append(str(exc))
+        return
+    if provider_snapshot.is_legacy_completed:
+        if provider_cells:
+            errors.append(f"{label}: legacy provider must not invent provider cells")
+    else:
+        _check_provider_cells(
+            label=label,
+            cell=cell,
+            provider=provider,
+            provider_cells=provider_cells,
+            cells=cells,
+            issues=issues,
+            errors=errors,
+        )
+    if provider_snapshot.state == "OPEN" and not _reachable(spec_graph, spec, provider):
         errors.append(
-            f"{label}: provider cells do not cover CCL refs {sorted(missing)}"
+            f"{label}: open provider #{provider} is downstream/unrelated; "
+            "no native prerequisite path protects the consumer"
+        )
+    unit = cell_units[cell]
+    if not _provider_declared(analyses.get(unit, {}), provider):
+        errors.append(
+            f"{label}: provider #{provider} is not declared in {unit} "
+            "unit_analysis.provider_requirements"
         )
 
 
@@ -305,7 +406,7 @@ def _check_material(
     cells: dict[str, dict[str, Any]],
     cell_units: dict[str, str],
     analyses: dict[str, dict[str, Any]],
-    snapshots: dict[int, workflow_to_specs.SpecSnapshot],
+    snapshots: dict[int, SpecSnapshot],
     issues: dict[int, dict[str, Any]],
     spec_graph: dict[int, tuple[int, ...]],
     errors: list[str],
@@ -339,9 +440,7 @@ def _check_material(
                 errors=errors,
             )
         else:
-            errors.append(
-                f"{label}: disposition must be owned/consumed-boundary"
-            )
+            errors.append(f"{label}: disposition must be owned/consumed-boundary")
     return dispositions
 
 
@@ -368,15 +467,11 @@ def _check_planning(
             errors.append(f"{label}: supports unknown OBL cells {sorted(unknown)}")
             continue
         if not any(dispositions[item] == "owned" for item in supports):
-            errors.append(
-                f"{label}: planning cell has no locally owned material outcome"
-            )
+            errors.append(f"{label}: planning cell has no locally owned material outcome")
         unit = cell_units[cell]
         for support in supports:
             support_unit = cell_units[support]
-            if support_unit != unit and not workflow_to_specs._reachable(
-                unit_graph, unit, support_unit
-            ):
+            if support_unit != unit and not _reachable(unit_graph, unit, support_unit):
                 errors.append(
                     f"{label}: supports {support} in downstream/unrelated "
                     f"{support_unit}"
@@ -387,16 +482,18 @@ def validate_manifest(path: Path) -> dict[str, Any]:
     manifest = _load(path)
     _need(manifest.get("schema") == SCHEMA, f"manifest schema must be {SCHEMA}")
     raw_entries = manifest.get("specs")
-    _need(isinstance(raw_entries, list) and raw_entries, "manifest: specs required")
+    _need(isinstance(raw_entries, list) and bool(raw_entries), "manifest: specs required")
+    assert isinstance(raw_entries, list)
     base = path.parent
     entries: dict[int, dict[str, Any]] = {}
     issues: dict[int, dict[str, Any]] = {}
-    snapshots: dict[int, workflow_to_specs.SpecSnapshot] = {}
+    snapshots: dict[int, SpecSnapshot] = {}
     for raw in raw_entries:
         _need(isinstance(raw, dict), "manifest: spec entry must be object")
+        assert isinstance(raw, dict)
         issue_path = _entry_path(base, raw)
         issue = _load(issue_path)
-        snapshot = workflow_to_specs._load_snapshot(issue_path)
+        snapshot = _load_snapshot(issue_path)
         _need(snapshot.number not in entries, "manifest: duplicate spec snapshot")
         entries[snapshot.number] = raw
         issues[snapshot.number] = issue
@@ -460,9 +557,7 @@ def validate_manifest(path: Path) -> dict[str, Any]:
             errors=errors,
         )
         for unit in topology["units"]:
-            material_in_unit = [
-                cell for cell in unit["cells"] if cell in material_ids
-            ]
+            material_in_unit = [cell for cell in unit["cells"] if cell in material_ids]
             if material_in_unit and not any(
                 dispositions.get(cell) == "owned" for cell in material_in_unit
             ):

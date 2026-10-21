@@ -33,11 +33,15 @@ def _body(
         ],
     }
     topology = {"schema": "polaris.spec-execution-topology/v1", "units": units}
-    imp = "None." if not implementation else "\n".join(
-        f"- `{cell}` — {text}" for cell, text in implementation.items()
+    imp = (
+        "None."
+        if not implementation
+        else "\n".join(f"- `{cell}` — {text}" for cell, text in implementation.items())
     )
-    tests = "None." if not testing else "\n".join(
-        f"- `{cell}` — {text}" for cell, text in testing.items()
+    tests = (
+        "None."
+        if not testing
+        else "\n".join(f"- `{cell}` — {text}" for cell, text in testing.items())
     )
     return (
         "<!-- spec-contract-ccl:v1\n"

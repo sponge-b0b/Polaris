@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-20] R3 Portfolio context versions | owner history implemented
+
+Recorded Portfolio-owned typed context revisions, Mandate member meaning, exact-key selection and absence guards, historical owner-cause attestation, and immutable PostgreSQL commit history. Updated Portfolio & Risk, Evidence, Application Use Cases, and Durable Persistence; dependent Evidence writes and Recommendation consumption remain planned.
+
 ## [2026-10-20] R3 Portfolio Evidence target corrections | owner history implemented
 
 Recorded the realized consequence and Risk Evidence target owner: complete versioned claim catalogs, separate target and catalog correction lanes, explicit future-overlap resolution, `(T,K)` owner witnesses, and immutable PostgreSQL acts. Updated `portfolio-risk`, `evidence`, and `durable-persistence`; context ownership and Recommendation consumption remain planned.

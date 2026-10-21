@@ -25,6 +25,17 @@ class ContextContribution(StrEnum):
     PROVENANCE = "provenance"
 
 
+def validate_context_contributions(
+    contributions: frozenset[ContextContribution],
+) -> None:
+    if (
+        type(contributions) is not frozenset
+        or not contributions
+        or any(type(item) is not ContextContribution for item in contributions)
+    ):
+        raise ValueError("at least one material ContextContribution is required")
+
+
 @dataclass(frozen=True, slots=True)
 class SelectedContextFact[FactT, LineageT, ApplicabilityT, ProvenanceT]:
     """One owner fact and the meaning needed to reconstruct its selected version.
@@ -50,12 +61,7 @@ class SelectedContextFact[FactT, LineageT, ApplicabilityT, ProvenanceT]:
             raise ValueError(
                 "owner fact, lineage, applicability and provenance are required"
             )
-        if (
-            type(self.contributions) is not frozenset
-            or not self.contributions
-            or any(type(item) is not ContextContribution for item in self.contributions)
-        ):
-            raise ValueError("at least one material ContextContribution is required")
+        validate_context_contributions(self.contributions)
 
 
 @dataclass(frozen=True, slots=True)

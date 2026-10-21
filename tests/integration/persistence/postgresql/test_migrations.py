@@ -20,7 +20,15 @@ _INVESTMENT_INTELLIGENCE_TABLE_NAMES = {
 _portfolio.PORTFOLIO_TABLE_NAMES = (
     _portfolio.PORTFOLIO_TABLE_NAMES
     | _INVESTMENT_INTELLIGENCE_TABLE_NAMES
-    | {"projected_portfolio_consequences"}
+    # duplicate-code: migration expectations stay independent of runtime schema names.
+    # arid: disable
+    | {
+        "projected_portfolio_consequences",
+        "portfolio_risk_assessments",
+        "portfolio_judgment_acts",
+        "portfolio_context_commits",
+    }
+    # arid: enable
 )
 
 from ._migration_tests_portfolio_base import *  # noqa: E402,F401,F403

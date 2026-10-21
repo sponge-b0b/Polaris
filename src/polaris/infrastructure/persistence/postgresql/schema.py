@@ -69,6 +69,16 @@ portfolio_states = Table(
     Index("ix_portfolio_states_history", "portfolio_id", "as_of", "known_at"),
 )
 
+portfolio_context_commits = Table(
+    "portfolio_context_commits",
+    _foundation.metadata,
+    Column("commit_id", UUID(as_uuid=True), primary_key=True),
+    Column("known_at", DateTime(timezone=True), nullable=False),
+    Column("payload", JSONB, nullable=False),
+    CheckConstraint("jsonb_typeof(payload) = 'object'", name="payload_object"),
+    Index("ix_portfolio_context_commits_known_at", "known_at"),
+)
+
 projected_portfolio_consequences = Table(
     "projected_portfolio_consequences",
     _foundation.metadata,
@@ -198,5 +208,6 @@ POLARIS_TABLE_NAMES = _foundation.POLARIS_TABLE_NAMES | frozenset(
         "projected_portfolio_consequences",
         "portfolio_risk_assessments",
         "portfolio_judgment_acts",
+        "portfolio_context_commits",
     }
 )

@@ -7,7 +7,7 @@ import json
 import re
 import subprocess
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 _CONTROL_LABEL = "project-delivery:management"
 _WAYFINDER_LABEL = "wayfinder:map"
@@ -34,6 +34,18 @@ class DeliveryStateError(RuntimeError):
 
 class GitHubCommandError(DeliveryStateError):
     """Raised when a required GitHub read or mutation fails."""
+
+
+class ProjectDeliveryClient(Protocol):
+    def control_issues(self) -> list[dict[str, Any]]: ...
+
+    def issue(self, number: int) -> dict[str, Any]: ...
+
+    def blocked_by(self, number: int) -> list[dict[str, Any]]: ...
+
+    def comment(self, comment_id: int) -> dict[str, Any]: ...
+
+    def update_issue_body(self, number: int, body: str) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,11 +101,7 @@ class GitHubClient:
                 command.extend(("-f", f"{key}={value}"))
         completed = subprocess.run(command, text=True, capture_output=True, check=False)
         if completed.returncode != 0:
-            detail = (
-                completed.stderr.strip()
-                or completed.stdout.strip()
-                or "gh api failed"
-            )
+            detail = completed.stderr.strip() or completed.stdout.strip() or "gh api failed"
             raise GitHubCommandError(detail)
         try:
             return json.loads(completed.stdout)
@@ -118,8 +126,8 @@ class GitHubClient:
                 raise GitHubCommandError("GitHub pagination exceeded safety bound")
 
     def control_issues(self) -> list[dict[str, Any]]:
-        # GitHub's server-side label-filtered issue listing has intermittently omitted the
-        # canonical control issue. Enumerate issues and enforce the label locally instead.
+        # GitHub's label-filtered issue listing has intermittently omitted the canonical
+        # control issue. Enumerate issues and enforce the label locally instead.
         rows = self._paged(
             f"repos/{self.repo}/issues",
             {"state": "all"},
@@ -240,7 +248,7 @@ def _parse_control(issue: dict[str, Any]) -> ControlState:
     )
 
 
-def _load_control(client: GitHubClient) -> ControlState:
+def _load_control(client: ProjectDeliveryClient) -> ControlState:
     candidates = client.control_issues()
     if len(candidates) != 1:
         raise DeliveryStateError(
@@ -255,7 +263,7 @@ def _require_wayfinder(issue: dict[str, Any], number: int) -> None:
         raise DeliveryStateError(f"#{number} is not a canonical Wayfinder map")
 
 
-def _has_open_map_blocker(client: GitHubClient, number: int) -> bool:
+def _has_open_map_blocker(client: ProjectDeliveryClient, number: int) -> bool:
     for blocker in client.blocked_by(number):
         if _issue_state(blocker) == "open" and _has_label(blocker, _WAYFINDER_LABEL):
             return True
@@ -263,7 +271,7 @@ def _has_open_map_blocker(client: GitHubClient, number: int) -> bool:
 
 
 def _validate_parallel_authorization(
-    client: GitHubClient, control: ControlState
+    client: ProjectDeliveryClient, control: ControlState
 ) -> None:
     if len(control.focused) <= 1:
         return
@@ -293,7 +301,7 @@ def _replace_state_block(body: str, focused: tuple[int, ...]) -> str:
     return body[: matches[0].start()] + replacement + body[matches[0].end() :]
 
 
-def reconcile(client: GitHubClient) -> tuple[bool, tuple[int, ...]]:
+def reconcile(client: ProjectDeliveryClient) -> tuple[bool, tuple[int, ...]]:
     control = _load_control(client)
     retained: list[int] = []
     for number in control.focused:
@@ -323,7 +331,7 @@ def reconcile(client: GitHubClient) -> tuple[bool, tuple[int, ...]]:
     return True, focused
 
 
-def guard(client: GitHubClient, wayfinder: int) -> GuardResult:
+def guard(client: ProjectDeliveryClient, wayfinder: int) -> GuardResult:
     try:
         control = _load_control(client)
         _validate_parallel_authorization(client, control)

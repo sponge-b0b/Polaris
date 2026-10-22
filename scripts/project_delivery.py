@@ -10,7 +10,26 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 _CONTROL_LABEL = "project-delivery:management"
-_CONTROL_DISCOVERY_SNAPSHOTS = 5
+_CONTROL_DISCOVERY_QUERY = """\
+query($owner: String!, $name: String!, $label: String!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    issues(
+      first: 100
+      after: $after
+      states: [OPEN, CLOSED]
+      labels: [$label]
+    ) {
+      nodes {
+        number
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}
+"""
 _WAYFINDER_LABEL = "wayfinder:map"
 _STATE_BLOCK_RE = re.compile(
     r"(?ms)^## Current Delivery State\n\n"
@@ -128,25 +147,64 @@ class GitHubClient:
             if page > 1000:
                 raise GitHubCommandError("GitHub pagination exceeded safety bound")
 
-    def control_issues(self) -> list[dict[str, Any]]:
-        # Treat one empty filtered snapshot as inconclusive. Aggregate a bounded set
-        # of complete label-filtered snapshots, then confirm only discovered candidates.
-        observed: set[int] = set()
-        for _ in range(_CONTROL_DISCOVERY_SNAPSHOTS):
-            rows = self._paged(
-                f"repos/{self.repo}/issues",
-                {"state": "all", "labels": _CONTROL_LABEL},
-            )
-            for row in rows:
-                if "pull_request" in row or not _has_label(row, _CONTROL_LABEL):
-                    continue
-                observed.add(_issue_number(row))
+    def _control_issue_numbers(self) -> list[int]:
+        owner, name = self.repo.split("/", 1)
+        after: str | None = None
+        numbers: set[int] = set()
+        for _ in range(1000):
+            fields = {
+                "query": _CONTROL_DISCOVERY_QUERY,
+                "owner": owner,
+                "name": name,
+                "label": _CONTROL_LABEL,
+            }
+            if after is not None:
+                fields["after"] = after
+            value = self._request("graphql", fields=fields)
+            if not isinstance(value, dict):
+                raise GitHubCommandError("GitHub GraphQL response was not an object")
+            if value.get("errors"):
+                raise GitHubCommandError("GitHub GraphQL returned errors")
+            data = value.get("data")
+            if not isinstance(data, dict):
+                raise GitHubCommandError("GitHub GraphQL data was unreadable")
+            repository = data.get("repository")
+            if not isinstance(repository, dict):
+                raise GitHubCommandError("GitHub GraphQL repository was unreadable")
+            issues = repository.get("issues")
+            if not isinstance(issues, dict):
+                raise GitHubCommandError("GitHub GraphQL issues were unreadable")
+            nodes = issues.get("nodes")
+            page_info = issues.get("pageInfo")
+            if not isinstance(nodes, list) or not all(
+                isinstance(node, dict) for node in nodes
+            ):
+                raise GitHubCommandError("GitHub GraphQL issue nodes were unreadable")
+            if not isinstance(page_info, dict):
+                raise GitHubCommandError("GitHub GraphQL page info was unreadable")
+            for node in nodes:
+                numbers.add(_issue_number(node))
+            has_next = page_info.get("hasNextPage")
+            if not isinstance(has_next, bool):
+                raise GitHubCommandError("GitHub GraphQL pagination state was unreadable")
+            if not has_next:
+                return sorted(numbers)
+            end_cursor = page_info.get("endCursor")
+            if not isinstance(end_cursor, str) or not end_cursor:
+                raise GitHubCommandError("GitHub GraphQL pagination missing end cursor")
+            after = end_cursor
+        raise GitHubCommandError("GitHub GraphQL pagination exceeded safety bound")
 
+    def control_issues(self) -> list[dict[str, Any]]:
         confirmed: list[dict[str, Any]] = []
-        for number in sorted(observed):
+        for number in self._control_issue_numbers():
             current = self.issue(number)
-            if _has_label(current, _CONTROL_LABEL):
-                confirmed.append(current)
+            if not _has_label(current, _CONTROL_LABEL):
+                raise GitHubCommandError(
+                    "label-filtered control discovery returned "
+                    f"#{number} without the exact control label"
+                )
+            confirmed.append(current)
         return confirmed
 
     def issue(self, number: int) -> dict[str, Any]:

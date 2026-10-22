@@ -60,7 +60,9 @@ def finalize(manifest_path: Path, output_path: Path) -> str:
             temporary_path.read_text(encoding="utf-8"),
         )
         if receipt != VALID:
-            raise RuntimeError(f"shared validator returned unexpected receipt: {receipt}")
+            raise RuntimeError(
+                f"shared validator returned unexpected receipt: {receipt}"
+            )
         os.replace(temporary_path, output_path)
     except Exception:
         temporary_path.unlink(missing_ok=True)

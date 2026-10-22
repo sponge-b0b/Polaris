@@ -120,7 +120,24 @@ def test_r3_risk_and_consequence_authorities_remain_bounded() -> None:
     for relative_path, allowed in expected_classes.items():
         assert _top_level_classes(relative_path) == allowed
 
-    assert "dimensions" in {field.name for field in fields(PortfolioRiskAssessment)}
+    # An optional score can be one dimension; no scalar is the assessment authority.
+    assert {field.name for field in fields(PortfolioRiskAssessment)} == {
+        # duplicate-code: this public Risk-shape falsifier must stay independent
+        # of the historical migration's column expectations.
+        # arid: disable
+        "assessment_id",
+        "source_state_id",
+        "source_as_of",
+        "projected_consequence_id",
+        # arid: enable
+        "horizon",
+        "scenario",
+        "support",
+        "dimensions",
+        "uncertainty",
+        "attribution",
+        "formed_at",
+    }
     risk_tree = ast.parse(
         (ROOT / "src/polaris/domain/portfolio_risk.py").read_text(encoding="utf-8")
     )

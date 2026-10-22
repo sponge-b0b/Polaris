@@ -14,16 +14,21 @@ def test_shared_reslice_contract_is_composed_by_both_workflows() -> None:
         assert "scripts.workflow_reslice_recovery validate" in text
 
 
-def test_recovery_contract_covers_both_execution_orders() -> None:
+def test_recovery_contract_covers_all_execution_modes() -> None:
     text = RECOVERY.read_text(encoding="utf-8")
     for phrase in (
         "### Source-first",
         "### Destination-first",
+        "### Destination-only after Source retirement",
         "pending-prerequisite",
         "source-complete",
         "prerequisite-complete",
+        "pending-source-retirement",
+        "source-retired",
         "source-reconciled",
-        "second participating closer terminalizes",
+        "Source disposition",
+        "destination-only",
+        "Source completion commit:** Not applicable",
     ):
         assert phrase in text
 
@@ -34,3 +39,5 @@ def test_machine_validator_exists() -> None:
     assert "Execution order contradicts Native execution order" in text
     assert "source-complete is valid only for source-first recovery" in text
     assert "prerequisite-complete is valid only for destination-first recovery" in text
+    assert "retired-source Execution order must be destination-only" in text
+    assert "Source completion commit: Not applicable" in text

@@ -138,6 +138,9 @@ def test_r3_risk_and_consequence_authorities_remain_bounded() -> None:
         "attribution",
         "formed_at",
     }
+    assert {
+        name for name in vars(PortfolioRiskAssessment) if not name.startswith("_")
+    } == {field.name for field in fields(PortfolioRiskAssessment)} | {"unresolved"}
     risk_tree = ast.parse(
         (ROOT / "src/polaris/domain/portfolio_risk.py").read_text(encoding="utf-8")
     )

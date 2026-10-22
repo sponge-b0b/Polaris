@@ -68,6 +68,10 @@ def retired_record(
     destination_completion: str = "Pending",
     order: str = "#399",
 ) -> str:
+    donor_row = (
+        "| `src/polaris/application/evidence/revalidation.py` | +1 | "
+        "destination ticket | transplant later |\n"
+    )
     return f"""<!-- ticket-reslice-recovery:v1 -->
 ## Ticket Reslice Recovery
 
@@ -97,8 +101,7 @@ def retired_record(
 
 | Donor path | Current hunk(s) or untracked SHA-256 | Attribution | Disposition |
 | --- | --- | --- | --- |
-| `src/polaris/application/evidence/revalidation.py` | +1 | destination ticket | transplant later |
-"""
+{donor_row}"""
 
 
 def test_source_first_pending_is_valid() -> None:

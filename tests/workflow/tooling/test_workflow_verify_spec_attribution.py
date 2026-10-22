@@ -54,10 +54,13 @@ def test_default_equivalent_branch_changes_are_not_candidate_attributable(
     policy_commit = _commit(repo, "workflow update")
     default_head = _git(repo, "rev-parse", "HEAD")
 
+    # Model a long-lived Spec branch that diverged before absorbing the exact
+    # current default-branch workflow bytes. The product commit first ensures
+    # the cherry-pick is not identical to the original default-branch commit.
     _git(repo, "switch", "-c", "spec-1", baseline)
-    _git(repo, "cherry-pick", policy_commit)
     _write(repo, "src/product.py", "VALUE = 2\n")
     _commit(repo, "spec product change")
+    _git(repo, "cherry-pick", policy_commit)
 
     manifest = module.build_manifest(repo, default_head, "HEAD")
 
@@ -77,4 +80,32 @@ def test_default_equivalent_branch_changes_are_not_candidate_attributable(
     ]
     assert manifest["inherited_default_equivalent_paths"] == [
         "tests/workflow/test_tool.py"
+    ]
+
+
+def test_default_equivalent_deletion_is_inherited(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-b", "main")
+    _git(repo, "config", "user.email", "test@example.com")
+    _git(repo, "config", "user.name", "Test User")
+
+    _write(repo, "src/product.py", "VALUE = 1\n")
+    _write(repo, "scripts/retired_workflow_tool.py", "VALUE = 'old'\n")
+    baseline = _commit(repo, "baseline")
+
+    _git(repo, "rm", "scripts/retired_workflow_tool.py")
+    policy_commit = _commit(repo, "remove workflow tool")
+    default_head = _git(repo, "rev-parse", "HEAD")
+
+    _git(repo, "switch", "-c", "spec-1", baseline)
+    _write(repo, "src/product.py", "VALUE = 2\n")
+    _commit(repo, "spec product change")
+    _git(repo, "cherry-pick", policy_commit)
+
+    manifest = module.build_manifest(repo, default_head, "HEAD")
+
+    assert manifest["candidate_attributable_paths"] == ["src/product.py"]
+    assert manifest["inherited_default_equivalent_paths"] == [
+        "scripts/retired_workflow_tool.py"
     ]

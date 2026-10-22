@@ -153,19 +153,19 @@ The verifier may derive concrete falsifying runtime states from the typed assert
 may not reinterpret an assertion's modality, cardinality, vocabulary closure, temporal
 meaning, authority, or persistence contract.
 
-### IMP-* proof
+### IMP-* cells
 
 Verify the exact private/mechanical obligation is realized. If the implementation uses a
 materially different private mechanic that remains implementation-equivalent and the
 cell no longer describes reality, reconcile the Spec through `$to-specs` rather than
 pretending the stale planning cell passed.
 
-### TEST-* proof
+### TEST-* cells
 
 Verify the required proof exists and exercises the intended exact contract behavior.
 Passing a test that does not falsify the assigned behavior is insufficient.
 
-### EXC-* proof
+### EXC-* cells
 
 Verify the candidate did not introduce the excluded behavior when that exclusion is
 observable from the changed implementation. Do not create implementation work merely to
@@ -188,6 +188,55 @@ Use `uv run --locked` for project-declared tools as required by `AGENTS.md`.
 
 Reuse still-valid candidate-bound evidence. After a mutation rerun only checks whose
 inputs may have changed.
+
+### Technical-gate causality and default-branch inheritance
+
+The fixed Spec baseline is immutable lineage/contract history. It is **not** sufficient by
+itself to attribute repository technical debt to a long-lived Spec branch.
+
+Before path-scoped quality gates or differential repository gates, fetch current default
+branch state and build the exact attribution manifest:
+
+```bash
+git fetch origin main
+python -m scripts.workflow_verify_spec_attribution build \
+  --repo . \
+  --default-ref origin/main \
+  --candidate-ref HEAD \
+  --output <verify-spec-attribution.json>
+```
+
+Require exact:
+
+```text
+VERIFY-SPEC ATTRIBUTION: VALID
+```
+
+Bind all technical-gate causality to that manifest and the exact stable candidate HEAD.
+
+For Ruff, formatting, Mypy, and other path-addressable technical failures:
+
+* failures on `candidate_attributable_paths` are candidate failures and may block PASS;
+* failures confined to branch-side paths whose exact candidate blobs are listed in
+  `inherited_default_equivalent_paths` are inherited upstream/default-branch failures;
+* failures on default-branch-only paths that the candidate did not change are likewise
+  unrelated to this Spec candidate;
+* operational/tooling failure to execute a mandatory gate remains blocking regardless of
+  attribution.
+
+For whole-repository relational scanners such as Arid/JSCPD, invoke `$deduplicate-code` in
+its current `spec-differential` mode and supply the same attribution manifest. Scanner scope
+remains whole-repository; candidate blocking/repair attribution follows that skill's current
+rules.
+
+An inherited/default-equivalent technical finding is an `unrelated failure`: report it with
+causality and continue verification when the applicable candidate gate is otherwise green.
+Do not turn historical Spec-baseline distance into Spec-owned cleanup. Conversely, a path
+that diverges from current default branch remains candidate-attributable even when it is a
+workflow/control-plane path; do not use this rule to hide actual branch-local divergence.
+
+After any candidate mutation, rebuild this attribution manifest because exact candidate
+identity changed.
 
 ## 6. Repair only owned implementation failures
 
@@ -226,7 +275,8 @@ After any repository mutation:
 2. commit/push under the existing Spec branch rules;
 3. require one clean stable exact `HEAD`;
 4. rebuild the deterministic Spec contract;
-5. rerun exact v2 coverage validation.
+5. rerun exact v2 coverage validation;
+6. rebuild the exact verify-spec attribution manifest.
 
 ## 7. Independent closure certification
 
@@ -281,12 +331,13 @@ Immediately before persisting PASS require:
 Stable HEAD: unchanged
 Spec contract: VALID
 Ticket coverage v2: VALID
+Verify-spec attribution: VALID and current
 Unresolved exact contract cells: 0
 Open verifier findings: 0
 Known implementation/test failures: 0
 Unresolved cell-routing defects: 0
 Unresolved contract/planning gaps: 0
-Applicable mandatory technical gates: PASS
+Applicable candidate-attributable mandatory technical gates: PASS
 ```
 
 ## 9. Persist the Spec Verification Receipt
@@ -323,18 +374,62 @@ reused only under the repository-wide non-semantic workflow-policy synchronizati
 and only when current deterministic contract validation reproduces the receipt-bound
 `SPEC_BODY_HASH` and `SPEC_CONTRACT_HASH` as required by that rule.
 
-## 10. Handoff
+## 10. Outbound Human Handoff boundary
 
-On PASS:
+Every terminal **Human Handoff** from `$verify-spec` uses the shared
+`polaris.workflow-handoff/v1` gate. A recommendation, prose instruction, bare downstream
+skill command, or statement such as `resume $verify-spec after ...` is **not** a Human
+Handoff and does not satisfy a lifecycle terminal condition.
+
+Before generating a handoff, resolve the exact downstream artifact from current durable
+state:
+
+* PASS -> `$review-spec` receives the exact current Parent Spec issue;
+* `cell-routing-defect` -> `$to-tickets` receives the exact current Parent Spec issue;
+* `contract-gap` / `planning-cell-gap` -> `$to-specs` receives the exact current planning
+  source for the Parent Spec: its governing Wayfinder when Wayfinder-managed, otherwise its
+  exact Independent planning source;
+* another semantic/architecture route receives only the exact artifact required by that
+  owning workflow's current routing contract.
+
+If no downstream lifecycle owner exists for a genuine operational/environment blocker, do
+not invent a Human Handoff. Remain at `$verify-spec` and report the exact blocker and
+candidate identity.
+
+Every handoff manifest uses:
 
 ```text
-$review-spec - <Spec Title> (<Spec URL>)
+schema: polaris.workflow-handoff/v1
+boundary: human-lifecycle
+durability.verified: true
 ```
 
-Do not invoke review implicitly.
+Durability sources must be canonical, unique, and sufficient for a fresh downstream
+session to reconstruct all correctness-critical state. Include at minimum the exact current
+Parent Spec URL and any additional durable defect/authority artifact required by the route.
 
-On a routed blocker, persist the required durable blocker/defect state before emitting the
-owning Human Handoff.
+Generate and verify only through:
+
+```bash
+python -m scripts.workflow_handoff generate \
+  --manifest <handoff-manifest.json> \
+  > <handoff-output.txt>
+python -m scripts.workflow_handoff verify \
+  --manifest <handoff-manifest.json> \
+  --output <handoff-output.txt>
+```
+
+Require exact:
+
+```text
+WORKFLOW HANDOFF: VALID
+```
+
+The user-visible terminal Human Handoff block must reproduce `<handoff-output.txt>`
+**byte-for-byte**. Do not manually reconstruct it and do not emit a bare `$review-spec`,
+`$to-tickets`, `$to-specs`, `$architecture-remediation`, or `$verify-spec` line.
+
+Do not invoke review implicitly.
 
 ## Non-goals
 

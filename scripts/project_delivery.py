@@ -160,7 +160,7 @@ class GitHubClient:
             }
             if after is not None:
                 fields["after"] = after
-            value = self._request("graphql", fields=fields)
+            value = self._request("graphql", method="POST", fields=fields)
             if not isinstance(value, dict):
                 raise GitHubCommandError("GitHub GraphQL response was not an object")
             if value.get("errors"):

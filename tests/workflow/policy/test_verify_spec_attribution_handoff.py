@@ -9,6 +9,7 @@ VERIFY = (ROOT / ".agents/skills/verify-spec/SKILL.md").read_text(encoding="utf-
 DEDUP = (ROOT / ".agents/skills/deduplicate-code/SKILL.md").read_text(encoding="utf-8")
 CAPABILITIES_PATH = ROOT / ".agents/skills/workflow-capabilities.json"
 HANDOFF_MODULE_PATH = ROOT / "scripts/workflow_handoff.py"
+HANDOFF_FINALIZER = ".agents/skills/verify-spec/scripts/verify_spec_handoff.py"
 
 spec = importlib.util.spec_from_file_location("workflow_handoff", HANDOFF_MODULE_PATH)
 assert spec is not None and spec.loader is not None
@@ -43,20 +44,24 @@ def test_verify_spec_uses_machine_candidate_attribution() -> None:
     assert "scripts.workflow_verify_spec_attribution" not in DEDUP
 
 
-def test_verify_spec_is_bound_to_shared_handoff_gate() -> None:
+def test_verify_spec_is_bound_to_fail_closed_shared_handoff_gate() -> None:
     capabilities = json.loads(CAPABILITIES_PATH.read_text(encoding="utf-8"))
     assert "verify-spec" in capabilities["human_handoff"]["required_by"]
 
     for phrase in (
         "Every terminal **Human Handoff** from `$verify-spec`",
-        "python -m scripts.workflow_handoff generate",
-        "python -m scripts.workflow_handoff verify",
+        HANDOFF_FINALIZER,
         "WORKFLOW HANDOFF: VALID",
         "byte-for-byte",
         "resume $verify-spec after ...",
-        "Do not manually reconstruct it",
+        "READY` output cannot be",
+        "Do not manually reconstruct a handoff",
+        "the lifecycle remains at `$verify-spec`",
     ):
         assert phrase in VERIFY
+
+    assert "python -m scripts.workflow_handoff generate" not in VERIFY
+    assert "python -m scripts.workflow_handoff verify" not in VERIFY
 
 
 def test_verify_spec_pass_handoff_renders_review_spec() -> None:

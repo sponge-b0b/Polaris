@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 _CONTROL_LABEL = "project-delivery:management"
+_CONTROL_DISCOVERY_SNAPSHOTS = 5
 _WAYFINDER_LABEL = "wayfinder:map"
 _STATE_BLOCK_RE = re.compile(
     r"(?ms)^## Current Delivery State\n\n"
@@ -128,17 +129,25 @@ class GitHubClient:
                 raise GitHubCommandError("GitHub pagination exceeded safety bound")
 
     def control_issues(self) -> list[dict[str, Any]]:
-        # GitHub's label-filtered issue listing has intermittently omitted the canonical
-        # control issue. Enumerate issues and enforce the label locally instead.
-        rows = self._paged(
-            f"repos/{self.repo}/issues",
-            {"state": "all"},
-        )
-        return [
-            row
-            for row in rows
-            if "pull_request" not in row and _has_label(row, _CONTROL_LABEL)
-        ]
+        # Treat one empty filtered snapshot as inconclusive. Aggregate a bounded set
+        # of complete label-filtered snapshots, then confirm only discovered candidates.
+        observed: set[int] = set()
+        for _ in range(_CONTROL_DISCOVERY_SNAPSHOTS):
+            rows = self._paged(
+                f"repos/{self.repo}/issues",
+                {"state": "all", "labels": _CONTROL_LABEL},
+            )
+            for row in rows:
+                if "pull_request" in row or not _has_label(row, _CONTROL_LABEL):
+                    continue
+                observed.add(_issue_number(row))
+
+        confirmed: list[dict[str, Any]] = []
+        for number in sorted(observed):
+            current = self.issue(number)
+            if _has_label(current, _CONTROL_LABEL):
+                confirmed.append(current)
+        return confirmed
 
     def issue(self, number: int) -> dict[str, Any]:
         value = self._request(f"repos/{self.repo}/issues/{number}")

@@ -8,7 +8,6 @@ import re
 import subprocess
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urlencode
 
 _CONTROL_LABEL = "project-delivery:management"
 _WAYFINDER_LABEL = "wayfinder:map"
@@ -106,7 +105,7 @@ class GitHubClient:
         page = 1
         while True:
             params = {**query, "per_page": "100", "page": str(page)}
-            value = self._request(f"{endpoint}?{urlencode(params)}")
+            value = self._request(endpoint, fields=params)
             if not isinstance(value, list) or not all(
                 isinstance(row, dict) for row in value
             ):
@@ -119,9 +118,11 @@ class GitHubClient:
                 raise GitHubCommandError("GitHub pagination exceeded safety bound")
 
     def control_issues(self) -> list[dict[str, Any]]:
+        # GitHub's server-side label-filtered issue listing has intermittently omitted the
+        # canonical control issue. Enumerate issues and enforce the label locally instead.
         rows = self._paged(
             f"repos/{self.repo}/issues",
-            {"state": "all", "labels": _CONTROL_LABEL},
+            {"state": "all"},
         )
         return [
             row

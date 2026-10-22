@@ -199,7 +199,7 @@ branch state and build the exact attribution manifest:
 
 ```bash
 git fetch origin main
-python -m scripts.workflow_verify_spec_attribution build \
+python .agents/skills/verify-spec/scripts/verify_spec_attribution.py build \
   --repo . \
   --default-ref origin/main \
   --candidate-ref HEAD \

@@ -101,7 +101,9 @@ class GitHubClient:
                 command.extend(("-f", f"{key}={value}"))
         completed = subprocess.run(command, text=True, capture_output=True, check=False)
         if completed.returncode != 0:
-            detail = completed.stderr.strip() or completed.stdout.strip() or "gh api failed"
+            detail = (
+                completed.stderr.strip() or completed.stdout.strip() or "gh api failed"
+            )
             raise GitHubCommandError(detail)
         try:
             return json.loads(completed.stdout)

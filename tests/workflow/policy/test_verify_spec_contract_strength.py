@@ -13,7 +13,8 @@ def test_verify_spec_rejects_verifier_contract_strengthening() -> None:
     for phrase in (
         "Contract-strength preservation for verifier-owned repairs",
         "inadmissible verifier strengthening",
-        "state that the frozen contract explicitly permits",
+        "rejects a state",
+        "that the frozen contract explicitly permits",
         "audit verification-owned test/proof repairs",
         "Contract-permitted states rejected by verification-owned tests: 0",
         "finding whose supposed falsifier is still permitted by the frozen contract",

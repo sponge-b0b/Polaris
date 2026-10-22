@@ -4,7 +4,7 @@ description: Enforces repository-wide duplicate-code discipline, with zero unsup
 license: MIT
 compatibility: product=codex product=claude-code system=arid system=jscpd network=none
 metadata:
-  version: 2.6.0
+  version: 2.6.1
 ---
 
 # Code Duplication Checks
@@ -73,7 +73,7 @@ long-lived Spec branch that has also absorbed upstream/default-branch work.
 `$verify-spec` must first build the current machine attribution manifest with:
 
 ```bash
-python -m scripts.workflow_verify_spec_attribution build \
+python .agents/skills/verify-spec/scripts/verify_spec_attribution.py build \
   --repo . \
   --default-ref origin/main \
   --candidate-ref HEAD \

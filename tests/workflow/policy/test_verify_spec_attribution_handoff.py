@@ -66,7 +66,10 @@ def test_verify_spec_pass_handoff_renders_review_spec() -> None:
             {
                 "destination": "$review-spec",
                 "artifact": {
-                    "title": "Spec: Implement R3 Portfolio consequence and Portfolio Risk semantics",
+                    "title": (
+                        "Spec: Implement R3 Portfolio consequence and "
+                        "Portfolio Risk semantics"
+                    ),
                     "url": "https://github.com/sponge-b0b/Polaris/issues/359",
                 },
             }
@@ -75,7 +78,8 @@ def test_verify_spec_pass_handoff_renders_review_spec() -> None:
 
     output = workflow_handoff.render_manifest(manifest)
     assert (
-        "$review-spec - Spec: Implement R3 Portfolio consequence and Portfolio Risk semantics "
+        "$review-spec - Spec: Implement R3 Portfolio consequence and "
+        "Portfolio Risk semantics "
         "(https://github.com/sponge-b0b/Polaris/issues/359)"
     ) in output
     assert (

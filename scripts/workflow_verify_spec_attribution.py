@@ -45,7 +45,9 @@ def _blob(repo: Path, commit: str, path: str) -> str | None:
 
 
 def _canonical_payload(manifest: dict[str, Any]) -> str:
-    return json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return json.dumps(
+        manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
 
 
 def build_manifest(repo: Path, default_ref: str, candidate_ref: str) -> dict[str, Any]:

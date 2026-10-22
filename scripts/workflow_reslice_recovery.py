@@ -164,9 +164,7 @@ def _parse_retired_branches(
         raise RecoveryError("retired-source recovery requires Destination branch")
 
     if destination_parent_text is None:
-        raise RecoveryError(
-            "retired-source recovery requires Destination Parent Spec"
-        )
+        raise RecoveryError("retired-source recovery requires Destination Parent Spec")
     return None, source_branch, destination_branch
 
 
@@ -252,9 +250,7 @@ def _parse_retired_order(
             "retired-source Native execution order must not contain retired Source"
         )
     if fields.get("Execution order") != "destination-only":
-        raise RecoveryError(
-            "retired-source Execution order must be destination-only"
-        )
+        raise RecoveryError("retired-source Execution order must be destination-only")
     return "destination-only", "explicit"
 
 
@@ -283,13 +279,9 @@ def _parse_execute_order(
     if explicit_order is None:
         return derived_order, "derived-legacy"
     if explicit_order not in {"source-first", "destination-first"}:
-        raise RecoveryError(
-            "Execution order must be source-first or destination-first"
-        )
+        raise RecoveryError("Execution order must be source-first or destination-first")
     if explicit_order != derived_order:
-        raise RecoveryError(
-            "Execution order contradicts Native execution order"
-        )
+        raise RecoveryError("Execution order contradicts Native execution order")
     return explicit_order, "explicit"
 
 
@@ -343,9 +335,7 @@ def _validate_source_retired(
             "source-retired requires Source retirement closed-not-planned"
         )
     if destination_completion != "Pending":
-        raise RecoveryError(
-            "source-retired requires Destination completion Pending"
-        )
+        raise RecoveryError("source-retired requires Destination completion Pending")
 
 
 def _validate_retired_reconciled(
@@ -355,8 +345,7 @@ def _validate_retired_reconciled(
 ) -> None:
     if source_retirement != "closed-not-planned":
         raise RecoveryError(
-            "retired source-reconciled requires Source retirement "
-            "closed-not-planned"
+            "retired source-reconciled requires Source retirement closed-not-planned"
         )
     if not HEX40.fullmatch(destination_completion):
         raise RecoveryError(
@@ -388,9 +377,7 @@ def _validate_retired_status(
     }
     validator = validators.get(status)
     if validator is None:
-        raise RecoveryError(
-            f"Status {status} is invalid for retired-source recovery"
-        )
+        raise RecoveryError(f"Status {status} is invalid for retired-source recovery")
     validator(
         source_retirement,
         destination_baseline,
@@ -405,9 +392,7 @@ def _validate_pending_prerequisite(
     destination_completion: str,
 ) -> None:
     if source_completion != "Pending" or destination_completion != "Pending":
-        raise RecoveryError(
-            "pending-prerequisite requires both completions Pending"
-        )
+        raise RecoveryError("pending-prerequisite requires both completions Pending")
 
 
 def _validate_source_complete(
@@ -417,16 +402,10 @@ def _validate_source_complete(
     destination_completion: str,
 ) -> None:
     if execution_order != "source-first":
+        raise RecoveryError("source-complete is valid only for source-first recovery")
+    if not HEX40.fullmatch(source_completion) or destination_completion != "Pending":
         raise RecoveryError(
-            "source-complete is valid only for source-first recovery"
-        )
-    if (
-        not HEX40.fullmatch(source_completion)
-        or destination_completion != "Pending"
-    ):
-        raise RecoveryError(
-            "source-complete requires Source completion SHA "
-            "and Destination Pending"
+            "source-complete requires Source completion SHA and Destination Pending"
         )
 
 
@@ -440,10 +419,7 @@ def _validate_prerequisite_complete(
         raise RecoveryError(
             "prerequisite-complete is valid only for destination-first recovery"
         )
-    if (
-        source_completion != "Pending"
-        or not HEX40.fullmatch(destination_completion)
-    ):
+    if source_completion != "Pending" or not HEX40.fullmatch(destination_completion):
         raise RecoveryError(
             "prerequisite-complete requires Destination completion SHA "
             "and Source Pending"
@@ -460,9 +436,8 @@ def _validate_execute_reconciled(
     destination_baseline: str,
     destination_completion: str,
 ) -> None:
-    if (
-        not HEX40.fullmatch(source_completion)
-        or not HEX40.fullmatch(destination_completion)
+    if not HEX40.fullmatch(source_completion) or not HEX40.fullmatch(
+        destination_completion
     ):
         raise RecoveryError(
             "source-reconciled requires both exact completion commit SHAs"
@@ -532,9 +507,7 @@ def _parse_completion_state(
         )
     else:
         if source_retirement is not None:
-            raise RecoveryError(
-                "execute recovery must not declare Source retirement"
-            )
+            raise RecoveryError("execute recovery must not declare Source retirement")
         if source_completion == "Not applicable":
             raise RecoveryError(
                 "execute recovery requires Source completion commit Pending or SHA"
@@ -559,9 +532,7 @@ def _parse_attribution_rows(text: str) -> int:
     if "### Exact donor attribution at capture" not in text:
         raise RecoveryError("missing Exact donor attribution at capture section")
     rows = sum(
-        1
-        for line in text.splitlines()
-        if line.startswith("| `") and "|" in line[3:]
+        1 for line in text.splitlines() if line.startswith("| `") and "|" in line[3:]
     )
     if rows < 1:
         raise RecoveryError("donor attribution table must contain at least one item")

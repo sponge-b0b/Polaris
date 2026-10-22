@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from scripts.project_delivery import DeliveryStateError, guard, reconcile
+from scripts.project_delivery import DeliveryStateError, GitHubClient, guard, reconcile
 
 CONTROL_ISSUE = 9001
 FOCUSED_WAYFINDER = 101
@@ -62,6 +62,49 @@ CONTROL_FOCUSED = f"""## Current Delivery State
 
 **Focused Wayfinders:** #{FOCUSED_WAYFINDER}
 **Parallel authorization:** None"""
+
+
+def test_control_issue_discovery_filters_labels_locally(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = GitHubClient("owner/repo")
+    requests: list[tuple[str, str, dict[str, str] | None]] = []
+
+    def fake_request(
+        endpoint: str,
+        *,
+        method: str = "GET",
+        fields: dict[str, str] | None = None,
+    ) -> object:
+        requests.append((endpoint, method, fields))
+        return [
+            {
+                "number": CONTROL_ISSUE,
+                "state": "open",
+                "labels": [{"name": "project-delivery:management"}],
+                "body": CONTROL_FOCUSED,
+            },
+            issue(FOCUSED_WAYFINDER, labels=("wayfinder:map",)),
+            {
+                "number": CONTROL_ISSUE + 1,
+                "state": "open",
+                "labels": [{"name": "project-delivery:management"}],
+                "pull_request": {},
+            },
+        ]
+
+    monkeypatch.setattr(client, "_request", fake_request)
+
+    controls = client.control_issues()
+
+    assert [control["number"] for control in controls] == [CONTROL_ISSUE]
+    assert requests == [
+        (
+            "repos/owner/repo/issues",
+            "GET",
+            {"state": "all", "per_page": "100", "page": "1"},
+        )
+    ]
 
 
 def test_guard_allowed_is_exact_receipt() -> None:

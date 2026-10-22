@@ -121,7 +121,9 @@ def _body(issue: dict[str, Any], number: int) -> str:
 
 
 def _extract_blockers(issue: dict[str, Any], number: int) -> tuple[int, ...]:
-    _need("blockedBy" in issue, f"spec #{number}: issue snapshot must include blockedBy")
+    _need(
+        "blockedBy" in issue, f"spec #{number}: issue snapshot must include blockedBy"
+    )
     blocked = issue["blockedBy"]
     if isinstance(blocked, dict):
         nodes = blocked.get("nodes")
@@ -339,7 +341,9 @@ def _check_provider_cells(
         covered.update(item["ccl"])
     missing = set(cells[cell]["ccl"]) - covered
     if missing:
-        errors.append(f"{label}: provider cells do not cover CCL refs {sorted(missing)}")
+        errors.append(
+            f"{label}: provider cells do not cover CCL refs {sorted(missing)}"
+        )
 
 
 def _check_consumed(
@@ -467,7 +471,9 @@ def _check_planning(
             errors.append(f"{label}: supports unknown OBL cells {sorted(unknown)}")
             continue
         if not any(dispositions[item] == "owned" for item in supports):
-            errors.append(f"{label}: planning cell has no locally owned material outcome")
+            errors.append(
+                f"{label}: planning cell has no locally owned material outcome"
+            )
         unit = cell_units[cell]
         for support in supports:
             support_unit = cell_units[support]
@@ -482,7 +488,9 @@ def validate_manifest(path: Path) -> dict[str, Any]:
     manifest = _load(path)
     _need(manifest.get("schema") == SCHEMA, f"manifest schema must be {SCHEMA}")
     raw_entries = manifest.get("specs")
-    _need(isinstance(raw_entries, list) and bool(raw_entries), "manifest: specs required")
+    _need(
+        isinstance(raw_entries, list) and bool(raw_entries), "manifest: specs required"
+    )
     assert isinstance(raw_entries, list)
     base = path.parent
     entries: dict[int, dict[str, Any]] = {}

@@ -136,7 +136,7 @@ def test_control_issue_discovery_uses_complete_graphql_label_pagination(
         CONTROL_ISSUE + 1,
     ]
     assert [endpoint for endpoint, _, _ in calls] == ["graphql", "graphql"]
-    assert [method for _, method, _ in calls] == ["GET", "GET"]
+    assert [method for _, method, _ in calls] == ["POST", "POST"]
     assert calls[0][2]["owner"] == "owner"
     assert calls[0][2]["name"] == "repo"
     assert calls[0][2]["label"] == "project-delivery:management"

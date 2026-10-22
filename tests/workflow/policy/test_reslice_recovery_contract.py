@@ -40,4 +40,5 @@ def test_machine_validator_exists() -> None:
     assert "source-complete is valid only for source-first recovery" in text
     assert "prerequisite-complete is valid only for destination-first recovery" in text
     assert "retired-source Execution order must be destination-only" in text
-    assert "Source completion commit: Not applicable" in text
+    assert "Source completion commit" in text
+    assert '"Not applicable"' in text

@@ -97,6 +97,8 @@ def test_actual_and_projected_risk_are_typed_multidimensional_judgments() -> Non
     )
     assert projected.uncertainty[-1].startswith("Future SPY prices")
     assert not projected.unresolved
+    with pytest.raises(ValueError, match="material typed Risk dimensions"):
+        replace(actual, dimensions=())
 
 
 def test_state_and_support_changes_affect_risk_without_fabricated_precision() -> None:

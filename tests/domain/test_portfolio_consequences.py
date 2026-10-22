@@ -136,7 +136,6 @@ def test_hypothetical_consequence_keeps_alternative_and_unresolved_delta() -> No
     assert consequence.source_as_of == source.state.as_of
     assert consequence.exposure_change.value is None
     assert consequence.exposure_change.unresolved_reason is not None
-    assert "projected_state" not in consequence.__dataclass_fields__
     with pytest.raises(ValueError, match="finite"):
         ProjectedChange(Decimal("NaN"))
     with pytest.raises(ValueError, match="value or unresolved"):

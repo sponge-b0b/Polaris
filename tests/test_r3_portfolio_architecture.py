@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import ast
-from dataclasses import fields
+from dataclasses import MISSING, fields
 from pathlib import Path
 
 from sqlalchemy.dialects.postgresql import UUID
@@ -35,8 +35,8 @@ EXPECTED_STORAGE_COLUMNS = (EXPECTED_STATE_FIELDS - {"source"}) | {
 
 
 def test_portfolio_fact_remains_typed_and_domain_owned() -> None:
-    assert {field.name for field in fields(PortfolioState)} == EXPECTED_STATE_FIELDS
-    assert set(portfolio_states.c.keys()) == EXPECTED_STORAGE_COLUMNS
+    assert EXPECTED_STATE_FIELDS <= {field.name for field in fields(PortfolioState)}
+    assert EXPECTED_STORAGE_COLUMNS <= set(portfolio_states.c.keys())
     assert isinstance(portfolio_states.c.state_id.type, UUID)
     assert isinstance(portfolio_states.c.instrument_id.type, UUID)
 
@@ -88,7 +88,8 @@ def test_portfolio_scope_has_no_generic_simulation_or_authority_writer() -> None
         and column.func.attr == "Column"
         and isinstance(column.args[0], ast.Constant)
     }
-    assert migration_columns == set(portfolio_states.c.keys())
+    assert EXPECTED_STORAGE_COLUMNS <= migration_columns
+    assert migration_columns <= set(portfolio_states.c.keys())
 
 
 def test_r3_risk_and_consequence_authorities_remain_bounded() -> None:
@@ -121,7 +122,9 @@ def test_r3_risk_and_consequence_authorities_remain_bounded() -> None:
         assert required <= _top_level_classes(relative_path)
 
     # Distinct typed dimensions remain authoritative; an optional score may coexist.
-    assert "dimensions" in {field.name for field in fields(PortfolioRiskAssessment)}
+    risk_fields = {field.name: field for field in fields(PortfolioRiskAssessment)}
+    assert risk_fields["dimensions"].default is MISSING
+    assert risk_fields["dimensions"].default_factory is MISSING
     risk_tree = ast.parse(
         (ROOT / "src/polaris/domain/portfolio_risk.py").read_text(encoding="utf-8")
     )

@@ -435,6 +435,94 @@ def test_catalog_support_change_and_removed_claim_have_distinct_owner_results(
 
 
 @pytest.mark.parametrize("family", ["consequence", "risk"])
+def test_target_correction_stales_dependent_write_without_changing_claim_catalog(
+    family: str,
+) -> None:
+    # duplicate-code: target and catalog correction proofs independently
+    # establish their protected prior basis so neither can mask the other.
+    # arid: disable
+    store = _Store(_history(family))
+    initial = store.history.acts[0]
+    assert initial.catalog is not None
+    claim = initial.catalog.claims[0]
+    query, key = _portfolio_current_query(store, claim.claim_id)
+    prior = asyncio.run(query.read(key, at=K0))
+    assert isinstance(prior, CurrentEvidenceBasis)
+    # arid: enable
+
+    # duplicate-code: this target-only future act independently tests lane
+    # selection; sharing the full owner-read scenario would couple proofs.
+    # arid: disable
+    future = replace(
+        _correction(
+            store.history,
+            effective_at=T3,
+            known_at=K1,
+            scenario="B",
+            proposition=claim.proposition,
+        ),
+        catalog=None,
+        catalog_predecessor=None,
+        compatible_opposite_acts=(initial.act_id,),
+    )
+    # arid: enable
+    store.history = store.history.append(future)
+    assert isinstance(asyncio.run(query.read(key, at=K1)), CurrentEvidenceBasis)
+    assert (
+        asyncio.run(
+            CurrentEvidenceBasisRevalidator().revalidate(
+                prior, _PortfolioParticipation(query, key, K1)
+            )
+        )
+        is None
+    )
+
+    # duplicate-code: explicit target-lane cancellation must remain visible
+    # apart from the owner-read test's dual-lane correction scenario.
+    # arid: disable
+    immediate = replace(
+        _correction(
+            store.history,
+            effective_at=K2,
+            known_at=K2,
+            scenario="C",
+            proposition=claim.proposition,
+            disposition=PendingDisposition.CANCEL,
+        ),
+        catalog=None,
+        catalog_predecessor=None,
+        pending_resolutions=(
+            PendingResolution(
+                PortfolioJudgmentLane.TARGET,
+                future.act_id,
+                PendingDisposition.CANCEL,
+            ),
+        ),
+        compatible_opposite_acts=(initial.act_id,),
+    )
+    # arid: enable
+    store.history = store.history.append(immediate)
+    fresh = asyncio.run(query.read(key, at=K2))
+    assert isinstance(fresh, CurrentEvidenceBasis)
+    assert fresh.target.version != prior.target.version
+    assert fresh.guards.claim == prior.guards.claim
+    writes: list[str] = []
+
+    async def dependent_write() -> StaleEvidenceBasis | CurrentEvidenceNoBasis | None:
+        outcome = await CurrentEvidenceBasisRevalidator().revalidate(
+            prior, _PortfolioParticipation(query, key, K2)
+        )
+        if outcome is None:
+            writes.append("dependent judgment")
+        return outcome
+
+    stale = asyncio.run(dependent_write())
+    assert isinstance(stale, StaleEvidenceBasis)
+    assert stale.categories == {StaleEvidenceBasisCategory.TARGET_CHANGED}
+    assert writes == []
+
+
+@pytest.mark.parametrize("family", ["consequence", "risk"])
 def test_portfolio_catalog_correction_stales_exact_evidence_basis_and_blocks_write(
     family: str,
 ) -> None:

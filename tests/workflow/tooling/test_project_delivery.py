@@ -89,12 +89,16 @@ def test_control_issue_discovery_tolerates_intermittent_empty_snapshots(
     monkeypatch.setattr(client, "issue", lambda number: control)
 
     assert [row["number"] for row in client.control_issues()] == [CONTROL_ISSUE]
-    assert queries == [
-        (
-            "repos/owner/repo/issues",
-            {"state": "all", "labels": "project-delivery:management"},
-        )
-    ] * 5
+    assert (
+        queries
+        == [
+            (
+                "repos/owner/repo/issues",
+                {"state": "all", "labels": "project-delivery:management"},
+            )
+        ]
+        * 5
+    )
 
 
 def test_control_issue_discovery_preserves_duplicate_evidence(

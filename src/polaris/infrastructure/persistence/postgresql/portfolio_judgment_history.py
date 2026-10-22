@@ -230,6 +230,8 @@ def _decode_act_row(row: RowMapping) -> PortfolioJudgmentAct:
         root = PortfolioRiskAssessmentRef(uuid_value(assessment_id, "assessment_id"))
     else:
         raise ValueError("act must have exactly one typed Portfolio root")
+    if "basis" not in payload:
+        raise ValueError("incomplete Portfolio judgment act payload")
     resolutions = payload.get("pending_resolutions")
     compatible = payload.get("compatible_opposite_acts")
     ancestry = payload.get("ancestry")

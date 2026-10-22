@@ -8,6 +8,9 @@ include the certified Investment Intelligence tables before re-exporting the tes
 
 from . import _migration_tests_portfolio_base as _portfolio
 
+# duplicate-code: these historical migration expectations independently
+# falsify the current schema table inventory.
+# arid: disable
 _INVESTMENT_INTELLIGENCE_TABLE_NAMES = {
     "investment_hypotheses",
     "investment_views",
@@ -20,15 +23,13 @@ _INVESTMENT_INTELLIGENCE_TABLE_NAMES = {
 _portfolio.PORTFOLIO_TABLE_NAMES = (
     _portfolio.PORTFOLIO_TABLE_NAMES
     | _INVESTMENT_INTELLIGENCE_TABLE_NAMES
-    # duplicate-code: migration expectations stay independent of runtime schema names.
-    # arid: disable
     | {
         "projected_portfolio_consequences",
         "portfolio_risk_assessments",
         "portfolio_judgment_acts",
         "portfolio_context_commits",
     }
-    # arid: enable
 )
+# arid: enable
 
 from ._migration_tests_portfolio_base import *  # noqa: E402,F401,F403

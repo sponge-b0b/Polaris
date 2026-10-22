@@ -7,6 +7,9 @@ from polaris.infrastructure.persistence.postgresql import POLARIS_TABLE_NAMES
 from . import _migration_tests_portfolio_base as _base
 from .conftest import PostgresTestTarget
 
+# duplicate-code: independent sibling migration expectations must not consume
+# the current schema registry or derive their table list from another test.
+# arid: disable
 _INVESTMENT_INTELLIGENCE_TABLE_NAMES = frozenset(
     {
         "investment_hypotheses",
@@ -18,9 +21,16 @@ _INVESTMENT_INTELLIGENCE_TABLE_NAMES = frozenset(
         "investment_intelligence_command_receipts",
     }
 )
-_SIBLING_0009_TABLE_NAMES = _INVESTMENT_INTELLIGENCE_TABLE_NAMES | frozenset(
-    {"portfolio_states", "projected_portfolio_consequences"}
+_POST_0008_TABLE_NAMES = _INVESTMENT_INTELLIGENCE_TABLE_NAMES | frozenset(
+    {
+        "portfolio_states",
+        "projected_portfolio_consequences",
+        "portfolio_risk_assessments",
+        "portfolio_judgment_acts",
+        "portfolio_context_commits",
+    }
 )
+# arid: enable
 
 
 def test_r3_foundation_merge_revision_preserves_both_certified_heads(
@@ -47,5 +57,5 @@ def test_r3_foundation_merge_revision_preserves_both_certified_heads(
     _base._assert_revision_round_trip(
         postgres_target,
         "0008_support_epochs",
-        (POLARIS_TABLE_NAMES - _SIBLING_0009_TABLE_NAMES) | {"alembic_version"},
+        (POLARIS_TABLE_NAMES - _POST_0008_TABLE_NAMES) | {"alembic_version"},
     )

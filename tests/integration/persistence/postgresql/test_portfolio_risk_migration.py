@@ -28,11 +28,23 @@ def test_portfolio_risk_revision_round_trips(
     } <= asyncio.run(
         _base._constraint_names(postgres_target, "portfolio_risk_assessments")
     )
+    # duplicate-code: this revision's expected tables must stay independent of
+    # later revisions and the current schema registry.
+    # arid: disable
     _base._assert_revision_round_trip(
         postgres_target,
         "0011_portfolio_consequences",
-        (POLARIS_TABLE_NAMES - {"portfolio_risk_assessments"}) | {"alembic_version"},
+        (
+            POLARIS_TABLE_NAMES
+            - {
+                "portfolio_risk_assessments",
+                "portfolio_judgment_acts",
+                "portfolio_context_commits",
+            }
+        )
+        | {"alembic_version"},
     )
+    # arid: enable
     assert "portfolio_risk_assessments" in asyncio.run(
         _base._table_names(postgres_target)
     )

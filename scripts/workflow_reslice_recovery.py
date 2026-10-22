@@ -15,6 +15,8 @@ VALID_STATUSES = {
     "pending-prerequisite",
     "source-complete",
     "prerequisite-complete",
+    "pending-source-retirement",
+    "source-retired",
     "source-reconciled",
 }
 
@@ -27,9 +29,13 @@ class RecoveryError(ValueError):
 class RecoveryRecord:
     status: str
     parent_spec: int
+    destination_parent_spec: int
     source_ticket: int
     destination_ticket: int
-    shared_branch: str
+    source_disposition: str
+    shared_branch: str | None
+    source_branch: str
+    destination_branch: str
     source_baseline: str
     reslice_anchor: str
     native_order: tuple[int, ...]
@@ -40,6 +46,7 @@ class RecoveryRecord:
     candidate_state: str
     attention_receipt_hash: str
     source_completion: str
+    source_retirement: str | None
     destination_baseline: str
     destination_completion: str
     attribution_rows: int
@@ -71,11 +78,67 @@ def _sha_or_pending(value: str, field: str) -> str:
     raise RecoveryError(f"{field} must be Pending or 40-hex SHA")
 
 
+def _source_completion(value: str) -> str:
+    if value in {"Pending", "Not applicable"} or HEX40.fullmatch(value):
+        return value
+    raise RecoveryError(
+        "Source completion commit must be Pending, Not applicable, or 40-hex SHA"
+    )
+
+
 def _required(fields: dict[str, str], key: str) -> str:
     value = fields.get(key)
     if not value:
         raise RecoveryError(f"missing field: {key}")
     return value
+
+
+def _parse_branches(
+    fields: dict[str, str], *, source_disposition: str, parent_spec: int
+) -> tuple[int, str | None, str, str]:
+    shared_branch = fields.get("Shared branch")
+    destination_parent_text = fields.get("Destination Parent Spec")
+    destination_parent_spec = (
+        _issue(destination_parent_text, "Destination Parent Spec")
+        if destination_parent_text is not None
+        else parent_spec
+    )
+
+    source_branch = fields.get("Source branch")
+    destination_branch = fields.get("Destination branch")
+
+    if source_disposition == "execute":
+        if source_branch is None and shared_branch is not None:
+            source_branch = shared_branch
+        if destination_branch is None and shared_branch is not None:
+            destination_branch = shared_branch
+        if not shared_branch:
+            raise RecoveryError("execute recovery requires Shared branch")
+        if source_branch != shared_branch or destination_branch != shared_branch:
+            raise RecoveryError(
+                "execute recovery Source/Destination branches must equal Shared branch"
+            )
+        if destination_parent_spec != parent_spec:
+            raise RecoveryError(
+                "execute recovery Destination Parent Spec must equal Parent Spec"
+            )
+    else:
+        if shared_branch is not None:
+            raise RecoveryError(
+                "retired-source recovery must not declare Shared branch"
+            )
+        if not source_branch:
+            raise RecoveryError("retired-source recovery requires Source branch")
+        if not destination_branch:
+            raise RecoveryError("retired-source recovery requires Destination branch")
+        if destination_parent_text is None:
+            raise RecoveryError(
+                "retired-source recovery requires Destination Parent Spec"
+            )
+
+    assert source_branch is not None
+    assert destination_branch is not None
+    return destination_parent_spec, shared_branch, source_branch, destination_branch
 
 
 def parse_record(text: str) -> RecoveryRecord:
@@ -95,7 +158,21 @@ def parse_record(text: str) -> RecoveryRecord:
     if source_ticket == destination_ticket:
         raise RecoveryError("Source ticket and Destination ticket must differ")
 
-    shared_branch = _required(fields, "Shared branch")
+    source_disposition = fields.get("Source disposition", "execute")
+    if source_disposition not in {"execute", "retire"}:
+        raise RecoveryError("Source disposition must be execute or retire")
+
+    (
+        destination_parent_spec,
+        shared_branch,
+        source_branch,
+        destination_branch,
+    ) = _parse_branches(
+        fields,
+        source_disposition=source_disposition,
+        parent_spec=parent_spec,
+    )
+
     source_baseline = _required(fields, "Source ticket baseline")
     reslice_anchor = _required(fields, "Reslice branch anchor")
     donor_head = _required(fields, "Protected donor HEAD / Execution Anchor")
@@ -122,35 +199,55 @@ def parse_record(text: str) -> RecoveryRecord:
 
     order_text = _required(fields, "Native execution order")
     native_order = tuple(int(value) for value in ISSUE_RE.findall(order_text))
-    if len(native_order) < 2 or len(set(native_order)) != len(native_order):
+    if len(native_order) != len(set(native_order)):
         raise RecoveryError("Native execution order must contain unique issue numbers")
-    if source_ticket not in native_order or destination_ticket not in native_order:
-        raise RecoveryError(
-            "Native execution order must contain Source and Destination"
-        )
-    source_index = native_order.index(source_ticket)
-    destination_index = native_order.index(destination_ticket)
-    derived_order = (
-        "source-first" if source_index < destination_index else "destination-first"
-    )
 
     explicit_order = fields.get("Execution order")
-    if explicit_order is None:
-        execution_order = derived_order
-        order_source = "derived-legacy"
-    else:
-        if explicit_order not in {"source-first", "destination-first"}:
+    if source_disposition == "retire":
+        if not native_order or destination_ticket not in native_order:
             raise RecoveryError(
-                "Execution order must be source-first or destination-first"
+                "retired-source Native execution order must contain Destination"
             )
-        if explicit_order != derived_order:
-            raise RecoveryError("Execution order contradicts Native execution order")
-        execution_order = explicit_order
+        if source_ticket in native_order:
+            raise RecoveryError(
+                "retired-source Native execution order must not contain retired Source"
+            )
+        if explicit_order != "destination-only":
+            raise RecoveryError(
+                "retired-source Execution order must be destination-only"
+            )
+        execution_order = "destination-only"
         order_source = "explicit"
+    else:
+        if len(native_order) < 2:
+            raise RecoveryError(
+                "Native execution order must contain at least Source and Destination"
+            )
+        if source_ticket not in native_order or destination_ticket not in native_order:
+            raise RecoveryError(
+                "Native execution order must contain Source and Destination"
+            )
+        source_index = native_order.index(source_ticket)
+        destination_index = native_order.index(destination_ticket)
+        derived_order = (
+            "source-first" if source_index < destination_index else "destination-first"
+        )
+        if explicit_order is None:
+            execution_order = derived_order
+            order_source = "derived-legacy"
+        else:
+            if explicit_order not in {"source-first", "destination-first"}:
+                raise RecoveryError(
+                    "Execution order must be source-first or destination-first"
+                )
+            if explicit_order != derived_order:
+                raise RecoveryError("Execution order contradicts Native execution order")
+            execution_order = explicit_order
+            order_source = "explicit"
 
     donor_checkout = _required(fields, "Protected donor checkout")
-    source_completion = _sha_or_pending(
-        _required(fields, "Source completion commit"), "Source completion commit"
+    source_completion = _source_completion(
+        _required(fields, "Source completion commit")
     )
     destination_completion = _sha_or_pending(
         _required(fields, "Destination completion commit"),
@@ -159,53 +256,110 @@ def parse_record(text: str) -> RecoveryRecord:
     destination_baseline = _sha_or_pending(
         fields.get("Destination baseline", "Pending"), "Destination baseline"
     )
+    source_retirement = fields.get("Source retirement")
 
-    if status == "pending-prerequisite":
-        if source_completion != "Pending" or destination_completion != "Pending":
+    if source_disposition == "retire":
+        if source_completion != "Not applicable":
             raise RecoveryError(
-                "pending-prerequisite requires both completions Pending"
+                "retired-source recovery requires Source completion commit: Not applicable"
             )
-    elif status == "source-complete":
-        if execution_order != "source-first":
+        if source_retirement not in {"Pending", "closed-not-planned"}:
             raise RecoveryError(
-                "source-complete is valid only for source-first recovery"
+                "retired-source recovery requires Source retirement: "
+                "Pending or closed-not-planned"
             )
-        if (
-            not HEX40.fullmatch(source_completion)
-            or destination_completion != "Pending"
-        ):
+        if status == "pending-source-retirement":
+            if source_retirement != "Pending":
+                raise RecoveryError(
+                    "pending-source-retirement requires Source retirement Pending"
+                )
+            if destination_completion != "Pending":
+                raise RecoveryError(
+                    "pending-source-retirement requires Destination completion Pending"
+                )
+        elif status == "source-retired":
+            if source_retirement != "closed-not-planned":
+                raise RecoveryError(
+                    "source-retired requires Source retirement closed-not-planned"
+                )
+            if destination_completion != "Pending":
+                raise RecoveryError(
+                    "source-retired requires Destination completion Pending"
+                )
+        elif status == "source-reconciled":
+            if source_retirement != "closed-not-planned":
+                raise RecoveryError(
+                    "retired source-reconciled requires Source retirement closed-not-planned"
+                )
+            if not HEX40.fullmatch(destination_completion):
+                raise RecoveryError(
+                    "retired source-reconciled requires Destination completion SHA"
+                )
+            if not HEX40.fullmatch(destination_baseline):
+                raise RecoveryError(
+                    "retired source-reconciled requires pinned Destination baseline SHA"
+                )
+        else:
             raise RecoveryError(
-                "source-complete requires Source completion SHA and Destination Pending"
+                f"Status {status} is invalid for retired-source recovery"
             )
-    elif status == "prerequisite-complete":
-        if execution_order != "destination-first":
+    else:
+        if source_retirement is not None:
             raise RecoveryError(
-                "prerequisite-complete is valid only for destination-first recovery"
+                "execute recovery must not declare Source retirement"
             )
-        if (
-            source_completion != "Pending"
-            or not HEX40.fullmatch(destination_completion)
-        ):
+        if source_completion == "Not applicable":
             raise RecoveryError(
-                "prerequisite-complete requires Destination completion SHA "
-                "and Source Pending"
+                "execute recovery requires Source completion commit Pending or SHA"
             )
-        if not HEX40.fullmatch(destination_baseline):
-            raise RecoveryError(
-                "prerequisite-complete requires pinned Destination baseline SHA"
-            )
-    elif status == "source-reconciled":
-        if (
-            not HEX40.fullmatch(source_completion)
-            or not HEX40.fullmatch(destination_completion)
-        ):
-            raise RecoveryError(
-                "source-reconciled requires both exact completion commit SHAs"
-            )
-        if not HEX40.fullmatch(destination_baseline):
-            raise RecoveryError(
-                "source-reconciled requires pinned Destination baseline SHA"
-            )
+        if status == "pending-prerequisite":
+            if source_completion != "Pending" or destination_completion != "Pending":
+                raise RecoveryError(
+                    "pending-prerequisite requires both completions Pending"
+                )
+        elif status == "source-complete":
+            if execution_order != "source-first":
+                raise RecoveryError(
+                    "source-complete is valid only for source-first recovery"
+                )
+            if (
+                not HEX40.fullmatch(source_completion)
+                or destination_completion != "Pending"
+            ):
+                raise RecoveryError(
+                    "source-complete requires Source completion SHA and Destination Pending"
+                )
+        elif status == "prerequisite-complete":
+            if execution_order != "destination-first":
+                raise RecoveryError(
+                    "prerequisite-complete is valid only for destination-first recovery"
+                )
+            if (
+                source_completion != "Pending"
+                or not HEX40.fullmatch(destination_completion)
+            ):
+                raise RecoveryError(
+                    "prerequisite-complete requires Destination completion SHA "
+                    "and Source Pending"
+                )
+            if not HEX40.fullmatch(destination_baseline):
+                raise RecoveryError(
+                    "prerequisite-complete requires pinned Destination baseline SHA"
+                )
+        elif status == "source-reconciled":
+            if (
+                not HEX40.fullmatch(source_completion)
+                or not HEX40.fullmatch(destination_completion)
+            ):
+                raise RecoveryError(
+                    "source-reconciled requires both exact completion commit SHAs"
+                )
+            if not HEX40.fullmatch(destination_baseline):
+                raise RecoveryError(
+                    "source-reconciled requires pinned Destination baseline SHA"
+                )
+        else:
+            raise RecoveryError(f"Status {status} is invalid for execute recovery")
 
     if "### Exact donor attribution at capture" not in text:
         raise RecoveryError("missing Exact donor attribution at capture section")
@@ -221,9 +375,13 @@ def parse_record(text: str) -> RecoveryRecord:
     return RecoveryRecord(
         status=status,
         parent_spec=parent_spec,
+        destination_parent_spec=destination_parent_spec,
         source_ticket=source_ticket,
         destination_ticket=destination_ticket,
+        source_disposition=source_disposition,
         shared_branch=shared_branch,
+        source_branch=source_branch,
+        destination_branch=destination_branch,
         source_baseline=source_baseline,
         reslice_anchor=reslice_anchor,
         native_order=native_order,
@@ -234,6 +392,7 @@ def parse_record(text: str) -> RecoveryRecord:
         candidate_state=candidate_state,
         attention_receipt_hash=attention_hash,
         source_completion=source_completion,
+        source_retirement=source_retirement,
         destination_baseline=destination_baseline,
         destination_completion=destination_completion,
         attribution_rows=attribution_rows,
@@ -253,6 +412,7 @@ def _cmd_validate(args: argparse.Namespace) -> int:
     print("TICKET RESLICE RECOVERY: VALID")
     print("Schema: ticket-reslice-recovery:v1")
     print(f"Status: {record.status}")
+    print(f"Source disposition: {record.source_disposition}")
     print(f"Execution order: {record.execution_order}")
     print(f"Execution order source: {record.execution_order_source}")
     print(f"Source ticket: #{record.source_ticket}")
@@ -273,7 +433,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = _build_parser().parse_args()
-    return int(args.func(args))
+    try:
+        return int(args.func(args))
+    except RecoveryError as exc:
+        print(f"TICKET RESLICE RECOVERY: INVALID\nReason: {exc}")
+        return 1
 
 
 if __name__ == "__main__":

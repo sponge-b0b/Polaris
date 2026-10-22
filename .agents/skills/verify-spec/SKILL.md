@@ -165,6 +165,12 @@ pretending the stale planning cell passed.
 Verify the required proof exists and exercises the intended exact contract behavior.
 Passing a test that does not falsify the assigned behavior is insufficient.
 
+The proof must preserve contract strength. A TEST cell does not independently forbid a
+state that the assigned OBL/CCL contract permits. In particular, when CCL permits a feature
+as one measure but forbids it from becoming the universal/sole semantic or authority, the
+proof must distinguish those states; it may not reject the feature merely because it exists
+as a field, property, helper, or derived value.
+
 ### EXC-* cells
 
 Verify the candidate did not introduce the excluded behavior when that exclusion is
@@ -246,6 +252,31 @@ Spec contract.
 
 It may not repair by making a new material semantic decision.
 
+### Contract-strength preservation for verifier-owned repairs
+
+Before changing implementation or tests in response to a verifier finding, independently
+admit the finding against the frozen contract:
+
+1. identify the exact cell and, for OBL-backed behavior, exact CCL address;
+2. state the concrete hypothetical state the verifier says must fail;
+3. prove that state actually violates the exact cell/CCL;
+4. challenge the proposed repair with every explicit optional/MAY/permitted state in the
+   same contract surface.
+
+If the hypothetical state remains contract-compliant, the closure finding is
+**inadmissible verifier strengthening**. Do not mutate the candidate to satisfy it, do not
+persist it as a candidate defect, and do not treat that closure verdict as a valid FAIL.
+Discard that closure attempt and obtain a fresh independent closure verdict over the same
+stable candidate.
+
+A verification-owned test repair is itself a `test/proof-defect` when it rejects a state
+that the frozen contract explicitly permits. Relax that proof to distinguish the actual
+forbidden state from permitted variants, then rerun only invalidated checks.
+
+On resumed verification, audit verification-owned test/proof repairs made by prior
+`$verify-spec` attempts. Candidate-bound evidence from those attempts is reusable only after
+those repairs pass this contract-strength preservation check.
+
 Classify failures:
 
 ```text
@@ -305,9 +336,20 @@ SPEC CLOSURE: PASS | FAIL
 and exact candidate/contract identity match before admitting the result. Dispatch or
 successful child completion is never itself a verdict.
 
-A valid FAIL returns implementation ownership to this parent. Preserve every finding as a
-mandatory retry target until the next fresh verifier classifies it `closed`, `still-open`,
-or `superseded-by-explicit-contract-change`.
+A closure FAIL is admissible only when every finding includes both:
+
+```text
+Contract violation: <exact cell/CCL address + condition violated>
+Permitted-state challenge: PASS
+```
+
+The parent must independently confirm those claims before repairing the candidate. A
+finding whose supposed falsifier is still permitted by the frozen contract is verifier
+overreach, not a candidate defect; reject the verdict and do not mutate the candidate.
+
+A valid FAIL returns implementation ownership to this parent. Preserve every admissible
+finding as a mandatory retry target until the next fresh verifier classifies it `closed`,
+`still-open`, or `superseded-by-explicit-contract-change`.
 
 Every candidate mutation requires a fresh deterministic contract build and fresh closure
 verdict. Unchanged evidence may be reused when its exact proof inputs remain valid.
@@ -335,6 +377,7 @@ Verify-spec attribution: VALID and current
 Unresolved exact contract cells: 0
 Open verifier findings: 0
 Known implementation/test failures: 0
+Contract-permitted states rejected by verification-owned tests: 0
 Unresolved cell-routing defects: 0
 Unresolved contract/planning gaps: 0
 Applicable candidate-attributable mandatory technical gates: PASS
@@ -408,26 +451,34 @@ Durability sources must be canonical, unique, and sufficient for a fresh downstr
 session to reconstruct all correctness-critical state. Include at minimum the exact current
 Parent Spec URL and any additional durable defect/authority artifact required by the route.
 
-Generate and verify only through:
+`$verify-spec` must use its fail-closed handoff finalizer, which composes the shared
+`polaris.workflow-handoff/v1` renderer and validator in one operation:
 
 ```bash
-python -m scripts.workflow_handoff generate \
-  --manifest <handoff-manifest.json> \
-  > <handoff-output.txt>
-python -m scripts.workflow_handoff verify \
+python .agents/skills/verify-spec/scripts/verify_spec_handoff.py finalize \
   --manifest <handoff-manifest.json> \
   --output <handoff-output.txt>
 ```
 
-Require exact:
+Require the command itself to exit zero and emit exact:
 
 ```text
 WORKFLOW HANDOFF: VALID
 ```
 
-The user-visible terminal Human Handoff block must reproduce `<handoff-output.txt>`
-**byte-for-byte**. Do not manually reconstruct it and do not emit a bare `$review-spec`,
-`$to-tickets`, `$to-specs`, `$architecture-remediation`, or `$verify-spec` line.
+Only after that exact receipt may `$verify-spec` read `<handoff-output.txt>` and reproduce it
+as the user-visible Human Handoff block. The block must match the validated file
+**byte-for-byte**.
+
+Do not call `scripts.workflow_handoff generate` and `verify` as separate ad hoc steps from
+`$verify-spec`; the skill-owned finalizer exists specifically so `READY` output cannot be
+surfaced before validation succeeds. Do not manually reconstruct a handoff and do not emit
+a bare `$review-spec`, `$to-tickets`, `$to-specs`, `$architecture-remediation`, or
+`$verify-spec` line.
+
+If the finalizer emits `WORKFLOW HANDOFF: INVALID`, returns nonzero, or does not produce the
+validated output file, the lifecycle remains at `$verify-spec`. Do not surface `READY` and
+do not claim a Human Handoff.
 
 Do not invoke review implicitly.
 

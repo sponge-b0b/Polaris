@@ -1,10 +1,10 @@
 ---
 name: deduplicate-code
-description: Enforces repository-wide duplicate-code discipline, with zero unsuppressed findings by default and Execution-Anchor differential causality for ticket verification.
+description: Enforces repository-wide duplicate-code discipline, with zero unsuppressed findings by default and candidate-attribution differential causality for ticket/spec verification.
 license: MIT
 compatibility: product=codex product=claude-code system=arid system=jscpd network=none
 metadata:
-  version: 2.5.0
+  version: 2.6.1
 ---
 
 # Code Duplication Checks
@@ -13,12 +13,12 @@ metadata:
 
 Before executing this skill, read `.agents/skills/deduplicate-code/PROCEDURE.md` in full.
 That file preserves the complete established duplicate-code procedure. This `SKILL.md` is
-the authoritative entrypoint and owns the ticket-differential and control-plane corrections
-below; on conflict, this file wins.
+the authoritative entrypoint and owns the differential-causality and control-plane
+corrections below; on conflict, this file wins.
 
 All retained whole-repository scanner scope, finding classification, consolidation,
 suppression-merit, migration/test-surface, forbidden-silencing, rerun, and evidence rules
-remain normative except where this entrypoint explicitly replaces Ticket-baseline-relative
+remain normative except where this entrypoint explicitly replaces historical-baseline
 causality.
 
 ## Ticket-differential uses the Execution Anchor
@@ -64,7 +64,66 @@ Here `baseline-identical` means identical to the Execution Anchor. Legitimate
 shared-branch/prerequisite/workflow changes between historical Ticket baseline and Execution
 Anchor are inherited upstream state and cannot become ticket-attributable duplicate debt.
 
-The fixed Spec baseline behavior for `$verify-spec` `spec-differential` is unchanged.
+## Spec-differential uses the verify-spec attribution manifest
+
+When delegated by `$verify-spec`, the fixed Spec baseline remains immutable **lineage and
+contract history**. It is not, by itself, the technical-gate causality boundary for a
+long-lived Spec branch that has also absorbed upstream/default-branch work.
+
+`$verify-spec` must first build the current machine attribution manifest with:
+
+```bash
+python .agents/skills/verify-spec/scripts/verify_spec_attribution.py build \
+  --repo . \
+  --default-ref origin/main \
+  --candidate-ref HEAD \
+  --output <verify-spec-attribution.json>
+```
+
+Require exact:
+
+```text
+VERIFY-SPEC ATTRIBUTION: VALID
+```
+
+The manifest distinguishes:
+
+```text
+candidate_attributable_paths
+    branch-side paths whose exact candidate blob is not current default-branch state
+
+inherited_default_equivalent_paths
+    branch-side paths whose exact candidate blob equals current default-branch state
+```
+
+Whole-repository Arid/JSCPD scanner scope is unchanged. The attribution manifest changes
+**repair/blocking causality only**.
+
+Before applying the retained `spec-differential` four-state classification, disposition a
+scanner relation as `upstream-inherited` when all of these hold:
+
+1. none of the relation's occurrence paths is in `candidate_attributable_paths`;
+2. no candidate-attributable scanner configuration or suppression-policy change caused its
+   visibility; and
+3. the scanner completed normally.
+
+`upstream-inherited` findings are reported as inherited repository state and do not enter
+the `$verify-spec` repair loop or block Spec PASS. They are not silently called
+`baseline-identical`; retain their actual upstream/default-branch causality.
+
+Any relation touching at least one `candidate_attributable_paths` entry remains subject to
+the retained Spec-baseline correlation and may become `candidate-introduced`,
+`candidate-expanded`, `baseline-identical`, or `unresolved` as appropriate. Operational
+scanner/source-processing errors remain blocking regardless of path attribution.
+
+A path that diverges from current default branch is candidate-attributable even when it is a
+workflow/control-plane path. This rule therefore cannot be used to hide Spec-owned or
+branch-owned workflow divergence merely because the path is broadly classified as workflow
+code.
+
+The fixed Spec baseline is still supplied to `spec-differential` for historical correlation
+of the remaining candidate-attributable relations. It must never be used to turn an exact
+current default-branch-equivalent path into Spec-attributable duplicate debt.
 
 ## Protected control-plane boundary
 
@@ -113,5 +172,21 @@ A ticket-differential PASS is invalid if the comparison worktree was created fro
 `TICKET_BASELINE`, if the supplied Execution Anchor is missing/mismatched, or if any
 protected control-plane candidate path remains.
 
-All standalone/default and `$verify-spec` behavior not explicitly overridden here remains
-unchanged from the retained procedure.
+## Terminal evidence for spec-differential
+
+In addition to the retained Spec differential evidence, report:
+
+```text
+Spec baseline: <immutable historical sha>
+Default branch head: <exact attribution-manifest sha>
+Candidate head: <exact attribution-manifest sha>
+Candidate-attributable paths: <n>
+Inherited default-equivalent paths: <n>
+Upstream-inherited duplicate findings: <n>
+```
+
+A `spec-differential` PASS is invalid if the attribution manifest does not bind the exact
+candidate HEAD or current fetched default-branch head, or if an unresolved relation remains.
+
+All standalone/default behavior not explicitly overridden here remains unchanged from the
+retained procedure.

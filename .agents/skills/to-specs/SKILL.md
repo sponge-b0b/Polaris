@@ -221,3 +221,90 @@ WORKFLOW HANDOFF: VALID
 ```
 
 If any receipt is missing or stale, do not emit or honor a `$to-tickets` frontier handoff.
+
+## Machine-enforced cross-Spec ownership gate
+
+The retained feasibility and routing-defect gates remain mandatory, but they are not allowed
+to rely on provider relationships that the current actor happens to remember. Before
+ticketing, every current material `OBL-*` and every local `IMP-*` / `TEST-*` must have an
+explicit ownership classification on the same bounded feasibility manifest.
+
+Immediately after the retained preflights, require:
+
+```bash
+python -m scripts.workflow_spec_ownership preflight \
+  --repo . \
+  --main-ref origin/main
+```
+
+Require exact:
+
+```text
+TO-SPECS OWNERSHIP PREFLIGHT: VALID
+```
+
+Every topology-bearing Spec entry in the current
+`polaris.to-specs-execution-feasibility/v1` manifest must additionally contain one
+`ownership_analysis` object. Its `material` rows cover every and only current `OBL-*` exactly
+once with either:
+
+- `disposition: owned`, a non-empty local executable `role`, `reason`, and durable `basis`; or
+- `disposition: consumed-boundary`, another `provider_spec`, exact `provider_cells`, a
+  `reason`, and durable `basis`.
+
+For a topology-bearing provider, the combined CCL refs of `provider_cells` must cover every
+CCL ref projected by the consumed cell. For an immutable topology-less `legacy_completed`
+provider, `provider_cells` must be empty so the gate does not invent retroactive cell
+authority.
+
+An OPEN consumed provider must be a current native prerequisite of the consumer. The same
+`provider_spec` must also appear in the retained `unit_analysis.provider_requirements` for
+the execution unit that owns the consumed cell. A downstream or unrelated provider is a
+blocking ownership contradiction.
+
+The `planning` ownership rows cover every and only current `IMP-*` / `TEST-*` exactly once.
+Each planning cell declares non-empty `supports` containing current local `OBL-*`. At least
+one supported obligation must be `owned`; a planning cell may not exist solely to implement
+or certify a consumed sibling capability. Supported cells must be in the same execution
+unit or a transitive upstream local prerequisite unit.
+
+Every execution unit containing material obligations must contain at least one locally
+`owned` material obligation. A consumed-boundary-only unit is not an executable vertical
+material-outcome slice even if topology, coverage, and dependency closure are otherwise
+valid.
+
+Before publication/readiness mutation and again immediately before frontier handoff, run:
+
+```bash
+python -m scripts.workflow_spec_ownership check \
+  --manifest <execution-feasibility.json>
+```
+
+Require exact successful output containing:
+
+```text
+TO-SPECS CROSS-SPEC OWNERSHIP: VALID
+Unprotected consumed-boundary requirements: 0
+Execution units without local material ownership: 0
+```
+
+A model-authored statement that ownership is clear is not a substitute for this receipt.
+`$attention` must inspect the exact `ownership_analysis` together with the retained
+feasibility and routing-defect evidence.
+
+When this gate fails and accepted planning/CCL authority already fixes ownership, `$to-specs`
+owns the in-place projection/topology repair. Preserve Spec identity, surviving stable cell
+IDs, closed delivery history, native dependency truth, and live-WIP recovery handles. Do not
+implement a downstream consumer inside an upstream provider Spec merely to make a ticket
+close. If ownership is genuinely unresolved, fail closed to the retained planning/semantic
+owner instead of guessing.
+
+The terminal `$to-tickets` Human Handoff is legal only when all retained receipts and these
+current receipts pass on one state:
+
+```text
+TO-SPECS OWNERSHIP PREFLIGHT: VALID
+TO-SPECS CROSS-SPEC OWNERSHIP: VALID
+Unprotected consumed-boundary requirements: 0
+Execution units without local material ownership: 0
+```

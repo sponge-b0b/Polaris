@@ -64,47 +64,75 @@ CONTROL_FOCUSED = f"""## Current Delivery State
 **Parallel authorization:** None"""
 
 
-def test_control_issue_discovery_filters_labels_locally(
+def control_issue(number: int = CONTROL_ISSUE) -> dict:
+    return {
+        "number": number,
+        "state": "open",
+        "labels": [{"name": "project-delivery:management"}],
+        "body": CONTROL_FOCUSED,
+    }
+
+
+def test_control_issue_discovery_tolerates_intermittent_empty_snapshots(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client = GitHubClient("owner/repo")
-    requests: list[tuple[str, str, dict[str, str] | None]] = []
+    control = control_issue()
+    snapshots = iter([[], [control], [], [control], []])
+    queries: list[tuple[str, dict[str, str]]] = []
 
-    def fake_request(
-        endpoint: str,
-        *,
-        method: str = "GET",
-        fields: dict[str, str] | None = None,
-    ) -> object:
-        requests.append((endpoint, method, fields))
-        return [
-            {
-                "number": CONTROL_ISSUE,
-                "state": "open",
-                "labels": [{"name": "project-delivery:management"}],
-                "body": CONTROL_FOCUSED,
-            },
-            issue(FOCUSED_WAYFINDER, labels=("wayfinder:map",)),
-            {
-                "number": CONTROL_ISSUE + 1,
-                "state": "open",
-                "labels": [{"name": "project-delivery:management"}],
-                "pull_request": {},
-            },
-        ]
+    def fake_paged(endpoint: str, query: dict[str, str]) -> list[dict]:
+        queries.append((endpoint, query.copy()))
+        return next(snapshots)
 
-    monkeypatch.setattr(client, "_request", fake_request)
+    monkeypatch.setattr(client, "_paged", fake_paged)
+    monkeypatch.setattr(client, "issue", lambda number: control)
 
-    controls = client.control_issues()
-
-    assert [control["number"] for control in controls] == [CONTROL_ISSUE]
-    assert requests == [
+    assert [row["number"] for row in client.control_issues()] == [CONTROL_ISSUE]
+    assert queries == [
         (
             "repos/owner/repo/issues",
-            "GET",
-            {"state": "all", "per_page": "100", "page": "1"},
+            {"state": "all", "labels": "project-delivery:management"},
         )
+    ] * 5
+
+
+def test_control_issue_discovery_preserves_duplicate_evidence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = GitHubClient("owner/repo")
+    first = control_issue(CONTROL_ISSUE)
+    second = control_issue(CONTROL_ISSUE + 1)
+    snapshots = iter([[first], [], [second], [], []])
+
+    monkeypatch.setattr(client, "_paged", lambda endpoint, query: next(snapshots))
+    monkeypatch.setattr(
+        client,
+        "issue",
+        lambda number: first if number == CONTROL_ISSUE else second,
+    )
+
+    assert [row["number"] for row in client.control_issues()] == [
+        CONTROL_ISSUE,
+        CONTROL_ISSUE + 1,
     ]
+
+
+def test_control_issue_discovery_rechecks_current_label(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = GitHubClient("owner/repo")
+    control = control_issue()
+    snapshots = iter([[control], [], [], [], []])
+
+    monkeypatch.setattr(client, "_paged", lambda endpoint, query: next(snapshots))
+    monkeypatch.setattr(
+        client,
+        "issue",
+        lambda number: issue(number, labels=()),
+    )
+
+    assert client.control_issues() == []
 
 
 def test_guard_allowed_is_exact_receipt() -> None:

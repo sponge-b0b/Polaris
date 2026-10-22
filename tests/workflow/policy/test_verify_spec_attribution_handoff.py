@@ -32,7 +32,8 @@ def test_verify_spec_uses_machine_candidate_attribution() -> None:
         "upstream-inherited",
         "candidate_attributable_paths",
         "inherited_default_equivalent_paths",
-        "must never be used to turn an exact current default-branch-equivalent path",
+        "It must never be used to turn an exact",
+        "current default-branch-equivalent path into Spec-attributable duplicate debt.",
     ):
         assert phrase in DEDUP
 

@@ -72,7 +72,7 @@ def build_manifest(repo: Path, default_ref: str, candidate_ref: str) -> dict[str
     for path in branch_side_paths:
         candidate_blob = _blob(repo, candidate_head, path)
         default_blob = _blob(repo, default_head, path)
-        if candidate_blob is not None and candidate_blob == default_blob:
+        if candidate_blob == default_blob:
             inherited.append(path)
         else:
             attributable.append(path)

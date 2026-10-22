@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -38,6 +39,7 @@ from polaris.domain.portfolio_consequences import (
     ProjectedPortfolioConsequence,
     RecordedProjectedPortfolioConsequence,
 )
+from polaris.domain.portfolio_judgment_history import PortfolioClaimCatalog
 
 NOW = datetime(2026, 10, 19, tzinfo=UTC)
 
@@ -149,6 +151,7 @@ def test_producer_refuses_partial_alternative_set_or_wrong_state() -> None:
     decision = InvestmentDecisionId(uuid4())
     alternatives = _alternatives(source, decision)
     consequences = _consequences(source, alternatives)
+    catalogs = {item.consequence_id: PortfolioClaimCatalog(()) for item in consequences}
 
     class StateStore:
         async def get(
@@ -163,8 +166,12 @@ def test_producer_refuses_partial_alternative_set_or_wrong_state() -> None:
             self,
             decision_id: InvestmentDecisionId,
             consequences: tuple[ProjectedPortfolioConsequence, ...],
+            initial_claim_catalogs: Mapping[
+                ProjectedPortfolioConsequenceRef, PortfolioClaimCatalog
+            ],
         ) -> tuple[RecordedProjectedPortfolioConsequence, ...]:
             assert decision_id == decision
+            assert initial_claim_catalogs == catalogs
             self.calls += 1
             return tuple(
                 RecordedProjectedPortfolioConsequence(item, NOW)
@@ -185,11 +192,25 @@ def test_producer_refuses_partial_alternative_set_or_wrong_state() -> None:
         reader.alternatives = alternatives
         store = ConsequenceStore()
         service = PortfolioConsequenceService(StateStore(), store, reader)
+
+        async def produce(
+            initial_claim_catalogs: Mapping[
+                ProjectedPortfolioConsequenceRef, PortfolioClaimCatalog
+            ],
+        ) -> tuple[RecordedProjectedPortfolioConsequence, ...]:
+            return await service.produce(
+                decision_id=decision,
+                source_state_id=source.state.state_id,
+                consequences=consequences,
+                initial_claim_catalogs=initial_claim_catalogs,
+            )
+
         with pytest.raises(ValueError, match="cover exact"):
             await service.produce(
                 decision_id=decision,
                 source_state_id=source.state.state_id,
                 consequences=consequences[:2],
+                initial_claim_catalogs=catalogs,
             )
         with pytest.raises(ValueError, match="source State, as-of"):
             await service.produce(
@@ -203,21 +224,24 @@ def test_producer_refuses_partial_alternative_set_or_wrong_state() -> None:
                     ),
                     consequences[2],
                 ),
+                initial_claim_catalogs=catalogs,
             )
         assert store.calls == 0
         reader.alternatives = ()
         with pytest.raises(ValueError, match="material alternatives"):
-            await service.produce(
-                decision_id=decision,
-                source_state_id=source.state.state_id,
-                consequences=consequences,
-            )
+            await produce(catalogs)
         reader.alternatives = alternatives
-        result = await service.produce(
-            decision_id=decision,
-            source_state_id=source.state.state_id,
-            consequences=consequences,
+        invalid_catalogs = (
+            {consequences[0].consequence_id: catalogs[consequences[0].consequence_id]},
+            {
+                **catalogs,
+                ProjectedPortfolioConsequenceRef(uuid4()): PortfolioClaimCatalog(()),
+            },
         )
+        for invalid_catalog in invalid_catalogs:
+            with pytest.raises(ValueError, match="complete initial claim catalog"):
+                await produce(invalid_catalog)
+        result = await produce(catalogs)
         assert tuple(item.consequence.alternative for item in result) == tuple(
             _reference(item) for item in alternatives
         )

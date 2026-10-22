@@ -12,7 +12,10 @@ from sqlalchemy import func, insert, select, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from polaris.application.evidence.claims import InvalidClaimHistory
+from polaris.application.evidence.claims import (
+    InvalidClaimHistory,
+    ResolvedClaimMembership,
+)
 from polaris.application.evidence.judgment_versions import (
     ResolvedTargetJudgment,
     TargetJudgmentInvalidHistory,
@@ -67,18 +70,38 @@ def _catalog(proposition: str) -> PortfolioClaimCatalog:
     )
 
 
+def initial_catalog_with_distinct_support(
+    first_proposition: str, second_proposition: str
+) -> PortfolioClaimCatalog:
+    """Two separately supportable propositions at root admission."""
+    return PortfolioClaimCatalog(
+        _catalog(first_proposition).claims + _catalog(second_proposition).claims
+    )
+
+
 async def prove_durable_corrections(
     engine: AsyncEngine,
     assertion: PortfolioJudgmentAssertion,
     disposition: PendingDisposition,
+    initial_catalog: PortfolioClaimCatalog | None = None,
 ) -> None:
+    if initial_catalog is None:
+        initial_catalog = PortfolioClaimCatalog(())
     root = _root(assertion)
     store = PostgresPortfolioJudgmentHistoryStore(engine)
     history = await store.load(root)
     assert history is not None
     assert len(history.acts) == 1
     assert history.acts[0].assertion == assertion
-    assert history.acts[0].catalog == PortfolioClaimCatalog(())
+    assert history.acts[0].catalog == initial_catalog
+    resolver = PortfolioJudgmentClaimResolver(store)
+    for claim in initial_catalog.claims:
+        assert await resolver.resolve(
+            root,
+            claim.claim_id,
+            effective_at=history.acts[0].effective_at,
+            known_at=history.acts[0].known_at,
+        ) == ResolvedClaimMembership(root, claim.claim_id, history.versions[0][1])
     initial = history.acts[0]
     k1 = initial.known_at + timedelta(minutes=1)
     k2 = initial.known_at + timedelta(minutes=2)

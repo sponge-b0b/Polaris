@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Protocol
 
 from polaris.domain.decisions.facts import InvestmentDecisionId
@@ -22,6 +23,7 @@ from polaris.domain.portfolio_consequences import (
     ProjectedPortfolioConsequence,
     RecordedProjectedPortfolioConsequence,
 )
+from polaris.domain.portfolio_judgment_history import PortfolioClaimCatalog
 
 
 class PortfolioConsequenceConflict(Exception):
@@ -37,6 +39,9 @@ class PortfolioConsequenceStore(Protocol):
         self,
         decision_id: InvestmentDecisionId,
         consequences: tuple[ProjectedPortfolioConsequence, ...],
+        initial_claim_catalogs: Mapping[
+            ProjectedPortfolioConsequenceRef, PortfolioClaimCatalog
+        ],
     ) -> tuple[RecordedProjectedPortfolioConsequence, ...]:
         """Recheck the owner set and atomically append without replacement."""
 
@@ -56,6 +61,22 @@ class MaterialAlternativeReader(Protocol):
         self, decision_id: InvestmentDecisionId
     ) -> tuple[DecisionAlternative, ...]:
         """Read the complete material Alternative set from Investment Intelligence."""
+
+
+def require_initial_claim_catalogs(
+    consequences: tuple[ProjectedPortfolioConsequence, ...],
+    catalogs: Mapping[ProjectedPortfolioConsequenceRef, PortfolioClaimCatalog],
+) -> dict[ProjectedPortfolioConsequenceRef, PortfolioClaimCatalog]:
+    """Require one explicit complete catalog per consequence root."""
+    if (
+        not isinstance(catalogs, Mapping)
+        or set(catalogs) != {item.consequence_id for item in consequences}
+        or any(
+            type(catalog) is not PortfolioClaimCatalog for catalog in catalogs.values()
+        )
+    ):
+        raise ValueError("each consequence requires its complete initial claim catalog")
+    return dict(catalogs)
 
 
 def _validate_source(
@@ -98,6 +119,9 @@ class PortfolioConsequenceService:
         decision_id: InvestmentDecisionId,
         source_state_id: PortfolioStateId,
         consequences: tuple[ProjectedPortfolioConsequence, ...],
+        initial_claim_catalogs: Mapping[
+            ProjectedPortfolioConsequenceRef, PortfolioClaimCatalog
+        ],
     ) -> tuple[RecordedProjectedPortfolioConsequence, ...]:
         """Preserve one consequence for every owner-issued material Alternative.
 
@@ -129,10 +153,13 @@ class PortfolioConsequenceService:
             raise ValueError("consequences must cover exact material Alternatives")
         if len({item.consequence_id for item in consequences}) != len(consequences):
             raise ValueError("consequence identities must be distinct")
+        catalogs = require_initial_claim_catalogs(consequences, initial_claim_catalogs)
         source = await self._state_store.get(source_state_id)
         if source is None:
             raise ValueError("source Portfolio State does not exist")
         _validate_source(
             source, source_state_id, material_alternatives, expected, consequences
         )
-        return await self._consequence_store.append_batch(decision_id, consequences)
+        return await self._consequence_store.append_batch(
+            decision_id, consequences, catalogs
+        )

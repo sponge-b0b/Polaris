@@ -20,6 +20,7 @@ from polaris.domain.evidence.judgments import PortfolioRiskAssessmentRef
 from polaris.domain.evidence.observations import EvidenceObservationId
 from polaris.domain.portfolio import PortfolioStateId, RecordedPortfolioState
 from polaris.domain.portfolio_consequences import ProjectedChange
+from polaris.domain.portfolio_judgment_history import PortfolioClaimCatalog
 from polaris.domain.portfolio_risk import (
     RecordedPortfolioRiskAssessment,
     RiskDimensionKind,
@@ -190,7 +191,8 @@ def test_service_exposes_durable_typed_risk_and_rejects_wrong_source() -> None:
             def __init__(self) -> None:
                 self.recorded: RecordedPortfolioRiskAssessment | None = None
 
-            async def append(self, assessment):
+            async def append(self, assessment, initial_claim_catalog):
+                assert initial_claim_catalog == catalog
                 self.recorded = RecordedPortfolioRiskAssessment(assessment, NOW)
                 return self.recorded
 
@@ -203,6 +205,7 @@ def test_service_exposes_durable_typed_risk_and_rejects_wrong_source() -> None:
                 return None
 
         store = RiskStore()
+        catalog = PortfolioClaimCatalog(())
         service = PortfolioRiskService(StateReader(), ConsequenceReader(), store)
         assessment_id = PortfolioRiskAssessmentRef(uuid4())
         # duplicate-code: the service-port proof supplies its own exact Risk
@@ -217,6 +220,7 @@ def test_service_exposes_durable_typed_risk_and_rejects_wrong_source() -> None:
             support=_support(),
             attribution=ACTOR,
             formed_at=NOW,
+            initial_claim_catalog=catalog,
         )
         # arid: enable
         assert recorded.assessment.assessment_id == assessment_id
@@ -234,6 +238,7 @@ def test_service_exposes_durable_typed_risk_and_rejects_wrong_source() -> None:
                 support=_support(),
                 attribution=ACTOR,
                 formed_at=NOW,
+                initial_claim_catalog=catalog,
             )
         # arid: enable
 

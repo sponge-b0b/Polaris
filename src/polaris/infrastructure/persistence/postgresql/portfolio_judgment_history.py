@@ -318,8 +318,11 @@ async def insert_initial_portfolio_judgment_act(
     connection: AsyncConnection,
     assertion: PortfolioJudgmentAssertion,
     known_at: datetime,
+    initial_claim_catalog: PortfolioClaimCatalog,
 ) -> None:
-    """Join root creation and initial complete empty catalog in one transaction."""
+    """Join root creation and its declared complete catalog in one transaction."""
+    if type(initial_claim_catalog) is not PortfolioClaimCatalog:
+        raise TypeError("initial_claim_catalog must be PortfolioClaimCatalog")
     root = (
         assertion.consequence_id
         if type(assertion) is ProjectedPortfolioConsequence
@@ -335,7 +338,7 @@ async def insert_initial_portfolio_judgment_act(
         known_at=known_at,
         ancestry=(),
         assertion=assertion,
-        catalog=PortfolioClaimCatalog(()),
+        catalog=initial_claim_catalog,
     )
     history = PortfolioJudgmentHistory.form(initial)
     await connection.execute(

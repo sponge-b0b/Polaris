@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from decimal import Decimal
 
 from sqlalchemy import func, insert, select, text
@@ -13,6 +14,7 @@ from polaris.application.portfolio_consequences import (
     PortfolioConsequenceConflict,
     PortfolioConsequenceService,
     PortfolioConsequenceStoreFailure,
+    require_initial_claim_catalogs,
 )
 from polaris.domain.configuration.evidence_requirements import InvestmentHorizon
 from polaris.domain.decisions.facts import InvestmentDecisionId
@@ -28,6 +30,7 @@ from polaris.domain.portfolio_consequences import (
     ProjectedPortfolioConsequence,
     RecordedProjectedPortfolioConsequence,
 )
+from polaris.domain.portfolio_judgment_history import PortfolioClaimCatalog
 
 from .codec import actor_columns, actor_from_columns
 from .codec_support import uuid_value
@@ -127,11 +130,15 @@ class PostgresPortfolioConsequenceStore:
         self,
         decision_id: InvestmentDecisionId,
         consequences: tuple[ProjectedPortfolioConsequence, ...],
+        initial_claim_catalogs: Mapping[
+            ProjectedPortfolioConsequenceRef, PortfolioClaimCatalog
+        ],
     ) -> tuple[RecordedProjectedPortfolioConsequence, ...]:
         if type(decision_id) is not InvestmentDecisionId:
             raise TypeError("decision_id must be InvestmentDecisionId")
         if not consequences:
             raise ValueError("consequences are required")
+        catalogs = require_initial_claim_catalogs(consequences, initial_claim_catalogs)
         try:
             async with self._engine.begin() as connection:
                 await connection.execute(
@@ -169,6 +176,11 @@ class PostgresPortfolioConsequenceStore:
                         connection,
                         _from_row(row).consequence,
                         row["known_at"],
+                        catalogs[
+                            ProjectedPortfolioConsequenceRef(
+                                uuid_value(row["consequence_id"], "consequence_id")
+                            )
+                        ],
                     )
         except IntegrityError as exc:
             if getattr(exc.orig, "sqlstate", None) == "23505":

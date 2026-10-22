@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-22] R3 Portfolio initial claim catalogs | admission completed
+
+Recorded explicit complete claim catalogs at initial Projected Portfolio Consequence and Portfolio Risk Assessment admission. Application requires catalogs for each target root, and PostgreSQL commits each catalog with its owner judgment. Updated Application Use Cases and Durable Persistence.
+
 ## [2026-10-20] R3 Portfolio context versions | owner history implemented
 
 Recorded Portfolio-owned typed context revisions, Mandate member meaning, exact-key selection and absence guards, historical owner-cause attestation, and immutable PostgreSQL commit history. Updated Portfolio & Risk, Evidence, Application Use Cases, and Durable Persistence; dependent Evidence writes and Recommendation consumption remain planned.

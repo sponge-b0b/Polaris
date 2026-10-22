@@ -13,6 +13,7 @@ from polaris.domain.evidence.judgments import (
 )
 from polaris.domain.portfolio import PortfolioStateId, RecordedPortfolioState
 from polaris.domain.portfolio_consequences import RecordedProjectedPortfolioConsequence
+from polaris.domain.portfolio_judgment_history import PortfolioClaimCatalog
 from polaris.domain.portfolio_risk import (
     PortfolioRiskAssessment,
     RecordedPortfolioRiskAssessment,
@@ -31,7 +32,9 @@ class PortfolioRiskStoreFailure(Exception):
 
 class PortfolioRiskStore(Protocol):
     async def append(
-        self, assessment: PortfolioRiskAssessment
+        self,
+        assessment: PortfolioRiskAssessment,
+        initial_claim_catalog: PortfolioClaimCatalog,
     ) -> RecordedPortfolioRiskAssessment:
         """Append one assessment without overwriting prior Risk or uncertainty."""
 
@@ -75,10 +78,13 @@ class PortfolioRiskService:
         support: RiskSupport,
         attribution: ActorAttribution,
         formed_at: datetime,
+        initial_claim_catalog: PortfolioClaimCatalog,
     ) -> RecordedPortfolioRiskAssessment:
         """Assess actual or projected Portfolio Risk against one immutable basis."""
         if type(source_state_id) is not PortfolioStateId:
             raise TypeError("source_state_id must be PortfolioStateId")
+        if type(initial_claim_catalog) is not PortfolioClaimCatalog:
+            raise TypeError("initial_claim_catalog must be PortfolioClaimCatalog")
         source = await self._state_reader.get(source_state_id)
         if source is None:
             raise ValueError("source Portfolio State does not exist")
@@ -100,4 +106,4 @@ class PortfolioRiskService:
             attribution=attribution,
             formed_at=formed_at,
         )
-        return await self._risk_store.append(assessment)
+        return await self._risk_store.append(assessment, initial_claim_catalog)

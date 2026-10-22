@@ -21,6 +21,7 @@ from polaris.domain.evidence.judgments import (
 )
 from polaris.domain.evidence.observations import EvidenceObservationId
 from polaris.domain.portfolio import PortfolioStateId
+from polaris.domain.portfolio_judgment_history import PortfolioClaimCatalog
 from polaris.domain.portfolio_risk import (
     PortfolioRiskAssessment,
     RecordedPortfolioRiskAssessment,
@@ -128,10 +129,14 @@ class PostgresPortfolioRiskStore:
         self._engine = engine
 
     async def append(
-        self, assessment: PortfolioRiskAssessment
+        self,
+        assessment: PortfolioRiskAssessment,
+        initial_claim_catalog: PortfolioClaimCatalog,
     ) -> RecordedPortfolioRiskAssessment:
         if type(assessment) is not PortfolioRiskAssessment:
             raise TypeError("assessment must be PortfolioRiskAssessment")
+        if type(initial_claim_catalog) is not PortfolioClaimCatalog:
+            raise TypeError("initial_claim_catalog must be PortfolioClaimCatalog")
         try:
             async with self._engine.begin() as connection:
                 if assessment.projected_consequence_id is not None:
@@ -165,6 +170,7 @@ class PostgresPortfolioRiskStore:
                     connection,
                     _from_row(row).assessment,
                     row["known_at"],
+                    initial_claim_catalog,
                 )
         except IntegrityError as exc:
             if getattr(exc.orig, "sqlstate", None) == "23505":

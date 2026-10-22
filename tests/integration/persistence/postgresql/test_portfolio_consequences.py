@@ -28,7 +28,10 @@ from polaris.domain.decisions import (
     TriggerProvenance,
 )
 from polaris.domain.evidence.judgments import ProjectedPortfolioConsequenceRef
-from polaris.domain.portfolio_judgment_history import PendingDisposition
+from polaris.domain.portfolio_judgment_history import (
+    PendingDisposition,
+    PortfolioClaimCatalog,
+)
 from polaris.infrastructure.persistence.postgresql import (
     PostgresDecisionStore,
     PostgresInvestmentIntelligenceStore,
@@ -46,7 +49,10 @@ from tests.domain.test_portfolio_consequences import (
     _state,
 )
 
-from ._portfolio_judgment_history_support import prove_durable_corrections
+from ._portfolio_judgment_history_support import (
+    initial_catalog_with_distinct_support,
+    prove_durable_corrections,
+)
 from .conftest import PostgresTestTarget, postgres_row_counts, postgres_store
 
 
@@ -101,21 +107,34 @@ def test_owner_alternatives_produce_complete_immutable_consequences(
                 sorted(alternatives, key=lambda item: item.alternative_id.value.hex)
             )
             consequences = _consequences(source, alternatives)
+            initial_catalog = initial_catalog_with_distinct_support(
+                "Projected SPY exposure change", "Projected cash effect"
+            )
+            catalogs = {
+                item.consequence_id: (
+                    initial_catalog
+                    if item == consequences[0]
+                    else PortfolioClaimCatalog(())
+                )
+                for item in consequences
+            }
             service = create_postgres_portfolio_consequence_service(engine)
             with pytest.raises(ValueError, match="cover exact"):
                 await service.produce(
                     decision_id=result.decision_id,
                     source_state_id=source.state.state_id,
                     consequences=consequences[:2],
+                    initial_claim_catalogs=catalogs,
                 )
             committed = await service.produce(
                 decision_id=result.decision_id,
                 source_state_id=source.state.state_id,
                 consequences=consequences,
+                initial_claim_catalogs=catalogs,
             )
             assert tuple(item.consequence for item in committed) == consequences
             await prove_durable_corrections(
-                engine, consequences[0], PendingDisposition.CANCEL
+                engine, consequences[0], PendingDisposition.CANCEL, initial_catalog
             )
             await prove_durable_corrections(
                 engine, consequences[1], PendingDisposition.RETAIN
@@ -132,16 +151,18 @@ def test_owner_alternatives_produce_complete_immutable_consequences(
                 ),
                 1,
             )
+            new_consequences = tuple(
+                replace(item, consequence_id=ProjectedPortfolioConsequenceRef(uuid4()))
+                for item in consequences
+            )
             with pytest.raises(PortfolioConsequenceConflict, match="stale"):
                 await consequence_store.append_batch(
                     result.decision_id,
-                    tuple(
-                        replace(
-                            item,
-                            consequence_id=ProjectedPortfolioConsequenceRef(uuid4()),
-                        )
-                        for item in consequences
-                    ),
+                    new_consequences,
+                    {
+                        item.consequence_id: PortfolioClaimCatalog(())
+                        for item in new_consequences
+                    },
                 )
             async with engine.connect() as connection:
                 stored_row = (
@@ -174,7 +195,11 @@ def test_owner_alternatives_produce_complete_immutable_consequences(
             assert await restarted.get(consequences[0].consequence_id) == committed[0]
             assert await restarted.get(consequences[1].consequence_id) == committed[1]
             with pytest.raises(PortfolioConsequenceConflict):
-                await restarted.append_batch(result.decision_id, (consequences[0],))
+                await restarted.append_batch(
+                    result.decision_id,
+                    (consequences[0],),
+                    {consequences[0].consequence_id: initial_catalog},
+                )
             with pytest.raises(DBAPIError):
                 async with engine.begin() as connection:
                     await connection.execute(

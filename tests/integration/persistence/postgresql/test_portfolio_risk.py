@@ -26,7 +26,10 @@ from polaris.domain.decisions import (
     TriggerProvenance,
 )
 from polaris.domain.evidence.judgments import PortfolioRiskAssessmentRef
-from polaris.domain.portfolio_judgment_history import PendingDisposition
+from polaris.domain.portfolio_judgment_history import (
+    PendingDisposition,
+    PortfolioClaimCatalog,
+)
 from polaris.infrastructure.persistence.postgresql import (
     PostgresDecisionStore,
     PostgresInvestmentIntelligenceStore,
@@ -47,7 +50,10 @@ from tests.domain.test_portfolio_consequences import (
 )
 from tests.domain.test_portfolio_risk import _support
 
-from ._portfolio_judgment_history_support import prove_durable_corrections
+from ._portfolio_judgment_history_support import (
+    initial_catalog_with_distinct_support,
+    prove_durable_corrections,
+)
 from .conftest import PostgresTestTarget, postgres_row_counts, postgres_store
 
 
@@ -105,12 +111,19 @@ def test_risk_history_preserves_actual_and_projected_judgments_after_restart(
                 decision_id=result.decision_id,
                 source_state_id=source.state.state_id,
                 consequences=consequences,
+                initial_claim_catalogs={
+                    item.consequence_id: PortfolioClaimCatalog(())
+                    for item in consequences
+                },
             )
             # arid: enable
             assert len(committed) == 3
             risk_service = create_postgres_portfolio_risk_service(engine)
             actual_id = PortfolioRiskAssessmentRef(uuid4())
             projected_id = PortfolioRiskAssessmentRef(uuid4())
+            initial_catalog = initial_catalog_with_distinct_support(
+                "Downside sensitivity", "Liquidity buffer"
+            )
             actual = await risk_service.assess(
                 assessment_id=actual_id,
                 source_state_id=source.state.state_id,
@@ -120,6 +133,7 @@ def test_risk_history_preserves_actual_and_projected_judgments_after_restart(
                 support=_support(),
                 attribution=actor,
                 formed_at=NOW,
+                initial_claim_catalog=initial_catalog,
             )
             projected = await risk_service.assess(
                 assessment_id=projected_id,
@@ -130,6 +144,7 @@ def test_risk_history_preserves_actual_and_projected_judgments_after_restart(
                 support=_support(downside=None),
                 attribution=actor,
                 formed_at=NOW,
+                initial_claim_catalog=PortfolioClaimCatalog(()),
             )
             assert actual.assessment.projected_consequence_id is None
             assert projected.assessment.projected_consequence_id == (
@@ -139,7 +154,7 @@ def test_risk_history_preserves_actual_and_projected_judgments_after_restart(
             assert projected.assessment.dimensions[1].value is None
             assert projected.assessment.uncertainty[-1] == consequences[0].uncertainty
             await prove_durable_corrections(
-                engine, actual.assessment, PendingDisposition.CANCEL
+                engine, actual.assessment, PendingDisposition.CANCEL, initial_catalog
             )
             await prove_durable_corrections(
                 engine, projected.assessment, PendingDisposition.RETAIN
@@ -147,7 +162,8 @@ def test_risk_history_preserves_actual_and_projected_judgments_after_restart(
             assert await postgres_row_counts(engine, portfolio_risk_assessments) == (2,)
             with pytest.raises(PortfolioRiskConflict):
                 await store.append(
-                    replace(actual.assessment, scenario="A later conflicting scenario")
+                    replace(actual.assessment, scenario="A later conflicting scenario"),
+                    initial_catalog,
                 )
             with pytest.raises(PortfolioRiskConflict, match="basis differs"):
                 await store.append(
@@ -155,7 +171,8 @@ def test_risk_history_preserves_actual_and_projected_judgments_after_restart(
                         projected.assessment,
                         assessment_id=PortfolioRiskAssessmentRef(uuid4()),
                         horizon=InvestmentHorizon("one year"),
-                    )
+                    ),
+                    PortfolioClaimCatalog(()),
                 )
             with pytest.raises(DBAPIError):
                 async with engine.begin() as connection:

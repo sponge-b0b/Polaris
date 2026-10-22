@@ -17,8 +17,9 @@ spec.loader.exec_module(workflow_handoff)
 
 
 def test_verify_spec_uses_machine_candidate_attribution() -> None:
+    helper = ".agents/skills/verify-spec/scripts/verify_spec_attribution.py"
     for phrase in (
-        "python -m scripts.workflow_verify_spec_attribution build",
+        helper,
         "VERIFY-SPEC ATTRIBUTION: VALID",
         "candidate_attributable_paths",
         "inherited_default_equivalent_paths",
@@ -28,6 +29,7 @@ def test_verify_spec_uses_machine_candidate_attribution() -> None:
         assert phrase in VERIFY
 
     for phrase in (
+        helper,
         "Spec-differential uses the verify-spec attribution manifest",
         "upstream-inherited",
         "candidate_attributable_paths",
@@ -36,6 +38,9 @@ def test_verify_spec_uses_machine_candidate_attribution() -> None:
         "current default-branch-equivalent path into Spec-attributable duplicate debt.",
     ):
         assert phrase in DEDUP
+
+    assert "scripts.workflow_verify_spec_attribution" not in VERIFY
+    assert "scripts.workflow_verify_spec_attribution" not in DEDUP
 
 
 def test_verify_spec_is_bound_to_shared_handoff_gate() -> None:

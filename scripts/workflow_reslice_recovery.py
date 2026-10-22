@@ -318,6 +318,56 @@ def _parse_execution_order(
     return native_order, execution_order, order_source
 
 
+def _validate_retired_pending(
+    source_retirement: str | None,
+    _destination_baseline: str,
+    destination_completion: str,
+) -> None:
+    if source_retirement != "Pending":
+        raise RecoveryError(
+            "pending-source-retirement requires Source retirement Pending"
+        )
+    if destination_completion != "Pending":
+        raise RecoveryError(
+            "pending-source-retirement requires Destination completion Pending"
+        )
+
+
+def _validate_source_retired(
+    source_retirement: str | None,
+    _destination_baseline: str,
+    destination_completion: str,
+) -> None:
+    if source_retirement != "closed-not-planned":
+        raise RecoveryError(
+            "source-retired requires Source retirement closed-not-planned"
+        )
+    if destination_completion != "Pending":
+        raise RecoveryError(
+            "source-retired requires Destination completion Pending"
+        )
+
+
+def _validate_retired_reconciled(
+    source_retirement: str | None,
+    destination_baseline: str,
+    destination_completion: str,
+) -> None:
+    if source_retirement != "closed-not-planned":
+        raise RecoveryError(
+            "retired source-reconciled requires Source retirement "
+            "closed-not-planned"
+        )
+    if not HEX40.fullmatch(destination_completion):
+        raise RecoveryError(
+            "retired source-reconciled requires Destination completion SHA"
+        )
+    if not HEX40.fullmatch(destination_baseline):
+        raise RecoveryError(
+            "retired source-reconciled requires pinned Destination baseline SHA"
+        )
+
+
 def _validate_retired_status(
     *,
     status: str,
@@ -331,45 +381,96 @@ def _validate_retired_status(
             "Pending or closed-not-planned"
         )
 
-    if status == "pending-source-retirement":
-        if source_retirement != "Pending":
-            raise RecoveryError(
-                "pending-source-retirement requires Source retirement Pending"
-            )
-        if destination_completion != "Pending":
-            raise RecoveryError(
-                "pending-source-retirement requires Destination completion Pending"
-            )
-        return
+    validators = {
+        "pending-source-retirement": _validate_retired_pending,
+        "source-retired": _validate_source_retired,
+        "source-reconciled": _validate_retired_reconciled,
+    }
+    validator = validators.get(status)
+    if validator is None:
+        raise RecoveryError(
+            f"Status {status} is invalid for retired-source recovery"
+        )
+    validator(
+        source_retirement,
+        destination_baseline,
+        destination_completion,
+    )
 
-    if status == "source-retired":
-        if source_retirement != "closed-not-planned":
-            raise RecoveryError(
-                "source-retired requires Source retirement closed-not-planned"
-            )
-        if destination_completion != "Pending":
-            raise RecoveryError(
-                "source-retired requires Destination completion Pending"
-            )
-        return
 
-    if status == "source-reconciled":
-        if source_retirement != "closed-not-planned":
-            raise RecoveryError(
-                "retired source-reconciled requires Source retirement "
-                "closed-not-planned"
-            )
-        if not HEX40.fullmatch(destination_completion):
-            raise RecoveryError(
-                "retired source-reconciled requires Destination completion SHA"
-            )
-        if not HEX40.fullmatch(destination_baseline):
-            raise RecoveryError(
-                "retired source-reconciled requires pinned Destination baseline SHA"
-            )
-        return
+def _validate_pending_prerequisite(
+    _execution_order: str,
+    source_completion: str,
+    _destination_baseline: str,
+    destination_completion: str,
+) -> None:
+    if source_completion != "Pending" or destination_completion != "Pending":
+        raise RecoveryError(
+            "pending-prerequisite requires both completions Pending"
+        )
 
-    raise RecoveryError(f"Status {status} is invalid for retired-source recovery")
+
+def _validate_source_complete(
+    execution_order: str,
+    source_completion: str,
+    _destination_baseline: str,
+    destination_completion: str,
+) -> None:
+    if execution_order != "source-first":
+        raise RecoveryError(
+            "source-complete is valid only for source-first recovery"
+        )
+    if (
+        not HEX40.fullmatch(source_completion)
+        or destination_completion != "Pending"
+    ):
+        raise RecoveryError(
+            "source-complete requires Source completion SHA "
+            "and Destination Pending"
+        )
+
+
+def _validate_prerequisite_complete(
+    execution_order: str,
+    source_completion: str,
+    destination_baseline: str,
+    destination_completion: str,
+) -> None:
+    if execution_order != "destination-first":
+        raise RecoveryError(
+            "prerequisite-complete is valid only for destination-first recovery"
+        )
+    if (
+        source_completion != "Pending"
+        or not HEX40.fullmatch(destination_completion)
+    ):
+        raise RecoveryError(
+            "prerequisite-complete requires Destination completion SHA "
+            "and Source Pending"
+        )
+    if not HEX40.fullmatch(destination_baseline):
+        raise RecoveryError(
+            "prerequisite-complete requires pinned Destination baseline SHA"
+        )
+
+
+def _validate_execute_reconciled(
+    _execution_order: str,
+    source_completion: str,
+    destination_baseline: str,
+    destination_completion: str,
+) -> None:
+    if (
+        not HEX40.fullmatch(source_completion)
+        or not HEX40.fullmatch(destination_completion)
+    ):
+        raise RecoveryError(
+            "source-reconciled requires both exact completion commit SHAs"
+        )
+    if not HEX40.fullmatch(destination_baseline):
+        raise RecoveryError(
+            "source-reconciled requires pinned Destination baseline SHA"
+        )
 
 
 def _validate_execute_status(
@@ -380,62 +481,21 @@ def _validate_execute_status(
     destination_baseline: str,
     destination_completion: str,
 ) -> None:
-    if status == "pending-prerequisite":
-        if source_completion != "Pending" or destination_completion != "Pending":
-            raise RecoveryError(
-                "pending-prerequisite requires both completions Pending"
-            )
-        return
-
-    if status == "source-complete":
-        if execution_order != "source-first":
-            raise RecoveryError(
-                "source-complete is valid only for source-first recovery"
-            )
-        if (
-            not HEX40.fullmatch(source_completion)
-            or destination_completion != "Pending"
-        ):
-            raise RecoveryError(
-                "source-complete requires Source completion SHA "
-                "and Destination Pending"
-            )
-        return
-
-    if status == "prerequisite-complete":
-        if execution_order != "destination-first":
-            raise RecoveryError(
-                "prerequisite-complete is valid only for destination-first recovery"
-            )
-        if (
-            source_completion != "Pending"
-            or not HEX40.fullmatch(destination_completion)
-        ):
-            raise RecoveryError(
-                "prerequisite-complete requires Destination completion SHA "
-                "and Source Pending"
-            )
-        if not HEX40.fullmatch(destination_baseline):
-            raise RecoveryError(
-                "prerequisite-complete requires pinned Destination baseline SHA"
-            )
-        return
-
-    if status == "source-reconciled":
-        if (
-            not HEX40.fullmatch(source_completion)
-            or not HEX40.fullmatch(destination_completion)
-        ):
-            raise RecoveryError(
-                "source-reconciled requires both exact completion commit SHAs"
-            )
-        if not HEX40.fullmatch(destination_baseline):
-            raise RecoveryError(
-                "source-reconciled requires pinned Destination baseline SHA"
-            )
-        return
-
-    raise RecoveryError(f"Status {status} is invalid for execute recovery")
+    validators = {
+        "pending-prerequisite": _validate_pending_prerequisite,
+        "source-complete": _validate_source_complete,
+        "prerequisite-complete": _validate_prerequisite_complete,
+        "source-reconciled": _validate_execute_reconciled,
+    }
+    validator = validators.get(status)
+    if validator is None:
+        raise RecoveryError(f"Status {status} is invalid for execute recovery")
+    validator(
+        execution_order,
+        source_completion,
+        destination_baseline,
+        destination_completion,
+    )
 
 
 def _parse_completion_state(

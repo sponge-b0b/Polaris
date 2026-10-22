@@ -78,4 +78,6 @@ def test_verify_spec_pass_handoff_renders_review_spec() -> None:
         "$review-spec - Spec: Implement R3 Portfolio consequence and Portfolio Risk semantics "
         "(https://github.com/sponge-b0b/Polaris/issues/359)"
     ) in output
-    assert workflow_handoff.validate_output(manifest, output) == "WORKFLOW HANDOFF: VALID"
+    assert (
+        workflow_handoff.validate_output(manifest, output) == "WORKFLOW HANDOFF: VALID"
+    )

@@ -36,6 +36,29 @@ python -m scripts.project_delivery reconcile --repo <owner/repo>
 python -m scripts.project_delivery guard --repo <owner/repo> --wayfinder <issue-number>
 ```
 
+### Default-branch execution source
+
+`scripts.project_delivery` is delivery control-plane runtime, not Spec candidate content.
+Resolve and fetch the repository's current remote default-branch tip before executing
+`reconcile` or `guard`. Execute those commands from a clean detached checkout/worktree (or
+an equivalently isolated clean checkout) at that exact fetched default-branch tip whenever
+the caller is operating from a different branch, a detached reviewed candidate, or any
+checkout whose runtime identity cannot be proven equal to the current default-branch tip.
+
+The control-plane checkout is execution-only. Do not checkout, reset, stash, clean, commit,
+or otherwise mutate the caller's lifecycle worktree merely to obtain current control-plane
+runtime. Pass repository and Wayfinder identity explicitly to the commands and require the
+executed `scripts.project_delivery` blob to come from the proven default-branch tip.
+
+Never copy, cherry-pick, merge, or synchronize `scripts/project_delivery.py` or its tests
+into a verified/reviewed Spec branch merely to obtain a workflow-runtime repair. Runtime
+repairs land on the default branch. A reviewed lifecycle candidate remains unchanged except
+for synchronization surfaces explicitly permitted by the repository-wide Non-Semantic
+Workflow-Policy Synchronization rule in `AGENTS.md`.
+
+If a clean exact default-branch execution plane cannot be proven, fail closed. Do not fall
+back to the candidate branch's older runtime and do not reproduce the algorithm manually.
+
 These commands are the sole runtime implementation of singleton discovery, current-state
 parsing, focused-map validation, direct map-blocker reads, deterministic reconciliation,
 and `PROJECT DELIVERY GUARD` classification.

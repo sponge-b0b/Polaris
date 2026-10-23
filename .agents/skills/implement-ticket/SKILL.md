@@ -57,6 +57,21 @@ python -m scripts.workflow_reslice_recovery validate \
 Require `TICKET RESLICE RECOVERY: VALID`. Malformed, duplicate, contradictory, ambiguous, or
 native-order-inconsistent recovery state is a Hard Blocker.
 
+### Recovery validator execution source
+
+`scripts.workflow_reslice_recovery` is workflow control-plane runtime, not product candidate
+content. Resolve and fetch the current remote default-branch tip before validating a recovery
+record. When the caller branch does not contain that helper, or its helper blob is not exactly
+the current default-branch blob, execute the validator from a clean detached checkout/worktree
+at the exact fetched default-branch tip and pass the recovery-comment body by path. Do not
+copy, cherry-pick, merge, or synchronize the validator or its workflow tests into the active
+Spec branch merely to validate recovery state.
+
+Recovery validation is read-only with respect to both the caller candidate and the protected
+donor. It must not checkout, reset, stash, clean, commit, or otherwise mutate either worktree.
+If the exact current default-branch validator cannot be executed and proven, fail closed;
+do not fall back to a stale candidate-branch helper or manually recreate the validation.
+
 Native dependencies determine actionability. Recovery metadata never makes a blocked ticket
 actionable and never changes its deterministic ticket contract.
 

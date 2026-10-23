@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from scripts.project_delivery import DeliveryStateError, GitHubClient, guard, reconcile
+from scripts.project_delivery import (
+    DeliveryStateError,
+    GitHubClient,
+    GitHubCommandError,
+    guard,
+    reconcile,
+)
 
 CONTROL_ISSUE = 9001
 FOCUSED_WAYFINDER = 101
@@ -73,43 +79,52 @@ def control_issue(number: int = CONTROL_ISSUE) -> dict:
     }
 
 
-def test_control_issue_discovery_tolerates_intermittent_empty_snapshots(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    client = GitHubClient("owner/repo")
-    control = control_issue()
-    snapshots = iter([[], [control], [], [control], []])
-    queries: list[tuple[str, dict[str, str]]] = []
-
-    def fake_paged(endpoint: str, query: dict[str, str]) -> list[dict]:
-        queries.append((endpoint, query.copy()))
-        return next(snapshots)
-
-    monkeypatch.setattr(client, "_paged", fake_paged)
-    monkeypatch.setattr(client, "issue", lambda number: control)
-
-    assert [row["number"] for row in client.control_issues()] == [CONTROL_ISSUE]
-    assert (
-        queries
-        == [
-            (
-                "repos/owner/repo/issues",
-                {"state": "all", "labels": "project-delivery:management"},
-            )
-        ]
-        * 5
-    )
+def graphql_page(
+    numbers: tuple[int, ...],
+    *,
+    has_next: bool = False,
+    end_cursor: str | None = None,
+) -> dict:
+    return {
+        "data": {
+            "repository": {
+                "issues": {
+                    "nodes": [{"number": number} for number in numbers],
+                    "pageInfo": {
+                        "hasNextPage": has_next,
+                        "endCursor": end_cursor,
+                    },
+                }
+            }
+        }
+    }
 
 
-def test_control_issue_discovery_preserves_duplicate_evidence(
+def test_control_issue_discovery_uses_complete_graphql_label_pagination(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client = GitHubClient("owner/repo")
     first = control_issue(CONTROL_ISSUE)
     second = control_issue(CONTROL_ISSUE + 1)
-    snapshots = iter([[first], [], [second], [], []])
+    pages = iter(
+        [
+            graphql_page((CONTROL_ISSUE,), has_next=True, end_cursor="cursor-1"),
+            graphql_page((CONTROL_ISSUE + 1,)),
+        ]
+    )
+    calls: list[tuple[str, str, dict[str, str]]] = []
 
-    monkeypatch.setattr(client, "_paged", lambda endpoint, query: next(snapshots))
+    def fake_request(
+        endpoint: str,
+        *,
+        method: str = "GET",
+        fields: dict[str, str] | None = None,
+    ) -> dict:
+        assert fields is not None
+        calls.append((endpoint, method, fields.copy()))
+        return next(pages)
+
+    monkeypatch.setattr(client, "_request", fake_request)
     monkeypatch.setattr(
         client,
         "issue",
@@ -120,23 +135,48 @@ def test_control_issue_discovery_preserves_duplicate_evidence(
         CONTROL_ISSUE,
         CONTROL_ISSUE + 1,
     ]
+    assert [endpoint for endpoint, _, _ in calls] == ["graphql", "graphql"]
+    assert [method for _, method, _ in calls] == ["POST", "POST"]
+    assert calls[0][2]["owner"] == "owner"
+    assert calls[0][2]["name"] == "repo"
+    assert calls[0][2]["label"] == "project-delivery:management"
+    assert "after" not in calls[0][2]
+    assert calls[1][2]["after"] == "cursor-1"
 
 
-def test_control_issue_discovery_rechecks_current_label(
+def test_control_issue_discovery_rechecks_current_exact_label(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client = GitHubClient("owner/repo")
-    control = control_issue()
-    snapshots = iter([[control], [], [], [], []])
-
-    monkeypatch.setattr(client, "_paged", lambda endpoint, query: next(snapshots))
+    monkeypatch.setattr(
+        client,
+        "_request",
+        lambda endpoint, **kwargs: graphql_page((CONTROL_ISSUE,)),
+    )
     monkeypatch.setattr(
         client,
         "issue",
         lambda number: issue(number, labels=()),
     )
 
-    assert client.control_issues() == []
+    with pytest.raises(GitHubCommandError, match="without the exact control label"):
+        client.control_issues()
+
+
+def test_control_issue_discovery_fails_closed_on_incomplete_pagination(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = GitHubClient("owner/repo")
+    monkeypatch.setattr(
+        client,
+        "_request",
+        lambda endpoint, **kwargs: graphql_page(
+            (CONTROL_ISSUE,), has_next=True, end_cursor=None
+        ),
+    )
+
+    with pytest.raises(GitHubCommandError, match="missing end cursor"):
+        client.control_issues()
 
 
 def test_guard_allowed_is_exact_receipt() -> None:

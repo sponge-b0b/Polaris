@@ -84,6 +84,7 @@ from .judgment_versions import (
     TargetJudgmentContested,
     TargetJudgmentInvalidHistory,
     TargetJudgmentMissing,
+    TargetJudgmentNotYetEffective,
     TargetJudgmentResolver,
     TargetJudgmentUnavailable,
     TargetJudgmentWithdrawn,
@@ -1169,12 +1170,7 @@ class CurrentEvidenceBasisQuery:
             decision.lifecycle_interpretation,
             NotYetEffectiveDecisionLifecycleInterpretation,
         ):
-            return _no_basis(
-                key,
-                at,
-                CurrentNoBasisReason.NOT_YET_EFFECTIVE,
-                "Decision is not yet effective",
-            )
+            return _not_yet_effective(key, at, "Decision is not yet effective")
         return decision, proof
 
     async def _read_target_meaning(
@@ -1648,6 +1644,8 @@ def _target_failure(
         return _contested(key, at, result.reason)
     if isinstance(result, TargetJudgmentInvalidHistory):
         return _invalid(key, at, result.reason)
+    if isinstance(result, TargetJudgmentNotYetEffective):
+        return _not_yet_effective(key, at, "target is not yet effective")
     if isinstance(result, (TargetJudgmentMissing, TargetJudgmentWithdrawn)):
         return _missing(key, at, "target is not current")
     return _invalid(key, at, "invalid target owner result")
@@ -1707,6 +1705,12 @@ def _no_basis(
 
 def _missing(key: BasisScopeKey, at: datetime, detail: str) -> CurrentEvidenceNoBasis:
     return _no_basis(key, at, CurrentNoBasisReason.MISSING, detail)
+
+
+def _not_yet_effective(
+    key: BasisScopeKey, at: datetime, detail: str
+) -> CurrentEvidenceNoBasis:
+    return _no_basis(key, at, CurrentNoBasisReason.NOT_YET_EFFECTIVE, detail)
 
 
 def _incomplete(

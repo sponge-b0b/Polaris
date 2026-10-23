@@ -1,1049 +1,213 @@
-"""Greenfield PostgreSQL schema for durable Polaris business truth."""
+"""Integrated PostgreSQL schema for the staged R3 provider handoff.
 
-from __future__ import annotations
+The certified Investment Intelligence foundation is retained byte-for-byte in
+``schema_foundation``. This module composes that schema with the independently
+certified Portfolio State table from #404 so both sibling ``0009`` migration
+branches share one runtime metadata registry without rewriting either migration.
+"""
 
 from typing import Any
 
 from sqlalchemy import (
-    BigInteger,
-    Boolean,
     CheckConstraint,
     Column,
     DateTime,
-    ForeignKey,
     ForeignKeyConstraint,
-    Identity,
     Index,
     Integer,
-    MetaData,
+    Numeric,
     String,
     Table,
     Text,
     UniqueConstraint,
-    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 
-NAMING_CONVENTION = {
-    "ix": "ix_%(table_name)s_%(column_0_name)s",
-    "uq": "uq_%(table_name)s_%(column_0_name)s",
-    "ck": "ck_%(table_name)s_%(constraint_name)s",
-    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-    "pk": "pk_%(table_name)s",
-}
-
-metadata = MetaData(naming_convention=NAMING_CONVENTION)
+from . import schema_foundation as _foundation
+from .schema_foundation import *  # noqa: F401,F403
 
 
-def _row_id() -> Column[int]:
-    return Column("row_id", BigInteger, Identity(), primary_key=True)
-
-
-def _uuid_array() -> ARRAY:
-    return ARRAY(UUID(as_uuid=True))
-
-
-def _command_provenance_columns() -> tuple[Column[Any], ...]:
+def _portfolio_actor_columns() -> tuple[Column[Any], ...]:
     return (
-        Column("operation_id", UUID(as_uuid=True), nullable=False),
         Column("actor_attribution_kind", String(16), nullable=False),
         Column("actor_id", UUID(as_uuid=True)),
-        Column("actor_candidate_ids", _uuid_array()),
-        Column("trigger_kind", String(32), nullable=False),
-        Column("trigger_reference", Text, nullable=False),
-        Column(
-            "technical_provenance",
-            JSONB,
-            nullable=False,
-            server_default=text("'[]'::jsonb"),
-        ),
+        Column("actor_candidate_ids", ARRAY(UUID(as_uuid=True))),
     )
 
 
-def _actor_attribution_constraints() -> tuple[CheckConstraint, ...]:
-    return (
-        CheckConstraint(
-            "actor_attribution_kind IN ('known', 'unknown', 'contested')",
-            name="actor_attribution_kind",
-        ),
-        CheckConstraint(
-            "(actor_attribution_kind = 'known' AND actor_id IS NOT NULL "
-            "AND actor_candidate_ids IS NULL) OR "
-            "(actor_attribution_kind = 'unknown' AND actor_id IS NULL "
-            "AND actor_candidate_ids IS NULL) OR "
-            "(actor_attribution_kind = 'contested' AND actor_id IS NULL "
-            "AND cardinality(actor_candidate_ids) > 0)",
-            name="actor_attribution_shape",
-        ),
+def _portfolio_source_fk(name: str) -> ForeignKeyConstraint:
+    return ForeignKeyConstraint(
+        ["source_state_id", "source_as_of"],
+        ["portfolio_states.state_id", "portfolio_states.as_of"],
+        name=name,
     )
 
 
-def _request_fingerprint_constraint() -> CheckConstraint:
-    return CheckConstraint(
-        "char_length(request_fingerprint) = 64",
-        name="fingerprint_sha256",
-    )
-
-
-def _evidence_applicability_constraints() -> tuple[CheckConstraint, ...]:
-    return (
-        CheckConstraint(
-            "target_family IN ("
-            "'investment_hypothesis', 'investment_view', "
-            "'meaningful_challenge_result', 'projected_portfolio_consequence', "
-            "'portfolio_risk_assessment', 'investment_recommendation', "
-            "'recommendation_withholding_judgment', 'human_investment_decision', "
-            "'decision_evaluation', 'lesson'"
-            ")",
-            name="target_family",
-        ),
-        CheckConstraint(
-            "(scope_kind = 'judgment_wide' AND claim_id IS NULL) OR "
-            "(scope_kind = 'claim_specific' AND claim_id IS NOT NULL)",
-            name="scope_kind",
-        ),
-        CheckConstraint(
-            "evidence_use IN ("
-            "'judgment_basis', 'challenge_basis', 'current_support_check', "
-            "'retrospective_later_evidence', 'reconstruction_only'"
-            ")",
-            name="evidence_use",
-        ),
-    )
-
-
-def _evidence_applicability_columns() -> tuple[Column[Any], ...]:
-    return (
-        Column("target_family", String(48), nullable=False),
-        Column("target_id", UUID(as_uuid=True), nullable=False),
-        Column("scope_kind", String(24), nullable=False),
-        Column("claim_id", UUID(as_uuid=True)),
-        Column("evidence_use", String(40), nullable=False),
-    )
-
-
-def _evidence_correction_table(
-    table_name: str,
-    root_table_name: str,
-    root_column_name: str,
-) -> Table:
-    return Table(
-        table_name,
-        metadata,
-        _row_id(),
-        Column(
-            "correction_id",
-            UUID(as_uuid=True),
-            ForeignKey(
-                "evidence_correction_identities.correction_id",
-                name=f"fk_{table_name}_correction_identity",
-                ondelete="RESTRICT",
-            ),
-            nullable=False,
-            unique=True,
-        ),
-        Column(
-            "root_id",
-            UUID(as_uuid=True),
-            ForeignKey(
-                f"{root_table_name}.{root_column_name}",
-                name=f"fk_{table_name}_root",
-                ondelete="RESTRICT",
-            ),
-            nullable=False,
-        ),
-        Column(
-            "target_root_id",
-            UUID(as_uuid=True),
-            ForeignKey(
-                f"{root_table_name}.{root_column_name}",
-                name=f"fk_{table_name}_target_root",
-                ondelete="RESTRICT",
-            ),
-        ),
-        Column("target_correction_id", UUID(as_uuid=True)),
-        Column("effect", String(16), nullable=False),
-        Column("replacement", JSONB(none_as_null=True)),
-        Column("actor_attribution_kind", String(16), nullable=False),
-        Column("actor_id", UUID(as_uuid=True)),
-        Column("actor_candidate_ids", _uuid_array()),
-        Column("basis_reference", Text, nullable=False),
-        Column("effective_at", DateTime(timezone=True), nullable=False),
-        Column("recorded_at", DateTime(timezone=True), nullable=False),
-        UniqueConstraint(
-            "correction_id",
-            "root_id",
-            name=f"uq_{table_name}_correction_root",
-        ),
-        ForeignKeyConstraint(
-            ["target_correction_id", "root_id"],
-            [f"{table_name}.correction_id", f"{table_name}.root_id"],
-            name=f"fk_{table_name}_target_correction_lineage",
-            ondelete="RESTRICT",
-        ),
-        CheckConstraint(
-            "(target_root_id IS NOT NULL AND target_correction_id IS NULL "
-            "AND target_root_id = root_id) OR "
-            "(target_root_id IS NULL AND target_correction_id IS NOT NULL)",
-            name="target_shape",
-        ),
-        CheckConstraint(
-            "(effect = 'revise' AND replacement IS NOT NULL) OR "
-            "(effect = 'retract' AND replacement IS NULL)",
-            name="effect_shape",
-        ),
-        CheckConstraint("btrim(basis_reference) <> ''", name="basis_nonempty"),
-        *_actor_attribution_constraints(),
-    )
-
-
-decision_needs = Table(
-    "decision_needs",
-    metadata,
-    _row_id(),
-    Column("need_id", UUID(as_uuid=True), nullable=False, unique=True),
-    Column("statement", Text, nullable=False),
-    Column("effective_at", DateTime(timezone=True), nullable=False),
-    Column("recorded_at", DateTime(timezone=True), nullable=False),
-    *_command_provenance_columns(),
-    CheckConstraint("btrim(statement) <> ''", name="statement_nonempty"),
-    *_actor_attribution_constraints(),
-    CheckConstraint(
-        "btrim(trigger_reference) <> ''", name="trigger_reference_nonempty"
-    ),
-)
-
-investment_decisions = Table(
-    "investment_decisions",
-    metadata,
-    _row_id(),
-    Column("decision_id", UUID(as_uuid=True), nullable=False, unique=True),
-    Column(
-        "need_id",
-        UUID(as_uuid=True),
-        ForeignKey("decision_needs.need_id", ondelete="RESTRICT"),
-        nullable=False,
-        unique=True,
-    ),
-    Column("subject_statement", Text, nullable=False),
-    Column("scope_completeness", String(16), nullable=False),
-    Column(
-        "scope_portfolio_ids",
-        _uuid_array(),
-        nullable=False,
-        server_default=text("'{}'::uuid[]"),
-    ),
-    Column("lifecycle_interpretation_kind", String(24), nullable=False),
-    Column("lifecycle_disposition", String(32)),
-    Column("lifecycle_effective_at", DateTime(timezone=True), nullable=False),
-    Column("lifecycle_known_at", DateTime(timezone=True), nullable=False),
-    Column(
-        "lifecycle_support_fact_ids",
-        _uuid_array(),
-        nullable=False,
-        server_default=text("'{}'::uuid[]"),
-    ),
-    Column("work_posture", String(16)),
-    Column("applicability", String(20), nullable=False),
-    Column("decision_version", Integer, nullable=False),
-    Column("created_at", DateTime(timezone=True), nullable=False),
-    Column("rebuild_required", Boolean, nullable=False, server_default=text("false")),
-    CheckConstraint("btrim(subject_statement) <> ''", name="subject_nonempty"),
-    CheckConstraint(
-        "scope_completeness IN ('unresolved', 'established')",
-        name="scope_completeness",
-    ),
-    CheckConstraint(
-        "scope_completeness <> 'established' OR cardinality(scope_portfolio_ids) > 0",
-        name="established_scope_nonempty",
-    ),
-    CheckConstraint("decision_version >= 1", name="decision_version_positive"),
-    CheckConstraint(
-        "lifecycle_interpretation_kind IN "
-        "('NOT_YET_EFFECTIVE', 'DETERMINATE', 'CONTESTED')",
-        name="lifecycle_interpretation_kind",
-    ),
-    CheckConstraint(
-        "applicability IN ('operative', 'non_operative', 'contested')",
-        name="applicability",
-    ),
-)
-
-Index(
-    "ix_investment_decisions_continuity_candidates",
-    investment_decisions.c.lifecycle_disposition,
-    investment_decisions.c.applicability,
-)
-
-investment_decision_lifecycle_facts = Table(
-    "investment_decision_lifecycle_facts",
-    metadata,
-    _row_id(),
-    Column("fact_id", UUID(as_uuid=True), nullable=False, unique=True),
-    Column(
-        "decision_id",
-        UUID(as_uuid=True),
-        ForeignKey(
-            "investment_decisions.decision_id",
-            name="fk_lifecycle_fact_decision",
-            ondelete="RESTRICT",
-        ),
-        nullable=False,
-    ),
-    Column("lifecycle_sequence", Integer, nullable=False),
-    Column("decision_version", Integer, nullable=False),
-    Column("fact_kind", String(48), nullable=False),
-    *_command_provenance_columns(),
-    Column("effective_at", DateTime(timezone=True), nullable=False),
-    Column("recorded_at", DateTime(timezone=True), nullable=False),
-    Column(
-        "need_id",
-        UUID(as_uuid=True),
-        ForeignKey("decision_needs.need_id", name="fk_lifecycle_fact_need"),
-    ),
-    Column("subject_statement", Text),
-    Column("scope_completeness", String(16)),
-    Column("scope_portfolio_ids", _uuid_array()),
-    Column("continuity_determination", String(32)),
-    Column("continuity_candidate_ids", _uuid_array()),
-    Column("continuity_known_at", DateTime(timezone=True)),
-    Column("continuity_rationale", Text),
-    Column("human_decision_reference", Text),
-    Column("human_decision_effect", String(32)),
-    Column("work_control_reference", Text),
-    Column("external_resolution_reference", Text),
-    Column(
-        "correction_target_fact_id",
-        UUID(as_uuid=True),
-        ForeignKey(
-            "investment_decision_lifecycle_facts.fact_id",
-            name="fk_lifecycle_fact_correction_target",
-        ),
-    ),
-    Column("correction_effect", String(16)),
-    Column("correction_basis_reference", Text),
-    Column("replacement_disposition", String(32)),
-    Column("replacement_basis_kind", String(40)),
-    Column("replacement_basis_reference", Text),
-    UniqueConstraint(
-        "decision_id",
-        "lifecycle_sequence",
-        name="uq_lifecycle_facts_decision_sequence",
-    ),
-    CheckConstraint("lifecycle_sequence >= 1", name="sequence_positive"),
-    CheckConstraint("decision_version >= 1", name="version_positive"),
-    *_actor_attribution_constraints(),
-    CheckConstraint("btrim(trigger_reference) <> ''", name="trigger_nonempty"),
-    CheckConstraint(
-        "scope_completeness IS NULL OR "
-        "scope_completeness IN ('unresolved', 'established')",
-        name="scope_completeness",
-    ),
-    CheckConstraint(
-        "scope_completeness IS DISTINCT FROM 'established' "
-        "OR cardinality(scope_portfolio_ids) > 0",
-        name="scope_nonempty",
-    ),
-)
-
-Index(
-    "ix_lifecycle_facts_decision_recorded",
-    investment_decision_lifecycle_facts.c.decision_id,
-    investment_decision_lifecycle_facts.c.recorded_at,
-)
-
-investment_decision_relationships = Table(
-    "investment_decision_relationships",
-    metadata,
-    _row_id(),
-    Column("relationship_fact_id", UUID(as_uuid=True), nullable=False, unique=True),
-    Column(
-        "source_decision_id",
-        UUID(as_uuid=True),
-        ForeignKey(
-            "investment_decisions.decision_id",
-            name="fk_relationship_source_decision",
-            ondelete="RESTRICT",
-        ),
-        nullable=False,
-    ),
-    Column(
-        "target_decision_id",
-        UUID(as_uuid=True),
-        ForeignKey(
-            "investment_decisions.decision_id",
-            name="fk_relationship_target_decision",
-            ondelete="RESTRICT",
-        ),
-        nullable=False,
-    ),
-    Column("relationship_type", String(32), nullable=False),
-    Column("fact_kind", String(24), nullable=False),
-    Column(
-        "target_relationship_fact_id",
-        UUID(as_uuid=True),
-        ForeignKey(
-            "investment_decision_relationships.relationship_fact_id",
-            name="fk_relationship_correction_target",
-        ),
-    ),
-    *_command_provenance_columns(),
-    Column("effective_at", DateTime(timezone=True), nullable=False),
-    Column("recorded_at", DateTime(timezone=True), nullable=False),
-    Column("correction_effect", String(16)),
-    Column("positive_claim_effective_at", DateTime(timezone=True)),
-    Column("positive_basis", JSONB),
-    Column("correction_basis", JSONB),
-    Column("admission_evidence", JSONB),
-    CheckConstraint(
-        "source_decision_id <> target_decision_id", name="distinct_endpoints"
-    ),
-    *_actor_attribution_constraints(),
-    CheckConstraint(
-        "btrim(trigger_reference) <> ''", name="trigger_reference_nonempty"
-    ),
-    CheckConstraint(
-        "relationship_type IN ('renewed_from', 'supersedes')",
-        name="relationship_type",
-    ),
-    CheckConstraint("fact_kind IN ('base', 'correction')", name="fact_kind"),
-)
-
-Index(
-    "ix_relationships_source_type",
-    investment_decision_relationships.c.source_decision_id,
-    investment_decision_relationships.c.relationship_type,
-)
-Index(
-    "ix_relationships_target_type",
-    investment_decision_relationships.c.target_decision_id,
-    investment_decision_relationships.c.relationship_type,
-)
-
-investment_decision_command_receipts = Table(
-    "investment_decision_command_receipts",
-    metadata,
-    _row_id(),
-    Column("operation_id", UUID(as_uuid=True), nullable=False, unique=True),
-    Column("command_kind", String(48), nullable=False),
-    Column("request_fingerprint", String(64), nullable=False),
-    Column("request_payload", JSONB, nullable=False),
-    Column("result_payload", JSONB, nullable=False),
-    Column("committed_at", DateTime(timezone=True), nullable=False),
-    _request_fingerprint_constraint(),
-)
-
-evidence_observations = Table(
-    "evidence_observations",
-    metadata,
-    _row_id(),
-    Column("observation_id", UUID(as_uuid=True), nullable=False, unique=True),
-    Column("source_identity", Text, nullable=False),
-    Column("source_reference", Text, nullable=False),
-    Column("source_authority", Text, nullable=False),
-    Column("subject_identity", Text, nullable=False),
-    Column("subject_reference", Text, nullable=False),
-    Column("observed_at", DateTime(timezone=True), nullable=False),
-    Column("acquired_at", DateTime(timezone=True), nullable=False),
-    Column("effective_at", DateTime(timezone=True)),
-    Column("retained_representation", Text),
-    Column("verification_reference", Text),
-    Column(
-        "supersedes_observation_id",
-        UUID(as_uuid=True),
-        ForeignKey(
-            "evidence_observations.observation_id",
-            name="fk_evidence_observation_supersedes",
-            ondelete="RESTRICT",
-        ),
-    ),
-    CheckConstraint("btrim(source_identity) <> ''", name="source_identity_nonempty"),
-    CheckConstraint("btrim(source_reference) <> ''", name="source_reference_nonempty"),
-    CheckConstraint("btrim(source_authority) <> ''", name="source_authority_nonempty"),
-    CheckConstraint("btrim(subject_identity) <> ''", name="subject_identity_nonempty"),
-    CheckConstraint(
-        "btrim(subject_reference) <> ''", name="subject_reference_nonempty"
-    ),
-    CheckConstraint(
-        "retained_representation IS NOT NULL OR verification_reference IS NOT NULL",
-        name="reconstructable_material",
-    ),
-    CheckConstraint(
-        "retained_representation IS NULL OR btrim(retained_representation) <> ''",
-        name="retained_representation_nonempty",
-    ),
-    CheckConstraint(
-        "verification_reference IS NULL OR btrim(verification_reference) <> ''",
-        name="verification_reference_nonempty",
-    ),
-    CheckConstraint(
-        "supersedes_observation_id IS NULL "
-        "OR supersedes_observation_id <> observation_id",
-        name="supersedes_distinct",
-    ),
-)
-
-# duplicate-code: Decision and Evidence receipts are separate domain-owned
-# idempotency records and may evolve independently; a shared table factory would
-# make physical similarity an architectural coupling.
-# arid: disable
-evidence_observation_command_receipts = Table(
-    "evidence_observation_command_receipts",
-    metadata,
-    _row_id(),
-    Column("operation_id", UUID(as_uuid=True), nullable=False, unique=True),
-    Column("request_fingerprint", String(64), nullable=False),
-    Column("request_payload", JSONB, nullable=False),
-    Column("result_payload", JSONB, nullable=False),
-    Column("committed_at", DateTime(timezone=True), nullable=False),
-    CheckConstraint(
-        "char_length(request_fingerprint) = 64",
-        name="fingerprint_sha256",
-    ),
-)
-# arid: enable
-
-evidence_requirement_set_versions = Table(
-    "evidence_requirement_set_versions",
-    metadata,
-    _row_id(),
-    Column("set_id", UUID(as_uuid=True), nullable=False),
-    Column("version_id", UUID(as_uuid=True), nullable=False, unique=True),
-    Column("authority_identity", Text, nullable=False),
-    Column("source_reference", Text, nullable=False),
-    Column("effective_at", DateTime(timezone=True), nullable=False),
-    Column("recorded_at", DateTime(timezone=True), nullable=False),
-    Column("applicability", JSONB, nullable=False),
-    Column(
-        "predecessor_version_id",
-        UUID(as_uuid=True),
-        ForeignKey(
-            "evidence_requirement_set_versions.version_id",
-            name="fk_evidence_requirement_version_predecessor",
-            ondelete="RESTRICT",
-        ),
-    ),
-    Column("predecessor_effect", String(16)),
-    UniqueConstraint(
-        "set_id",
-        "version_id",
-        name="uq_evidence_requirement_versions_set_version",
-    ),
-    CheckConstraint(
-        "btrim(authority_identity) <> ''", name="authority_identity_nonempty"
-    ),
-    CheckConstraint("btrim(source_reference) <> ''", name="source_reference_nonempty"),
-    CheckConstraint(
-        "(predecessor_version_id IS NULL AND predecessor_effect IS NULL) OR "
-        "(predecessor_version_id IS NOT NULL AND predecessor_effect IS NOT NULL)",
-        name="predecessor_complete",
-    ),
-    CheckConstraint(
-        "predecessor_effect IS NULL OR "
-        "predecessor_effect IN ('corrects', 'supersedes')",
-        name="predecessor_effect",
-    ),
-    CheckConstraint(
-        "predecessor_version_id IS NULL OR predecessor_version_id <> version_id",
-        name="predecessor_distinct",
-    ),
-)
-
-evidence_requirement_definitions = Table(
-    "evidence_requirement_definitions",
-    metadata,
-    _row_id(),
-    Column("set_id", UUID(as_uuid=True), nullable=False),
-    Column("version_id", UUID(as_uuid=True), nullable=False),
-    Column("requirement_id", UUID(as_uuid=True), nullable=False),
-    Column("position", Integer, nullable=False),
-    Column("requirement_kind", String(16), nullable=False),
-    Column("definition", JSONB, nullable=False),
-    ForeignKeyConstraint(
-        ["set_id", "version_id"],
-        [
-            "evidence_requirement_set_versions.set_id",
-            "evidence_requirement_set_versions.version_id",
-        ],
-        name="fk_evidence_requirement_definition_version",
-        ondelete="RESTRICT",
-    ),
-    UniqueConstraint(
-        "set_id",
-        "version_id",
-        "requirement_id",
-        name="uq_evidence_requirement_definitions_identity",
-    ),
-    UniqueConstraint(
-        "version_id",
-        "position",
-        name="uq_evidence_requirement_definitions_position",
-    ),
-    CheckConstraint("position >= 0", name="position_nonnegative"),
-    CheckConstraint(
-        "requirement_kind IN ('freshness', 'sufficiency')",
-        name="requirement_kind",
-    ),
-    CheckConstraint(
-        "COALESCE((requirement_kind = 'freshness' AND "
-        "jsonb_typeof(definition -> 'maximum_age_microseconds') = 'number' AND "
-        "(definition ->> 'maximum_age_microseconds')::bigint > 0) OR "
-        "(requirement_kind = 'sufficiency' AND "
-        "jsonb_typeof(definition -> 'minimum_distinct_observations') = 'number' AND "
-        "definition ->> 'minimum_distinct_observations' ~ '^[1-9][0-9]*$' AND "
-        "jsonb_typeof(definition -> 'qualifying_roles') = 'array' AND "
-        "jsonb_array_length(definition -> 'qualifying_roles') > 0 AND "
-        "definition -> 'qualifying_roles' <@ "
-        '\'["supporting", "conflicting", "constraining", "qualifying"]\'::jsonb '
-        "AND definition ->> 'applicability_state' "
-        "IN ('required', 'not_applicable') "
-        "AND jsonb_typeof(definition -> 'description') = 'string' AND "
-        "btrim(definition ->> 'description') <> ''), FALSE)",
-        name="definition_shape",
-    ),
-)
-
-evidence_bindings = Table(
-    "evidence_bindings",
-    metadata,
-    _row_id(),
-    Column("binding_id", UUID(as_uuid=True), nullable=False, unique=True),
-    Column(
-        "observation_id",
-        UUID(as_uuid=True),
-        ForeignKey(
-            "evidence_observations.observation_id",
-            name="fk_evidence_binding_observation",
-            ondelete="RESTRICT",
-        ),
-        nullable=False,
-    ),
-    *_evidence_applicability_columns(),
-    Column("role", String(24), nullable=False),
-    Column("availability", String(16), nullable=False),
-    Column("materially_used", Boolean, nullable=False),
-    Column("effective_at", DateTime(timezone=True), nullable=False),
-    Column("recorded_at", DateTime(timezone=True), nullable=False),
-    Column("material_qualification", Text),
-    Column("freshness_state", String(24), nullable=False),
-    Column("freshness_set_id", UUID(as_uuid=True)),
-    Column("freshness_version_id", UUID(as_uuid=True)),
-    Column("freshness_requirement_id", UUID(as_uuid=True)),
-    Column("freshness_basis_reference", Text, nullable=False),
-    Column("freshness_basis_at", DateTime(timezone=True), nullable=False),
-    Column("freshness_applicability", JSONB, nullable=False),
-    Column("freshness_result", String(16)),
-    Column("freshness_failure_reason", Text),
-    Column("freshness_contested_version_ids", _uuid_array()),
-    ForeignKeyConstraint(
-        ["freshness_set_id", "freshness_version_id"],
-        [
-            "evidence_requirement_set_versions.set_id",
-            "evidence_requirement_set_versions.version_id",
-        ],
-        name="fk_evidence_binding_freshness_version",
-        ondelete="RESTRICT",
-    ),
-    ForeignKeyConstraint(
-        [
-            "freshness_set_id",
-            "freshness_version_id",
-            "freshness_requirement_id",
-        ],
-        [
-            "evidence_requirement_definitions.set_id",
-            "evidence_requirement_definitions.version_id",
-            "evidence_requirement_definitions.requirement_id",
-        ],
-        name="fk_evidence_binding_freshness_requirement",
-        ondelete="RESTRICT",
-    ),
-    *_evidence_applicability_constraints(),
-    CheckConstraint(
-        "role IN ("
-        "'supporting', 'conflicting', 'constraining', "
-        "'qualifying', 'contextual', 'reconstruction'"
-        ")",
-        name="role",
-    ),
-    CheckConstraint(
-        "availability IN ('available', 'unavailable', 'unknown')",
-        name="availability",
-    ),
-    CheckConstraint(
-        "NOT materially_used OR availability = 'available'",
-        name="material_use_requires_available",
-    ),
-    CheckConstraint(
-        "material_qualification IS NULL OR btrim(material_qualification) <> ''",
-        name="material_qualification_nonempty",
-    ),
-    CheckConstraint(
-        "freshness_state IN ("
-        "'applicable', 'not_applicable', 'missing_authority', "
-        "'unavailable_authority', 'contested_authority', 'invalid_authority'"
-        ")",
-        name="freshness_state",
-    ),
-    CheckConstraint(
-        "freshness_result IS NULL OR "
-        "freshness_result IN ('fresh', 'stale', 'indeterminate')",
-        name="freshness_result",
-    ),
-    CheckConstraint(
-        "btrim(freshness_basis_reference) <> ''",
-        name="freshness_basis_reference_nonempty",
-    ),
-    CheckConstraint(
-        "freshness_failure_reason IS NULL OR btrim(freshness_failure_reason) <> ''",
-        name="freshness_failure_reason_nonempty",
-    ),
-    # duplicate-code: each OR branch independently states a complete persisted
-    # freshness row shape; fragment sharing would obscure the SQL invariant.
-    # arid: disable
-    CheckConstraint(
-        "("
-        "freshness_state = 'applicable' AND "
-        "freshness_set_id IS NOT NULL AND freshness_version_id IS NOT NULL AND "
-        "freshness_requirement_id IS NOT NULL AND "
-        "freshness_result IN ('fresh', 'stale', 'indeterminate') AND "
-        "freshness_failure_reason IS NULL AND "
-        "freshness_contested_version_ids IS NULL"
-        ") OR ("
-        "freshness_state = 'not_applicable' AND "
-        "freshness_set_id IS NOT NULL AND freshness_version_id IS NOT NULL AND "
-        "freshness_requirement_id IS NULL AND freshness_result IS NULL AND "
-        "freshness_failure_reason IS NULL AND "
-        "freshness_contested_version_ids IS NULL"
-        ") OR ("
-        "freshness_state = 'missing_authority' AND "
-        "freshness_set_id IS NULL AND freshness_version_id IS NULL AND "
-        "freshness_requirement_id IS NULL AND "
-        "freshness_result = 'indeterminate' AND "
-        "freshness_failure_reason IS NULL AND "
-        "freshness_contested_version_ids IS NULL"
-        ") OR ("
-        "freshness_state = 'unavailable_authority' AND "
-        "freshness_set_id IS NULL AND freshness_version_id IS NULL AND "
-        "freshness_requirement_id IS NULL AND "
-        "freshness_result = 'indeterminate' AND "
-        "freshness_failure_reason IS NOT NULL AND "
-        "freshness_contested_version_ids IS NULL"
-        ") OR ("
-        "freshness_state = 'contested_authority' AND "
-        "freshness_set_id IS NULL AND freshness_version_id IS NULL AND "
-        "freshness_requirement_id IS NULL AND "
-        "freshness_result = 'indeterminate' AND "
-        "freshness_failure_reason IS NULL AND "
-        "cardinality(freshness_contested_version_ids) > 1"
-        ") OR ("
-        "freshness_state = 'invalid_authority' AND "
-        "freshness_set_id IS NULL AND freshness_version_id IS NULL AND "
-        "freshness_requirement_id IS NULL AND freshness_result IS NULL AND "
-        "freshness_failure_reason IS NOT NULL AND "
-        "freshness_contested_version_ids IS NULL"
-        ")",
-        name="freshness_shape",
-    ),
-    # arid: enable
-)
-
-# duplicate-code: Evidence observation and binding receipts are independently
-# evolvable operation contracts; sharing one table factory would couple them.
-# arid: disable
-evidence_binding_command_receipts = Table(
-    "evidence_binding_command_receipts",
-    metadata,
-    _row_id(),
-    Column("operation_id", UUID(as_uuid=True), nullable=False, unique=True),
-    Column("request_fingerprint", String(64), nullable=False),
-    Column("request_payload", JSONB, nullable=False),
-    Column("result_payload", JSONB, nullable=False),
-    Column("committed_at", DateTime(timezone=True), nullable=False),
-    _request_fingerprint_constraint(),
-)
-# arid: enable
-
-evidence_support_versions = Table(
-    "evidence_support_versions",
-    metadata,
-    _row_id(),
-    *_evidence_applicability_columns(),
-    # duplicate-code: support-epoch provenance and assessment contributors are
-    # independently constrained facts; sharing their FK column would couple tables.
-    # arid: disable
-    Column(
-        "binding_id",
-        UUID(as_uuid=True),
-        ForeignKey(
-            "evidence_bindings.binding_id",
-            name="fk_evidence_support_version_binding",
-            ondelete="RESTRICT",
-        ),
-        nullable=True,
-        unique=True,
-    ),
-    Column(
-        "correction_id",
-        UUID(as_uuid=True),
-        ForeignKey(
-            "evidence_correction_identities.correction_id",
-            name="fk_evidence_support_version_correction",
-            ondelete="RESTRICT",
-        ),
-    ),
-    Column(
-        "observation_id",
-        UUID(as_uuid=True),
-        ForeignKey(
-            "evidence_observations.observation_id",
-            name="fk_evidence_support_version_observation",
-            ondelete="RESTRICT",
-        ),
-    ),
-    Column(
-        "assessment_id",
-        UUID(as_uuid=True),
-        ForeignKey(
-            "evidence_sufficiency_assessments.assessment_id",
-            name="fk_evidence_support_version_assessment",
-            ondelete="RESTRICT",
-        ),
-        unique=True,
-    ),
-    # arid: enable
-    Column("support_version", BigInteger, nullable=False),
-    Column("effective_at", DateTime(timezone=True), nullable=False),
-    Column("recorded_at", DateTime(timezone=True), nullable=False),
-    CheckConstraint("support_version > 0", name="support_version_positive"),
-    CheckConstraint(
-        "num_nonnulls(binding_id, correction_id, observation_id, assessment_id) = 1",
-        name="support_event_source",
-    ),
-    *_evidence_applicability_constraints(),
-)
-
-_support_scope_index_columns = (
-    evidence_support_versions.c.target_family,
-    evidence_support_versions.c.target_id,
-    evidence_support_versions.c.scope_kind,
-    evidence_support_versions.c.claim_id,
-    evidence_support_versions.c.evidence_use,
-)
-
-Index(
-    "uq_evidence_support_versions_scope_version",
-    *_support_scope_index_columns,
-    evidence_support_versions.c.support_version,
-    unique=True,
-    postgresql_nulls_not_distinct=True,
-)
-
-Index(
-    "uq_evidence_support_versions_scope_correction",
-    *_support_scope_index_columns,
-    evidence_support_versions.c.correction_id,
-    unique=True,
-    postgresql_nulls_not_distinct=True,
-    postgresql_where=evidence_support_versions.c.correction_id.is_not(None),
-)
-
-Index(
-    "uq_evidence_support_versions_scope_observation",
-    *_support_scope_index_columns,
-    evidence_support_versions.c.observation_id,
-    unique=True,
-    postgresql_nulls_not_distinct=True,
-    postgresql_where=evidence_support_versions.c.observation_id.is_not(None),
-)
-
-evidence_sufficiency_assessments = Table(
-    "evidence_sufficiency_assessments",
-    metadata,
-    _row_id(),
-    Column("assessment_id", UUID(as_uuid=True), nullable=False, unique=True),
-    *_evidence_applicability_columns(),
-    Column("applicability", JSONB, nullable=False),
-    Column("requirement_set_id", UUID(as_uuid=True), nullable=False),
-    Column("requirement_version_id", UUID(as_uuid=True), nullable=False),
-    Column("support_version", BigInteger, nullable=False),
-    Column("binding_guard_ids", _uuid_array(), nullable=False),
-    Column("correction_guard_ids", _uuid_array(), nullable=False),
-    Column("requirement_authority_guard_ids", _uuid_array(), nullable=False),
-    Column("proof", JSONB, nullable=False),
-    Column("actor_attribution_kind", String(16), nullable=False),
-    Column("actor_id", UUID(as_uuid=True)),
-    Column("actor_candidate_ids", _uuid_array()),
-    Column("effective_at", DateTime(timezone=True), nullable=False),
+portfolio_states = Table(
+    "portfolio_states",
+    _foundation.metadata,
+    Column("state_id", UUID(as_uuid=True), primary_key=True),
+    Column("portfolio_id", UUID(as_uuid=True), nullable=False),
+    Column("as_of", DateTime(timezone=True), nullable=False),
     Column("known_at", DateTime(timezone=True), nullable=False),
+    Column("source_system", Text, nullable=False),
+    Column("source_record_reference", Text, nullable=False),
+    Column("source_observed_at", DateTime(timezone=True), nullable=False),
+    Column("currency", String(3), nullable=False),
+    Column("capital_basis", Numeric, nullable=False),
+    Column("cash", Numeric, nullable=False),
+    Column("instrument_id", UUID(as_uuid=True), nullable=False),
+    Column("position_quantity", Numeric, nullable=False),
+    Column("position_value", Numeric, nullable=False),
+    Column("exposure_value", Numeric, nullable=False),
+    Column("allocation_fraction", Numeric, nullable=False),
+    Column("interpretation_basis", Text, nullable=False),
+    Column("uncertainty", Text),
+    CheckConstraint("capital_basis > 0", name="positive_capital_basis"),
+    CheckConstraint("known_at >= source_observed_at", name="known_after_source"),
+    UniqueConstraint("state_id", "as_of", name="uq_portfolio_states_state_id"),
+    Index("ix_portfolio_states_history", "portfolio_id", "as_of", "known_at"),
+)
+
+portfolio_context_commits = Table(
+    "portfolio_context_commits",
+    _foundation.metadata,
+    Column("commit_id", UUID(as_uuid=True), primary_key=True),
+    Column("known_at", DateTime(timezone=True), nullable=False),
+    Column("payload", JSONB, nullable=False),
+    CheckConstraint("jsonb_typeof(payload) = 'object'", name="payload_object"),
+    Index("ix_portfolio_context_commits_known_at", "known_at"),
+)
+
+projected_portfolio_consequences = Table(
+    "projected_portfolio_consequences",
+    _foundation.metadata,
+    Column("consequence_id", UUID(as_uuid=True), primary_key=True),
+    Column("alternative_id", UUID(as_uuid=True), nullable=False),
+    Column("alternative_revision", Integer, nullable=False),
+    Column("source_state_id", UUID(as_uuid=True), nullable=False),
+    Column("source_as_of", DateTime(timezone=True), nullable=False),
+    Column("horizon", Text, nullable=False),
+    Column("scenario", Text, nullable=False),
+    Column("assumptions", ARRAY(Text), nullable=False),
+    Column("exposure_change", Numeric),
+    Column("exposure_unresolved", Text),
+    Column("allocation_change", Numeric),
+    Column("allocation_unresolved", Text),
+    Column("cash_effect", Numeric),
+    Column("cash_unresolved", Text),
+    Column("economic_benefits", ARRAY(Text), nullable=False),
+    Column("adverse_possibilities", ARRAY(Text), nullable=False),
+    Column("material_risk_changes", ARRAY(Text), nullable=False),
+    *_portfolio_actor_columns(),
+    Column("formed_at", DateTime(timezone=True), nullable=False),
+    Column("known_at", DateTime(timezone=True), nullable=False),
+    Column("uncertainty", Text, nullable=False),
+    CheckConstraint("alternative_revision > 0", name="positive_alternative_revision"),
+    CheckConstraint(
+        "exposure_change IS NOT NULL OR exposure_unresolved IS NOT NULL OR "
+        "allocation_change IS NOT NULL OR allocation_unresolved IS NOT NULL",
+        name="material_spy_change",
+    ),
+    CheckConstraint(
+        "NOT (exposure_change IS NOT NULL AND exposure_unresolved IS NOT NULL) AND "
+        "NOT (allocation_change IS NOT NULL AND allocation_unresolved IS NOT NULL) AND "
+        "NOT (cash_effect IS NOT NULL AND cash_unresolved IS NOT NULL)",
+        name="change_resolution",
+    ),
+    *_foundation._actor_attribution_constraints(),
+    _portfolio_source_fk("fk_consequence_source_state_as_of"),
+    ForeignKeyConstraint(
+        ["alternative_id", "alternative_revision"],
+        [
+            "decision_alternative_revisions.alternative_id",
+            "decision_alternative_revisions.revision",
+        ],
+        name="fk_projected_portfolio_consequences_alternative_revision",
+    ),
+    Index("ix_projected_consequence_alternative", "alternative_id", "known_at"),
+)
+
+portfolio_risk_assessments = Table(
+    "portfolio_risk_assessments",
+    _foundation.metadata,
+    Column("assessment_id", UUID(as_uuid=True), primary_key=True),
+    Column("source_state_id", UUID(as_uuid=True), nullable=False),
+    Column("source_as_of", DateTime(timezone=True), nullable=False),
+    Column("projected_consequence_id", UUID(as_uuid=True)),
+    Column("horizon", Text, nullable=False),
+    Column("scenario", Text, nullable=False),
+    Column("support_basis", Text, nullable=False),
+    Column("evidence_ids", ARRAY(UUID(as_uuid=True)), nullable=False),
+    Column("assumptions", ARRAY(Text), nullable=False),
+    Column("downside_fraction", Numeric),
+    Column("market_volatility_fraction", Numeric),
+    Column("objective_shortfall_amount", Numeric),
+    Column("dimensions", JSONB, nullable=False),
+    Column("support_uncertainty", ARRAY(Text), nullable=False),
+    Column("uncertainty", ARRAY(Text), nullable=False),
+    *_portfolio_actor_columns(),
+    Column("formed_at", DateTime(timezone=True), nullable=False),
+    Column("known_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint("jsonb_typeof(dimensions) = 'array'", name="dimensions_array"),
+    CheckConstraint("jsonb_array_length(dimensions) > 0", name="dimensions_present"),
+    *_foundation._actor_attribution_constraints(),
+    _portfolio_source_fk("fk_risk_source_state_as_of"),
+    ForeignKeyConstraint(
+        ["projected_consequence_id"],
+        ["projected_portfolio_consequences.consequence_id"],
+        name="fk_risk_projected_consequence",
+    ),
+    Index("ix_portfolio_risk_source_history", "source_state_id", "known_at"),
+    Index(
+        "ix_portfolio_risk_projection_history", "projected_consequence_id", "known_at"
+    ),
+)
+
+portfolio_judgment_acts = Table(
+    "portfolio_judgment_acts",
+    _foundation.metadata,
+    Column("act_id", UUID(as_uuid=True), primary_key=True),
+    Column("sequence", Integer, nullable=False),
+    Column("consequence_id", UUID(as_uuid=True)),
+    Column("assessment_id", UUID(as_uuid=True)),
+    Column("effective_at", DateTime(timezone=True), nullable=False),
     Column("recorded_at", DateTime(timezone=True), nullable=False),
-    Column("result", String(16), nullable=False),
-    Column(
-        "reassesses_assessment_id",
-        UUID(as_uuid=True),
-        ForeignKey(
-            "evidence_sufficiency_assessments.assessment_id",
-            name="fk_evidence_sufficiency_reassessment",
-            ondelete="RESTRICT",
-        ),
+    Column("known_at", DateTime(timezone=True), nullable=False),
+    Column("judgment_revision", Integer, nullable=False),
+    Column("claim_catalog_version", Integer, nullable=False),
+    Column("act", JSONB, nullable=False),
+    CheckConstraint(
+        "(consequence_id IS NULL) <> (assessment_id IS NULL)",
+        name="one_portfolio_judgment_root",
+    ),
+    CheckConstraint("judgment_revision > 0", name="positive_judgment_revision"),
+    CheckConstraint("sequence > 0", name="positive_sequence"),
+    CheckConstraint("claim_catalog_version > 0", name="positive_catalog_version"),
+    CheckConstraint("known_at >= recorded_at", name="known_after_recorded"),
+    CheckConstraint("jsonb_typeof(act) = 'object'", name="act_object"),
+    ForeignKeyConstraint(
+        ["consequence_id"],
+        ["projected_portfolio_consequences.consequence_id"],
+        name="fk_portfolio_judgment_consequence",
     ),
     ForeignKeyConstraint(
-        ["requirement_set_id", "requirement_version_id"],
-        [
-            "evidence_requirement_set_versions.set_id",
-            "evidence_requirement_set_versions.version_id",
-        ],
-        name="fk_evidence_sufficiency_requirement_version",
-        ondelete="RESTRICT",
+        ["assessment_id"],
+        ["portfolio_risk_assessments.assessment_id"],
+        name="fk_portfolio_judgment_assessment",
     ),
-    UniqueConstraint(
-        "assessment_id",
-        "requirement_version_id",
-        name="uq_evidence_sufficiency_assessment_requirement_version",
-    ),
-    *_actor_attribution_constraints(),
-    CheckConstraint("support_version >= 0", name="support_version_nonnegative"),
-    CheckConstraint("known_at <= recorded_at", name="known_before_recorded"),
-    CheckConstraint(
-        "reassesses_assessment_id IS NULL OR reassesses_assessment_id <> assessment_id",
-        name="reassessment_distinct",
-    ),
-    CheckConstraint(
-        "result IN ('sufficient', 'insufficient', 'indeterminate')",
-        name="result",
-    ),
-    *_evidence_applicability_constraints(),
+    UniqueConstraint("consequence_id", "sequence", name="uq_consequence_act_sequence"),
+    UniqueConstraint("assessment_id", "sequence", name="uq_risk_act_sequence"),
+    Index("ix_portfolio_judgment_consequence_history", "consequence_id", "known_at"),
+    Index("ix_portfolio_judgment_risk_history", "assessment_id", "known_at"),
 )
 
-evidence_sufficiency_contributors = Table(
-    "evidence_sufficiency_contributors",
-    metadata,
-    _row_id(),
-    Column(
-        "assessment_id",
-        UUID(as_uuid=True),
-        ForeignKey(
-            "evidence_sufficiency_assessments.assessment_id",
-            name="fk_evidence_sufficiency_contributor_assessment",
-            ondelete="RESTRICT",
-        ),
-        nullable=False,
-    ),
-    Column(
-        "binding_id",
-        UUID(as_uuid=True),
-        ForeignKey(
-            "evidence_bindings.binding_id",
-            name="fk_evidence_sufficiency_contributor_binding",
-            ondelete="RESTRICT",
-        ),
-        nullable=False,
-    ),
-    UniqueConstraint(
-        "assessment_id",
-        "binding_id",
-        name="uq_evidence_sufficiency_contributor",
-    ),
-)
-
-evidence_sufficiency_command_receipts = Table(
-    "evidence_sufficiency_command_receipts",
-    metadata,
-    _row_id(),
-    Column("operation_id", UUID(as_uuid=True), nullable=False, unique=True),
-    # duplicate-code: sufficiency receipts are an independently evolvable operation
-    # contract; a shared table factory would falsely couple domain persistence.
-    # arid: disable
-    Column("request_fingerprint", String(64), nullable=False),
-    Column("request_payload", JSONB, nullable=False),
-    Column("result_payload", JSONB, nullable=False),
-    Column("committed_at", DateTime(timezone=True), nullable=False),
-    _request_fingerprint_constraint(),
-    # arid: enable
-)
-
-evidence_correction_identities = Table(
-    "evidence_correction_identities",
-    metadata,
-    _row_id(),
-    Column("correction_id", UUID(as_uuid=True), nullable=False, unique=True),
-    Column("family", String(32), nullable=False),
-    CheckConstraint(
-        "family IN ('observation', 'binding', 'assessment')",
-        name="family",
-    ),
-)
-
-evidence_observation_corrections = _evidence_correction_table(
-    "evidence_observation_corrections",
-    "evidence_observations",
-    "observation_id",
-)
-evidence_binding_corrections = _evidence_correction_table(
-    "evidence_binding_corrections",
-    "evidence_bindings",
-    "binding_id",
-)
-evidence_assessment_corrections = _evidence_correction_table(
-    "evidence_assessment_corrections",
-    "evidence_sufficiency_assessments",
-    "assessment_id",
-)
-
-# duplicate-code: each command family owns an independently constrained receipt
-# table; a shared polymorphic receipt table would couple application operations.
-# arid: disable
-evidence_correction_command_receipts = Table(
-    "evidence_correction_command_receipts",
-    metadata,
-    _row_id(),
-    Column("operation_id", UUID(as_uuid=True), nullable=False, unique=True),
-    Column("family", String(32), nullable=False),
-    Column("request_fingerprint", String(64), nullable=False),
-    Column("request_payload", JSONB, nullable=False),
-    Column("result_payload", JSONB, nullable=False),
-    Column("committed_at", DateTime(timezone=True), nullable=False),
-    CheckConstraint(
-        "family IN ('observation', 'binding', 'assessment')",
-        name="family",
-    ),
-    _request_fingerprint_constraint(),
-)
-# arid: enable
-
-
-DECISION_TABLE_NAMES = frozenset(
+POLARIS_TABLE_NAMES = _foundation.POLARIS_TABLE_NAMES | frozenset(
     {
-        "decision_needs",
-        "investment_decisions",
-        "investment_decision_lifecycle_facts",
-        "investment_decision_relationships",
-        "investment_decision_command_receipts",
+        "portfolio_states",
+        "projected_portfolio_consequences",
+        "portfolio_risk_assessments",
+        "portfolio_judgment_acts",
+        "portfolio_context_commits",
     }
-)
-EVIDENCE_TABLE_NAMES = frozenset(
-    {
-        "evidence_observations",
-        "evidence_observation_command_receipts",
-        "evidence_bindings",
-        "evidence_binding_command_receipts",
-        "evidence_support_versions",
-        "evidence_sufficiency_assessments",
-        "evidence_sufficiency_contributors",
-        "evidence_sufficiency_command_receipts",
-        "evidence_correction_identities",
-        "evidence_observation_corrections",
-        "evidence_binding_corrections",
-        "evidence_assessment_corrections",
-        "evidence_correction_command_receipts",
-    }
-)
-CONFIGURATION_TABLE_NAMES = frozenset(
-    {
-        "evidence_requirement_set_versions",
-        "evidence_requirement_definitions",
-    }
-)
-POLARIS_TABLE_NAMES = (
-    DECISION_TABLE_NAMES | EVIDENCE_TABLE_NAMES | CONFIGURATION_TABLE_NAMES
 )

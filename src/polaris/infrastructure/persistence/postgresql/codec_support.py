@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
 
 type JsonObject = dict[str, object]
@@ -13,6 +14,8 @@ def json_safe(value: object) -> object:
         return str(value)
     if isinstance(value, datetime):
         return value.isoformat()
+    if type(value) is Decimal:
+        return str(value)
     if isinstance(value, dict):
         return {str(key): json_safe(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):

@@ -7,29 +7,10 @@ import json
 import re
 import subprocess
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any
+from urllib.parse import urlencode
 
 _CONTROL_LABEL = "project-delivery:management"
-_CONTROL_DISCOVERY_QUERY = """\
-query($owner: String!, $name: String!, $label: String!, $after: String) {
-  repository(owner: $owner, name: $name) {
-    issues(
-      first: 100
-      after: $after
-      states: [OPEN, CLOSED]
-      labels: [$label]
-    ) {
-      nodes {
-        number
-      }
-      pageInfo {
-        hasNextPage
-        endCursor
-      }
-    }
-  }
-}
-"""
 _WAYFINDER_LABEL = "wayfinder:map"
 _STATE_BLOCK_RE = re.compile(
     r"(?ms)^## Current Delivery State\n\n"
@@ -54,18 +35,6 @@ class DeliveryStateError(RuntimeError):
 
 class GitHubCommandError(DeliveryStateError):
     """Raised when a required GitHub read or mutation fails."""
-
-
-class ProjectDeliveryClient(Protocol):
-    def control_issues(self) -> list[dict[str, Any]]: ...
-
-    def issue(self, number: int) -> dict[str, Any]: ...
-
-    def blocked_by(self, number: int) -> list[dict[str, Any]]: ...
-
-    def comment(self, comment_id: int) -> dict[str, Any]: ...
-
-    def update_issue_body(self, number: int, body: str) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,35 +71,6 @@ class GuardResult:
         )
 
 
-def _graphql_mapping(value: Any, label: str) -> dict[str, Any]:
-    if not isinstance(value, dict):
-        raise GitHubCommandError(f"GitHub GraphQL {label} was unreadable")
-    return value
-
-
-def _control_page(value: Any) -> tuple[list[int], str | None]:
-    root = _graphql_mapping(value, "response")
-    if root.get("errors"):
-        raise GitHubCommandError("GitHub GraphQL returned errors")
-    data = _graphql_mapping(root.get("data"), "data")
-    repository = _graphql_mapping(data.get("repository"), "repository")
-    issues = _graphql_mapping(repository.get("issues"), "issues")
-    nodes = issues.get("nodes")
-    if not isinstance(nodes, list) or not all(isinstance(node, dict) for node in nodes):
-        raise GitHubCommandError("GitHub GraphQL issue nodes were unreadable")
-    numbers = [_issue_number(node) for node in nodes]
-    page_info = _graphql_mapping(issues.get("pageInfo"), "page info")
-    has_next = page_info.get("hasNextPage")
-    if not isinstance(has_next, bool):
-        raise GitHubCommandError("GitHub GraphQL pagination state was unreadable")
-    if not has_next:
-        return numbers, None
-    end_cursor = page_info.get("endCursor")
-    if not isinstance(end_cursor, str) or not end_cursor:
-        raise GitHubCommandError("GitHub GraphQL pagination missing end cursor")
-    return numbers, end_cursor
-
-
 class GitHubClient:
     def __init__(self, repo: str) -> None:
         if repo.count("/") != 1 or any(not part for part in repo.split("/")):
@@ -151,7 +91,9 @@ class GitHubClient:
         completed = subprocess.run(command, text=True, capture_output=True, check=False)
         if completed.returncode != 0:
             detail = (
-                completed.stderr.strip() or completed.stdout.strip() or "gh api failed"
+                completed.stderr.strip()
+                or completed.stdout.strip()
+                or "gh api failed"
             )
             raise GitHubCommandError(detail)
         try:
@@ -164,7 +106,7 @@ class GitHubClient:
         page = 1
         while True:
             params = {**query, "per_page": "100", "page": str(page)}
-            value = self._request(endpoint, fields=params)
+            value = self._request(f"{endpoint}?{urlencode(params)}")
             if not isinstance(value, list) or not all(
                 isinstance(row, dict) for row in value
             ):
@@ -176,37 +118,16 @@ class GitHubClient:
             if page > 1000:
                 raise GitHubCommandError("GitHub pagination exceeded safety bound")
 
-    def _control_issue_numbers(self) -> list[int]:
-        owner, name = self.repo.split("/", 1)
-        after: str | None = None
-        numbers: set[int] = set()
-        for _ in range(1000):
-            fields = {
-                "query": _CONTROL_DISCOVERY_QUERY,
-                "owner": owner,
-                "name": name,
-                "label": _CONTROL_LABEL,
-            }
-            if after is not None:
-                fields["after"] = after
-            value = self._request("graphql", method="POST", fields=fields)
-            page_numbers, after = _control_page(value)
-            numbers.update(page_numbers)
-            if after is None:
-                return sorted(numbers)
-        raise GitHubCommandError("GitHub GraphQL pagination exceeded safety bound")
-
     def control_issues(self) -> list[dict[str, Any]]:
-        confirmed: list[dict[str, Any]] = []
-        for number in self._control_issue_numbers():
-            current = self.issue(number)
-            if not _has_label(current, _CONTROL_LABEL):
-                raise GitHubCommandError(
-                    "label-filtered control discovery returned "
-                    f"#{number} without the exact control label"
-                )
-            confirmed.append(current)
-        return confirmed
+        rows = self._paged(
+            f"repos/{self.repo}/issues",
+            {"state": "all", "labels": _CONTROL_LABEL},
+        )
+        return [
+            row
+            for row in rows
+            if "pull_request" not in row and _has_label(row, _CONTROL_LABEL)
+        ]
 
     def issue(self, number: int) -> dict[str, Any]:
         value = self._request(f"repos/{self.repo}/issues/{number}")
@@ -318,7 +239,7 @@ def _parse_control(issue: dict[str, Any]) -> ControlState:
     )
 
 
-def _load_control(client: ProjectDeliveryClient) -> ControlState:
+def _load_control(client: GitHubClient) -> ControlState:
     candidates = client.control_issues()
     if len(candidates) != 1:
         raise DeliveryStateError(
@@ -333,7 +254,7 @@ def _require_wayfinder(issue: dict[str, Any], number: int) -> None:
         raise DeliveryStateError(f"#{number} is not a canonical Wayfinder map")
 
 
-def _has_open_map_blocker(client: ProjectDeliveryClient, number: int) -> bool:
+def _has_open_map_blocker(client: GitHubClient, number: int) -> bool:
     for blocker in client.blocked_by(number):
         if _issue_state(blocker) == "open" and _has_label(blocker, _WAYFINDER_LABEL):
             return True
@@ -341,7 +262,7 @@ def _has_open_map_blocker(client: ProjectDeliveryClient, number: int) -> bool:
 
 
 def _validate_parallel_authorization(
-    client: ProjectDeliveryClient, control: ControlState
+    client: GitHubClient, control: ControlState
 ) -> None:
     if len(control.focused) <= 1:
         return
@@ -371,7 +292,7 @@ def _replace_state_block(body: str, focused: tuple[int, ...]) -> str:
     return body[: matches[0].start()] + replacement + body[matches[0].end() :]
 
 
-def reconcile(client: ProjectDeliveryClient) -> tuple[bool, tuple[int, ...]]:
+def reconcile(client: GitHubClient) -> tuple[bool, tuple[int, ...]]:
     control = _load_control(client)
     retained: list[int] = []
     for number in control.focused:
@@ -401,7 +322,7 @@ def reconcile(client: ProjectDeliveryClient) -> tuple[bool, tuple[int, ...]]:
     return True, focused
 
 
-def guard(client: ProjectDeliveryClient, wayfinder: int) -> GuardResult:
+def guard(client: GitHubClient, wayfinder: int) -> GuardResult:
     try:
         control = _load_control(client)
         _validate_parallel_authorization(client, control)

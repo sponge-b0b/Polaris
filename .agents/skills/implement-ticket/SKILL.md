@@ -9,219 +9,180 @@ disable-model-invocation: true
 
 ## Authoritative procedure composition
 
-Before executing this skill, read both of these files in full:
+Before executing this skill, read all of these files in full:
 
-1. `.agents/skills/implement-ticket/PROCEDURE.md`
-2. `.agents/skills/implement-ticket/EXECUTION_ANCHOR.md`
+1. `.agents/skills/implement-ticket/ROUTING_CONTROL_PLANE.md`
+2. `.agents/skills/to-tickets/TICKET_RESLICE_RECOVERY.md`
+3. `.agents/skills/WORKFLOW_INVOCATION_JOURNAL.md`
+4. `.agents/skills/implement-ticket/WORKFLOW_INVOCATION_JOURNAL.md`
 
-`PROCEDURE.md` preserves the complete established `$implement-ticket` lifecycle.
-`EXECUTION_ANCHOR.md` preserves the accepted Execution Anchor correction that separates
-historical ticket lineage from the current attempt's candidate. This `SKILL.md` is the
-authoritative entrypoint and adds the control-plane mutation boundary below. On conflict,
-this file wins. Failure to load either retained file is a Hard Blocker.
+`ROUTING_CONTROL_PLANE.md` preserves the previously authoritative `$implement-ticket`
+entrypoint and recursively composes `PROCEDURE.md`, `EXECUTION_ANCHOR.md`, and
+`CONTROL_PLANE.md`, including the protected workflow/control-plane boundary, durable routing
+defects, deterministic ticket contract, Attention, closure, and shared Human Handoff rules.
+`TICKET_RESLICE_RECOVERY.md` is the canonical durable contract for every
+`ticket-reslice-recovery:v1` record and overrides the shorter recovery summary retained in
+`PROCEDURE.md`. `WORKFLOW_INVOCATION_JOURNAL.md` at the skills root owns the shared WIJ
+storage/schema/non-authority contract; this skill's WIJ document owns only `$implement-ticket`
+integration and resume classification. On any other conflict, this file wins. Failure to
+load either retained execution/recovery authority file is a Hard Blocker.
 
-The retained procedure continues to own Invocation termination, durable ticket recovery,
-hierarchy/dependency/project-delivery admission, architecture-blocker admission,
-deterministic contract construction, implementation scope, technical checks, Durable
-closure checkpoint v3, Independent closure dispatch, certified persistence/closure, and
-Frontier handoff except where the retained Execution Anchor correction or this entrypoint
-explicitly overrides older mechanics.
+WIJ is a best-effort execution optimization, never a lifecycle prerequisite. Journal failure,
+loss, corruption, ambiguity, or incompatibility must degrade to the ordinary current
+`$implement-ticket` reconstruction and must not create a new blocker or termination state.
+Only an explicit `resume $implement-ticket - <Title> (<URL>)` invocation may consume an old
+journal; an ordinary invocation starts fresh.
+
+All retained requirements remain mandatory unless explicitly overridden here.
 
 ## Execution-anchor invariant
 
-Retain the accepted distinction exactly:
+Retain the accepted distinction between the immutable historical **Ticket baseline** and the
+current attempt's **Execution Anchor**. Do not require the current shared branch to equal that
+historical SHA. Before a fresh attempt, fetch the actual remote ticket branch and, only while
+clean, fast-forward only when the local branch is strictly behind and is an ancestor. The
+retained Execution Anchor and Attention-gate rules remain mandatory.
 
-```text
-Ticket baseline
-    immutable per-ticket historical / lineage anchor
+## Live-WIP recovery consumption boundary
 
-Execution Anchor
-    exact fetched remote shared-Spec-branch commit at which the current implementation
-    attempt begins, before substantive ticket-owned mutation
-```
-
-Do not require the current shared branch to equal that historical SHA. Before a fresh
-attempt, fetch the actual remote ticket branch and, only while clean, fast-forward only when
-the local branch is strictly behind and is an ancestor. The pre-mutation machine gate remains
-directly executable; no `PYTHONPATH` workaround is required.
-
-The retained Execution Anchor correction replaces the candidate diff base `TICKET_BASELINE`
-with `EXECUTION_ANCHOR`. The formal pre-mutation invocation still includes:
-
-```text
---remote origin
-polaris.implement-ticket-attention/v2
-```
-
-and all pre-closure/verification invocations still bind:
-
-```text
---execution-anchor <execution-anchor>
-```
-
-No substantive mutation is allowed until the formal pre-mutation gate succeeds.
-
-## Control-plane mutation boundary
-
-An ordinary `$implement-ticket` invocation has **zero authority** to alter repository
-workflow/control-plane or semantic-authority files. Product implementation scope, a
-duplicate-code finding, formatting, architecture verification, wiki synchronization, test
-repair, or any other delegated skill does not expand this authority.
-
-The protected control plane is machine-defined by `scripts.workflow_candidate_guard` and
-includes at minimum:
-
-- `.agents/**`;
-- `AGENTS.md`;
-- `.github/**`;
-- `tests/workflow/**`;
-- `docs/process/**`;
-- `contracts/ccl/**`;
-- `docs/adr/**`;
-- `scripts/workflow_*.py`;
-- the repository delivery/contract tooling enumerated by the guard.
-
-There is deliberately **no `$implement-ticket` bypass flag**. A ticket that genuinely needs
-to change these authorities is not an ordinary implementation candidate; stop and route the
-change to the owning workflow/authority process. Human approval of product implementation,
-ticket scope, or a scanner repair is not equivalent to control-plane authorization.
-
-### Mandatory candidate guard
-
-After the Execution Anchor is captured, run:
+Before ordinary Ticket-baseline handling, inspect durable recovery state exactly as required
+by the shared contract. Any current recovery record that names this ticket as Source or
+Destination must be read back and machine-validated before substantive mutation:
 
 ```bash
-python -m scripts.workflow_candidate_guard check \
-  --anchor <execution-anchor>
+python -m scripts.workflow_reslice_recovery validate \
+  --body <recovery-comment-body-file>
 ```
 
-Require:
+Require `TICKET RESLICE RECOVERY: VALID`. Malformed, duplicate, contradictory, ambiguous, or
+native-order-inconsistent recovery state is a Hard Blocker.
 
-```text
-WORKFLOW CANDIDATE GUARD: VALID
-Protected control-plane paths: 0
-```
+Native dependencies determine actionability. Recovery metadata never makes a blocked ticket
+actionable and never changes its deterministic ticket contract.
 
-Run this guard:
+### Source-first recovery
 
-1. immediately after every substantive mutation batch;
-2. before and after any delegated skill that may repair candidate bytes, including
-   `$deduplicate-code`, `$format-code`, and `$verify-code`;
-3. before the pre-closure Attention sweep;
-4. before writing the v3 `awaiting-closure-verification` checkpoint;
-5. again after any retry mutation and before persistence.
+When native order places Source transitively upstream of Destination:
 
-If the guard reports a protected path, stop normal implementation immediately. Do not
-refactor, suppress, format, "fix", or otherwise continue changing that path.
+- Source executes first from an isolated worktree at the exact current remote shared-branch
+  tip while preserving its pinned historical Ticket baseline;
+- the isolated worktree receives a fresh Execution Anchor and a fresh pre-mutation Attention
+  receipt bound to the **current** reconciled Ticket Contract Hash;
+- an old Attention receipt from the protected donor is recovery evidence only;
+- transplant only Source-owned donor items. `shared dependency` items remain Source-owned and
+  become ordinary committed upstream behavior for the later Destination;
+- after exact certification/push/readback/closure, update the same recovery record to
+  `source-complete` with the exact Source completion commit and machine-validate/read back it;
+- intermediate native tickets execute normally;
+- Destination executes only when its blockers close, from an isolated worktree at current
+  remote tip; if its Ticket baseline is `Pending`, pin that isolated HEAD and read it back;
+- after exact Destination closure, populate Destination baseline/completion commit and
+  terminalize the same record as `source-reconciled` with both completion commits.
 
-The only candidate-local mutation allowed while recovering from this violation is exact
-restoration of the protected paths to the Execution Anchor:
+### Destination-first recovery
 
-```bash
-python -m scripts.workflow_candidate_guard restore-protected \
-  --anchor <execution-anchor>
-python -m scripts.workflow_candidate_guard check \
-  --anchor <execution-anchor>
-```
+When native order places Destination transitively upstream of Source, preserve the historical
+prerequisite-extract lifecycle from the shared contract:
 
-`restore-protected` is intentionally narrow: it restores/deletes only protected candidate
-paths and preserves all non-protected product candidate work. After restoration, all
-technical evidence that depended on the removed workflow/control-plane mutations is stale
-and must be recomputed as applicable.
+- Destination executes first in an isolated worktree and, after closure, updates the record
+  to `prerequisite-complete` with exact Destination baseline/completion commit;
+- Source later executes from a new isolated worktree at current remote tip containing the
+  prerequisite completion, re-attributing donor WIP against current contracts;
+- after Source closure, populate its exact completion commit and terminalize as
+  `source-reconciled`.
 
-## Delegated duplicate-code boundary
+For either order, the protected donor checkout remains immutable. Recompute its strong
+fingerprint before every Human Handoff/ordinary return and before retiring any isolated
+participant worktree. The second participating closer terminalizes the same managed record;
+do not create a replacement record.
 
-When invoking `$deduplicate-code` in `ticket-differential` mode, supply the exact
-`EXECUTION_ANCHOR`, not the immutable historical `TICKET_BASELINE`, as the differential
-comparison base. Shared-branch changes between Ticket baseline and Execution Anchor are
-already-durable upstream history and are not ticket-attributable duplicate debt.
+### Retired-source destination recovery
 
-`$deduplicate-code` never authorizes a protected control-plane edit. If a scanner relation
-would require changing a protected path, the ticket repair loop must leave that path
-untouched and report the finding/routing to the owning workflow instead.
+When the recovery record has `Source disposition: retire`, the protected Source donor is
+recovery evidence, not an executable participant. Preserve the shared contract's retirement,
+attribution, fingerprint, transplant, and terminalization requirements, with this execution-
+location correction:
 
-## Closure and independent verifier
+- before the Source is durably `closed-not-planned`, do not begin Destination implementation;
+- once the record is `source-retired` with `Source retirement: closed-not-planned`, the
+  record's `Recovery mode: isolated-worktree` means that the **protected donor checkout**
+  remains isolated and immutable; it does **not** require the Destination implementation to
+  run in a separate worktree;
+- the Destination follows the ordinary `$implement-ticket` shared-Spec-branch rules. When
+  the caller checkout is clean, is on the exact declared Destination branch, tracks its
+  exact remote branch, and can synchronize to the fetched remote tip by fast-forward only,
+  execute there normally. Do not create a separate implementation worktree merely because
+  the retired-source recovery record exists;
+- if the caller checkout is dirty, ahead, diverged, stale, or otherwise fails the ordinary
+  branch/Execution-Anchor guards, preserve it and fail closed or use an isolated worktree
+  only where the ordinary caller-worktree safety rules independently require one;
+- before transplant, recompute the protected donor fingerprint and re-attribute every donor
+  item against the current Destination contract. Copy only still-Destination-owned bytes
+  into the Destination candidate; never mutate, commit, reset, clean, or checkout-overwrite
+  the protected donor;
+- capture a fresh Destination Execution Anchor and fresh contract-bound pre-mutation
+  Attention receipt in the actual Destination execution checkout. A donor Attention receipt
+  remains recovery evidence only;
+- after exact Destination certification, commit, push, readback, and closure, populate the
+  exact Destination baseline/completion commit and terminalize the same managed record as
+  `source-reconciled`.
 
-The pre-closure Attention gate and candidate identity remain Execution-Anchor-bound.
-Immediately before them, require a fresh successful candidate guard. The independent
-`$verify-ticket-closure` invocation must independently run the same guard against the same
-Execution Anchor. Any protected candidate path makes verification invalid: emit neither
-`TICKET CLOSURE: PASS` nor `TICKET CLOSURE: FAIL` until the candidate is restored to an
-admissible product-only state.
+This retired-source correction does not weaken execute-source recovery: source-first and
+destination-first records continue to use their required isolated participant worktrees.
 
-All retained persistence, exact-candidate, and dependency/frontier rules remain unchanged.
-The retained Human Handoff prose is overridden by the shared outbound gate below wherever
-the retained procedure would otherwise terminate with a manually constructed downstream
-skill line.
+## Retained protected control-plane boundary
 
-## Outbound Human Handoff boundary
+An ordinary `$implement-ticket` invocation still has **zero authority** to alter repository
+**workflow/control-plane** or semantic-authority files. There is deliberately **no `$implement-ticket` bypass flag**.
+The retained `scripts.workflow_candidate_guard check` and `restore-protected` mechanics remain mandatory.
 
-Every terminal **Human Handoff** from `$implement-ticket` must use the shared
-`polaris.workflow-handoff/v1` gate. This applies to every outbound lifecycle transition,
-including:
+## Independent verifier result-finalization boundary
 
-- verifier `cell-routing-defect` -> `$to-tickets`;
-- verifier `planning-cell-gap` -> `$to-specs`;
-- verifier `contract-authority-gap` or material design gap -> the exact owning
-  `$architecture-remediation` / semantic workflow;
-- pre-implementation routing for the same material-design/decomposition classes;
-- architecture-blocker or changed-contract/coverage routing owned by another workflow;
-- post-closure frontier handoff to one or more `$implement-ticket` invocations; and
-- completed-ticket handoff to `$verify-spec`.
+The retained dispatcher-only rule is strengthened as follows. After receiving one exact
+PASS/FAIL payload from the fresh `$verify-ticket-closure` context, do **not** yet admit or
+route that verdict. First compute SHA-256 over the exact returned bytes and send that same
+verifier context one fixed result-finalization request containing only that digest and the
+instruction to execute its authoritative result-finalization contract.
 
-A recommendation, prose instruction, or bare downstream skill command is **not** a Human
-Handoff and does not satisfy an invocation terminal condition.
+During this handshake the parent remains dispatcher-only. It must not debate a finding,
+provide new evidence, suggest that the verifier is wrong, request a different semantic
+interpretation, or perform its own semantic appeal. The same verifier must return exactly
+one of the authoritative forms defined by `$verify-ticket-closure`:
 
-### Route artifact and durability
+* `TICKET CLOSURE RESULT: CONFIRMED` bound to the exact result SHA-256 and exact ticket /
+  contract / Attention / Execution Anchor / candidate identities; or
+* `TICKET CLOSURE: INVALID` with `Invalid reason: self-contradictory-verdict`, bound to the
+  exact retracted result SHA-256 and the same identities.
 
-Before generating a handoff, resolve the exact downstream invocation artifact from durable
-state; do not invent it from chat memory.
+Mechanically reject a confirmation/retraction whose digest or identities do not match the
+exact dispatched attempt.
+
+A confirmed result proceeds through the retained PASS/FAIL admission path unchanged. A
+self-retracted result is neither PASS nor FAIL: preserve the original PASS/FAIL bytes as
+retracted evidence in the v3 attempt history, record the attempt as `invalid`, keep the
+candidate immutable, retire that verifier context, and dispatch one new fresh verifier if
+candidate/contract/coverage/Attention bindings remain exact.
+
+`$implement-ticket` may not create an INVALID payload, infer self-contradiction on the
+verifier's behalf, or semantically overrule a confirmed PASS/FAIL. Free-form follow-up with
+a verifier after PASS/FAIL is prohibited; the one fixed result-finalization handshake is the
+only same-context post-result interaction.
+
+## Retained Human Handoff boundary
+
+Every terminal **Human Handoff** from `$implement-ticket` remains bound to the shared gate,
+including verifier `cell-routing-defect` -> `$to-tickets`, verifier `planning-cell-gap` -> `$to-specs`,
+and `contract-authority-gap` routing. A recommendation, prose instruction, or bare downstream skill command is **not** a Human Handoff.
+
+The exact downstream artifact rules remain:
 
 - `$to-tickets` receives the exact current Parent Spec issue.
-- `$to-specs` receives the exact current planning source for the Parent Spec: its governing
-  Wayfinder issue when Wayfinder-managed, or its exact Independent planning-source issue.
-  A current Spec issue is a durability source, not a substitute planning source.
-- `$architecture-remediation` or another semantic owner receives the exact durable artifact
-  selected by that owning workflow's current routing contract.
+- `$to-specs` receives the exact current planning source for the Parent Spec.
+- A current Spec issue is a durability source, not a substitute planning source.
 - `$implement-ticket` receives each exact current actionable ticket issue.
 - `$verify-spec` receives the exact current Parent Spec issue.
 
-If the required downstream artifact cannot be resolved uniquely from current durable state,
-do not manufacture a handoff; remain blocked at the owning boundary and report the exact
-ambiguity.
-
-Every handoff manifest uses:
-
-```text
-schema: polaris.workflow-handoff/v1
-boundary: human-lifecycle
-durability.verified: true
-```
-
-Its `durability.sources` must be canonical, unique, and sufficient for a fresh downstream
-session to reconstruct correctness-critical state. For a verifier-failure route, include at
-minimum the current ticket URL, Parent Spec URL, and the exact downstream planning/authority
-artifact URL when distinct. For normal post-closure frontier handoff, include the Parent
-Spec URL plus every handed-off ticket URL. Add managed-comment or other durable artifact
-URLs whenever they are necessary for fresh-session recovery.
-
-### Complete frontier
-
-For a normal post-closure frontier, evaluate the complete current actionable ticket
-frontier. Do not stop after the first actionable ticket. Emit one manifest handoff entry
-for every independently actionable ticket in deterministic ticket/topology order.
-
-If all executable ticket work is durably closed and the Spec is ready for integrated
-verification, emit exactly one `$verify-spec` handoff entry for the Parent Spec.
-
-If zero downstream artifacts are actionable and another workflow is not required, do not
-invent an empty Human Handoff manifest; report the exact current blocker/completion state
-under the retained lifecycle rules.
-
-### Shared generation and verification gate
-
-Create the manifest outside the repository candidate, then generate and verify the terminal
-output only through the shared gate:
+Generate/verify terminal handoffs only with:
 
 ```bash
 python -m scripts.workflow_handoff generate \
@@ -232,18 +193,8 @@ python -m scripts.workflow_handoff verify \
   --output <handoff-output.txt>
 ```
 
-Require exact:
-
-```text
-WORKFLOW HANDOFF: VALID
-```
-
-The user-visible terminal Human Handoff block must reproduce `<handoff-output.txt>`
-**byte-for-byte**. It begins with `WORKFLOW HANDOFF: READY`, contains the exact generated
-downstream command line(s), and ends with the verified fresh-session durability receipt and
-manifest SHA-256.
-
-Do not emit a bare `$to-specs`, `$to-tickets`, `$architecture-remediation`,
-`$implement-ticket`, or `$verify-spec` line as a terminal Human Handoff. Do not manually
-reconstruct the generated block. Do not claim the `Human Handoff` terminal condition if
-generation or verification fails.
+Require `WORKFLOW HANDOFF: VALID` and reproduce the generated block **byte-for-byte**. For a
+normal post-closure frontier, evaluate the **complete current actionable ticket** frontier;
+Do not stop after the first actionable ticket. Emit one manifest handoff entry for each
+current actionable ticket. Do not emit a bare `$to-specs`, `$to-tickets`, `$architecture-remediation`,
+`$implement-ticket`, or `$verify-spec` line as a terminal Human Handoff.

@@ -186,7 +186,9 @@ class GitHubClient:
                 numbers.add(_issue_number(node))
             has_next = page_info.get("hasNextPage")
             if not isinstance(has_next, bool):
-                raise GitHubCommandError("GitHub GraphQL pagination state was unreadable")
+                raise GitHubCommandError(
+                    "GitHub GraphQL pagination state was unreadable"
+                )
             if not has_next:
                 return sorted(numbers)
             end_cursor = page_info.get("endCursor")

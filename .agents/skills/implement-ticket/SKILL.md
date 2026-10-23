@@ -96,6 +96,40 @@ fingerprint before every Human Handoff/ordinary return and before retiring any i
 participant worktree. The second participating closer terminalizes the same managed record;
 do not create a replacement record.
 
+### Retired-source destination recovery
+
+When the recovery record has `Source disposition: retire`, the protected Source donor is
+recovery evidence, not an executable participant. Preserve the shared contract's retirement,
+attribution, fingerprint, transplant, and terminalization requirements, with this execution-
+location correction:
+
+- before the Source is durably `closed-not-planned`, do not begin Destination implementation;
+- once the record is `source-retired` with `Source retirement: closed-not-planned`, the
+  record's `Recovery mode: isolated-worktree` means that the **protected donor checkout**
+  remains isolated and immutable; it does **not** require the Destination implementation to
+  run in a separate worktree;
+- the Destination follows the ordinary `$implement-ticket` shared-Spec-branch rules. When
+  the caller checkout is clean, is on the exact declared Destination branch, tracks its
+  exact remote branch, and can synchronize to the fetched remote tip by fast-forward only,
+  execute there normally. Do not create a separate implementation worktree merely because
+  the retired-source recovery record exists;
+- if the caller checkout is dirty, ahead, diverged, stale, or otherwise fails the ordinary
+  branch/Execution-Anchor guards, preserve it and fail closed or use an isolated worktree
+  only where the ordinary caller-worktree safety rules independently require one;
+- before transplant, recompute the protected donor fingerprint and re-attribute every donor
+  item against the current Destination contract. Copy only still-Destination-owned bytes
+  into the Destination candidate; never mutate, commit, reset, clean, or checkout-overwrite
+  the protected donor;
+- capture a fresh Destination Execution Anchor and fresh contract-bound pre-mutation
+  Attention receipt in the actual Destination execution checkout. A donor Attention receipt
+  remains recovery evidence only;
+- after exact Destination certification, commit, push, readback, and closure, populate the
+  exact Destination baseline/completion commit and terminalize the same managed record as
+  `source-reconciled`.
+
+This retired-source correction does not weaken execute-source recovery: source-first and
+destination-first records continue to use their required isolated participant worktrees.
+
 ## Retained protected control-plane boundary
 
 An ordinary `$implement-ticket` invocation still has **zero authority** to alter repository

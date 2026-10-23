@@ -102,6 +102,35 @@ class GuardResult:
         )
 
 
+def _graphql_mapping(value: Any, label: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise GitHubCommandError(f"GitHub GraphQL {label} was unreadable")
+    return value
+
+
+def _control_page(value: Any) -> tuple[list[int], str | None]:
+    root = _graphql_mapping(value, "response")
+    if root.get("errors"):
+        raise GitHubCommandError("GitHub GraphQL returned errors")
+    data = _graphql_mapping(root.get("data"), "data")
+    repository = _graphql_mapping(data.get("repository"), "repository")
+    issues = _graphql_mapping(repository.get("issues"), "issues")
+    nodes = issues.get("nodes")
+    if not isinstance(nodes, list) or not all(isinstance(node, dict) for node in nodes):
+        raise GitHubCommandError("GitHub GraphQL issue nodes were unreadable")
+    numbers = [_issue_number(node) for node in nodes]
+    page_info = _graphql_mapping(issues.get("pageInfo"), "page info")
+    has_next = page_info.get("hasNextPage")
+    if not isinstance(has_next, bool):
+        raise GitHubCommandError("GitHub GraphQL pagination state was unreadable")
+    if not has_next:
+        return numbers, None
+    end_cursor = page_info.get("endCursor")
+    if not isinstance(end_cursor, str) or not end_cursor:
+        raise GitHubCommandError("GitHub GraphQL pagination missing end cursor")
+    return numbers, end_cursor
+
+
 class GitHubClient:
     def __init__(self, repo: str) -> None:
         if repo.count("/") != 1 or any(not part for part in repo.split("/")):
@@ -161,40 +190,10 @@ class GitHubClient:
             if after is not None:
                 fields["after"] = after
             value = self._request("graphql", method="POST", fields=fields)
-            if not isinstance(value, dict):
-                raise GitHubCommandError("GitHub GraphQL response was not an object")
-            if value.get("errors"):
-                raise GitHubCommandError("GitHub GraphQL returned errors")
-            data = value.get("data")
-            if not isinstance(data, dict):
-                raise GitHubCommandError("GitHub GraphQL data was unreadable")
-            repository = data.get("repository")
-            if not isinstance(repository, dict):
-                raise GitHubCommandError("GitHub GraphQL repository was unreadable")
-            issues = repository.get("issues")
-            if not isinstance(issues, dict):
-                raise GitHubCommandError("GitHub GraphQL issues were unreadable")
-            nodes = issues.get("nodes")
-            page_info = issues.get("pageInfo")
-            if not isinstance(nodes, list) or not all(
-                isinstance(node, dict) for node in nodes
-            ):
-                raise GitHubCommandError("GitHub GraphQL issue nodes were unreadable")
-            if not isinstance(page_info, dict):
-                raise GitHubCommandError("GitHub GraphQL page info was unreadable")
-            for node in nodes:
-                numbers.add(_issue_number(node))
-            has_next = page_info.get("hasNextPage")
-            if not isinstance(has_next, bool):
-                raise GitHubCommandError(
-                    "GitHub GraphQL pagination state was unreadable"
-                )
-            if not has_next:
+            page_numbers, after = _control_page(value)
+            numbers.update(page_numbers)
+            if after is None:
                 return sorted(numbers)
-            end_cursor = page_info.get("endCursor")
-            if not isinstance(end_cursor, str) or not end_cursor:
-                raise GitHubCommandError("GitHub GraphQL pagination missing end cursor")
-            after = end_cursor
         raise GitHubCommandError("GitHub GraphQL pagination exceeded safety bound")
 
     def control_issues(self) -> list[dict[str, Any]]:

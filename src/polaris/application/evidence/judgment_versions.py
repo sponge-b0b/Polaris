@@ -63,6 +63,11 @@ class TargetJudgmentMissing:
 
 
 @dataclass(frozen=True, slots=True)
+class TargetJudgmentNotYetEffective:
+    target: EvidenceJudgmentRef
+
+
+@dataclass(frozen=True, slots=True)
 class TargetJudgmentInvalidHistory:
     target: EvidenceJudgmentRef
     reason: str
@@ -79,6 +84,7 @@ type TargetJudgmentResolution[AssertionT, SupportT] = (
     | TargetJudgmentWithdrawn
     | TargetJudgmentContested
     | TargetJudgmentMissing
+    | TargetJudgmentNotYetEffective
     | TargetJudgmentInvalidHistory
     | TargetJudgmentUnavailable
 )
@@ -151,6 +157,7 @@ class TargetJudgmentResolver[AssertionT, SupportT]:
                 TargetJudgmentWithdrawn,
                 TargetJudgmentContested,
                 TargetJudgmentMissing,
+                TargetJudgmentNotYetEffective,
                 TargetJudgmentInvalidHistory,
                 TargetJudgmentUnavailable,
             )

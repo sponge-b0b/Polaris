@@ -153,19 +153,25 @@ The verifier may derive concrete falsifying runtime states from the typed assert
 may not reinterpret an assertion's modality, cardinality, vocabulary closure, temporal
 meaning, authority, or persistence contract.
 
-### IMP-* proof
+### IMP-* cells
 
 Verify the exact private/mechanical obligation is realized. If the implementation uses a
 materially different private mechanic that remains implementation-equivalent and the
 cell no longer describes reality, reconcile the Spec through `$to-specs` rather than
 pretending the stale planning cell passed.
 
-### TEST-* proof
+### TEST-* cells
 
 Verify the required proof exists and exercises the intended exact contract behavior.
 Passing a test that does not falsify the assigned behavior is insufficient.
 
-### EXC-* proof
+The proof must preserve contract strength. A TEST cell does not independently forbid a
+state that the assigned OBL/CCL contract permits. In particular, when CCL permits a feature
+as one measure but forbids it from becoming the universal/sole semantic or authority, the
+proof must distinguish those states; it may not reject the feature merely because it exists
+as a field, property, helper, or derived value.
+
+### EXC-* cells
 
 Verify the candidate did not introduce the excluded behavior when that exclusion is
 observable from the changed implementation. Do not create implementation work merely to
@@ -189,6 +195,55 @@ Use `uv run --locked` for project-declared tools as required by `AGENTS.md`.
 Reuse still-valid candidate-bound evidence. After a mutation rerun only checks whose
 inputs may have changed.
 
+### Technical-gate causality and default-branch inheritance
+
+The fixed Spec baseline is immutable lineage/contract history. It is **not** sufficient by
+itself to attribute repository technical debt to a long-lived Spec branch.
+
+Before path-scoped quality gates or differential repository gates, fetch current default
+branch state and build the exact attribution manifest:
+
+```bash
+git fetch origin main
+python .agents/skills/verify-spec/scripts/verify_spec_attribution.py build \
+  --repo . \
+  --default-ref origin/main \
+  --candidate-ref HEAD \
+  --output <verify-spec-attribution.json>
+```
+
+Require exact:
+
+```text
+VERIFY-SPEC ATTRIBUTION: VALID
+```
+
+Bind all technical-gate causality to that manifest and the exact stable candidate HEAD.
+
+For Ruff, formatting, Mypy, and other path-addressable technical failures:
+
+* failures on `candidate_attributable_paths` are candidate failures and may block PASS;
+* failures confined to branch-side paths whose exact candidate blobs are listed in
+  `inherited_default_equivalent_paths` are inherited upstream/default-branch failures;
+* failures on default-branch-only paths that the candidate did not change are likewise
+  unrelated to this Spec candidate;
+* operational/tooling failure to execute a mandatory gate remains blocking regardless of
+  attribution.
+
+For whole-repository relational scanners such as Arid/JSCPD, invoke `$deduplicate-code` in
+its current `spec-differential` mode and supply the same attribution manifest. Scanner scope
+remains whole-repository; candidate blocking/repair attribution follows that skill's current
+rules.
+
+An inherited/default-equivalent technical finding is an `unrelated failure`: report it with
+causality and continue verification when the applicable candidate gate is otherwise green.
+Do not turn historical Spec-baseline distance into Spec-owned cleanup. Conversely, a path
+that diverges from current default branch remains candidate-attributable even when it is a
+workflow/control-plane path; do not use this rule to hide actual branch-local divergence.
+
+After any candidate mutation, rebuild this attribution manifest because exact candidate
+identity changed.
+
 ## 6. Repair only owned implementation failures
 
 `$verify-spec` may repair a defect when current authority already determines the correct
@@ -196,6 +251,31 @@ behavior and the failure is implementation/test/integration work within the veri
 Spec contract.
 
 It may not repair by making a new material semantic decision.
+
+### Contract-strength preservation for verifier-owned repairs
+
+Before changing implementation or tests in response to a verifier finding, independently
+admit the finding against the frozen contract:
+
+1. identify the exact cell and, for OBL-backed behavior, exact CCL address;
+2. state the concrete hypothetical state the verifier says must fail;
+3. prove that state actually violates the exact cell/CCL;
+4. challenge the proposed repair with every explicit optional/MAY/permitted state in the
+   same contract surface.
+
+If the hypothetical state remains contract-compliant, the closure finding is
+**inadmissible verifier strengthening**. Do not mutate the candidate to satisfy it, do not
+persist it as a candidate defect, and do not treat that closure verdict as a valid FAIL.
+Discard that closure attempt and obtain a fresh independent closure verdict over the same
+stable candidate.
+
+A verification-owned test repair is itself a `test/proof-defect` when it rejects a state
+that the frozen contract explicitly permits. Relax that proof to distinguish the actual
+forbidden state from permitted variants, then rerun only invalidated checks.
+
+On resumed verification, audit verification-owned test/proof repairs made by prior
+`$verify-spec` attempts. Candidate-bound evidence from those attempts is reusable only after
+those repairs pass this contract-strength preservation check.
 
 Classify failures:
 
@@ -226,7 +306,8 @@ After any repository mutation:
 2. commit/push under the existing Spec branch rules;
 3. require one clean stable exact `HEAD`;
 4. rebuild the deterministic Spec contract;
-5. rerun exact v2 coverage validation.
+5. rerun exact v2 coverage validation;
+6. rebuild the exact verify-spec attribution manifest.
 
 ## 7. Independent closure certification
 
@@ -255,9 +336,20 @@ SPEC CLOSURE: PASS | FAIL
 and exact candidate/contract identity match before admitting the result. Dispatch or
 successful child completion is never itself a verdict.
 
-A valid FAIL returns implementation ownership to this parent. Preserve every finding as a
-mandatory retry target until the next fresh verifier classifies it `closed`, `still-open`,
-or `superseded-by-explicit-contract-change`.
+A closure FAIL is admissible only when every finding includes both:
+
+```text
+Contract violation: <exact cell/CCL address + condition violated>
+Permitted-state challenge: PASS
+```
+
+The parent must independently confirm those claims before repairing the candidate. A
+finding whose supposed falsifier is still permitted by the frozen contract is verifier
+overreach, not a candidate defect; reject the verdict and do not mutate the candidate.
+
+A valid FAIL returns implementation ownership to this parent. Preserve every admissible
+finding as a mandatory retry target until the next fresh verifier classifies it `closed`,
+`still-open`, or `superseded-by-explicit-contract-change`.
 
 Every candidate mutation requires a fresh deterministic contract build and fresh closure
 verdict. Unchanged evidence may be reused when its exact proof inputs remain valid.
@@ -281,12 +373,14 @@ Immediately before persisting PASS require:
 Stable HEAD: unchanged
 Spec contract: VALID
 Ticket coverage v2: VALID
+Verify-spec attribution: VALID and current
 Unresolved exact contract cells: 0
 Open verifier findings: 0
 Known implementation/test failures: 0
+Contract-permitted states rejected by verification-owned tests: 0
 Unresolved cell-routing defects: 0
 Unresolved contract/planning gaps: 0
-Applicable mandatory technical gates: PASS
+Applicable candidate-attributable mandatory technical gates: PASS
 ```
 
 ## 9. Persist the Spec Verification Receipt
@@ -323,18 +417,70 @@ reused only under the repository-wide non-semantic workflow-policy synchronizati
 and only when current deterministic contract validation reproduces the receipt-bound
 `SPEC_BODY_HASH` and `SPEC_CONTRACT_HASH` as required by that rule.
 
-## 10. Handoff
+## 10. Outbound Human Handoff boundary
 
-On PASS:
+Every terminal **Human Handoff** from `$verify-spec` uses the shared
+`polaris.workflow-handoff/v1` gate. A recommendation, prose instruction, bare downstream
+skill command, or statement such as `resume $verify-spec after ...` is **not** a Human
+Handoff and does not satisfy a lifecycle terminal condition.
+
+Before generating a handoff, resolve the exact downstream artifact from current durable
+state:
+
+* PASS -> `$review-spec` receives the exact current Parent Spec issue;
+* `cell-routing-defect` -> `$to-tickets` receives the exact current Parent Spec issue;
+* `contract-gap` / `planning-cell-gap` -> `$to-specs` receives the exact current planning
+  source for the Parent Spec: its governing Wayfinder when Wayfinder-managed, otherwise its
+  exact Independent planning source;
+* another semantic/architecture route receives only the exact artifact required by that
+  owning workflow's current routing contract.
+
+If no downstream lifecycle owner exists for a genuine operational/environment blocker, do
+not invent a Human Handoff. Remain at `$verify-spec` and report the exact blocker and
+candidate identity.
+
+Every handoff manifest uses:
 
 ```text
-$review-spec - <Spec Title> (<Spec URL>)
+schema: polaris.workflow-handoff/v1
+boundary: human-lifecycle
+durability.verified: true
 ```
 
-Do not invoke review implicitly.
+Durability sources must be canonical, unique, and sufficient for a fresh downstream
+session to reconstruct all correctness-critical state. Include at minimum the exact current
+Parent Spec URL and any additional durable defect/authority artifact required by the route.
 
-On a routed blocker, persist the required durable blocker/defect state before emitting the
-owning Human Handoff.
+`$verify-spec` must use its fail-closed handoff finalizer, which composes the shared
+`polaris.workflow-handoff/v1` renderer and validator in one operation:
+
+```bash
+python .agents/skills/verify-spec/scripts/verify_spec_handoff.py finalize \
+  --manifest <handoff-manifest.json> \
+  --output <handoff-output.txt>
+```
+
+Require the command itself to exit zero and emit exact:
+
+```text
+WORKFLOW HANDOFF: VALID
+```
+
+Only after that exact receipt may `$verify-spec` read `<handoff-output.txt>` and reproduce it
+as the user-visible Human Handoff block. The block must match the validated file
+**byte-for-byte**.
+
+Do not call `scripts.workflow_handoff generate` and `verify` as separate ad hoc steps from
+`$verify-spec`; the skill-owned finalizer exists specifically so `READY` output cannot be
+surfaced before validation succeeds. Do not manually reconstruct a handoff and do not emit
+a bare `$review-spec`, `$to-tickets`, `$to-specs`, `$architecture-remediation`, or
+`$verify-spec` line.
+
+If the finalizer emits `WORKFLOW HANDOFF: INVALID`, returns nonzero, or does not produce the
+validated output file, the lifecycle remains at `$verify-spec`. Do not surface `READY` and
+do not claim a Human Handoff.
+
+Do not invoke review implicitly.
 
 ## Non-goals
 

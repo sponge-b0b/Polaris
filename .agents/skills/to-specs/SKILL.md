@@ -8,189 +8,46 @@ disable-model-invocation: true
 
 ## Authoritative procedure composition
 
-Before executing this skill, read `.agents/skills/to-specs/PROCEDURE.md` in full.
+Before executing this skill, read all of these files in full:
 
-`PROCEDURE.md` preserves the complete established `$to-specs` lifecycle, including CCL
-projection, stable planning cells, execution topology, planning-source partition,
-Cross-Spec ownership integrity, concrete implementability, Spec reconciliation, native
-dependency ownership, readiness labels, and fail-closed routing. This `SKILL.md` is the
-authoritative entrypoint and adds the machine-enforced planning-worktree, cross-Spec
-execution-feasibility, legacy-completed compatibility, and outbound Human Handoff gates
-below. On conflict, this file wins. Failure to load the retained procedure is a Hard
-Blocker.
+1. `.agents/skills/to-specs/PROCEDURE.md`
+2. `.agents/skills/to-specs/CONTROL_PLANE.md`
 
-## Clean/current planning-worktree gate
+`PROCEDURE.md` preserves the complete established `$to-specs` lifecycle.
+`CONTROL_PLANE.md` preserves the previously authoritative entrypoint through the
+machine-enforced cross-Spec and intra-Spec execution-feasibility, legacy-completed
+compatibility, planning-worktree, and shared Human Handoff repairs.
 
-`$to-specs` must not execute from a dirty implementation candidate worktree and must not
-use stale `$to-specs` control-plane bytes merely because tracker readback is current.
+This `SKILL.md` is now the authoritative entrypoint and adds the machine-enforced durable
+routing-defect inventory gate below. On conflict, this file wins. Failure to load either
+retained file is a Hard Blocker.
 
-Before planning analysis or tracker mutation:
+All requirements in both retained files remain mandatory unless explicitly overridden here.
 
-```bash
-git fetch origin main
-python -m scripts.workflow_to_specs preflight \
-  --repo . \
-  --main-ref origin/main
-```
+## Retained execution-feasibility contract
 
-Require exact:
+Local structural success is **not** sufficient. The production success and proof path must be traced before readiness.
+Every topology-bearing unit still uses `provider_requirements`, `local_provider_requirements`, and, only when neither kind of provider is required, `local_completion_attestation`.
 
-```text
-TO-SPECS PREFLIGHT: VALID
-```
-
-The preflight fails closed when the worktree is dirty or when the current worktree's
-`$to-specs` / shared-handoff control-plane blobs differ from current `origin/main`. If it
-fails, use a separate clean planning worktree containing the current workflow repair. Do
-not stash, reset, clean, merge, or otherwise disturb an active implementation candidate to
-make `$to-specs` runnable.
-
-## Machine-enforced cross-Spec execution feasibility
-
-The retained Cross-Spec ownership-integrity rules remain authoritative. In particular, an
-upstream Spec cannot be ticketing-ready when one of its execution units requires
-completion-time proof from a sibling provider capability that is still open and is not a
-native prerequisite of that consumer.
-
-Local structural success is **not** sufficient:
-
-```text
-CCL projection valid
-+ derive-decomposition valid
-+ acyclic local execution topology
-!= cross-Spec execution feasibility
-```
-
-Before publication/readiness mutation and again immediately before frontier handoff, build
-one bounded `polaris.to-specs-execution-feasibility/v1` manifest outside the repository.
-It must include every current handled sibling Spec and every additional provider Spec used
-by a completion dependency. Each Spec entry points to a fresh issue JSON snapshot that
-contains at least:
-
-```text
-number, title, url, state, body, blockedBy
-```
-
-The manifest also contains the canonical `spec_order` from the planning source.
-
-### Current/open and topology-bearing Specs
-
-Every OPEN Spec must contain a current `spec-execution-topology:v1` marker. A missing
-topology on an OPEN Spec is always invalid.
-
-For every Spec that has execution topology, including a CLOSED Spec created under the
-topology regime, the manifest must contain exactly one `unit_analysis` record for every
-current/historical `EU-*` in that Spec's actual topology. Such a Spec may not use the
-legacy-completed compatibility path to skip unit analysis.
-
-Each execution-unit analysis must state:
-
-- `completion_basis`: non-empty exact durable/CCL evidence used to reason about the unit's
-  production completion path;
-- `provider_requirements`: every sibling/provider capability whose production
-  implementation must already exist for this unit itself to be completed and proved;
-- for each provider requirement: exact provider Spec number, reason, and non-empty basis;
-- if no external provider is required, an explicit `local_completion_attestation` with
-  `result: true`, reason, and non-empty basis. An empty provider list without that positive
-  attestation is invalid.
-
-### Immutable legacy-completed Specs
-
-A CLOSED Spec that predates `spec-execution-topology:v1` is immutable delivery history.
-Do **not** retrofit synthetic `EU-*` topology, planning cells, or CCL markers merely to make
-the feasibility gate accept it.
-
-A topology-less Spec may participate in the bounded sibling/provider set only when all of
-the following are true:
-
-- the fresh issue snapshot says exactly `CLOSED`;
-- its manifest entry contains `legacy_completed`;
-- `legacy_completed.result` is exactly `true`;
-- `legacy_completed.reason` is non-empty;
-- `legacy_completed.completion_basis` is a non-empty list of exact durable sources proving
-  that the provider capability was completed/accepted;
-- `unit_analysis` is absent or empty.
-
-Example:
-
-```json
-{
-  "issue_json": "357.json",
-  "legacy_completed": {
-    "result": true,
-    "reason": "completed before execution-topology manifests were introduced",
-    "completion_basis": [
-      "https://github.com/<owner>/<repo>/issues/357",
-      "https://github.com/<owner>/<repo>/issues/357#issuecomment-<verification>"
-    ]
-  }
-}
-```
-
-This is a compatibility attestation only. It means the CLOSED provider is already durable
-for dependency purposes; it does not create retroactive execution-unit authority, make the
-Spec actionable again, or permit an OPEN topology-less Spec. A CLOSED Spec that already
-contains topology must still use normal `unit_analysis`.
-
-### Completion-path analysis
-
-Do not derive provider requirements merely from textual CCL overlap. Trace the actual
-**production success and proof path** implied by the frozen cells: required authoritative
-reads, typed owner/absence guards, transaction participants, provider-produced facts,
-composition boundaries, and any other completion-time capability. Test doubles, optional
-injection seams, local mocks, or a structurally valid ticket decomposition do not establish
-production provider availability.
-
-Validate with:
-
-```bash
-python -m scripts.workflow_to_specs check-feasibility \
-  --manifest <execution-feasibility.json>
-```
-
-Require exact:
+The same fail-closed rule applies **inside one Spec**.
+A distinct local provider must be reachable through the consumer unit's transitive `depends_on` prerequisites; a downstream or unrelated local execution unit is invalid.
+Successful retained feasibility still requires:
 
 ```text
 SPEC EXECUTION FEASIBILITY: VALID
 Unprotected pending provider requirements: 0
+Unprotected downstream local provider requirements: 0
 ```
 
-The machine gate parses every topology-bearing supplied Spec and requires exact
-unit-analysis coverage. It separately validates immutable `legacy_completed` entries for
-CLOSED pre-topology Specs. For every declared provider requirement, an open provider must
-be protected by a native prerequisite path from the consumer Spec; a closed provider is
-already durable. A required open provider with no such path makes the plan invalid even
-when every individual Spec's `derive-decomposition` result is valid.
+### Immutable legacy-completed Specs
 
-If this gate is invalid, `$to-specs` owns reconciliation under the retained rules when the
-accepted partition already determines ownership. Reconcile the existing open Spec(s) in
-place by the finest coherent lawful change: split/defer the consumer completion/proof unit,
-establish the exact prerequisite relation, or otherwise repair the execution topology
-without inventing semantics. Preserve existing Spec identities, closed ticket history, and
-live WIP recovery handles. If the accepted partition cannot determine the repair, fail
-closed to the planning owner rather than guessing.
+A CLOSED Spec that predates `spec-execution-topology:v1` is immutable delivery history.
+`legacy_completed.result` and `legacy_completed.completion_basis` remain required by the
+retained compatibility path, which does not create retroactive execution-unit authority.
+Every OPEN Spec must contain a current `spec-execution-topology:v1` marker, and a CLOSED
+Spec that already contains topology must still use normal `unit_analysis`.
 
-`$attention` must inspect the completed execution-feasibility manifest before any frontier
-handoff. Attention does not replace the machine gate.
-
-## Frontier readiness override
-
-A Spec is actionable for `$to-tickets` only when all retained readiness predicates pass
-**and** the current execution-feasibility manifest is valid. `ready-for-agent`, current
-Ticket Contract hashes, local decomposition validity, or zero native blockers cannot
-substitute for cross-Spec execution feasibility.
-
-If the feasibility repair changes a Spec's planning cells, execution topology, or native
-prerequisites, re-run every retained projection/decomposition/readback gate invalidated by
-that mutation before handoff.
-
-## Canonical outbound Human Handoff
-
-The retained bare-line Human Handoff section is overridden here.
-
-After the feasibility gate succeeds, derive the actionable frontier and exact current Spec
-titles/URLs from the same fresh issue snapshots; never abbreviate or reconstruct titles
-from memory. Build the shared handoff manifest mechanically:
+The retained canonical handoff mechanics also remain mandatory:
 
 ```bash
 python -m scripts.workflow_to_specs build-handoff \
@@ -198,39 +55,256 @@ python -m scripts.workflow_to_specs build-handoff \
   --output <handoff-manifest.json>
 ```
 
-Require exact:
-
-```text
-TO-SPECS HANDOFF MANIFEST: VALID
-```
-
-Then generate and verify the terminal Human Handoff only through the shared gate:
-
-```bash
-python -m scripts.workflow_handoff generate \
-  --manifest <handoff-manifest.json> \
-  > <handoff-output.txt>
-python -m scripts.workflow_handoff verify \
-  --manifest <handoff-manifest.json> \
-  --output <handoff-output.txt>
-```
-
-Require exact:
-
-```text
-WORKFLOW HANDOFF: VALID
-```
-
-The user-visible terminal block must reproduce `<handoff-output.txt>` **byte-for-byte**.
-Every actionable Spec line therefore has the canonical form:
+They must still produce `WORKFLOW HANDOFF: VALID`, and the user-visible terminal block must
+remain byte-for-byte machine output, including the canonical form:
 
 ```text
 $to-tickets - <exact current Spec title> (<exact canonical Spec URL>)
 ```
 
-with one entry for every actionable frontier Spec in canonical planning-source order.
-Do not emit an abbreviated title, omit a URL, stop after the first actionable Spec, manually
-reconstruct the block, or claim a successful Human Handoff if either machine gate fails.
+## Durable routing-defect inventory gate
 
-If the validated frontier is empty, do not create an empty handoff manifest; report the
-exact durable blockers instead.
+Execution feasibility is not allowed to depend only on provider edges that the current
+`$to-specs` actor remembers to declare in `unit_analysis`. Durable downstream evidence that
+already proves a ticket/Spec routing defect is part of the current planning state and must be
+machine-consumed.
+
+A model-authored statement such as "no routing defects found" is not evidence. The inventory
+must be collected mechanically from the current native child tickets of every Spec supplied
+to the feasibility manifest.
+
+### Current control-plane admission
+
+Immediately after the retained `$to-specs` preflight, require the routing-defect control
+plane to be current relative to the same fetched default branch:
+
+```bash
+python -m scripts.workflow_routing_defects preflight \
+  --repo . \
+  --main-ref origin/main
+```
+
+Require exact:
+
+```text
+TO-SPECS ROUTING DEFECT PREFLIGHT: VALID
+```
+
+This prevents a clean planning worktree from using a stale routing-defect collector or stale
+producer/consumer skill contract.
+
+### Machine inventory collection
+
+Before the first execution-feasibility decision and again immediately before frontier
+handoff, collect the inventory from GitHub using every Spec in the bounded feasibility set:
+
+```bash
+python -m scripts.workflow_routing_defects collect \
+  --repo <owner/repo> \
+  --spec <spec-number> \
+  [--spec <spec-number> ...] \
+  --output <routing-defects.json>
+```
+
+Require exact header:
+
+```text
+TO-SPECS ROUTING DEFECT INVENTORY: VALID
+```
+
+The collector follows current native child-ticket relationships and reads their current
+comments. It recognizes only machine-readable `workflow-routing-defect:v1` markers; prose,
+chat memory, labels, or a hand-maintained list cannot substitute for the collector.
+
+The exact scanned Spec set must later equal every and only Spec snapshot supplied to the
+execution-feasibility manifest.
+
+### Routing-defect marker semantics
+
+A current cell-routing defect uses exactly one machine-readable marker shaped as:
+
+```text
+<!-- workflow-routing-defect:v1
+{
+  "schema": "polaris.workflow-routing-defect/v1",
+  "defect_id": "<stable id>",
+  "status": "open | resolved",
+  "classification": "cell-routing-defect",
+  "source_ticket": <ticket>,
+  "parent_spec": <spec>,
+  "affected_cells": ["OBL-..."],
+  "required_local_provider_cells": ["OBL-..."],
+  "reason": "<why the assigned cell cannot complete in the current route>",
+  "basis": ["<durable source>"]
+}
+-->
+```
+
+The marker records cells rather than historical execution-unit IDs so a later topology
+reconciliation cannot make the evidence disappear by renaming, merging, or moving units.
+
+`required_local_provider_cells` may be empty only when the downstream workflow has proved a
+cell-routing defect but cannot yet identify machine-resolvable same-Spec provider cells. Such
+an OPEN marker is deliberately blocking: `$to-specs` must not claim feasibility until the
+planning authority can either identify the exact provider relation or otherwise reconcile the
+defect under frozen authority.
+
+### Machine coverage against the current topology
+
+After building the retained `polaris.to-specs-execution-feasibility/v1` manifest, validate the
+fresh routing-defect inventory against that exact manifest:
+
+```bash
+python -m scripts.workflow_routing_defects check \
+  --inventory <routing-defects.json> \
+  --manifest <execution-feasibility.json>
+```
+
+Require exact:
+
+```text
+TO-SPECS ROUTING DEFECT COVERAGE: VALID
+Unprotected routing defect requirements: 0
+```
+
+For every OPEN marker, the machine gate maps each `affected_cells` entry and each
+`required_local_provider_cells` entry onto the **current** `spec-execution-topology:v1`.
+For each resulting consumer/provider pair, the provider must either be in the same current
+execution unit or be a transitive `depends_on` prerequisite of the consumer.
+
+If the provider is downstream or unrelated, the plan is invalid even when:
+
+- the local topology is acyclic;
+- deterministic decomposition is valid;
+- the actor omitted the provider from `unit_analysis`;
+- the current ticket coverage maps every cell exactly once; or
+- a prior feasibility manifest passed before the routing defect was discovered.
+
+An affected/provider cell absent from the current topology also fails closed. An OPEN marker
+with no machine-resolvable provider cells fails closed rather than disappearing from analysis.
+
+This gate supplements, and does not replace, the retained `scripts.workflow_to_specs
+check-feasibility` gate. Both must pass on the same current Spec snapshots before publication,
+readiness mutation, or Human Handoff.
+
+## Reconciliation ownership
+
+When this gate fails, `$to-specs` owns topology reconciliation whenever accepted planning/CCL
+authority already determines the lawful repair. Preserve Spec identity, frozen material
+cells, closed delivery history, and live-WIP recovery handles. Do not split or weaken a
+material cell merely to satisfy the gate.
+
+After any Spec/topology mutation, rebuild the current Spec contract/decomposition,
+reconstruct the complete feasibility manifest, and rerun both routing-defect collection/check
+and the retained execution-feasibility gate.
+
+## Frontier and Human Handoff override
+
+A Spec is not actionable for `$to-tickets` merely because the retained feasibility gate says
+VALID. Immediately before building the shared Human Handoff manifest, rerun the machine
+routing-defect collection and coverage check from current tracker state and require both
+receipts again.
+
+Therefore a terminal `$to-tickets` handoff is legal only when all of the following are true
+on one current state:
+
+```text
+TO-SPECS PREFLIGHT: VALID
+TO-SPECS ROUTING DEFECT PREFLIGHT: VALID
+TO-SPECS ROUTING DEFECT INVENTORY: VALID
+TO-SPECS ROUTING DEFECT COVERAGE: VALID
+Unprotected routing defect requirements: 0
+SPEC EXECUTION FEASIBILITY: VALID
+Unprotected pending provider requirements: 0
+Unprotected downstream local provider requirements: 0
+WORKFLOW HANDOFF: VALID
+```
+
+If any receipt is missing or stale, do not emit or honor a `$to-tickets` frontier handoff.
+
+## Machine-enforced cross-Spec ownership gate
+
+The retained feasibility and routing-defect gates remain mandatory, but they are not allowed
+to rely on provider relationships that the current actor happens to remember. Before
+ticketing, every current material `OBL-*` and every local `IMP-*` / `TEST-*` must have an
+explicit ownership classification on the same bounded feasibility manifest.
+
+Immediately after the retained preflights, require:
+
+```bash
+python -m scripts.workflow_spec_ownership preflight \
+  --repo . \
+  --main-ref origin/main
+```
+
+Require exact:
+
+```text
+TO-SPECS OWNERSHIP PREFLIGHT: VALID
+```
+
+Every topology-bearing Spec entry in the current
+`polaris.to-specs-execution-feasibility/v1` manifest must additionally contain one
+`ownership_analysis` object. Its `material` rows cover every and only current `OBL-*` exactly
+once with either:
+
+- `disposition: owned`, a non-empty local executable `role`, `reason`, and durable `basis`; or
+- `disposition: consumed-boundary`, another `provider_spec`, exact `provider_cells`, a
+  `reason`, and durable `basis`.
+
+For a topology-bearing provider, the combined CCL refs of `provider_cells` must cover every
+CCL ref projected by the consumed cell. For an immutable topology-less `legacy_completed`
+provider, `provider_cells` must be empty so the gate does not invent retroactive cell
+authority.
+
+An OPEN consumed provider must be a current native prerequisite of the consumer. The same
+`provider_spec` must also appear in the retained `unit_analysis.provider_requirements` for
+the execution unit that owns the consumed cell. A downstream or unrelated provider is a
+blocking ownership contradiction.
+
+The `planning` ownership rows cover every and only current `IMP-*` / `TEST-*` exactly once.
+Each planning cell declares non-empty `supports` containing current local `OBL-*`. At least
+one supported obligation must be `owned`; a planning cell may not exist solely to implement
+or certify a consumed sibling capability. Supported cells must be in the same execution
+unit or a transitive upstream local prerequisite unit.
+
+Every execution unit containing material obligations must contain at least one locally
+`owned` material obligation. A consumed-boundary-only unit is not an executable vertical
+material-outcome slice even if topology, coverage, and dependency closure are otherwise
+valid.
+
+Before publication/readiness mutation and again immediately before frontier handoff, run:
+
+```bash
+python -m scripts.workflow_spec_ownership check \
+  --manifest <execution-feasibility.json>
+```
+
+Require exact successful output containing:
+
+```text
+TO-SPECS CROSS-SPEC OWNERSHIP: VALID
+Unprotected consumed-boundary requirements: 0
+Execution units without local material ownership: 0
+```
+
+A model-authored statement that ownership is clear is not a substitute for this receipt.
+`$attention` must inspect the exact `ownership_analysis` together with the retained
+feasibility and routing-defect evidence.
+
+When this gate fails and accepted planning/CCL authority already fixes ownership, `$to-specs`
+owns the in-place projection/topology repair. Preserve Spec identity, surviving stable cell
+IDs, closed delivery history, native dependency truth, and live-WIP recovery handles. Do not
+implement a downstream consumer inside an upstream provider Spec merely to make a ticket
+close. If ownership is genuinely unresolved, fail closed to the retained planning/semantic
+owner instead of guessing.
+
+The terminal `$to-tickets` Human Handoff is legal only when all retained receipts and these
+current receipts pass on one state:
+
+```text
+TO-SPECS OWNERSHIP PREFLIGHT: VALID
+TO-SPECS CROSS-SPEC OWNERSHIP: VALID
+Unprotected consumed-boundary requirements: 0
+Execution units without local material ownership: 0
+```

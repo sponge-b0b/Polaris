@@ -8,6 +8,7 @@ from typing import Protocol, runtime_checkable
 from uuid import UUID
 
 from polaris.domain.decisions.facts import DecisionVersion, InvestmentDecisionId
+from polaris.domain.portfolio import PortfolioStateId
 
 from .judgment_versions import (
     TargetJudgmentVersionRef,
@@ -54,11 +55,6 @@ class PortfolioBoundaryId(_ContextId):
 @dataclass(frozen=True, slots=True)
 class PortfolioBoundaryRevision(_ContextRevision):
     """Owner epoch for one Portfolio Boundary root."""
-
-
-@dataclass(frozen=True, slots=True)
-class PortfolioStateId(_ContextId):
-    """One attributable actual Portfolio State, including its as-of basis."""
 
 
 @dataclass(frozen=True, slots=True)

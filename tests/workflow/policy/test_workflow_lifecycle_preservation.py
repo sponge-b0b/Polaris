@@ -2,14 +2,22 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 
+COMPOSED_AUTHORITY_FILES = (
+    "SKILL.md",
+    "PROCEDURE.md",
+    "EXECUTION_ANCHOR.md",
+    "CONTROL_PLANE.md",
+    "ROUTING_CONTROL_PLANE.md",
+)
+
 
 def _composed_skill(relative: str) -> str:
-    skill = ROOT / relative / "SKILL.md"
-    text = skill.read_text(encoding="utf-8")
-    procedure = skill.parent / "PROCEDURE.md"
-    if procedure.exists():
-        text += "\n" + procedure.read_text(encoding="utf-8")
-    return text
+    root = ROOT / relative
+    return "\n".join(
+        (root / name).read_text(encoding="utf-8")
+        for name in COMPOSED_AUTHORITY_FILES
+        if (root / name).exists()
+    )
 
 
 TO_TICKETS = _composed_skill(".agents/skills/to-tickets")
@@ -72,7 +80,10 @@ def test_implement_ticket_separates_immutable_baseline_from_execution_anchor() -
     assert "Execution Anchor" in IMPLEMENT
     assert "fetch the actual remote ticket branch" in IMPLEMENT
     assert "fast-forward only" in IMPLEMENT
-    assert "Do not require the current shared branch to equal that historical SHA" in IMPLEMENT
+    assert (
+        "Do not require the current shared branch to equal that historical SHA"
+        in IMPLEMENT
+    )
 
 
 def test_wayfinder_returns_focus_choice_to_human_owner() -> None:

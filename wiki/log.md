@@ -1,5 +1,33 @@
 # wiki/log.md
 
+## [2026-10-22] R3 Portfolio initial claim catalogs | admission completed
+
+Recorded explicit complete claim catalogs at initial Projected Portfolio Consequence and Portfolio Risk Assessment admission. Application requires catalogs for each target root, and PostgreSQL commits each catalog with its owner judgment. Updated Application Use Cases and Durable Persistence.
+
+## [2026-10-20] R3 Portfolio context versions | owner history implemented
+
+Recorded Portfolio-owned typed context revisions, Mandate member meaning, exact-key selection and absence guards, historical owner-cause attestation, and immutable PostgreSQL commit history. Updated Portfolio & Risk, Evidence, Application Use Cases, and Durable Persistence; dependent Evidence writes and Recommendation consumption remain planned.
+
+## [2026-10-20] R3 Portfolio Evidence target corrections | owner history implemented
+
+Recorded the realized consequence and Risk Evidence target owner: complete versioned claim catalogs, separate target and catalog correction lanes, explicit future-overlap resolution, `(T,K)` owner witnesses, and immutable PostgreSQL acts. Updated `portfolio-risk`, `evidence`, and `durable-persistence`; context ownership and Recommendation consumption remain planned.
+
+## [2026-10-20] R3 Portfolio Evidence target correction overlap | accepted authority
+
+Recorded ADR 0019’s accepted Portfolio & Risk rule for future-effective same-root target and complete claim-catalog corrections. Known pending overlaps require explicit cancellation or interim retention, with coherent selected lanes and owner-attested temporal cause. Concrete correction implementation remains pending.
+
+## [2026-10-19] R3 Portfolio Risk | attributable assessment producer established
+
+Recorded typed actual-State and projected-consequence Risk assessments with distinct material dimensions, explicit unresolved support, Evidence references, assumptions, uncertainty, attribution, and append-only PostgreSQL history. Evidence target/context version ownership and Recommendation consumption remain planned in their respective follow-on work.
+
+## [2026-10-19] R3 projected Portfolio consequence | hypothetical producer established
+
+Recorded the typed Portfolio consequence producer for the complete material Alternative set read through the Investment Intelligence owner, with exact actual-State and as-of binding, explicit horizon and assumptions, material projected changes, unresolved precision, attribution, and append-only PostgreSQL persistence. Risk assessment, Evidence target ownership, and Recommendation consumption remain planned.
+
+## [2026-10-19] R3 actual Portfolio State | historical owner fact established
+
+Marked Portfolio & Risk present and recorded the implemented actual-State identity, external source provenance, append-only history, and inward `(T,K)` read capability. The accepted projected consequence and Risk portions remain planned.
+
 ## [2026-10-17] Foundational Investment Intelligence judgments | #398 realized
 
 Marked Investment Intelligence `present` and recorded the first R3 judgment persistence and Application slice: typed Views, material Hypotheses, substantive challenge results, and material Decision Alternatives with append-only root-local revisions and guarded selection. The broader Recommendation, withholding, and Evidence target/catalog contracts remain pending in later #358 tickets.

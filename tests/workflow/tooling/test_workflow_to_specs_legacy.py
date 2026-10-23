@@ -59,6 +59,7 @@ def _analysis(unit: str, providers: list[int]) -> dict[str, object]:
             }
             for provider in providers
         ],
+        "local_provider_requirements": [],
         **(
             {}
             if providers

@@ -83,6 +83,22 @@ The audited cross-skill capability inventory lives in
 that manifest and its capability-level tests; deleting a capability requires explicit
 `REPLACED-EQUIVALENT` or `INTENTIONALLY RETIRED` evidence rather than absence by omission.
 
+## Workflow invocation resumability
+
+Long-running lifecycle skills may use the shared Workflow Invocation Journal (WIJ) to retain
+disposable execution progress across context loss or agent restart.
+
+The WIJ is local, append-only execution evidence. It is never semantic, contract, dependency,
+candidate, closure, review, or lifecycle authority and it never substitutes for fresh-session
+Human Handoff durability. Missing, corrupt, ambiguous, stale, incompatible, unreadable, or
+unwritable WIJ state must degrade to the owning skill's ordinary authoritative reconstruction
+and must never block otherwise-valid workflow progress.
+
+The canonical storage/schema/state-machine contract is
+`.agents/skills/WORKFLOW_INVOCATION_JOURNAL.md`. Each adopting skill owns only its bounded
+integration/reuse rules. `$spec-merge-cleanup` owns best-effort garbage collection for
+journals scoped to an authoritatively completed Spec.
+
 ## Core principle
 
 Polaris interprets material semantics once and transports exact contract identity through

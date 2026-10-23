@@ -333,6 +333,39 @@ def _alternative_from_row(
     )
 
 
+async def _material_alternatives_for_decision(
+    connection: AsyncConnection, decision_id: InvestmentDecisionId
+) -> tuple[DecisionAlternative, ...]:
+    rows = (
+        (
+            await connection.execute(
+                select(
+                    decision_alternatives.c.decision_id,
+                    decision_alternative_revisions,
+                )
+                .join(
+                    decision_alternative_revisions,
+                    decision_alternatives.c.alternative_id
+                    == decision_alternative_revisions.c.alternative_id,
+                )
+                .where(decision_alternatives.c.decision_id == decision_id.value)
+                .order_by(
+                    decision_alternative_revisions.c.alternative_id,
+                    decision_alternative_revisions.c.revision.desc(),
+                )
+            )
+        )
+        .mappings()
+        .all()
+    )
+    latest: dict[DecisionAlternativeId, DecisionAlternative] = {}
+    for row in rows:
+        alternative_id = DecisionAlternativeId(_uuid(row["alternative_id"]))
+        if alternative_id not in latest:
+            latest[alternative_id] = _alternative_from_row(alternative_id, row)
+    return tuple(latest.values())
+
+
 async def _row_by_id(
     connection: AsyncConnection, table: Table, identity: Column[Any], value: UUID
 ) -> RowMapping | None:
@@ -785,6 +818,15 @@ class PostgresInvestmentIntelligenceStore:
             return (
                 _alternative_from_row(alternative_id, row) if row is not None else None
             )
+
+    async def for_decision(
+        self, decision_id: InvestmentDecisionId
+    ) -> tuple[DecisionAlternative, ...]:
+        """Read every material Alternative at its current owner-issued revision."""
+        if type(decision_id) is not InvestmentDecisionId:
+            raise TypeError("decision_id must be InvestmentDecisionId")
+        async with self._read_connection("material Alternatives") as connection:
+            return await _material_alternatives_for_decision(connection, decision_id)
 
     async def load_selection(
         self, decision_id: InvestmentDecisionId

@@ -33,11 +33,23 @@ class SpecSnapshot:
     url: str
     state: str
     blocked_by: tuple[int, ...]
-    topology_units: tuple[str, ...] | None
+    topology: tuple[tuple[str, tuple[str, ...]], ...] | None
+
+    @property
+    def topology_units(self) -> tuple[str, ...] | None:
+        if self.topology is None:
+            return None
+        return tuple(unit_id for unit_id, _ in self.topology)
+
+    @property
+    def topology_graph(self) -> dict[str, tuple[str, ...]]:
+        if self.topology is None:
+            return {}
+        return dict(self.topology)
 
     @property
     def is_legacy_completed(self) -> bool:
-        return self.state == "CLOSED" and self.topology_units is None
+        return self.state == "CLOSED" and self.topology is None
 
 
 def _need(condition: bool, message: str) -> None:
@@ -85,7 +97,7 @@ def _extract_blockers(issue: dict[str, Any], number: int) -> tuple[int, ...]:
 
 def _extract_topology(
     issue: dict[str, Any], number: int, state: str
-) -> tuple[str, ...] | None:
+) -> tuple[tuple[str, tuple[str, ...]], ...] | None:
     body = issue.get("body")
     _need(isinstance(body, str), f"spec #{number}: issue snapshot missing body")
     match = TOPOLOGY_PATTERN.search(body)
@@ -107,6 +119,7 @@ def _extract_topology(
     )
     units = topology.get("units")
     _need(isinstance(units, list) and units, f"spec #{number}: topology units required")
+    parsed: list[tuple[str, tuple[str, ...]]] = []
     ids: list[str] = []
     for unit in units:
         _need(isinstance(unit, dict), f"spec #{number}: topology unit must be object")
@@ -116,9 +129,31 @@ def _extract_topology(
             and re.fullmatch(r"EU-\d{3}", unit_id) is not None,
             f"spec #{number}: invalid unit id",
         )
+        depends_on = unit.get("depends_on")
+        _need(
+            isinstance(depends_on, list)
+            and all(isinstance(item, str) for item in depends_on),
+            f"spec #{number} {unit_id}: depends_on string list required",
+        )
+        _need(
+            len(set(depends_on)) == len(depends_on),
+            f"spec #{number} {unit_id}: duplicate local prerequisite",
+        )
+        _need(
+            unit_id not in depends_on,
+            f"spec #{number} {unit_id}: self local prerequisite",
+        )
         ids.append(unit_id)
+        parsed.append((unit_id, tuple(depends_on)))
     _need(len(set(ids)) == len(ids), f"spec #{number}: duplicate execution unit")
-    return tuple(ids)
+    known = set(ids)
+    for unit_id, prerequisites in parsed:
+        unknown = sorted(set(prerequisites) - known)
+        _need(
+            not unknown,
+            f"spec #{number} {unit_id}: unknown local prerequisites {unknown}",
+        )
+    return tuple(parsed)
 
 
 def _load_snapshot(path: Path) -> SpecSnapshot:
@@ -147,7 +182,7 @@ def _load_snapshot(path: Path) -> SpecSnapshot:
         url=url.strip(),
         state=normalized_state,
         blocked_by=_extract_blockers(issue, number),
-        topology_units=_extract_topology(issue, number, normalized_state),
+        topology=_extract_topology(issue, number, normalized_state),
     )
 
 
@@ -195,9 +230,9 @@ def _validate_legacy_completed(
     )
 
 
-def _reachable(graph: dict[int, tuple[int, ...]], start: int, target: int) -> bool:
+def _reachable(graph: dict[Any, tuple[Any, ...]], start: Any, target: Any) -> bool:
     todo = list(graph.get(start, ()))
-    seen: set[int] = set()
+    seen: set[Any] = set()
     while todo:
         current = todo.pop()
         if current == target:
@@ -217,6 +252,72 @@ def _manifest_hash(manifest: dict[str, Any]) -> str:
         ensure_ascii=False,
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _validate_local_provider_requirements(
+    *,
+    snapshot: SpecSnapshot,
+    unit_id: str,
+    requirements: Any,
+    errors: list[str],
+) -> list[dict[str, Any]] | None:
+    if not isinstance(requirements, list):
+        errors.append(
+            f"spec #{snapshot.number} {unit_id}: local_provider_requirements list required"
+        )
+        return None
+    topology_units = set(snapshot.topology_units or ())
+    graph = snapshot.topology_graph
+    seen: set[str] = set()
+    for requirement in requirements:
+        if not isinstance(requirement, dict):
+            errors.append(
+                f"spec #{snapshot.number} {unit_id}: local provider requirement must be object"
+            )
+            continue
+        provider_unit = requirement.get("provider_unit")
+        reason = requirement.get("reason")
+        if not isinstance(provider_unit, str) or re.fullmatch(
+            r"EU-\d{3}", provider_unit
+        ) is None:
+            errors.append(
+                f"spec #{snapshot.number} {unit_id}: provider_unit must be an EU-* id"
+            )
+            continue
+        if provider_unit in seen:
+            errors.append(
+                f"spec #{snapshot.number} {unit_id}: duplicate local provider {provider_unit}"
+            )
+        seen.add(provider_unit)
+        if provider_unit == unit_id:
+            errors.append(
+                f"spec #{snapshot.number} {unit_id}: provider_unit cannot be self; "
+                "use local_completion_attestation for same-unit completion"
+            )
+            continue
+        if provider_unit not in topology_units:
+            errors.append(
+                f"spec #{snapshot.number} {unit_id}: local provider {provider_unit} is not "
+                "a current execution unit"
+            )
+            continue
+        if not isinstance(reason, str) or reason.strip() == "":
+            errors.append(
+                f"spec #{snapshot.number} {unit_id} -> {provider_unit}: reason required"
+            )
+        try:
+            _require_nonempty_strings(
+                requirement.get("basis"),
+                f"spec #{snapshot.number} {unit_id} -> {provider_unit} basis",
+            )
+        except ToSpecsError as exc:
+            errors.append(str(exc))
+        if not _reachable(graph, unit_id, provider_unit):
+            errors.append(
+                f"spec #{snapshot.number} {unit_id}: local provider {provider_unit} is "
+                "required for completion but is not a transitive prerequisite of the consumer"
+            )
+    return requirements
 
 
 def validate_manifest(
@@ -312,13 +413,21 @@ def validate_manifest(
                     f"spec #{snapshot.number} {unit_id}: provider_requirements list required"
                 )
                 continue
+            local_requirements = _validate_local_provider_requirements(
+                snapshot=snapshot,
+                unit_id=unit_id,
+                requirements=analysis.get("local_provider_requirements"),
+                errors=errors,
+            )
+            if local_requirements is None:
+                continue
 
-            if not requirements:
+            if not requirements and not local_requirements:
                 attestation = analysis.get("local_completion_attestation")
                 if not isinstance(attestation, dict) or attestation.get("result") is not True:
                     errors.append(
-                        f"spec #{snapshot.number} {unit_id}: empty provider_requirements "
-                        "requires explicit local_completion_attestation"
+                        f"spec #{snapshot.number} {unit_id}: empty external/local provider "
+                        "requirements require explicit local_completion_attestation"
                     )
                 else:
                     reason = attestation.get("reason")
@@ -350,7 +459,8 @@ def validate_manifest(
                     continue
                 if provider == snapshot.number:
                     errors.append(
-                        f"spec #{snapshot.number} {unit_id}: provider_spec cannot be self"
+                        f"spec #{snapshot.number} {unit_id}: provider_spec cannot be self; "
+                        "use local_provider_requirements for same-Spec completion dependencies"
                     )
                     continue
                 if not isinstance(reason, str) or reason.strip() == "":
@@ -424,6 +534,7 @@ def check_feasibility(path: Path) -> str:
             f"Execution units analyzed: {unit_count}",
             f"Legacy completed Specs: {legacy_count}",
             "Unprotected pending provider requirements: 0",
+            "Unprotected downstream local provider requirements: 0",
             f"Actionable frontier: {frontier_text}",
             f"Feasibility manifest SHA-256: {_manifest_hash(manifest)}",
         ]

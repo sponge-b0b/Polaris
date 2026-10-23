@@ -1,0 +1,214 @@
+{
+  "acceptance": {
+    "artifact": {
+      "kind": "github_issue_comment",
+      "ref": "https://github.com/sponge-b0b/Polaris/issues/416#issuecomment-6295858498"
+    },
+    "proposal_hash": "sha256:eaff5c1b02626b4dcbe4230f306b36590ca8b0b96c55e1400a880ea446a659b8"
+  },
+  "origin": {
+    "mode": "wayfinder-decision",
+    "sources": [
+      {
+        "content_sha256": "4c419928cb5888fe9288590fe1eb93d9d33c2533ed27600eee6d0a761c5543e3",
+        "kind": "github_issue_comment",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/352#issuecomment-5883921345",
+        "role": "governing",
+        "source_id": "decision-352-resolution"
+      },
+      {
+        "content_sha256": "5400d9f3071ddce28bae50b6a111e949d29ab11feb8fccd4d139930d0725269e",
+        "kind": "github_issue_comment",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/352#issuecomment-6231731367",
+        "role": "governing",
+        "source_id": "decision-352-conflict-resolution"
+      },
+      {
+        "content_sha256": "809b112c74857ccec4f937d31f6557355c84762b58456ac5e203ea60378ea1ee",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/8d832adbfa4b7c37d4bf97b494504f8ae80e1b08/docs/adr/0008-portfolio-risk-ground-r3-recommendations-in-projected-consequences.md",
+        "role": "constraint",
+        "source_id": "adr-0008-amended"
+      },
+      {
+        "content_sha256": "0e663e8b4a0ca3fead187e16d650672c753008852a7aa134d5cf5677f3179ad2",
+        "kind": "github_issue_comment",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/364#issuecomment-6096295388",
+        "role": "governing",
+        "source_id": "decision-364-final-resolution"
+      },
+      {
+        "content_sha256": "c0b9ee75558ac2e35e58fa2084e4ec142852e337f57e0932b9dcc713e9b5ca54",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0012-evidence-freeze-r3-identity-binding-and-reconstruction.md",
+        "role": "constraint",
+        "source_id": "adr-0012"
+      },
+      {
+        "content_sha256": "35d5661e2da092cca050b22b2f991130361d8aa1f2eac1a5212411ed1bc14f97",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0015-evidence-complete-r3-target-and-context-version-basis.md",
+        "role": "constraint",
+        "source_id": "adr-0015"
+      },
+      {
+        "content_sha256": "0b69132fcd5676f48683952384e210c18a8848f4e8d343567886223bdd81db27",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0016-evidence-attest-r3-temporal-current-basis-meaning.md",
+        "role": "constraint",
+        "source_id": "adr-0016"
+      },
+      {
+        "content_sha256": "d91f582c1cea7eef06bc79f3c38c96d775ae9ddcfbba31883b9a15f0cfc5f7d3",
+        "kind": "adr_markdown",
+        "ref": "https://github.com/sponge-b0b/Polaris/blob/53f932a8b908ebdb0e6c0fcd705d038d02a5bca7/docs/adr/0013-evidence-complete-r3-claim-requirements-and-current-support-basis.md",
+        "role": "constraint",
+        "source_id": "adr-0013"
+      },
+      {
+        "content_sha256": "5fc54b75086e75a2be30d9f699ae4f05e667d80c050aaa816431731663c61e22",
+        "kind": "github_issue_comment",
+        "ref": "https://github.com/sponge-b0b/Polaris/issues/416#issuecomment-6295694908",
+        "role": "governing",
+        "source_id": "decision-416-proposal"
+      }
+    ],
+    "wayfinder": {
+      "decision": 416,
+      "map": 348
+    }
+  },
+  "proposal_hash": "sha256:eaff5c1b02626b4dcbe4230f306b36590ca8b0b96c55e1400a880ea446a659b8",
+  "revisions": [
+    {
+      "assertions": [
+        {
+          "assertion_id": "targets.versioned",
+          "authority": {
+            "source_ids": [
+              "decision-364-final-resolution",
+              "adr-0012",
+              "adr-0015"
+            ]
+          },
+          "constraint": {
+            "expression": "Projected Portfolio Consequence and Portfolio Risk Assessment are admitted Evidence judgment target families. Each carries its family-specific typed root identity and a positive root-local JudgmentRevision issued and preserved by Portfolio & Risk. A root starts at revision 1; one atomic owner commit advances it once when that root's current interpreted assertion, support or provenance, validity, or applicability changes. Correction of the same attributable judgment retains the root; a new material judgment, reassessment, or superseding judgment receives a new root at revision 1. Historical (T,K) reads use owner history at that boundary rather than the present-day revision.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "portfolio_risk_evidence_target"
+        },
+        {
+          "assertion_id": "context.versions",
+          "authority": {
+            "source_ids": [
+              "decision-364-final-resolution",
+              "adr-0015"
+            ]
+          },
+          "constraint": {
+            "expression": "When materially selected for an exact R3 Evidence basis, Portfolio & Risk contributes typed positive root-local revisions for PortfolioBoundaryId, actual PortfolioStateId, ProjectedPortfolioStateId, InvestmentMandateId, and InvestmentStrategyId. A revision begins at 1 and advances once per owner commit changing current interpreted content, applicability, support or provenance, validity, or relationship meaning; a new attributable fact or fresh as-of Portfolio State receives a new root. The complete Mandate revision covers applicable Investment Objective and Investment Principle membership, content, temporal applicability, and exact dependent member references. External source and as-of provenance remain attached to canonical Portfolio State.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "portfolio_risk_evidence_context"
+        },
+        {
+          "assertion_id": "context.selection-and-role",
+          "authority": {
+            "source_ids": [
+              "decision-364-final-resolution",
+              "adr-0015",
+              "adr-0016"
+            ]
+          },
+          "constraint": {
+            "expression": "Protect exact selected Portfolio facts and typed current-selection or absence guards. Future-only, unrelated, or display-only Portfolio changes do not stale the exact basis unless they enter a protected dependency. A materially used positive Portfolio context identity, revision, or lawfully attested as-of meaning change maps to EVIDENCE_SUPPORT_CHANGED with exact typed changed references even when the Evidence support epoch is unchanged; a broken selection guard additionally maps to NEGATIVE_PREDICATE_BROKEN. An exact Projected Portfolio Consequence or Portfolio Risk Assessment target change maps to TARGET_CHANGED.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "portfolio_risk_evidence_context"
+        },
+        {
+          "assertion_id": "target.correction-overlap-admission",
+          "authority": {
+            "source_ids": [
+              "decision-416-proposal",
+              "adr-0013",
+              "adr-0015",
+              "adr-0016"
+            ]
+          },
+          "constraint": {
+            "expression": "R3 admits future-effective same-root corrections to Projected Portfolio Consequence and Portfolio Risk Assessment targets and their complete target-owned claim catalogs. The target assertion and complete catalog are distinct correction lanes. Each immutable Portfolio & Risk correction act has an opaque owner-issued act reference typed by target family and root, distinct from JudgmentRevision and ClaimCatalogVersion, plus attribution, basis, effective/recorded/known boundaries, affected lane(s), and complete same-root correction ancestry. At atomic admission, an act changing a lane must explicitly resolve every already-known pending future-effective act whose effect would overlap on that lane: supersede/cancel that pending act, or retain it as scheduled successor and expressly bound the new act as interim until the retained act's effective boundary. A multi-lane act resolves overlaps on every affected lane in the same commit. Validate the complete post-commit known effective timeline at all relevant boundaries and the coherent selected target/catalog pair: each lane has a determinate selected or explicit owner-contested interpretation, and a selected catalog must be valid for the selected target assertion. Different lane acts or intervals are permitted only when that pair remains coherent; a one-lane act leaves the other lane's valid meaning intact. Reject unresolved overlap, missing ancestry, incompatible pairing, or implicit precedence without commit. Recorded recency, effective-time recency, UUID/database order, and owner-version order never select a winner.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "portfolio_risk_evidence_target"
+        },
+        {
+          "assertion_id": "target.correction-overlap-temporal",
+          "authority": {
+            "source_ids": [
+              "decision-416-proposal",
+              "adr-0013",
+              "adr-0015",
+              "adr-0016"
+            ]
+          },
+          "constraint": {
+            "expression": "Reconstruct the target assertion and complete claim-catalog lanes at (effective_at=T, known_at=K) only from acts known by K and effective by T, their explicit ancestry/supersession and interval bounds, never from later knowledge; retain original and defeated acts for inspection. In the A/B/C overlap, A governs before K1; future B recorded at K1 for T3 leaves A current for T<T3, while reads with K1<=K<K2 and T>=T3 select the then-known B. Immediate C recorded at K2<T3 is inadmissible without explicit B resolution on every lane it overlaps. At K>=K2, A governs T<K2 and C governs K2<=T<T3 on affected lanes. If C cancels B, C governs at T>=T3 until another lawful change; if C retains B, C ends at T3 and B governs from T3. At K<K2, later C cannot rewrite the then-known schedule. Apply the same rule to complete catalog membership, proposition meaning, and surviving support, independently by affected lane and subject to coherent target/catalog pairing.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "portfolio_risk_evidence_target"
+        },
+        {
+          "assertion_id": "target.correction-overlap-version",
+          "authority": {
+            "source_ids": [
+              "decision-416-proposal",
+              "adr-0013",
+              "adr-0015",
+              "adr-0016"
+            ]
+          },
+          "constraint": {
+            "expression": "A valid future-only B append at K1 advances neither current JudgmentRevision nor current ClaimCatalogVersion. An atomic C commit at K2 advances JudgmentRevision once iff current target assertion, support/provenance, validity, or applicability changes, and ClaimCatalogVersion once iff current catalog membership, proposition meaning, or surviving support changes; advance both when both change, and neither merely for a row append or pending-schedule change that leaves current meaning/support and history validity intact. Clock activation of retained B at T3 creates no synthetic owner commit or version advance. The owner preserves complete version histories and attests exact (T,K) meaning and temporal cause bound to typed target family/root, correction-act references, both version histories, basis key and read boundary, owner provenance, selected/pending/defeated ancestry, explicit overlap resolution, effective/recorded/known boundaries and intervals, and applicable selection/absence guards. Application validates owner proof and never infers precedence or fabricates a version.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "portfolio_risk_evidence_target"
+        },
+        {
+          "assertion_id": "target.correction-overlap-failure",
+          "authority": {
+            "source_ids": [
+              "decision-416-proposal",
+              "adr-0013",
+              "adr-0015",
+              "adr-0016"
+            ]
+          },
+          "constraint": {
+            "expression": "At exact read and fresh trusted T=K atomic dependent-write revalidation, validate the complete Portfolio & Risk target/catalog history and prior/fresh owner witnesses. A lawful material same-version target change maps to TARGET_CHANGED; a lawful material claim change maps to CLAIM_CHANGED; report both when independently applicable, and add NEGATIVE_PREDICATE_BROKEN for a broken protected ancestry, membership, selection, or absence guard. A still-future or canceled act with unchanged exact-key meaning causes no stale result; independent time-only Evidence fitness drift retains SUPPORT_CHANGED_BY_TIME under the Evidence contract. Missing, unavailable, not-yet-effective, incomplete, or contested owner meaning returns its applicable distinct no-basis outcome. Contradictory or unexplained same-version meaning or history is INVALID_HISTORY. Invalid/no-basis and stale outcomes commit no dependent judgment, require a fresh read, and are never silently rebased or converted into a new stale category.",
+            "modality": "required"
+          },
+          "kind": "invariant",
+          "subject": "portfolio_risk_evidence_target"
+        }
+      ],
+      "contract_id": "portfolio-risk.r3-evidence-ownership",
+      "operation": "revise",
+      "owner": "portfolio-risk",
+      "revision": 2,
+      "scope": {
+        "release": [
+          "R3"
+        ]
+      },
+      "supersedes_revision": 1
+    }
+  ],
+  "schema": "polaris.ccl/v1"
+}

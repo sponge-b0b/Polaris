@@ -14,17 +14,96 @@ Before executing this skill, read all of these files in full:
 1. `.agents/skills/implement-ticket/PROCEDURE.md`
 2. `.agents/skills/implement-ticket/EXECUTION_ANCHOR.md`
 3. `.agents/skills/implement-ticket/CONTROL_PLANE.md`
+4. `.agents/skills/implement-ticket/PRE_IMPLEMENTATION_FEASIBILITY.md`
 
 `PROCEDURE.md` preserves the complete established implementation lifecycle.
 `EXECUTION_ANCHOR.md` preserves the accepted Execution Anchor correction.
 `CONTROL_PLANE.md` preserves the previously authoritative entrypoint through the protected
 control-plane boundary and shared Human Handoff repair.
+`PRE_IMPLEMENTATION_FEASIBILITY.md` adds the mandatory fail-fast provider/authority closure
+boundary that runs before pre-mutation Attention or substantive candidate mutation.
 
 This `SKILL.md` is now the authoritative entrypoint and adds the durable machine-readable
 cell-routing-defect evidence boundary below. On conflict, this file wins. Failure to load any
 retained file is a Hard Blocker.
 
 All requirements in the retained files remain mandatory unless explicitly overridden here.
+
+## Fail-fast live recovery and feasibility boundary
+
+The retained lifecycle is strengthened so that `$implement-ticket` proves that the ticket can
+legally execute **before** spending implementation or closure-verification work.
+
+### Live recovery donor validation
+
+When durable state contains a current `ticket-reslice-recovery:v1` record naming this ticket,
+the existing schema validator is necessary but not sufficient. Before ordinary Ticket-baseline
+handling, pre-mutation Attention, donor transplant, or substantive mutation, validate the
+**live protected donor checkout** against the durable record.
+
+Execute both validators from exact current default-branch control-plane runtime using the
+same clean detached-default-branch rule already required for recovery validation:
+
+```bash
+python -m scripts.workflow_reslice_recovery validate \
+  --body <recovery-comment-body-file>
+python -m scripts.workflow_reslice_donor validate \
+  --body <recovery-comment-body-file>
+```
+
+Require exact leading receipts:
+
+```text
+TICKET RESLICE RECOVERY: VALID
+TICKET RESLICE DONOR: VALID
+```
+
+The live-donor validator is read-only. It requires the recorded protected checkout to exist
+and requires exact durable identity for:
+
+- recorded Source branch attachment (a detached checkout is not equivalent);
+- protected donor HEAD / Execution Anchor;
+- protected donor candidate-state hash over final tracked/untracked bytes and modes;
+- protected donor source-ticket Attention-receipt file SHA-256.
+
+A mismatch is a Hard Blocker **at preflight**. Do not postpone donor fingerprint validation to
+pre-closure or Human Handoff. Never repair the donor implicitly; report the exact mismatch and
+leave the donor untouched.
+
+### Pre-implementation provider/authority closure
+
+After rebuilding and validating the exact current ticket/remediation contract, but before the
+retained Section 4 pre-mutation Attention checkpoint, execute
+`PRE_IMPLEMENTATION_FEASIBILITY.md` in full.
+
+This boundary is read-only with respect to the candidate. It must:
+
+1. reconsider materially applicable prior verifier findings against the current contract and
+   current production surface;
+2. enumerate every required production provider/composition seam for assigned cells;
+3. resolve the durable owner and native GitHub dependency relation for each external seam;
+4. prove that externally owned seams are already available from an upstream/completed route;
+5. distinguish real production providers from fakes, fixtures, mocks, or test-only injection;
+6. emit exactly one `IMPLEMENT TICKET FEASIBILITY: PASS` or
+   `IMPLEMENT TICKET FEASIBILITY: BLOCKED` receipt.
+
+`BLOCKED` is terminal routing evidence for this invocation. In particular:
+
+- same-Spec cells assigned to the wrong route -> `cell-routing-defect` -> `$to-tickets`;
+- no new material semantics, but required production work is absent from an upstream route,
+  owned by a downstream Spec/ticket, or omitted from executable planning ->
+  `planning-cell-gap` -> `$to-specs`;
+- missing/ambiguous material semantic authority -> `contract-authority-gap` -> governing
+  semantic owner;
+- concrete external/environment/tool failure that prevents the proof -> Hard Blocker.
+
+On a feasibility `BLOCKED` result, do not continue to broad tests, architecture verification,
+deduplication, wiki sync, pre-closure Attention, or independent closure verification. Preserve
+the candidate as-is and route through the existing durable Human Handoff contract.
+
+An explicit `resume $implement-ticket` does not bypass either live-donor validation or the
+feasibility boundary. Existing candidate work may be inspected read-only to classify current
+ownership, but it does not authorize additional mutation until feasibility passes.
 
 ## Retained control-plane and handoff contract
 

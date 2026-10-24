@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
@@ -430,9 +430,42 @@ async def _scenario(target: PostgresTestTarget) -> None:
             ),
             JudgmentReceipt,
         )
-        assert (
-            await recommender.current_support(decision.decision_id)
-        ).latest == changed_recommendation
+        supported = await recommender.current_support(decision.decision_id)
+        assert supported.kind is RecommendationSupportKind.SUPPORTED
+        assert supported.latest == changed_recommendation
+
+        changed_risk_history = await portfolio_owner.load(
+            changed_risk.assessment.assessment_id
+        )
+        assert changed_risk_history is not None
+        risk_initial = changed_risk_history.acts[0]
+        corrected_risk = replace(
+            changed_risk.assessment, source_as_of=NOW - timedelta(days=1)
+        )
+        assert not corrected_risk.unresolved
+        # duplicate-code: The source-time correction must remain an independent
+        # falsifier from contested Risk and consequence corrections.
+        # arid: disable
+        corrected_at = datetime.now(UTC)
+        await portfolio_owner.append(
+            PortfolioJudgmentAct(
+                uuid4(),
+                changed_risk.assessment.assessment_id,
+                actor,
+                "Corrected source time for resolved Risk",
+                corrected_at,
+                corrected_at,
+                corrected_at,
+                (risk_initial.act_id,),
+                assertion=corrected_risk,
+                target_predecessor=risk_initial.act_id,
+                compatible_opposite_acts=(risk_initial.act_id,),
+            )
+        )
+        # arid: enable
+        unsupported = await recommender.current_support(decision.decision_id)
+        assert unsupported.kind is RecommendationSupportKind.UNSUPPORTED
+        assert unsupported.latest == changed_recommendation
 
         unresolved_risk = await risk_service.assess(
             assessment_id=PortfolioRiskAssessmentRef(uuid4()),

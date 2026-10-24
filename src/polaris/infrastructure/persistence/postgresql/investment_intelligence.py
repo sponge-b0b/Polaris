@@ -1117,12 +1117,6 @@ class PostgresInvestmentIntelligenceStore:
         """Derive current support from only the latest durable owner act."""
         if type(decision_id) is not InvestmentDecisionId:
             raise TypeError("support requires a typed Decision")
-        from polaris.application.portfolio_judgment_history import (
-            PortfolioJudgmentTargetReader,
-        )
-
-        from .portfolio_judgment_history import PostgresPortfolioJudgmentHistoryStore
-
         async with self._engine.begin() as connection:
             await connection.execute(
                 text("SELECT pg_advisory_xact_lock(:key)"), {"key": _WRITE_LOCK}
@@ -1207,31 +1201,45 @@ class PostgresInvestmentIntelligenceStore:
             decision_applicable = (
                 decision is not None and decision["applicability"] == "operative"
             )
-            risk_fit = evidence_fit
-            if risk_fit:
-                assert reader is not None
-                risk_reader = PortfolioJudgmentTargetReader(
-                    PostgresPortfolioJudgmentHistoryStore(self._engine).for_validation(
-                        connection
-                    )
-                )
-                for risk_id in latest.risk_assessment_ids:
-                    risk = await risk_reader.read_at(
-                        risk_id, effective_at=at, known_at=at
-                    )
-                    if (
-                        not isinstance(risk, ResolvedTargetJudgment)
-                        or risk.target != risk_id
-                        or risk.assertion.unresolved
-                    ):
-                        risk_fit = False
-                        break
+            risk_fit = evidence_fit and await self._current_risks_fit(
+                latest, at, connection
+            )
             return derive_current_recommendation_support(
                 history,
                 decision_applicable=decision_applicable,
                 evidence_fit=evidence_fit,
                 risk_fit=risk_fit,
             )
+
+    async def _current_risks_fit(
+        self,
+        recommendation: InvestmentRecommendation,
+        at: datetime,
+        connection: AsyncConnection,
+    ) -> bool:
+        from .portfolio_judgment_history import PostgresPortfolioJudgmentHistoryStore
+        from .portfolio_states import PostgresPortfolioStateStore
+
+        state = await PostgresPortfolioStateStore(self._engine).get(
+            recommendation.source_state_id
+        )
+        if state is None:
+            return False
+        risk_reader = PortfolioJudgmentTargetReader(
+            PostgresPortfolioJudgmentHistoryStore(self._engine).for_validation(
+                connection
+            )
+        )
+        for risk_id in recommendation.risk_assessment_ids:
+            risk = await risk_reader.read_at(risk_id, effective_at=at, known_at=at)
+            if (
+                not isinstance(risk, ResolvedTargetJudgment)
+                or risk.target != risk_id
+                or risk.assertion.unresolved
+                or risk.assertion.source_as_of != state.state.as_of
+            ):
+                return False
+        return True
 
     async def load_view(self, view_id: InvestmentViewRef) -> InvestmentView | None:
         async with self._read_connection("View") as connection:

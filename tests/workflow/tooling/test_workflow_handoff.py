@@ -76,6 +76,16 @@ def test_outcome_renders_canonical_status_emoji(outcome: str, ready_line: str) -
     assert lines[4].startswith("Handoff manifest SHA-256: ")
 
 
+def test_outcome_is_bound_into_manifest_hash() -> None:
+    success = manifest()
+    success["outcome"] = "success"
+    warning = manifest()
+    warning["outcome"] = "warning"
+    success_hash = handoff.render_manifest(success).splitlines()[-1]
+    warning_hash = handoff.render_manifest(warning).splitlines()[-1]
+    assert success_hash != warning_hash
+
+
 def test_multiple_artifacts_preserve_manifest_order() -> None:
     value = manifest()
     value["handoffs"] = [
@@ -148,3 +158,14 @@ def test_validate_output_is_byte_exact_after_trim() -> None:
     assert handoff.validate_output(candidate, rendered + "\n") == "WORKFLOW HANDOFF: VALID"
     with pytest.raises(handoff.HandoffError, match="does not match"):
         handoff.validate_output(candidate, rendered.replace("$to-specs", "$to-tickets", 1))
+
+
+def test_target_lifecycle_outcome_policy_is_explicit() -> None:
+    policy = (ROOT / ".agents/skills/README.md").read_text(encoding="utf-8")
+    for owner in ("$implement-ticket", "$verify-spec", "$review-spec"):
+        assert f"`{owner}`" in policy
+    assert "`success` — the lifecycle owner completed its current stage" in policy
+    assert "`warning` — the lifecycle owner did not complete its current stage" in policy
+    assert "`success` to `✅ WORKFLOW HANDOFF: READY`" in policy
+    assert "`warning` to `⚠️ WORKFLOW HANDOFF: READY`" in policy
+    assert "Manifests without `outcome` remain valid" in policy

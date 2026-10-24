@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import re
 from pathlib import Path
 from typing import Any
+
+from scripts.workflow_hashing import sha256_canonical_json
 
 SCHEMA = "polaris.workflow-handoff/v1"
 DESTINATION = re.compile(r"^\$[a-z0-9][a-z0-9-]*(?: [a-z0-9][a-z0-9-]*)*$")
@@ -38,10 +39,6 @@ def render_artifact_line(destination: str, title: str, url: str) -> str:
     _need(title != "" and "\n" not in title and "\r" not in title, "handoff: invalid title")
     _need(ARTIFACT_URL.fullmatch(url) is not None, "handoff: invalid artifact URL")
     return f"{destination} - {title} ({url})"
-
-
-def _canonical_payload(manifest: dict[str, Any]) -> str:
-    return json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
 def render_manifest(manifest: dict[str, Any]) -> str:
@@ -84,7 +81,7 @@ def render_manifest(manifest: dict[str, Any]) -> str:
         seen.add(line)
         lines.append(line)
 
-    payload_hash = hashlib.sha256(_canonical_payload(manifest).encode("utf-8")).hexdigest()
+    payload_hash = sha256_canonical_json(manifest)
     return "\n".join(
         [
             "WORKFLOW HANDOFF: READY",

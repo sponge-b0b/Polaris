@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import stat
@@ -15,6 +14,11 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.workflow_attention import AttentionProtocolError, validate_file
+from scripts.workflow_hashing import (
+    canonical_json_bytes,
+    sha256_bytes,
+    sha256_canonical_json,
+)
 
 SCHEMA = "polaris.implement-ticket-attention/v2"
 CONTRACT_HASH_FIELDS = {
@@ -46,17 +50,8 @@ def _need(condition: bool, message: str) -> None:
         raise AttentionGateError(message)
 
 
-def _canonical(value: object) -> bytes:
-    return json.dumps(
-        value,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-
-
 def receipt_hash(value: dict[str, Any]) -> str:
-    return hashlib.sha256(_canonical(value)).hexdigest()
+    return sha256_canonical_json(value)
 
 
 def _contract_identity(path: Path) -> tuple[str, str]:
@@ -152,9 +147,9 @@ def candidate_state(execution_anchor: str) -> str:
         payload.extend(b"mode\0")
         payload.extend(mode)
         payload.extend(b"\0sha256\0")
-        payload.extend(hashlib.sha256(_path_bytes(raw_path)).hexdigest().encode("ascii"))
+        payload.extend(sha256_bytes(_path_bytes(raw_path)).encode("ascii"))
         payload.extend(b"\0")
-    return hashlib.sha256(bytes(payload)).hexdigest()
+    return sha256_bytes(bytes(payload))
 
 
 def _worktree_clean() -> bool:
@@ -224,7 +219,7 @@ def _load_receipt(path: Path) -> dict[str, Any]:
 def _write_receipt(path: Path, value: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_bytes(_canonical(value) + b"\n")
+    tmp.write_bytes(canonical_json_bytes(value) + b"\n")
     tmp.replace(path)
 
 

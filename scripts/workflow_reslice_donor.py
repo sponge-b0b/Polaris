@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import stat
 import subprocess
 from pathlib import Path
 
+from scripts.workflow_hashing import (
+    sha256_bytes,
+    sha256_canonical_json,
+    sha256_file_bytes,
+)
 from scripts.workflow_reslice_recovery import RecoveryError, RecoveryRecord, parse_record
 
 
@@ -86,9 +90,9 @@ def live_candidate_state(donor: Path, anchor: str) -> str:
         payload.extend(b"mode\0")
         payload.extend(mode)
         payload.extend(b"\0sha256\0")
-        payload.extend(hashlib.sha256(_path_bytes(path)).hexdigest().encode("ascii"))
+        payload.extend(sha256_bytes(_path_bytes(path)).encode("ascii"))
         payload.extend(b"\0")
-    return hashlib.sha256(bytes(payload)).hexdigest()
+    return sha256_bytes(bytes(payload))
 
 
 def _attention_receipt_path(donor: Path, source_ticket: int) -> Path:
@@ -106,7 +110,7 @@ def _attention_receipt_path(donor: Path, source_ticket: int) -> Path:
 
 def _sha256_file(path: Path) -> str:
     try:
-        return hashlib.sha256(path.read_bytes()).hexdigest()
+        return sha256_file_bytes(path)
     except OSError as exc:
         raise DonorValidationError(
             f"protected donor Attention receipt is unavailable: {path}"
@@ -124,13 +128,7 @@ def _canonical_attention_receipt_hash(path: Path) -> str:
         isinstance(value, dict),
         f"protected donor Attention receipt must contain a JSON object: {path}",
     )
-    payload = json.dumps(
-        value,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-    return hashlib.sha256(payload).hexdigest()
+    return sha256_canonical_json(value)
 
 
 def _validate_attention_receipt(record: RecoveryRecord, donor: Path) -> str:

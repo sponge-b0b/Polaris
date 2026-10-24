@@ -21,8 +21,13 @@ def test_implement_ticket_distinguishes_deferred_composition() -> None:
     policy = (
         ROOT / ".agents/skills/implement-ticket/PRE_IMPLEMENTATION_FEASIBILITY.md"
     ).read_text(encoding="utf-8")
+    routing = (
+        ROOT / ".agents/skills/implement-ticket/ROUTING_CONTROL_PLANE.md"
+    ).read_text(encoding="utf-8")
 
     assert "DEFERRED_COMPOSITION" in policy
     assert "Composition owner:" in policy
     assert "does **not** claim production composition" in policy
     assert "Deferred composition:" in policy
+    assert "DEFERRED_COMPOSITION" in routing
+    assert "deliberately downstream composition root" in routing

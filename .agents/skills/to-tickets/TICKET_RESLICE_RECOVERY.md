@@ -41,11 +41,16 @@ ticket:
 3. determine either:
    - the relative native execution order of Source and Destination for `execute`; or
    - `destination-only` execution for a planning-retired Source;
-4. persist exactly one recovery record on the Destination ticket;
-5. read the record back exactly;
-6. machine-validate the readback with `scripts.workflow_reslice_recovery`;
-7. re-fingerprint the donor and require exact equality;
-8. only then may the reconciliation reach human approval/publication.
+4. capture the Source `$implement-ticket` Attention receipt identity while its Git-metadata
+   receipt file is still available. For current `polaris.implement-ticket-attention/v2`
+   receipts, persist the exact canonical `Attention Receipt Hash` printed by the gate; do not
+   substitute the SHA-256 of the receipt file bytes, whose trailing newline is not part of
+   that canonical identity;
+5. persist exactly one recovery record on the Destination ticket;
+6. read the record back exactly;
+7. machine-validate the readback with `scripts.workflow_reslice_recovery`;
+8. re-fingerprint the donor and require exact equality;
+9. only then may the reconciliation reach human approval/publication.
 
 The attribution row contract is:
 
@@ -141,6 +146,26 @@ contains the current executable Destination path only and must not contain the r
 
 All records must contain `### Exact donor attribution at capture` and a complete table
 covering every captured donor item.
+
+### Attention receipt identity compatibility
+
+The v1 field name `Protected donor Attention receipt file SHA-256` is retained for schema
+compatibility, but for current Attention receipts its durable value is the canonical
+`Attention Receipt Hash` emitted by `$implement-ticket`, not the SHA-256 of the serialized
+JSON file including its trailing newline. Historical v1 records that actually captured the
+raw file SHA-256 remain valid when that live file still exists and matches.
+
+The receipt file itself lives under per-worktree Git metadata and is not part of the protected
+donor candidate tree. It can therefore disappear during a lawful worktree reconstruction even
+when the branch, HEAD, and candidate bytes are preserved exactly. Later live-donor validation
+must always fail closed on branch, HEAD, or candidate-state drift. A missing old receipt file
+does not by itself invalidate recovery once its identity has been durably captured in the
+managed record. When the file still exists, its raw file SHA-256 or canonical receipt hash must
+match the captured value; a present-but-mismatching receipt is a Hard Blocker.
+
+This compatibility rule does not authorize Destination implementation. The old Source receipt
+remains recovery evidence only; every executable reconciled participant still requires its own
+fresh contract-bound pre-mutation Attention receipt.
 
 ## Execution order
 
@@ -265,6 +290,13 @@ TICKET RESLICE RECOVERY: VALID
 The validator checks schema fields, SHA/hash shapes, Source disposition, same-Spec versus
 cross-Spec branch shape, execution order, status/completion/retirement consistency, and
 donor-attribution presence. A nonzero result fails closed.
+
+When consuming an existing record, validate the live protected donor with the current
+`workflow_reslice_donor` runtime as well. Branch, HEAD, and candidate-state mismatches always
+fail closed. Receipt-file presence is required at publication-time capture, but later
+consumption may rely on the durable recorded receipt identity when per-worktree Git metadata
+has been lawfully lost; a present receipt must still match exactly under the compatibility
+rule above.
 
 ## `$to-tickets` publication receipt
 

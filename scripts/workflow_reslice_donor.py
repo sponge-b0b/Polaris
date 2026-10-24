@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import os
 import stat
 import subprocess
@@ -112,6 +113,49 @@ def _sha256_file(path: Path) -> str:
         ) from exc
 
 
+def _canonical_attention_receipt_hash(path: Path) -> str:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise DonorValidationError(
+            f"protected donor Attention receipt is not valid JSON: {path}"
+        ) from exc
+    _need(
+        isinstance(value, dict),
+        f"protected donor Attention receipt must contain a JSON object: {path}",
+    )
+    payload = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _validate_attention_receipt(record: RecoveryRecord, donor: Path) -> str:
+    receipt_path = _attention_receipt_path(donor, record.source_ticket)
+    if not receipt_path.is_file():
+        # The Attention receipt lives under per-worktree Git metadata, not in the
+        # candidate tree. Recovery records durably preserve its identity because
+        # worktree reconstruction may legitimately lose that ephemeral file.
+        return record.attention_receipt_hash
+
+    raw_hash = _sha256_file(receipt_path)
+    if raw_hash == record.attention_receipt_hash:
+        return raw_hash
+
+    canonical_hash = _canonical_attention_receipt_hash(receipt_path)
+    _need(
+        canonical_hash == record.attention_receipt_hash,
+        "protected donor Attention receipt mismatch: "
+        f"expected {record.attention_receipt_hash}, "
+        f"observed file SHA-256 {raw_hash}, "
+        f"canonical receipt hash {canonical_hash}",
+    )
+    return canonical_hash
+
+
 def validate_live_donor(record: RecoveryRecord) -> tuple[str, str, str, str]:
     donor = Path(record.donor_checkout)
     _need(donor.is_dir(), f"protected donor checkout is missing: {donor}")
@@ -136,13 +180,7 @@ def validate_live_donor(record: RecoveryRecord) -> tuple[str, str, str, str]:
         f"expected {record.candidate_state}, observed {state}",
     )
 
-    receipt_path = _attention_receipt_path(donor, record.source_ticket)
-    receipt_hash = _sha256_file(receipt_path)
-    _need(
-        receipt_hash == record.attention_receipt_hash,
-        "protected donor Attention receipt mismatch: "
-        f"expected {record.attention_receipt_hash}, observed {receipt_hash}",
-    )
+    receipt_hash = _validate_attention_receipt(record, donor)
     return branch, head, state, receipt_hash
 
 
@@ -156,12 +194,16 @@ def _cmd_validate(args: argparse.Namespace) -> int:
         print(f"Reason: {exc}")
         return 1
 
+    receipt_path = _attention_receipt_path(Path(record.donor_checkout), record.source_ticket)
+    receipt_evidence = "live-file" if receipt_path.is_file() else "durable-record-only"
+
     print("TICKET RESLICE DONOR: VALID")
     print(f"Protected donor checkout: {record.donor_checkout}")
     print(f"Branch: {branch}")
     print(f"HEAD: {head}")
     print(f"Candidate state: {state}")
-    print(f"Attention receipt SHA-256: {receipt_hash}")
+    print(f"Attention receipt hash: {receipt_hash}")
+    print(f"Attention receipt evidence: {receipt_evidence}")
     return 0
 
 

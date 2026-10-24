@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import subprocess
 from pathlib import Path
@@ -10,6 +11,16 @@ import pytest
 from scripts.workflow_reslice_donor import DonorValidationError, live_candidate_state
 from scripts.workflow_reslice_donor import validate_live_donor
 from scripts.workflow_reslice_recovery import parse_record
+
+ROOT = Path(__file__).resolve().parents[3]
+ATTENTION_SCRIPT = ROOT / ".agents/skills/implement-ticket/scripts/attention_gate.py"
+ATTENTION_SPEC = importlib.util.spec_from_file_location(
+    "implement_ticket_attention_for_reslice_test",
+    ATTENTION_SCRIPT,
+)
+assert ATTENTION_SPEC and ATTENTION_SPEC.loader
+ATTENTION_GATE = importlib.util.module_from_spec(ATTENTION_SPEC)
+ATTENTION_SPEC.loader.exec_module(ATTENTION_GATE)
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -33,16 +44,6 @@ def _receipt_path(repo: Path, ticket: int) -> Path:
         )
     )
     return value if value.is_absolute() else repo / value
-
-
-def _canonical_hash(value: dict[str, object]) -> str:
-    payload = json.dumps(
-        value,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-    return hashlib.sha256(payload).hexdigest()
 
 
 def _write_canonical_receipt(repo: Path, ticket: int) -> str:
@@ -77,7 +78,7 @@ def _write_canonical_receipt(repo: Path, ticket: int) -> str:
         separators=(",", ":"),
     )
     receipt.write_text(canonical + "\n", encoding="utf-8")
-    return _canonical_hash(value)
+    return ATTENTION_GATE.receipt_hash(value)
 
 
 def _make_donor(tmp_path: Path) -> tuple[Path, str, str, str]:

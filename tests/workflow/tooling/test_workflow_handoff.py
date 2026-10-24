@@ -128,6 +128,7 @@ def test_subcommand_destination_is_supported() -> None:
         (("boundary",), "internal-composition"),
         (("outcome",), "failure"),
         (("outcome",), 1),
+        (("outcome",), None),
         (("durability", "verified"), False),
         (("durability", "sources"), []),
         (("handoffs", 0, "destination"), "to-specs"),

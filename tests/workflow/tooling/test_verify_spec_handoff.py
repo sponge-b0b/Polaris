@@ -20,6 +20,7 @@ def _manifest() -> dict[str, object]:
     return {
         "schema": "polaris.workflow-handoff/v1",
         "boundary": "human-lifecycle",
+        "outcome": "success",
         "durability": {
             "verified": True,
             "sources": [
@@ -71,7 +72,31 @@ def test_finalizer_publishes_only_shared_gate_validated_output(tmp_path: Path) -
     assert result.returncode == 0, result.stdout + result.stderr
     assert result.stdout.strip() == "WORKFLOW HANDOFF: VALID"
     rendered = output.read_text(encoding="utf-8")
-    assert rendered.startswith("WORKFLOW HANDOFF: READY\n")
+    assert rendered.startswith("✅ WORKFLOW HANDOFF: READY\n")
+    assert (
+        workflow_handoff.validate_output(manifest_value, rendered)
+        == "WORKFLOW HANDOFF: VALID"
+    )
+
+
+def test_finalizer_preserves_warning_outcome(tmp_path: Path) -> None:
+    manifest_value = _manifest()
+    manifest_value["outcome"] = "warning"
+    handoffs = manifest_value["handoffs"]
+    assert isinstance(handoffs, list)
+    handoff_item = handoffs[0]
+    assert isinstance(handoff_item, dict)
+    handoff_item["destination"] = "$to-tickets"
+    manifest = tmp_path / "handoff.json"
+    output = tmp_path / "handoff.txt"
+    manifest.write_text(json.dumps(manifest_value), encoding="utf-8")
+
+    result = _run(manifest, output)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout.strip() == "WORKFLOW HANDOFF: VALID"
+    rendered = output.read_text(encoding="utf-8")
+    assert rendered.startswith("⚠️ WORKFLOW HANDOFF: READY\n")
     assert (
         workflow_handoff.validate_output(manifest_value, rendered)
         == "WORKFLOW HANDOFF: VALID"

@@ -29,7 +29,6 @@ from polaris.domain.decisions import (
     TriggerKind,
     TriggerProvenance,
 )
-from polaris.domain.evidence import EvidenceBindingId
 from polaris.domain.evidence.judgments import (
     InvestmentHypothesisRef,
     InvestmentViewRef,
@@ -108,7 +107,7 @@ async def _exercise(target: PostgresTestTarget) -> None:
             "A moderate SPY increase may be justified",
             actor,
             NOW,
-            (EvidenceBindingId(uuid4()),),
+            (),
             ("cash remains adequate",),
             "returns remain uncertain",
             "holding cash may be preferable",
@@ -168,10 +167,10 @@ async def _exercise(target: PostgresTestTarget) -> None:
             actor,
             NOW,
             "The trend may be a temporary rebound",
-            (EvidenceBindingId(uuid4()),),
+            (),
             "The liquidity assumption may fail",
             ChallengeDisposition.QUALIFIED,
-            "Conflicting Evidence makes the increase conditional",
+            "A competing interpretation makes the increase conditional",
         )
         challenge_hypothesis = InvestmentHypothesis(
             InvestmentHypothesisRef(uuid4()),

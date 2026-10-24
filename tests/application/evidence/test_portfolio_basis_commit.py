@@ -226,11 +226,15 @@ def _record_selected_families(
         ...,
     ],
 ) -> tuple[MemoryStore, PortfolioContextOwner]:
+    # duplicate-code: this Evidence commit fixture must stay independent of the
+    # Portfolio owner proof; sharing setup would couple their falsifiers.
+    # arid: disable
     store = MemoryStore()
     for _, _, meaning in families:
         if isinstance(meaning, ActualPortfolioStateMeaning):
             store.states[meaning.recorded.state.state_id] = meaning.recorded
     owner = PortfolioContextOwner(store, store)
+    # arid: enable
     facts, selections = _selected_family_acts(key, families)
     _record(owner, PORTFOLIO_AT, facts, selections)
     return store, owner

@@ -162,10 +162,11 @@ def test_validate_output_is_byte_exact_after_trim() -> None:
 
 def test_target_lifecycle_outcome_policy_is_explicit() -> None:
     policy = (ROOT / ".agents/skills/README.md").read_text(encoding="utf-8")
+    normalized = " ".join(policy.split())
     for owner in ("$implement-ticket", "$verify-spec", "$review-spec"):
         assert f"`{owner}`" in policy
-    assert "`success` — the lifecycle owner completed its current stage" in policy
-    assert "`warning` — the lifecycle owner did not complete its current stage" in policy
-    assert "`success` to `✅ WORKFLOW HANDOFF: READY`" in policy
-    assert "`warning` to `⚠️ WORKFLOW HANDOFF: READY`" in policy
-    assert "Manifests without `outcome` remain valid" in policy
+    assert "`success` — the lifecycle owner completed its current stage" in normalized
+    assert "`warning` — the lifecycle owner did not complete its current stage" in normalized
+    assert "`success` to `✅ WORKFLOW HANDOFF: READY`" in normalized
+    assert "`warning` to `⚠️ WORKFLOW HANDOFF: READY`" in normalized
+    assert "Manifests without `outcome` remain valid" in normalized

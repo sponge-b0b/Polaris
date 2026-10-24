@@ -6,17 +6,26 @@ from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
 
+from polaris.application.evidence.current_basis import (
+    CurrentEvidenceBasis,
+    CurrentEvidenceNoBasis,
+)
+from polaris.application.evidence.reconstruction import StaleEvidenceBasis
 from polaris.domain.decisions import (
     DecisionScopeCompleteness,
     DecisionVersion,
     InvestmentDecision,
+    InvestmentDecisionId,
     OperationId,
     TriggerKind,
 )
+from polaris.domain.evidence import EvidenceBindingId
 from polaris.domain.evidence.judgments import (
     InvestmentHypothesisRef,
+    InvestmentRecommendationRef,
     InvestmentViewRef,
     MeaningfulChallengeResultRef,
+    RecommendationWithholdingJudgmentRef,
 )
 from polaris.domain.investment_intelligence import (
     DecisionAlternative,
@@ -39,7 +48,38 @@ type JudgmentId = (
     | InvestmentViewRef
     | MeaningfulChallengeResultRef
     | DecisionAlternativeId
+    | InvestmentRecommendationRef
+    | RecommendationWithholdingJudgmentRef
 )
+type JudgmentWriteResult = JudgmentReceipt | StaleEvidenceBasis | CurrentEvidenceNoBasis
+
+
+def _require_basis_coverage(
+    decision_id: InvestmentDecisionId,
+    material_evidence: tuple[EvidenceBindingId, ...],
+    bases: tuple[CurrentEvidenceBasis, ...],
+) -> None:
+    if type(bases) is not tuple or any(
+        type(item) is not CurrentEvidenceBasis for item in bases
+    ):
+        raise InvalidInvestmentJudgment(
+            "consumed Evidence bases must be complete and typed"
+        )
+    if any(item.key.decision_id != decision_id for item in bases):
+        raise InvalidInvestmentJudgment("Evidence basis belongs to another Decision")
+    if len({item.key for item in bases}) != len(bases):
+        raise InvalidInvestmentJudgment("one exact Evidence basis is allowed per key")
+    if material_evidence and not bases:
+        raise InvalidInvestmentJudgment(
+            "material Evidence requires captured current bases"
+        )
+    covered = frozenset(
+        binding for item in bases for binding in item.guards.binding_ids
+    )
+    if not frozenset(material_evidence).issubset(covered):
+        raise InvalidInvestmentJudgment(
+            "material Evidence is absent from consumed bases"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +100,8 @@ class JudgmentReceipt:
                 InvestmentViewRef,
                 MeaningfulChallengeResultRef,
                 DecisionAlternativeId,
+                InvestmentRecommendationRef,
+                RecommendationWithholdingJudgmentRef,
             )
             for item in self.judgment_ids
         ):
@@ -73,7 +115,8 @@ class InvestmentIntelligenceStore(Protocol):
         view: InvestmentView,
         hypotheses: tuple[InvestmentHypothesis, ...],
         expected_decision_version: DecisionVersion,
-    ) -> JudgmentReceipt: ...
+        evidence_bases: tuple[CurrentEvidenceBasis, ...] = (),
+    ) -> JudgmentWriteResult: ...
 
     async def record_challenge(
         self,
@@ -81,7 +124,8 @@ class InvestmentIntelligenceStore(Protocol):
         challenge: MeaningfulChallengeResult,
         hypotheses: tuple[InvestmentHypothesis, ...],
         expected_decision_version: DecisionVersion,
-    ) -> JudgmentReceipt: ...
+        evidence_bases: tuple[CurrentEvidenceBasis, ...] = (),
+    ) -> JudgmentWriteResult: ...
 
     async def record_alternatives(
         self,
@@ -142,7 +186,8 @@ class InvestmentIntelligenceService:
         decision: InvestmentDecision,
         view: InvestmentView,
         hypotheses: tuple[InvestmentHypothesis, ...] = (),
-    ) -> JudgmentReceipt:
+        evidence_bases: tuple[CurrentEvidenceBasis, ...] = (),
+    ) -> JudgmentWriteResult:
         self._first_slice(decision, view)
         if (
             type(operation_id) is not OperationId
@@ -164,8 +209,11 @@ class InvestmentIntelligenceService:
             raise InvalidInvestmentJudgment(
                 "View must name exactly its committed Hypotheses"
             )
+        _require_basis_coverage(
+            decision.decision_id, view.material_evidence, evidence_bases
+        )
         return await self._store.record_view(
-            operation_id, view, hypotheses, decision.version
+            operation_id, view, hypotheses, decision.version, evidence_bases
         )
 
     async def record_challenge(
@@ -174,7 +222,8 @@ class InvestmentIntelligenceService:
         challenge: MeaningfulChallengeResult,
         expected_decision_version: DecisionVersion,
         hypotheses: tuple[InvestmentHypothesis, ...] = (),
-    ) -> JudgmentReceipt:
+        evidence_bases: tuple[CurrentEvidenceBasis, ...] = (),
+    ) -> JudgmentWriteResult:
         if (
             type(operation_id) is not OperationId
             or type(challenge) is not MeaningfulChallengeResult
@@ -198,8 +247,15 @@ class InvestmentIntelligenceService:
             raise InvalidInvestmentJudgment(
                 "Challenge must name exactly its committed Hypotheses"
             )
+        _require_basis_coverage(
+            challenge.decision_id, challenge.conflicting_evidence, evidence_bases
+        )
         return await self._store.record_challenge(
-            operation_id, challenge, hypotheses, expected_decision_version
+            operation_id,
+            challenge,
+            hypotheses,
+            expected_decision_version,
+            evidence_bases,
         )
 
     async def record_alternatives(

@@ -115,6 +115,10 @@ class InvestmentHypothesis:
     actor_attribution: ActorAttribution
     formed_at: datetime
 
+    @property
+    def evidence_target(self) -> InvestmentHypothesisRef:
+        return self.hypothesis_id
+
     def __post_init__(self) -> None:
         if (
             type(self.hypothesis_id) is not InvestmentHypothesisRef
@@ -150,6 +154,10 @@ class InvestmentView:
     invalidation_conditions: tuple[str, ...]
     material_signal_provenance: tuple[str, ...] = ()
     hypothesis_ids: tuple[InvestmentHypothesisRef, ...] = ()
+
+    @property
+    def evidence_target(self) -> InvestmentViewRef:
+        return self.view_id
 
     def __post_init__(self) -> None:
         if (
@@ -208,6 +216,10 @@ class MeaningfulChallengeResult:
     disposition: ChallengeDisposition
     disposition_basis: str
     hypothesis_ids: tuple[InvestmentHypothesisRef, ...] = ()
+
+    @property
+    def evidence_target(self) -> MeaningfulChallengeResultRef:
+        return self.challenge_id
 
     def __post_init__(self) -> None:
         if (

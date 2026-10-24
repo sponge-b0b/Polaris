@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-24] R3 Investment Intelligence owner history and Recommendation semantics | realized
+
+Recorded five typed Investment Intelligence Evidence targets and complete claim catalogs with explicit future-correction overlap resolution, owner-issued current versions, and temporal-cause witnesses. Recorded durable Recommendation and withholding history, latest-judgment support semantics, Portfolio/Risk consequence consumption, and exact dependent Evidence-basis capture/revalidation through the inward current-basis boundary; complete cross-domain provider composition remains downstream. Updated Investment Intelligence, Evidence, and Durable Persistence.
+
 ## [2026-10-22] R3 Portfolio initial claim catalogs | admission completed
 
 Recorded explicit complete claim catalogs at initial Projected Portfolio Consequence and Portfolio Risk Assessment admission. Application requires catalogs for each target root, and PostgreSQL commits each catalog with its owner judgment. Updated Application Use Cases and Durable Persistence.

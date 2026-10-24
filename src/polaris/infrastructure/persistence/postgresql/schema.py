@@ -9,10 +9,13 @@ branches share one runtime metadata registry without rewriting either migration.
 from typing import Any
 
 from sqlalchemy import (
+    BigInteger,
     CheckConstraint,
     Column,
     DateTime,
+    ForeignKey,
     ForeignKeyConstraint,
+    Identity,
     Index,
     Integer,
     Numeric,
@@ -171,12 +174,15 @@ portfolio_judgment_acts = Table(
     Column("sequence", Integer, nullable=False),
     Column("consequence_id", UUID(as_uuid=True)),
     Column("assessment_id", UUID(as_uuid=True)),
+    # duplicate-code: Sharing would couple distinct owner tables.
+    # arid: disable
     Column("effective_at", DateTime(timezone=True), nullable=False),
     Column("recorded_at", DateTime(timezone=True), nullable=False),
     Column("known_at", DateTime(timezone=True), nullable=False),
     Column("judgment_revision", Integer, nullable=False),
     Column("claim_catalog_version", Integer, nullable=False),
     Column("act", JSONB, nullable=False),
+    # arid: enable
     CheckConstraint(
         "(consequence_id IS NULL) <> (assessment_id IS NULL)",
         name="one_portfolio_judgment_root",
@@ -202,6 +208,66 @@ portfolio_judgment_acts = Table(
     Index("ix_portfolio_judgment_risk_history", "assessment_id", "known_at"),
 )
 
+investment_intelligence_judgment_acts = Table(
+    "investment_intelligence_judgment_acts",
+    _foundation.metadata,
+    Column("act_id", UUID(as_uuid=True), primary_key=True),
+    Column("row_id", BigInteger, Identity(), nullable=False),
+    Column("target_family", String(48), nullable=False),
+    Column("target_id", UUID(as_uuid=True), nullable=False),
+    Column(
+        # duplicate-code: Sharing would couple distinct owner tables.
+        # arid: disable
+        "decision_id",
+        UUID(as_uuid=True),
+        ForeignKey("investment_decisions.decision_id", ondelete="RESTRICT"),
+        nullable=False,
+        # arid: enable
+    ),
+    Column("sequence", Integer, nullable=False),
+    Column("effective_at", DateTime(timezone=True), nullable=False),
+    Column("recorded_at", DateTime(timezone=True), nullable=False),
+    Column("known_at", DateTime(timezone=True), nullable=False),
+    Column("judgment_revision", Integer, nullable=False),
+    Column("claim_catalog_version", Integer, nullable=False),
+    Column("act", JSONB, nullable=False),
+    CheckConstraint("sequence > 0", name="positive_sequence"),
+    CheckConstraint("judgment_revision > 0", name="positive_judgment_revision"),
+    CheckConstraint("claim_catalog_version > 0", name="positive_catalog_version"),
+    CheckConstraint("known_at >= recorded_at", name="known_after_recorded"),
+    CheckConstraint("jsonb_typeof(act) = 'object'", name="act_object"),
+    CheckConstraint(
+        "target_family IN ('InvestmentHypothesisRef', 'InvestmentViewRef', "
+        "'MeaningfulChallengeResultRef', 'InvestmentRecommendationRef', "
+        "'RecommendationWithholdingJudgmentRef')",
+        name="closed_target_family",
+    ),
+    UniqueConstraint(
+        "target_family", "target_id", "sequence", name="uq_intelligence_act_sequence"
+    ),
+    UniqueConstraint("row_id", name="uq_intelligence_act_row_id"),
+    Index("ix_intelligence_act_history", "target_family", "target_id", "known_at"),
+)
+
+investment_intelligence_judgment_bases = Table(
+    "investment_intelligence_judgment_bases",
+    _foundation.metadata,
+    _foundation._row_id(),
+    Column(
+        "operation_id",
+        UUID(as_uuid=True),
+        ForeignKey(
+            "investment_intelligence_command_receipts.operation_id",
+            ondelete="RESTRICT",
+        ),
+        nullable=False,
+    ),
+    Column("basis_index", Integer, nullable=False),
+    Column("basis", JSONB, nullable=False),
+    CheckConstraint("basis_index >= 0", name="basis_index_nonnegative"),
+    UniqueConstraint("operation_id", "basis_index", name="uq_intelligence_basis"),
+)
+
 POLARIS_TABLE_NAMES = _foundation.POLARIS_TABLE_NAMES | frozenset(
     {
         "portfolio_states",
@@ -209,5 +275,7 @@ POLARIS_TABLE_NAMES = _foundation.POLARIS_TABLE_NAMES | frozenset(
         "portfolio_risk_assessments",
         "portfolio_judgment_acts",
         "portfolio_context_commits",
+        "investment_intelligence_judgment_acts",
+        "investment_intelligence_judgment_bases",
     }
 )

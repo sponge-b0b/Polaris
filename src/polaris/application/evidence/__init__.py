@@ -206,6 +206,8 @@ from .revalidation import (
     AtomicCurrentBasisRead,
     AtomicCurrentBasisUnavailable,
     CurrentBasisValidationReader,
+    CurrentBasisWriteBoundary,
+    CurrentBasisWriteTransaction,
     CurrentEvidenceBasisRevalidator,
 )
 from .sufficiency import (
@@ -258,6 +260,8 @@ __all__ = [
     "CurrentEvidenceSelection",
     "CurrentNoBasisReason",
     "CurrentBasisValidationReader",
+    "CurrentBasisWriteBoundary",
+    "CurrentBasisWriteTransaction",
     "CurrentSufficiencyReader",
     "EvidenceSelectionGuard",
     "EvidenceHistoryIncomplete",

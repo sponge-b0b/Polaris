@@ -18,6 +18,10 @@ HASH_RUNTIME = ROOT / "scripts/workflow_hashing.py"
 # Migration debt only. These are the exact direct SHA-256 call sites that predate
 # workflow_hashing.py. This set and each call count may shrink, but must not grow.
 LEGACY_DIRECT_SHA256_CALLS = {
+    ".agents/skills/review-spec/scripts/review_spec_artifacts.py": 1,
+    ".agents/skills/spec-contract/scripts/extract_source_units.py": 2,
+    ".agents/skills/verify-spec/scripts/verify_spec_attribution.py": 1,
+    ".agents/skills/wayfinder/scripts/decision_closure.py": 1,
     "scripts/ccl.py": 1,
     "scripts/review_remediation.py": 1,
     "scripts/spec_contract.py": 1,

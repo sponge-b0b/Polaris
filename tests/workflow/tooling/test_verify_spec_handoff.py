@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -44,6 +45,8 @@ def _manifest() -> dict[str, object]:
 
 
 def _run(manifest: Path, output: Path) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
     return subprocess.run(
         [
             sys.executable,
@@ -55,6 +58,7 @@ def _run(manifest: Path, output: Path) -> subprocess.CompletedProcess[str]:
             str(output),
         ],
         cwd=ROOT,
+        env=env,
         check=False,
         capture_output=True,
         text=True,

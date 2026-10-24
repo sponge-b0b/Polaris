@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import re
 from dataclasses import dataclass
 from pathlib import Path
+
+from scripts.workflow_hashing import sha256_utf8_text
 
 CLEAR_HEADER = "ATTENTION: CLEAR"
 FINDINGS_HEADER = "ATTENTION: FINDINGS"
@@ -51,7 +52,7 @@ def validate_text(
         lines[0] in VALID_HEADERS, "attention result: unsupported formal result header"
     )
 
-    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    digest = sha256_utf8_text(raw)
     if lines[0] == CLEAR_HEADER:
         _need(
             lines

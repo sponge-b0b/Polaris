@@ -4,6 +4,7 @@ import argparse
 import importlib.util
 import json
 import os
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -15,15 +16,23 @@ INVALID = "WORKFLOW HANDOFF: INVALID"
 
 
 def _shared_handoff() -> Any:
-    spec = importlib.util.spec_from_file_location(
-        "_polaris_shared_workflow_handoff",
-        SHARED_HANDOFF_PATH,
-    )
-    if spec is None or spec.loader is None:
-        raise RuntimeError("shared workflow handoff gate could not be loaded")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+    root = str(ROOT)
+    inserted_root = root not in sys.path
+    if inserted_root:
+        sys.path.insert(0, root)
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "_polaris_shared_workflow_handoff",
+            SHARED_HANDOFF_PATH,
+        )
+        if spec is None or spec.loader is None:
+            raise RuntimeError("shared workflow handoff gate could not be loaded")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        if inserted_root:
+            sys.path.remove(root)
 
 
 def _read_manifest(path: Path) -> dict[str, Any]:

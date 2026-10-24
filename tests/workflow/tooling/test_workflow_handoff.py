@@ -55,6 +55,37 @@ def test_generate_binds_exact_handoff_and_durability() -> None:
     assert lines[4].startswith("Handoff manifest SHA-256: ")
 
 
+@pytest.mark.parametrize(
+    ("outcome", "ready_line"),
+    [
+        ("success", "✅ WORKFLOW HANDOFF: READY"),
+        ("warning", "⚠️ WORKFLOW HANDOFF: READY"),
+    ],
+)
+def test_outcome_renders_canonical_status_emoji(outcome: str, ready_line: str) -> None:
+    candidate = manifest()
+    candidate["outcome"] = outcome
+    lines = handoff.render_manifest(candidate).splitlines()
+    assert lines[0] == ready_line
+    assert lines[1] == (
+        "$to-specs - Wayfinder: R3 first coherent human decision slice "
+        "(https://github.com/sponge-b0b/Polaris/issues/348)"
+    )
+    assert lines[2] == "Fresh-session durability: VERIFIED"
+    assert lines[3] == "Durability sources: 1"
+    assert lines[4].startswith("Handoff manifest SHA-256: ")
+
+
+def test_outcome_is_bound_into_manifest_hash() -> None:
+    success = manifest()
+    success["outcome"] = "success"
+    warning = manifest()
+    warning["outcome"] = "warning"
+    success_hash = handoff.render_manifest(success).splitlines()[-1]
+    warning_hash = handoff.render_manifest(warning).splitlines()[-1]
+    assert success_hash != warning_hash
+
+
 def test_multiple_artifacts_preserve_manifest_order() -> None:
     value = manifest()
     value["handoffs"] = [
@@ -95,6 +126,9 @@ def test_subcommand_destination_is_supported() -> None:
     ("path", "value"),
     [
         (("boundary",), "internal-composition"),
+        (("outcome",), "failure"),
+        (("outcome",), 1),
+        (("outcome",), None),
         (("durability", "verified"), False),
         (("durability", "sources"), []),
         (("handoffs", 0, "destination"), "to-specs"),
@@ -125,3 +159,15 @@ def test_validate_output_is_byte_exact_after_trim() -> None:
     assert handoff.validate_output(candidate, rendered + "\n") == "WORKFLOW HANDOFF: VALID"
     with pytest.raises(handoff.HandoffError, match="does not match"):
         handoff.validate_output(candidate, rendered.replace("$to-specs", "$to-tickets", 1))
+
+
+def test_target_lifecycle_outcome_policy_is_explicit() -> None:
+    policy = (ROOT / ".agents/skills/README.md").read_text(encoding="utf-8")
+    normalized = " ".join(policy.split())
+    for owner in ("$implement-ticket", "$verify-spec", "$review-spec"):
+        assert f"`{owner}`" in policy
+    assert "`success` — the lifecycle owner completed its current stage" in normalized
+    assert "`warning` — the lifecycle owner did not complete its current stage" in normalized
+    assert "`success` to `✅ WORKFLOW HANDOFF: READY`" in normalized
+    assert "`warning` to `⚠️ WORKFLOW HANDOFF: READY`" in normalized
+    assert "Manifests without `outcome` remain valid" in normalized

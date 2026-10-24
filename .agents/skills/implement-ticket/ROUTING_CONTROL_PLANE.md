@@ -82,17 +82,27 @@ This boundary is read-only with respect to the candidate. It must:
    current production surface;
 2. enumerate every required production provider/composition seam for assigned cells;
 3. resolve the durable owner and native GitHub dependency relation for each external seam;
-4. prove that externally owned seams are already available from an upstream/completed route;
+4. prove that externally owned seams required for **this ticket's own production completion**
+   are already available from an upstream/completed route, while separately admitting only
+   exact `DEFERRED_COMPOSITION` seams that satisfy `PRE_IMPLEMENTATION_FEASIBILITY.md`;
 5. distinguish real production providers from fakes, fixtures, mocks, or test-only injection;
 6. emit exactly one `IMPLEMENT TICKET FEASIBILITY: PASS` or
    `IMPLEMENT TICKET FEASIBILITY: BLOCKED` receipt.
 
+A deliberately downstream composition root is not a missing-upstream defect when the current
+accepted Spec/ticket explicitly leaves production assembly to that composition owner and does
+not claim integrated production closure. `DEFERRED_COMPOSITION` never makes the later provider
+locally available; it records that the current capability ticket can complete against the
+fixed inward boundary without synthesizing sibling facts or authority.
+
 `BLOCKED` is terminal routing evidence for this invocation. In particular:
 
 - same-Spec cells assigned to the wrong route -> `cell-routing-defect` -> `$to-tickets`;
-- no new material semantics, but required production work is absent from an upstream route,
-  owned by a downstream Spec/ticket, or omitted from executable planning ->
-  `planning-cell-gap` -> `$to-specs`;
+- a mixed-ownership material cell, or no new material semantics but current-ticket production
+  completion/proof requiring work absent from an upstream route, owned by a downstream
+  Spec/ticket, or omitted from executable planning -> `planning-cell-gap` -> `$to-specs`;
+- a seam that satisfies the exact `DEFERRED_COMPOSITION` contract is **not** a
+  `planning-cell-gap` merely because its production composition owner is downstream;
 - missing/ambiguous material semantic authority -> `contract-authority-gap` -> governing
   semantic owner;
 - concrete external/environment/tool failure that prevents the proof -> Hard Blocker.
@@ -108,7 +118,7 @@ ownership, but it does not authorize additional mutation until feasibility passe
 ## Retained control-plane and handoff contract
 
 An ordinary `$implement-ticket` invocation still has zero authority to alter repository
-workflow/control-plane or semantic-authority files. There is deliberately **no `$implement-ticket` bypass flag**.
+**workflow/control-plane** or semantic-authority files. There is deliberately **no `$implement-ticket` bypass flag**.
 The retained `scripts.workflow_candidate_guard check` and `restore-protected` mechanics remain mandatory.
 
 Every terminal **Human Handoff** from `$implement-ticket` still uses the shared handoff gate.
@@ -138,7 +148,7 @@ and still requires `WORKFLOW HANDOFF: VALID`. The terminal output remains byte-f
 A recommendation, prose instruction, or bare downstream skill command is **not** a Human Handoff.
 Do not emit a bare `$to-specs`, `$to-tickets`, `$architecture-remediation`, `$implement-ticket`, or `$verify-spec` line as a terminal Human Handoff.
 
-For a normal post-closure frontier, evaluate the complete current actionable ticket frontier.
+For a normal post-closure frontier, evaluate the **complete current actionable ticket** frontier.
 Do not stop after the first actionable ticket. Emit one manifest handoff entry per actionable ticket.
 
 ## Durable cell-routing-defect evidence boundary

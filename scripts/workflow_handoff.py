@@ -14,6 +14,7 @@ ARTIFACT_URL = re.compile(
     r"^https://github\.com/[^/\s]+/[^/\s]+/(?:issues|pull)/\d+$"
 )
 DURABLE_URL = re.compile(r"^https://github\.com/[^/\s]+/[^/\s]+/.+$")
+OUTCOME_EMOJI = {"success": "✅", "warning": "⚠️"}
 
 
 class HandoffError(RuntimeError):
@@ -47,6 +48,16 @@ def render_manifest(manifest: dict[str, Any]) -> str:
         manifest.get("boundary") == "human-lifecycle",
         "manifest: boundary must be human-lifecycle",
     )
+
+    outcome = manifest.get("outcome")
+    if outcome is None:
+        ready_line = "WORKFLOW HANDOFF: READY"
+    else:
+        _need(
+            isinstance(outcome, str) and outcome in OUTCOME_EMOJI,
+            "manifest: outcome must be success or warning",
+        )
+        ready_line = f"{OUTCOME_EMOJI[outcome]} WORKFLOW HANDOFF: READY"
 
     durability = manifest.get("durability")
     _need(isinstance(durability, dict), "manifest: missing durability receipt")
@@ -84,7 +95,7 @@ def render_manifest(manifest: dict[str, Any]) -> str:
     payload_hash = sha256_canonical_json(manifest)
     return "\n".join(
         [
-            "WORKFLOW HANDOFF: READY",
+            ready_line,
             *lines,
             "Fresh-session durability: VERIFIED",
             f"Durability sources: {len(normalized_sources)}",

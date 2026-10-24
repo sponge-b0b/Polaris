@@ -79,9 +79,8 @@ For terminal Human Handoffs emitted by `$implement-ticket`, `$verify-spec`, or
 
 The shared renderer maps `success` to `✅ WORKFLOW HANDOFF: READY` and `warning` to
 `⚠️ WORKFLOW HANDOFF: READY`. Manifests without `outcome` remain valid and render the
-historical unprefixed `WORKFLOW HANDOFF: READY` for backward compatibility, but these three
-current lifecycle owners must not omit `outcome` from a newly generated terminal Human
-Handoff.
+unprefixed `WORKFLOW HANDOFF: READY` for backward compatibility, but these three current
+lifecycle owners must not omit `outcome` from a newly generated terminal Human Handoff.
 
 The gate emits the outcome-prefixed or backward-compatible `WORKFLOW HANDOFF: READY`, the
 canonical invocation line(s), the durability receipt, and the exact manifest hash. The

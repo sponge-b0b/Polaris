@@ -55,6 +55,27 @@ def test_generate_binds_exact_handoff_and_durability() -> None:
     assert lines[4].startswith("Handoff manifest SHA-256: ")
 
 
+@pytest.mark.parametrize(
+    ("outcome", "ready_line"),
+    [
+        ("success", "✅ WORKFLOW HANDOFF: READY"),
+        ("warning", "⚠️ WORKFLOW HANDOFF: READY"),
+    ],
+)
+def test_outcome_renders_canonical_status_emoji(outcome: str, ready_line: str) -> None:
+    candidate = manifest()
+    candidate["outcome"] = outcome
+    lines = handoff.render_manifest(candidate).splitlines()
+    assert lines[0] == ready_line
+    assert lines[1] == (
+        "$to-specs - Wayfinder: R3 first coherent human decision slice "
+        "(https://github.com/sponge-b0b/Polaris/issues/348)"
+    )
+    assert lines[2] == "Fresh-session durability: VERIFIED"
+    assert lines[3] == "Durability sources: 1"
+    assert lines[4].startswith("Handoff manifest SHA-256: ")
+
+
 def test_multiple_artifacts_preserve_manifest_order() -> None:
     value = manifest()
     value["handoffs"] = [
@@ -95,6 +116,8 @@ def test_subcommand_destination_is_supported() -> None:
     ("path", "value"),
     [
         (("boundary",), "internal-composition"),
+        (("outcome",), "failure"),
+        (("outcome",), 1),
         (("durability", "verified"), False),
         (("durability", "sources"), []),
         (("handoffs", 0, "destination"), "to-specs"),

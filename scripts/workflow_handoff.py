@@ -49,10 +49,10 @@ def render_manifest(manifest: dict[str, Any]) -> str:
         "manifest: boundary must be human-lifecycle",
     )
 
-    outcome = manifest.get("outcome")
-    if outcome is None:
+    if "outcome" not in manifest:
         ready_line = "WORKFLOW HANDOFF: READY"
     else:
+        outcome = manifest["outcome"]
         _need(
             isinstance(outcome, str) and outcome in OUTCOME_EMOJI,
             "manifest: outcome must be success or warning",

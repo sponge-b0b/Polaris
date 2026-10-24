@@ -12,17 +12,20 @@ Before executing this skill, read all of these files in full:
 
 1. `.agents/skills/to-specs/PROCEDURE.md`
 2. `.agents/skills/to-specs/CONTROL_PLANE.md`
+3. `.agents/skills/to-specs/PROVIDER_CLOSURE.md`
 
 `PROCEDURE.md` preserves the complete established `$to-specs` lifecycle.
 `CONTROL_PLANE.md` preserves the previously authoritative entrypoint through the
 machine-enforced cross-Spec and intra-Spec execution-feasibility, legacy-completed
 compatibility, planning-worktree, and shared Human Handoff repairs.
+`PROVIDER_CLOSURE.md` adds the mandatory concrete production-provider/composition trace,
+ownership-homogeneous material-cell rule, and deferred-composition boundary.
 
 This `SKILL.md` is now the authoritative entrypoint and adds the machine-enforced durable
-routing-defect inventory gate below. On conflict, this file wins. Failure to load either
-retained file is a Hard Blocker.
+routing-defect inventory gate below. On conflict, this file wins. Failure to load any retained
+file is a Hard Blocker.
 
-All requirements in both retained files remain mandatory unless explicitly overridden here.
+All requirements in the retained files remain mandatory unless explicitly overridden here.
 
 ## Retained execution-feasibility contract
 
@@ -56,7 +59,7 @@ python -m scripts.workflow_to_specs build-handoff \
 ```
 
 They must still produce `WORKFLOW HANDOFF: VALID`, and the user-visible terminal block must
-remain byte-for-byte machine output, including the canonical form:
+remain byte-for-byte generated output, including the canonical form:
 
 ```text
 $to-tickets - <exact current Spec title> (<exact canonical Spec URL>)
@@ -217,6 +220,12 @@ Unprotected routing defect requirements: 0
 SPEC EXECUTION FEASIBILITY: VALID
 Unprotected pending provider requirements: 0
 Unprotected downstream local provider requirements: 0
+TO-SPECS PROVIDER CLOSURE: VALID
+Mixed-ownership material cells: 0
+Unowned production seams: 0
+Illegal downstream capability providers: 0
+Deferred composition seams without composition owner: 0
+Composition owners without complete provider coverage: 0
 WORKFLOW HANDOFF: VALID
 ```
 
@@ -254,13 +263,14 @@ once with either:
 
 For a topology-bearing provider, the combined CCL refs of `provider_cells` must cover every
 CCL ref projected by the consumed cell. For an immutable topology-less `legacy_completed`
-provider, `provider_cells` must be empty so the gate does not invent retroactive cell
-authority.
+provider, `provider_cells` must be empty so the gate does not invent retroactive execution-unit authority.
 
-An OPEN consumed provider must be a current native prerequisite of the consumer. The same
-`provider_spec` must also appear in the retained `unit_analysis.provider_requirements` for
-the execution unit that owns the consumed cell. A downstream or unrelated provider is a
-blocking ownership contradiction.
+An OPEN consumed provider must be a current native prerequisite of the consumer **unless**
+the exact consumed responsibility is explicitly `deferred-composition` under
+`PROVIDER_CLOSURE.md`: the current capability Spec owns only its role-narrow provider/consumer
+boundary, and a later composition Spec owns production assembly. A deferred-composition row
+must name that composition Spec in its durable basis and must not be used for a cell that
+claims integrated production proof.
 
 The `planning` ownership rows cover every and only current `IMP-*` / `TEST-*` exactly once.
 Each planning cell declares non-empty `supports` containing current local `OBL-*`. At least
@@ -290,7 +300,7 @@ Execution units without local material ownership: 0
 
 A model-authored statement that ownership is clear is not a substitute for this receipt.
 `$attention` must inspect the exact `ownership_analysis` together with the retained
-feasibility and routing-defect evidence.
+feasibility, provider-closure, and routing-defect evidence.
 
 When this gate fails and accepted planning/CCL authority already fixes ownership, `$to-specs`
 owns the in-place projection/topology repair. Preserve Spec identity, surviving stable cell
@@ -307,4 +317,5 @@ TO-SPECS OWNERSHIP PREFLIGHT: VALID
 TO-SPECS CROSS-SPEC OWNERSHIP: VALID
 Unprotected consumed-boundary requirements: 0
 Execution units without local material ownership: 0
+TO-SPECS PROVIDER CLOSURE: VALID
 ```

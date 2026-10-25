@@ -44,7 +44,10 @@ from polaris.domain.actors import (
 )
 from polaris.domain.configuration.evidence_requirements import InvestmentHorizon
 from polaris.domain.decisions import (
+    DecisionApplicability,
+    DecisionLifecycleDisposition,
     DecisionVersion,
+    DeterminateDecisionLifecycleInterpretation,
     InvestmentDecision,
     InvestmentDecisionId,
     OperationId,
@@ -99,6 +102,7 @@ from .intelligence_judgment_history import (
     PostgresIntelligenceJudgmentHistoryStore,
     insert_initial_intelligence_act,
 )
+from .relationship_store import _load_decision, _load_relationship_history
 from .runtime_qualification import require_qualified_postgres_runtime
 from .schema import (
     decision_alternative_revisions,
@@ -252,18 +256,45 @@ async def _append_initial_target(
     )
 
 
-async def _require_decision_version(
+async def _require_decision_ordinary_work(
     connection: AsyncConnection,
     decision_id: InvestmentDecisionId,
     expected: DecisionVersion,
 ) -> None:
-    current = await connection.scalar(
-        select(investment_decisions.c.decision_version).where(
-            investment_decisions.c.decision_id == decision_id.value
+    """Lock the Decision and admit only its current ordinary-work meaning.
+
+    Known future-effective history can change meaning without advancing its version.
+    """
+    current = (
+        await connection.execute(
+            select(investment_decisions.c.decision_version)
+            .where(investment_decisions.c.decision_id == decision_id.value)
+            .with_for_update()
         )
-    )
-    if current != expected.value:
+    ).one_or_none()
+    if current is None or current.decision_version != expected.value:
         raise JudgmentConcurrencyConflict("governing Decision version changed")
+    now = datetime.now(UTC)
+    relationships = await _load_relationship_history(connection, known_at=now)
+    loaded = await _load_decision(
+        connection,
+        decision_id,
+        known_at=now,
+        relationship_history=relationships,
+    )
+    if loaded is None:
+        raise InvalidInvestmentJudgment("governing Decision history is unavailable")
+    decision, applicability = loaded
+    interpretation = decision.lifecycle_interpretation
+    if (
+        decision.version != expected
+        or not isinstance(interpretation, DeterminateDecisionLifecycleInterpretation)
+        or interpretation.disposition is not DecisionLifecycleDisposition.UNRESOLVED
+        or applicability is not DecisionApplicability.OPERATIVE
+    ):
+        raise InvalidInvestmentJudgment(
+            "governing Decision does not admit ordinary work"
+        )
 
 
 async def _require_decision_horizon(
@@ -600,7 +631,7 @@ class PostgresInvestmentIntelligenceStore:
         from .portfolio_judgment_history import PostgresPortfolioJudgmentHistoryStore
         from .portfolio_states import PostgresPortfolioStateStore
 
-        await _require_decision_version(
+        await _require_decision_ordinary_work(
             connection, recommendation.decision_id, expected_decision_version
         )
         # duplicate-code: Sharing would hide distinct judgment checks.
@@ -755,7 +786,7 @@ class PostgresInvestmentIntelligenceStore:
         ]
 
         async def write(connection: AsyncConnection) -> tuple[JudgmentId, ...]:
-            await _require_decision_version(
+            await _require_decision_ordinary_work(
                 connection, view.decision_id, expected_decision_version
             )
             await _require_decision_horizon(
@@ -797,7 +828,7 @@ class PostgresInvestmentIntelligenceStore:
         ]
 
         async def write(connection: AsyncConnection) -> tuple[JudgmentId, ...]:
-            await _require_decision_version(
+            await _require_decision_ordinary_work(
                 connection, challenge.decision_id, expected_decision_version
             )
             view_decision = await connection.scalar(
@@ -849,7 +880,7 @@ class PostgresInvestmentIntelligenceStore:
         ]
 
         async def write(connection: AsyncConnection) -> tuple[JudgmentId, ...]:
-            await _require_decision_version(
+            await _require_decision_ordinary_work(
                 connection, alternatives[0].decision_id, expected_decision_version
             )
             await _require_decision_horizon(
@@ -937,7 +968,7 @@ class PostgresInvestmentIntelligenceStore:
         ]
 
         async def write(connection: AsyncConnection) -> tuple[JudgmentId, ...]:
-            await _require_decision_version(
+            await _require_decision_ordinary_work(
                 connection, decision.decision_id, decision.version
             )
             previous = await _latest_selection(connection, decision.decision_id)
@@ -1054,7 +1085,7 @@ class PostgresInvestmentIntelligenceStore:
         ]
 
         async def write(connection: AsyncConnection) -> tuple[JudgmentId, ...]:
-            await _require_decision_version(
+            await _require_decision_ordinary_work(
                 connection, withholding.decision_id, expected_decision_version
             )
             await _append_initial_target(connection, withholding, initial_claim_catalog)

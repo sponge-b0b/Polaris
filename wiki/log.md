@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-25] R3 Intelligence writes | Decision ordinary-work gate enforced
+
+Recorded that new Investment Intelligence View, challenge, Alternative, and withholding commits require a determinately unresolved, operative governing Decision even when the supplied DecisionVersion is current. The commit check also reconstructs known Decision history at its current time under a Decision row lock. Updated Investment Intelligence.
+
 ## [2026-10-25] R3 withholding Evidence basis | commit protection completed
 
 Recorded that withholding which consumes a current Evidence result preserves its exact basis and revalidates it atomically before append, returning typed stale or no-basis outcomes without a judgment write. Updated Investment Intelligence and Durable Persistence; cross-domain production provider assembly remains downstream.

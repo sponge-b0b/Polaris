@@ -10,8 +10,11 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from polaris.application.decisions import (
+    ApplySubstantiveResolutionCommand,
     DecisionCommandEnvelope,
     DecisionInitiationService,
+    DecisionOrdinaryWorkService,
+    ExpectedDecisionVersion,
     InitiateDecisionCommand,
 )
 from polaris.application.investment_intelligence import (
@@ -23,19 +26,23 @@ from polaris.domain.configuration.evidence_requirements import InvestmentHorizon
 from polaris.domain.decisions import (
     DecisionScope,
     DecisionSubject,
+    HumanInvestmentDecisionEffect,
     InvestmentDecisionId,
     OperationId,
     TechnicalProvenance,
     TriggerKind,
     TriggerProvenance,
+    TrustedHumanInvestmentDecisionBasis,
 )
 from polaris.domain.evidence.judgments import (
     InvestmentHypothesisRef,
     InvestmentViewRef,
+    RecommendationWithholdingJudgmentRef,
 )
 from polaris.domain.evidence.judgments import (
     MeaningfulChallengeResultRef as ChallengeResultRef,
 )
+from polaris.domain.intelligence_judgment_history import IntelligenceClaimCatalog
 from polaris.domain.investment_intelligence import (
     ChallengeDisposition,
     DecisionAlternative,
@@ -47,6 +54,7 @@ from polaris.domain.investment_intelligence import (
     MeaningfulChallengeResult,
     R3InvestmentSlice,
 )
+from polaris.domain.investment_recommendation import RecommendationWithholdingJudgment
 from polaris.domain.portfolio import FinancialInstrumentId, PortfolioId
 from polaris.infrastructure.persistence.postgresql import (
     PostgresDecisionStore,
@@ -290,6 +298,106 @@ async def _exercise(target: PostgresTestTarget) -> None:
             await service.select_alternative(
                 OperationId(uuid4()), decision, chosen.alternative_id, 1, 2
             )
+        async with engine.connect() as connection:
+            receipt_count = await connection.scalar(
+                text("SELECT count(*) FROM investment_intelligence_command_receipts")
+            )
+        decision_state_update = text(
+            "UPDATE investment_decisions SET "
+            "lifecycle_interpretation_kind = :interpretation, "
+            "lifecycle_disposition = :disposition, "
+            "applicability = :applicability "
+            "WHERE decision_id = :decision_id"
+        )
+        operative_state = {
+            "interpretation": "DETERMINATE",
+            "disposition": "unresolved",
+            "applicability": "operative",
+            "decision_id": decision.decision_id.value,
+        }
+        resolved_at = datetime.now(UTC)
+        resolution = await DecisionOrdinaryWorkService(
+            store=decision_store,
+            now=lambda: resolved_at,
+        ).apply_substantive_resolution(
+            ApplySubstantiveResolutionCommand(
+                DecisionCommandEnvelope(
+                    operation_id=OperationId(uuid4()),
+                    actor_attribution=actor,
+                    trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, "resolve"),
+                    effective_at=resolved_at,
+                    technical_provenance=TechnicalProvenance(),
+                    expected_versions=frozenset(
+                        {
+                            ExpectedDecisionVersion(
+                                decision.decision_id, decision.version
+                            )
+                        }
+                    ),
+                ),
+                decision.decision_id,
+                TrustedHumanInvestmentDecisionBasis(
+                    "resolved by human",
+                    HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING,
+                ),
+            )
+        )
+
+        async def reject_after_resolution() -> None:
+            rejected_challenge = replace(
+                challenge, challenge_id=ChallengeResultRef(uuid4()), hypothesis_ids=()
+            )
+            rejected_alternatives = tuple(
+                replace(item, alternative_id=DecisionAlternativeId(uuid4()))
+                for item in alternatives
+            )
+            withholding = RecommendationWithholdingJudgment(
+                withholding_id=RecommendationWithholdingJudgmentRef(uuid4()),
+                decision_id=decision.decision_id,
+                horizon=InvestmentHorizon("three months"),
+                explanation="Ordinary work gate rejects this attempted formation",
+                actor_attribution=actor,
+                formed_at=NOW,
+            )
+            with pytest.raises(InvalidInvestmentJudgment, match="ordinary work"):
+                await judgment_store.record_view(
+                    OperationId(uuid4()),
+                    replace(
+                        view, view_id=InvestmentViewRef(uuid4()), hypothesis_ids=()
+                    ),
+                    (),
+                    resolution.version,
+                )
+            with pytest.raises(InvalidInvestmentJudgment, match="ordinary work"):
+                await judgment_store.record_challenge(
+                    OperationId(uuid4()), rejected_challenge, (), resolution.version
+                )
+            with pytest.raises(InvalidInvestmentJudgment, match="ordinary work"):
+                await judgment_store.record_alternatives(
+                    OperationId(uuid4()), rejected_alternatives, resolution.version
+                )
+            with pytest.raises(InvalidInvestmentJudgment, match="ordinary work"):
+                await judgment_store.record_withholding(
+                    operation_id=OperationId(uuid4()),
+                    withholding=withholding,
+                    expected_decision_version=resolution.version,
+                    initial_claim_catalog=IntelligenceClaimCatalog(()),
+                )
+            async with engine.connect() as connection:
+                assert (
+                    await connection.scalar(
+                        text(
+                            "SELECT count(*) FROM "
+                            "investment_intelligence_command_receipts"
+                        )
+                    )
+                    == receipt_count
+                )
+
+        await reject_after_resolution()
+        async with engine.begin() as connection:
+            await connection.execute(decision_state_update, operative_state)
+        await reject_after_resolution()
         async with engine.begin() as connection:
             await connection.execute(
                 text(

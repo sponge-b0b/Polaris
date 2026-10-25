@@ -138,7 +138,9 @@ def test_required_lens_cannot_be_silently_omitted() -> None:
     coverage = _coverage()
     coverage["cells"][0]["lenses"].pop(1)
     coverage["cells"][0]["probes"] = [
-        probe for probe in coverage["cells"][0]["probes"] if probe["lens"] != "negative"
+        probe
+        for probe in coverage["cells"][0]["probes"]
+        if probe["lens"] != "negative"
     ]
     with pytest.raises(ReviewCoverageError, match="required lenses"):
         validate_coverage(_contract(), coverage)
@@ -152,7 +154,9 @@ def test_not_applicable_lens_requires_rationale() -> None:
         "rationale": "",
     }
     coverage["cells"][0]["probes"] = [
-        probe for probe in coverage["cells"][0]["probes"] if probe["lens"] != "negative"
+        probe
+        for probe in coverage["cells"][0]["probes"]
+        if probe["lens"] != "negative"
     ]
     with pytest.raises(ReviewCoverageError, match="requires rationale"):
         validate_coverage(_contract(), coverage)
@@ -166,7 +170,9 @@ def test_not_applicable_lens_with_rationale_is_valid() -> None:
         "rationale": "The exact obligation has no failure-state branch.",
     }
     coverage["cells"][0]["probes"] = [
-        probe for probe in coverage["cells"][0]["probes"] if probe["lens"] != "negative"
+        probe
+        for probe in coverage["cells"][0]["probes"]
+        if probe["lens"] != "negative"
     ]
     receipt = validate_coverage(_contract(), coverage)
     assert receipt.probe_count == 6

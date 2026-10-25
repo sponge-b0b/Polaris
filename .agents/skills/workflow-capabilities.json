@@ -23,6 +23,7 @@
       "status": "LOST / DEFECT",
       "owner": [
         ".agents/skills/README.md",
+        ".agents/skills/shared_handoff_runtime.py",
         "scripts/workflow_handoff.py"
       ],
       "resolution": "RESTORED_BY_THIS_CHANGE"
@@ -32,6 +33,7 @@
       "status": "LOST / DEFECT",
       "owner": [
         ".agents/skills/README.md",
+        ".agents/skills/shared_handoff_runtime.py",
         "scripts/workflow_handoff.py"
       ],
       "resolution": "RESTORED_BY_THIS_CHANGE"
@@ -41,6 +43,7 @@
       "status": "LOST / DEFECT",
       "owner": [
         ".agents/skills/README.md",
+        ".agents/skills/shared_handoff_runtime.py",
         "scripts/workflow_handoff.py"
       ],
       "resolution": "RESTORED_BY_THIS_CHANGE"
@@ -325,6 +328,8 @@
   ],
   "human_handoff": {
     "shared_gate": "scripts/workflow_handoff.py",
+    "runtime_contract": "polaris.workflow-handoff-runtime/v2",
+    "runtime_resolver": ".agents/skills/shared_handoff_runtime.py",
     "required_by": [
       "wayfinder",
       "to-specs",

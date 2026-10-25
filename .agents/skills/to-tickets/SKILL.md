@@ -98,16 +98,19 @@ The retained frontier rule is unchanged: evaluate the **complete actionable fron
 in ordinary destination/topology order or review-remediation proposal alias order as
 applicable. Every destination is `$implement-ticket`.
 
-Generate and verify only through:
+Finalize terminal handoffs only through the shared runtime resolver:
 
 ```bash
-python -m scripts.workflow_handoff generate \
+python .agents/skills/shared_handoff_runtime.py finalize \
   --manifest <handoff-manifest.json> \
-  > <handoff-output.txt>
-python -m scripts.workflow_handoff verify \
-  --manifest <handoff-manifest.json> \
-  --output <handoff-output.txt>
+  --output <handoff-output.txt> \
+  --repo-root .
 ```
+
+The resolver may use candidate-local `scripts.workflow_handoff` only when it satisfies the
+current versioned shared runtime contract. Otherwise it fetches current `origin/main`,
+materializes only the canonical shared handoff runtime closure in a temporary location, and
+generates/verifies there without mutating the candidate branch.
 
 Require `WORKFLOW HANDOFF: VALID`. The user-visible handoff reproduces the generated output
 **byte-for-byte**. **Do not emit a bare `$implement-ticket` line** and do not hand off a

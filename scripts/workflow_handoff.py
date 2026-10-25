@@ -9,6 +9,7 @@ from typing import Any
 from scripts.workflow_hashing import sha256_canonical_json
 
 SCHEMA = "polaris.workflow-handoff/v1"
+RUNTIME_CONTRACT = "polaris.workflow-handoff-runtime/v2"
 DESTINATION = re.compile(r"^\$[a-z0-9][a-z0-9-]*(?: [a-z0-9][a-z0-9-]*)*$")
 ARTIFACT_URL = re.compile(
     r"^https://github\.com/[^/\s]+/[^/\s]+/(?:issues|pull)/\d+$"
@@ -115,6 +116,8 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
 
+    sub.add_parser("contract")
+
     generate = sub.add_parser("generate")
     generate.add_argument("--manifest", type=Path, required=True)
 
@@ -127,6 +130,9 @@ def _parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = _parser().parse_args()
     try:
+        if args.command == "contract":
+            print(f"WORKFLOW HANDOFF RUNTIME: {RUNTIME_CONTRACT}")
+            return 0
         manifest = _read_json(args.manifest)
         if args.command == "generate":
             print(render_manifest(manifest))

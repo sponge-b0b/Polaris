@@ -3,30 +3,28 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
-import os
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[4]
-SHARED_HANDOFF_PATH = ROOT / "scripts/workflow_handoff.py"
+SHARED_RUNTIME_PATH = ROOT / ".agents/skills/shared_handoff_runtime.py"
 VALID = "WORKFLOW HANDOFF: VALID"
 INVALID = "WORKFLOW HANDOFF: INVALID"
 
 
-def _shared_handoff() -> Any:
+def _shared_runtime() -> Any:
     root = str(ROOT)
     inserted_root = root not in sys.path
     if inserted_root:
         sys.path.insert(0, root)
     try:
         spec = importlib.util.spec_from_file_location(
-            "_polaris_shared_workflow_handoff",
-            SHARED_HANDOFF_PATH,
+            "_polaris_shared_handoff_runtime",
+            SHARED_RUNTIME_PATH,
         )
         if spec is None or spec.loader is None:
-            raise RuntimeError("shared workflow handoff gate could not be loaded")
+            raise RuntimeError("shared handoff runtime resolver could not be loaded")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return module
@@ -46,38 +44,15 @@ def finalize(manifest_path: Path, output_path: Path) -> str:
     """Render, verify, and atomically publish one validated Human Handoff file."""
 
     output_path.unlink(missing_ok=True)
-    shared = _shared_handoff()
+    runtime = _shared_runtime()
     manifest = _read_manifest(manifest_path)
-    rendered = shared.render_manifest(manifest)
-    receipt = shared.validate_output(manifest, rendered)
+    outcome = manifest.get("outcome")
+    if outcome not in {"success", "warning"}:
+        raise RuntimeError("manifest: verify-spec outcome must be success or warning")
+    receipt = runtime.finalize(manifest_path, output_path, repo_root=ROOT)
     if receipt != VALID:
-        raise RuntimeError(f"shared validator returned unexpected receipt: {receipt}")
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    file_descriptor, temporary_name = tempfile.mkstemp(
-        prefix=f".{output_path.name}.",
-        dir=output_path.parent,
-        text=True,
-    )
-    temporary_path = Path(temporary_name)
-    try:
-        with os.fdopen(file_descriptor, "w", encoding="utf-8", newline="\n") as stream:
-            stream.write(rendered)
-            stream.write("\n")
-        receipt = shared.validate_output(
-            manifest,
-            temporary_path.read_text(encoding="utf-8"),
-        )
-        if receipt != VALID:
-            raise RuntimeError(
-                f"shared validator returned unexpected receipt: {receipt}"
-            )
-        os.replace(temporary_path, output_path)
-    except Exception:
-        temporary_path.unlink(missing_ok=True)
         output_path.unlink(missing_ok=True)
-        raise
-
+        raise RuntimeError(f"shared runtime returned unexpected receipt: {receipt}")
     return receipt
 
 

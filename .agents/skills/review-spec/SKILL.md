@@ -173,7 +173,7 @@ order. Each row binds the exact `cell`, `cell_hash`, and `kind`, then records:
 * `probes` — concrete adversarial falsifier/evidence rows tied to one covered lens and one
   or more declared surfaces, with any resulting `RF-*` identities.
 
-Required lenses are machine-owned by `scripts.workflow_review_coverage`:
+Required lenses are machine-owned by `.agents/skills/review-spec/scripts/review_coverage.py`:
 
 ```text
 material-contract -> positive, negative, composition, proof
@@ -189,7 +189,7 @@ every declared surface must be exercised by at least one probe.
 After Reviewer B and after every coverage reconciliation, run:
 
 ```bash
-python -m scripts.workflow_review_coverage validate \
+python .agents/skills/review-spec/scripts/review_coverage.py validate \
   <spec-contract.json> <review-coverage.json>
 ```
 
@@ -425,7 +425,7 @@ Coverage challenger: complete
 ```
 
 The `Contract cells reviewed` and `Unchecked contract cells` values come only from
-`scripts.workflow_review_coverage`; do not self-report or reconstruct them.
+`.agents/skills/review-spec/scripts/review_coverage.py`; do not self-report or reconstruct them.
 
 ## 9. Exit Gate
 

@@ -3,11 +3,16 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from scripts.workflow_hashing import sha256_canonical_json
+ROOT = Path(__file__).resolve().parents[4]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.workflow_hashing import sha256_canonical_json  # noqa: E402
 
 SCHEMA = "polaris.review-coverage/v1"
 _HEAD = re.compile(r"^[0-9a-f]{40}$")

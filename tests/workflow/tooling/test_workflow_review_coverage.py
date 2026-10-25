@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
 import sys
@@ -11,10 +12,14 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
-from scripts.workflow_review_coverage import (  # noqa: E402
-    ReviewCoverageError,
-    validate_coverage,
-)
+SCRIPT = ROOT / ".agents/skills/review-spec/scripts/review_coverage.py"
+SPEC = importlib.util.spec_from_file_location("review_spec_coverage", SCRIPT)
+assert SPEC is not None and SPEC.loader is not None
+MODULE = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = MODULE
+SPEC.loader.exec_module(MODULE)
+ReviewCoverageError = MODULE.ReviewCoverageError
+validate_coverage = MODULE.validate_coverage
 
 HEAD = "a" * 40
 SPEC_HASH = "b" * 64
@@ -217,8 +222,7 @@ def test_cli_emits_machine_complete_receipt(tmp_path: Path) -> None:
     completed = subprocess.run(
         [
             sys.executable,
-            "-m",
-            "scripts.workflow_review_coverage",
+            str(SCRIPT),
             "validate",
             str(contract_path),
             str(coverage_path),
@@ -242,7 +246,9 @@ def test_cli_emits_machine_complete_receipt(tmp_path: Path) -> None:
 def test_review_spec_skill_requires_machine_coverage_and_full_failed_sweep() -> None:
     skill = (ROOT / ".agents/skills/review-spec/SKILL.md").read_text(encoding="utf-8")
     assert "review-spec-coverage:v1" in skill
-    assert "python -m scripts.workflow_review_coverage validate" in skill
+    assert (
+        "python .agents/skills/review-spec/scripts/review_coverage.py validate" in skill
+    )
     assert "REVIEW COVERAGE: VALID" in skill
     assert "A Blocking finding does not terminate the sweep" in skill
     assert "coverage challenger" in skill.lower()

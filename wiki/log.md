@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-25] R3 withholding Evidence basis | commit protection completed
+
+Recorded that withholding which consumes a current Evidence result preserves its exact basis and revalidates it atomically before append, returning typed stale or no-basis outcomes without a judgment write. Updated Investment Intelligence and Durable Persistence; cross-domain production provider assembly remains downstream.
+
 ## [2026-10-24] R3 Investment Intelligence owner history and Recommendation semantics | realized
 
 Recorded five typed Investment Intelligence Evidence targets and complete claim catalogs with explicit future-correction overlap resolution, owner-issued current versions, and temporal-cause witnesses. Recorded durable Recommendation and withholding history, latest-judgment support semantics, Portfolio/Risk consequence consumption, and exact dependent Evidence-basis capture/revalidation through the inward current-basis boundary; complete cross-domain provider composition remains downstream. Updated Investment Intelligence, Evidence, and Durable Persistence.

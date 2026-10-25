@@ -214,7 +214,7 @@ async def _scenario(target: PostgresTestTarget) -> None:
         queries = {}
         bases = []
         for root in (view.view_id, challenge.challenge_id):
-            query, key = _query_for_intelligence_target(
+            query, key, _ = _query_for_intelligence_target(
                 decision_store, owner_store, decision.decision_id, root
             )
             basis = await query.read(key, at=datetime.now(UTC))

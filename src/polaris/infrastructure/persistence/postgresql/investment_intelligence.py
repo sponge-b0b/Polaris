@@ -1038,10 +1038,13 @@ class PostgresInvestmentIntelligenceStore:
         withholding: RecommendationWithholdingJudgment,
         expected_decision_version: DecisionVersion,
         initial_claim_catalog: IntelligenceClaimCatalog,
-    ) -> JudgmentReceipt:
+        evidence_bases: tuple[CurrentEvidenceBasis, ...] = (),
+    ) -> JudgmentReceipt | StaleEvidenceBasis | CurrentEvidenceNoBasis:
         if (
             type(withholding) is not RecommendationWithholdingJudgment
             or type(initial_claim_catalog) is not IntelligenceClaimCatalog
+            or type(evidence_bases) is not tuple
+            or any(type(item) is not CurrentEvidenceBasis for item in evidence_bases)
         ):
             raise InvalidInvestmentJudgment("typed withholding and catalog required")
         payload = [
@@ -1057,11 +1060,13 @@ class PostgresInvestmentIntelligenceStore:
             await _append_initial_target(connection, withholding, initial_claim_catalog)
             return (withholding.withholding_id,)
 
-        receipt = await self._commit(
-            operation_id, "recommendation_withholding", payload, write
+        return await self._commit(
+            operation_id,
+            "recommendation_withholding",
+            payload,
+            write,
+            evidence_bases,
         )
-        assert isinstance(receipt, JudgmentReceipt)
-        return receipt
 
     async def recommendation_history(
         self, decision_id: InvestmentDecisionId

@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from polaris.application.decisions import (
     DecisionCommandEnvelope,
@@ -20,6 +21,7 @@ from polaris.application.evidence.context_versions import ContextSelectionResolv
 from polaris.application.evidence.current_basis import (
     CurrentEvidenceBasis,
     CurrentEvidenceBasisQuery,
+    CurrentEvidenceNoBasis,
     ResolvedRequirementKey,
 )
 from polaris.application.evidence.judgment_versions import TargetJudgmentResolver
@@ -38,6 +40,9 @@ from polaris.application.investment_intelligence import (
     FIRST_R3_SPY_INSTRUMENT_ID,
     InvestmentIntelligenceService,
     JudgmentReceipt,
+)
+from polaris.application.investment_recommendation import (
+    InvestmentRecommendationService,
 )
 from polaris.domain.actors import ActorId, KnownActorAttribution
 from polaris.domain.configuration import (
@@ -60,12 +65,15 @@ from polaris.domain.evidence.judgments import (
     InvestmentViewRef,
     JudgmentWideEvidenceScope,
     MeaningfulChallengeResultRef,
+    RecommendationWithholdingJudgmentRef,
 )
 from polaris.domain.intelligence_judgment_history import (
+    IntelligenceClaimCatalog,
     IntelligenceJudgmentAct,
     IntelligenceJudgmentStatus,
 )
 from polaris.domain.investment_intelligence import InvestmentView, R3InvestmentSlice
+from polaris.domain.investment_recommendation import RecommendationWithholdingJudgment
 from polaris.domain.portfolio import PortfolioId
 from polaris.infrastructure.persistence.postgresql import (
     PostgresCurrentBasisReader,
@@ -84,7 +92,6 @@ from polaris.infrastructure.persistence.postgresql.schema import (
 from tests.application.evidence.test_current_basis import (
     _Claims,
     _Contexts,
-    _Epochs,
     _Evidence,
     _MeaningOwner,
     _Relationship,
@@ -100,6 +107,19 @@ from tests.domain.configuration.configuration_support import (
 from .conftest import PostgresTestTarget
 
 START = datetime(2026, 10, 20, tzinfo=UTC)
+
+
+async def _captured_basis(engine: AsyncEngine, operation_id: OperationId):
+    async with engine.connect() as connection:
+        payload = (
+            await connection.execute(
+                select(investment_intelligence_judgment_bases.c.basis).where(
+                    investment_intelligence_judgment_bases.c.operation_id
+                    == operation_id.value
+                )
+            )
+        ).scalar_one()
+    return basis_from_payload(payload)
 
 
 class _RequirementKeyOwner:
@@ -140,17 +160,44 @@ class _PauseFreshQuery:
         return await self.query.verify_owner_meaning(basis, validation_at=validation_at)
 
 
+class _EvidenceEpochTimeline:
+    def __init__(self, applicability: EvidenceRequirementApplicabilityKey) -> None:
+        self._sufficiency = _Sufficiency(
+            EvidenceSupportVersion(1), applicability, empty=True
+        )
+        self.changed_at: datetime | None = None
+
+    def _version_at(self, at: datetime) -> EvidenceSupportVersion:
+        return EvidenceSupportVersion(
+            2 if self.changed_at is not None and at >= self.changed_at else 1
+        )
+
+    async def load_sufficiency_basis(
+        self, applicability_key, *, effective_at, known_at
+    ):
+        basis = await self._sufficiency.load_sufficiency_basis(
+            applicability_key, effective_at=effective_at, known_at=known_at
+        )
+        return replace(basis, support_version=self._version_at(known_at))
+
+    async def load_support_version(
+        self, target, scope, evidence_use, *, effective_at, known_at
+    ):
+        return self._version_at(known_at)
+
+
 def _query_for_intelligence_target(
     decision_store: PostgresDecisionStore,
     owner_store: PostgresIntelligenceJudgmentHistoryStore,
     decision_id: InvestmentDecisionId,
     root: InvestmentViewRef | MeaningfulChallengeResultRef,
-) -> tuple[CurrentEvidenceBasisQuery, BasisScopeKey]:
+) -> tuple[CurrentEvidenceBasisQuery, BasisScopeKey, _EvidenceEpochTimeline]:
     contexts = _Contexts()
     context_meaning = _MeaningOwner(_Targets(None), contexts, _Claims())
     scope = JudgmentWideEvidenceScope()
     use = EvidenceUse.JUDGMENT_BASIS
     applicability = EvidenceRequirementApplicabilityKey(root, scope, use)
+    epochs = _EvidenceEpochTimeline(applicability)
     query = CurrentEvidenceBasisQuery(
         decisions=DecisionMemoryService(reader=decision_store),
         decision_meaning=DecisionOwnerMeaningReader(decision_store),
@@ -159,15 +206,17 @@ def _query_for_intelligence_target(
         contexts=ContextSelectionResolver(contexts),
         context_meaning=context_meaning,
         requirement_keys=_RequirementKeyOwner(applicability),
-        sufficiency=_Sufficiency(EvidenceSupportVersion(1), applicability, empty=True),
+        sufficiency=epochs,
         evidence=_Evidence(EvidenceHistories((), (), ()), root),
-        support_epochs=_Epochs(EvidenceSupportVersion(1)),
+        support_epochs=epochs,
         claims=IntelligenceJudgmentClaimResolver(owner_store),
         claim_meaning=IntelligenceJudgmentMeaningReader(owner_store),
         requirements=_Requirements(applicability),
     )
-    return query, BasisScopeKey(
-        decision_id=decision_id, target=root, scope=scope, use=use
+    return (
+        query,
+        BasisScopeKey(decision_id=decision_id, target=root, scope=scope, use=use),
+        epochs,
     )
 
 
@@ -240,7 +289,7 @@ async def _scenario(target: PostgresTestTarget) -> None:
         )
 
         owner_store = PostgresIntelligenceJudgmentHistoryStore(engine)
-        query, key = _query_for_intelligence_target(
+        query, key, epochs = _query_for_intelligence_target(
             decision_store, owner_store, decision.decision_id, original.view_id
         )
         prior = await query.read(key, at=datetime.now(UTC))
@@ -255,16 +304,7 @@ async def _scenario(target: PostgresTestTarget) -> None:
             accepted_operation, decision, accepted_view, evidence_bases=(prior,)
         )
         assert isinstance(accepted_result, JudgmentReceipt)
-        async with engine.connect() as connection:
-            captured = (
-                await connection.execute(
-                    select(investment_intelligence_judgment_bases.c.basis).where(
-                        investment_intelligence_judgment_bases.c.operation_id
-                        == accepted_operation.value
-                    )
-                )
-            ).scalar_one()
-        assert basis_from_payload(captured) == prior
+        assert await _captured_basis(engine, accepted_operation) == prior
 
         paused = _PauseFreshQuery(query, prior.at)
         paused_service = InvestmentIntelligenceService(
@@ -328,6 +368,65 @@ async def _scenario(target: PostgresTestTarget) -> None:
         assert isinstance(rejected, StaleEvidenceBasis)
         assert rejected.categories == {StaleEvidenceBasisCategory.TARGET_CHANGED}
         assert await store.load_view(rejected_view.view_id) is None
+
+        withholding_store = PostgresInvestmentIntelligenceStore(
+            engine, basis_reader=PostgresCurrentBasisReader(engine, query)
+        )
+        withholding_service = InvestmentRecommendationService(withholding_store)
+        consumed = await query.read(key, at=datetime.now(UTC))
+        assert isinstance(consumed, CurrentEvidenceBasis)
+        withholding = RecommendationWithholdingJudgment(
+            RecommendationWithholdingJudgmentRef(uuid4()),
+            decision.decision_id,
+            InvestmentHorizon("three months"),
+            "Current Evidence does not support a Recommendation",
+            actor,
+            datetime.now(UTC),
+        )
+        epochs.changed_at = datetime.now(UTC)
+        stale_operation = OperationId(uuid4())
+        stale = await withholding_service.withhold(
+            stale_operation,
+            withholding,
+            decision.version,
+            IntelligenceClaimCatalog(()),
+            evidence_bases=(consumed,),
+        )
+        assert isinstance(stale, StaleEvidenceBasis)
+        assert stale.categories == {StaleEvidenceBasisCategory.EVIDENCE_SUPPORT_CHANGED}
+        assert await withholding_service.history(decision.decision_id) == ()
+
+        fresh = await query.read(key, at=datetime.now(UTC))
+        assert isinstance(fresh, CurrentEvidenceBasis)
+        unavailable_service = InvestmentRecommendationService(
+            PostgresInvestmentIntelligenceStore(engine)
+        )
+        # duplicate-code: Keep the unavailable-provider call explicit beside its
+        # independent no-write assertion; sharing it with an accepted write obscures
+        # which service has no current-basis reader.
+        # arid: disable
+        unavailable = await unavailable_service.withhold(
+            OperationId(uuid4()),
+            withholding,
+            decision.version,
+            IntelligenceClaimCatalog(()),
+            evidence_bases=(fresh,),
+        )
+        # arid: enable
+        assert isinstance(unavailable, CurrentEvidenceNoBasis)
+        assert await withholding_service.history(decision.decision_id) == ()
+
+        accepted_operation = OperationId(uuid4())
+        accepted = await withholding_service.withhold(
+            accepted_operation,
+            withholding,
+            decision.version,
+            IntelligenceClaimCatalog(()),
+            evidence_bases=(fresh,),
+        )
+        assert isinstance(accepted, JudgmentReceipt)
+        assert await _captured_basis(engine, accepted_operation) == fresh
+        assert await withholding_service.history(decision.decision_id) == (withholding,)
     finally:
         await engine.dispose()
 

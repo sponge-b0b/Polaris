@@ -27,6 +27,19 @@ type RecommendationWriteResult = (
 )
 
 
+def _require_evidence_bases(
+    decision_id: InvestmentDecisionId, bases: tuple[CurrentEvidenceBasis, ...]
+) -> None:
+    if type(bases) is not tuple or any(
+        type(item) is not CurrentEvidenceBasis for item in bases
+    ):
+        raise InvalidInvestmentJudgment("current Evidence bases must be typed")
+    if any(item.key.decision_id != decision_id for item in bases):
+        raise InvalidInvestmentJudgment("Evidence basis has another Decision")
+    if len({item.key for item in bases}) != len(bases):
+        raise InvalidInvestmentJudgment("Evidence basis keys must be distinct")
+
+
 class RecommendationSupportKind(StrEnum):
     NO_ATTEMPT = "no_attempt"
     WITHHELD = "withheld"
@@ -82,7 +95,8 @@ class InvestmentRecommendationStore(Protocol):
         withholding: RecommendationWithholdingJudgment,
         expected_decision_version: DecisionVersion,
         initial_claim_catalog: IntelligenceClaimCatalog,
-    ) -> JudgmentReceipt: ...
+        evidence_bases: tuple[CurrentEvidenceBasis, ...] = (),
+    ) -> RecommendationWriteResult: ...
 
     async def recommendation_history(
         self, decision_id: InvestmentDecisionId
@@ -110,12 +124,11 @@ class InvestmentRecommendationService:
             or type(recommendation) is not InvestmentRecommendation
             or type(expected_decision_version) is not DecisionVersion
             or type(initial_claim_catalog) is not IntelligenceClaimCatalog
-            or type(evidence_bases) is not tuple
-            or any(type(item) is not CurrentEvidenceBasis for item in evidence_bases)
         ):
             raise InvalidInvestmentJudgment(
                 "typed Recommendation formation is required"
             )
+        _require_evidence_bases(recommendation.decision_id, evidence_bases)
         required_targets = set(recommendation.view_ids) | set(
             recommendation.challenge_ids
         )
@@ -124,13 +137,6 @@ class InvestmentRecommendationService:
             raise InvalidInvestmentJudgment(
                 "each material View and challenge needs a current Evidence basis"
             )
-        if any(
-            item.key.decision_id != recommendation.decision_id
-            for item in evidence_bases
-        ):
-            raise InvalidInvestmentJudgment("Evidence basis has another Decision")
-        if len({item.key for item in evidence_bases}) != len(evidence_bases):
-            raise InvalidInvestmentJudgment("Evidence basis keys must be distinct")
         binding_ids = frozenset(
             binding for item in evidence_bases for binding in item.guards.binding_ids
         )
@@ -152,7 +158,8 @@ class InvestmentRecommendationService:
         withholding: RecommendationWithholdingJudgment,
         expected_decision_version: DecisionVersion,
         initial_claim_catalog: IntelligenceClaimCatalog,
-    ) -> JudgmentReceipt:
+        evidence_bases: tuple[CurrentEvidenceBasis, ...] = (),
+    ) -> RecommendationWriteResult:
         if (
             type(operation_id) is not OperationId
             or type(withholding) is not RecommendationWithholdingJudgment
@@ -160,8 +167,13 @@ class InvestmentRecommendationService:
             or type(initial_claim_catalog) is not IntelligenceClaimCatalog
         ):
             raise InvalidInvestmentJudgment("typed withholding act is required")
+        _require_evidence_bases(withholding.decision_id, evidence_bases)
         return await self._store.record_withholding(
-            operation_id, withholding, expected_decision_version, initial_claim_catalog
+            operation_id,
+            withholding,
+            expected_decision_version,
+            initial_claim_catalog,
+            evidence_bases,
         )
 
     async def history(

@@ -64,7 +64,11 @@ def test_resolver_uses_local_runtime_when_contract_is_current(
         lambda root: pytest.fail("current local runtime must not fetch default"),
     )
 
-    def fake_finalize(runtime_root: Path, manifest_path: Path, output_path: Path) -> str:
+    def fake_finalize(
+        runtime_root: Path,
+        manifest_path: Path,
+        output_path: Path,
+    ) -> str:
         called.append(runtime_root)
         output_path.write_text("ok\n", encoding="utf-8")
         return resolver.VALID
@@ -98,7 +102,11 @@ def test_resolver_falls_back_to_current_default_when_local_contract_is_stale(
         lambda root, target: (target / "scripts").mkdir(parents=True),
     )
 
-    def fake_finalize(runtime_root: Path, manifest_path: Path, output_path: Path) -> str:
+    def fake_finalize(
+        runtime_root: Path,
+        manifest_path: Path,
+        output_path: Path,
+    ) -> str:
         finalized.append(runtime_root)
         output_path.write_text("ok\n", encoding="utf-8")
         return resolver.VALID

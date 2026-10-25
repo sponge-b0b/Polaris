@@ -29,7 +29,11 @@ def _run_git(root: Path, *args: str) -> str:
         capture_output=True,
     )
     if completed.returncode != 0:
-        detail = completed.stderr.strip() or completed.stdout.strip() or "git command failed"
+        detail = (
+            completed.stderr.strip()
+            or completed.stdout.strip()
+            or "git command failed"
+        )
         raise HandoffRuntimeError(detail)
     return completed.stdout.strip()
 
@@ -51,7 +55,8 @@ def _materialize_default_runtime(root: Path, target: Path) -> None:
         if completed.returncode != 0:
             detail = completed.stderr.decode("utf-8", errors="replace").strip()
             raise HandoffRuntimeError(
-                f"could not materialize current default-branch handoff runtime {path}: {detail}"
+                "could not materialize current default-branch handoff runtime "
+                f"{path}: {detail}"
             )
         destination = target / path
         destination.parent.mkdir(parents=True, exist_ok=True)

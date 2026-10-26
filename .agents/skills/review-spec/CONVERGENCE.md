@@ -2,6 +2,10 @@
 
 This file is authoritative procedure for `$review-spec` completeness convergence. It exists to prevent serial blocker discovery across repeated fix/re-review loops.
 
+## Procedure precedence
+
+The initial Reviewer A + Reviewer B pair required by `SKILL.md` remains mandatory. For convergence recovery only, this procedure is the explicit narrow exception to `SKILL.md`'s "exactly two fresh reviewers" count: when the final challenger changes the material review universe, dispatch one additional fresh non-mutating challenger at a time until the fixed-point gate passes. Do not skip the initial A/B pair, and do not add extra challengers once convergence is valid.
+
 ## Trigger
 
 Every `$review-spec` run must prove review convergence before any terminal PASS or remediation handoff.

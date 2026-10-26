@@ -274,7 +274,7 @@ async def _require_decision_ordinary_work(
     ).one_or_none()
     if current is None or current.decision_version != expected.value:
         raise JudgmentConcurrencyConflict("governing Decision version changed")
-    now = datetime.now(UTC)
+    now = await connection.scalar(text("SELECT clock_timestamp()"))
     relationships = await _load_relationship_history(connection, known_at=now)
     loaded = await _load_decision(
         connection,

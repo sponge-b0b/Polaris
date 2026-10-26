@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, tzinfo
 from uuid import uuid4
 
 import pytest
@@ -11,11 +11,17 @@ from sqlalchemy.exc import DBAPIError
 
 from polaris.application.decisions import (
     ApplySubstantiveResolutionCommand,
+    ContinuityDetermination,
     DecisionCommandEnvelope,
     DecisionInitiationService,
     DecisionOrdinaryWorkService,
     ExpectedDecisionVersion,
     InitiateDecisionCommand,
+)
+from polaris.application.decisions.relationships import (
+    DecisionRelationshipService,
+    EstablishSupersessionCommand,
+    SupersessionTarget,
 )
 from polaris.application.investment_intelligence import (
     FIRST_R3_SPY_INSTRUMENT_ID,
@@ -29,6 +35,7 @@ from polaris.domain.decisions import (
     HumanInvestmentDecisionEffect,
     InvestmentDecisionId,
     OperationId,
+    SupersedesRelationshipBasis,
     TechnicalProvenance,
     TriggerKind,
     TriggerProvenance,
@@ -60,6 +67,9 @@ from polaris.infrastructure.persistence.postgresql import (
     PostgresDecisionStore,
     PostgresInvestmentIntelligenceStore,
     create_postgres_engine,
+)
+from polaris.infrastructure.persistence.postgresql import (
+    investment_intelligence as intelligence_module,
 )
 from polaris.infrastructure.persistence.postgresql.investment_intelligence import (
     JudgmentConcurrencyConflict,
@@ -418,3 +428,209 @@ def test_investment_intelligence_judgments_are_durable_and_root_local(
     postgres_target: PostgresTestTarget,
 ) -> None:
     asyncio.run(_exercise(postgres_target))
+
+
+def test_future_supersession_rejects_intelligence_writes_with_lagging_process_clock(
+    postgres_target: PostgresTestTarget, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        engine = create_postgres_engine(
+            postgres_target.database_url, schema=postgres_target.schema
+        )
+        try:
+            decisions = PostgresDecisionStore(engine)
+            intelligence = PostgresInvestmentIntelligenceStore(engine)
+            async with engine.connect() as connection:
+                database_now = await connection.scalar(text("SELECT clock_timestamp()"))
+            assert isinstance(database_now, datetime)
+            lagging_now = database_now - timedelta(days=2)
+            effective_at = database_now - timedelta(days=1)
+            actor = KnownActorAttribution(ActorId(uuid4()))
+            portfolio_id = PortfolioId(uuid4())
+
+            async def initiate(label: str) -> InvestmentDecisionId:
+                # duplicate-code: this clock-boundary proof creates its own Decision
+                # history; sharing the earlier lifecycle fixture could hide the skew.
+                # arid: disable
+                result = await DecisionInitiationService(
+                    reader=decisions, store=decisions, now=lambda: lagging_now
+                ).initiate(
+                    InitiateDecisionCommand(
+                        envelope=DecisionCommandEnvelope(
+                            operation_id=OperationId(uuid4()),
+                            actor_attribution=actor,
+                            trigger=TriggerProvenance(TriggerKind.HUMAN_REQUEST, label),
+                            effective_at=lagging_now,
+                            technical_provenance=TechnicalProvenance(),
+                            expected_versions=frozenset(),
+                        ),
+                        need_statement=f"Need {label}",
+                        subject=DecisionSubject(label),
+                        scope=DecisionScope.established(portfolio_id),
+                        continuity=ContinuityDetermination.create_new(label),
+                    )
+                )
+                return result.decision_id
+                # arid: enable
+
+            target_id = await initiate("intelligence target")
+            source_id = await initiate("superseding source")
+            target_state = await decisions.load_decision_for_command(
+                target_id, known_at=lagging_now
+            )
+            source_state = await decisions.load_decision_for_command(
+                source_id, known_at=lagging_now
+            )
+            assert target_state is not None and source_state is not None
+            target_version = target_state.decision.version
+            source_version = source_state.decision.version
+            view = InvestmentView(
+                InvestmentViewRef(uuid4()),
+                target_id,
+                R3InvestmentSlice(
+                    portfolio_id,
+                    FIRST_R3_SPY_INSTRUMENT_ID,
+                    InvestmentHorizon("three months"),
+                ),
+                "A SPY increase may be justified",
+                actor,
+                lagging_now,
+                # duplicate-code: this independent temporal proof keeps the full View
+                # content visible instead of inheriting the earlier View's assertions.
+                # arid: disable
+                (),
+                ("cash remains adequate",),
+                "returns remain uncertain",
+                "holding cash may be preferable",
+                ("liquidity deteriorates",),
+                # arid: enable
+                (),
+                (),
+            )
+            await intelligence.record_view(
+                OperationId(uuid4()), view, (), target_version
+            )
+
+            relationship_recorded_at = lagging_now + timedelta(hours=1)
+            result = await DecisionRelationshipService(
+                reader=decisions,
+                store=decisions,
+                now=lambda: relationship_recorded_at,
+            ).establish_supersession(
+                EstablishSupersessionCommand(
+                    envelope=DecisionCommandEnvelope(
+                        operation_id=OperationId(uuid4()),
+                        actor_attribution=actor,
+                        trigger=TriggerProvenance(
+                            TriggerKind.HUMAN_REQUEST, "supersede"
+                        ),
+                        effective_at=relationship_recorded_at,
+                        technical_provenance=TechnicalProvenance(),
+                        expected_versions=frozenset(
+                            {
+                                ExpectedDecisionVersion(source_id, source_version),
+                                ExpectedDecisionVersion(target_id, target_version),
+                            }
+                        ),
+                    ),
+                    source_decision_id=source_id,
+                    targets=(
+                        SupersessionTarget(
+                            target_id,
+                            SupersedesRelationshipBasis(("replacement",)),
+                            effective_at,
+                        ),
+                    ),
+                )
+            )
+            assert result.versioned_decision_ids == frozenset()
+
+            class LaggingDateTime(datetime):
+                @classmethod
+                def now(cls, tz: tzinfo | None = None) -> LaggingDateTime:
+                    return cls.fromtimestamp(lagging_now.timestamp(), tz or UTC)
+
+            monkeypatch.setattr(intelligence_module, "datetime", LaggingDateTime)
+            async with engine.connect() as connection:
+                receipt_count = await connection.scalar(
+                    text(
+                        "SELECT count(*) FROM investment_intelligence_command_receipts"
+                    )
+                )
+            challenge = MeaningfulChallengeResult(
+                ChallengeResultRef(uuid4()),
+                view.view_id,
+                target_id,
+                actor,
+                lagging_now,
+                "A rebound may be temporary",
+                (),
+                "The liquidity assumption may fail",
+                ChallengeDisposition.QUALIFIED,
+                "The interpretation remains conditional",
+            )
+            # duplicate-code: each proof states its own complete economic alternatives;
+            # sharing their setup could couple unrelated lifecycle and clock assertions.
+            # arid: disable
+            alternatives = tuple(
+                DecisionAlternative(
+                    DecisionAlternativeId(uuid4()),
+                    target_id,
+                    FIRST_R3_SPY_INSTRUMENT_ID,
+                    InvestmentHorizon("three months"),
+                    disposition,
+                    f"Material comparison for {disposition.value}",
+                    actor,
+                    lagging_now,
+                )
+                for disposition in EconomicDisposition
+            )
+            # arid: enable
+            withholding = RecommendationWithholdingJudgment(
+                withholding_id=RecommendationWithholdingJudgmentRef(uuid4()),
+                decision_id=target_id,
+                horizon=InvestmentHorizon("three months"),
+                explanation="Support is insufficient",
+                actor_attribution=actor,
+                formed_at=lagging_now,
+            )
+            with pytest.raises(InvalidInvestmentJudgment, match="ordinary work"):
+                await intelligence.record_view(
+                    OperationId(uuid4()),
+                    replace(view, view_id=InvestmentViewRef(uuid4())),
+                    (),
+                    target_version,
+                )
+            with pytest.raises(InvalidInvestmentJudgment, match="ordinary work"):
+                await intelligence.record_challenge(
+                    OperationId(uuid4()), challenge, (), target_version
+                )
+            with pytest.raises(InvalidInvestmentJudgment, match="ordinary work"):
+                await intelligence.record_alternatives(
+                    OperationId(uuid4()), alternatives, target_version
+                )
+            with pytest.raises(InvalidInvestmentJudgment, match="ordinary work"):
+                await intelligence.record_withholding(
+                    OperationId(uuid4()),
+                    withholding,
+                    target_version,
+                    IntelligenceClaimCatalog(()),
+                )
+            # duplicate-code: independent no-write evidence stays beside this clock
+            # boundary so a shared assertion cannot mask the regression.
+            # arid: disable
+            async with engine.connect() as connection:
+                assert (
+                    await connection.scalar(
+                        text(
+                            "SELECT count(*) FROM "
+                            "investment_intelligence_command_receipts"
+                        )
+                    )
+                    == receipt_count
+                )
+            # arid: enable
+        finally:
+            await engine.dispose()
+
+    asyncio.run(scenario())

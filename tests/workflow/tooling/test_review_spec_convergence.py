@@ -220,3 +220,30 @@ def test_convergence_policy_names_missed_prior_finding_recovery() -> None:
     assert "fresh non-mutating challenger" in policy
     assert "fixed point" in policy
     assert "Neither PASS nor remediation handoff is allowed until convergence is valid" in policy
+
+
+def test_cli_stale_handoff_invocation_fails_closed_with_convergence_guidance(
+    tmp_path: Path,
+) -> None:
+    manifest = tmp_path / "manifest.json"
+    output = tmp_path / "handoff.txt"
+    manifest.write_text(json.dumps(_manifest()), encoding="utf-8")
+    completed = __import__("subprocess").run(
+        [
+            sys.executable,
+            str(HANDOFF_SCRIPT),
+            "finalize",
+            "--manifest",
+            str(manifest),
+            "--output",
+            str(output),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+    assert completed.returncode == 1
+    assert "WORKFLOW HANDOFF: INVALID" in completed.stdout
+    assert "fixed-point convergence" in completed.stdout
+    assert "CONVERGENCE.md" in completed.stdout
+    assert not output.exists()

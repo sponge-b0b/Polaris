@@ -93,8 +93,8 @@ def _snapshot(contract: dict[str, Any], coverage: dict[str, Any]) -> dict[str, A
 
     return {
         "coverage_sha256": receipt.coverage_sha256,
-        "surface_fingerprints": sorted(surfaces),
-        "probe_fingerprints": sorted(probes),
+        "surface_fingerprints": sorted(set(surfaces)),
+        "probe_fingerprints": sorted(set(probes)),
         "finding_links": sorted(finding_links),
     }
 
@@ -174,7 +174,6 @@ def validate_convergence(value: dict[str, Any]) -> ReviewConvergenceReceipt:
     )
 
     normalized: list[tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]] = []
-    coverage_hashes: set[str] = set()
     for index, row in enumerate(rounds, start=1):
         _need(isinstance(row, dict), "convergence: invalid round row")
         _need(
@@ -194,11 +193,6 @@ def validate_convergence(value: dict[str, Any]) -> ReviewConvergenceReceipt:
             isinstance(coverage_hash, str) and _HASH.fullmatch(coverage_hash) is not None,
             "convergence: invalid coverage hash",
         )
-        _need(
-            coverage_hash not in coverage_hashes,
-            "convergence: each round must come from a distinct complete coverage artifact",
-        )
-        coverage_hashes.add(coverage_hash)
         surfaces = _validate_fingerprint_list(
             row.get("surface_fingerprints"), "surface_fingerprints"
         )

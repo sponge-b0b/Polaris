@@ -167,8 +167,8 @@ def _parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
     finalize_parser = subparsers.add_parser("finalize")
     finalize_parser.add_argument("--manifest", type=Path, required=True)
-    finalize_parser.add_argument("--coverage", type=Path, required=True)
-    finalize_parser.add_argument("--convergence", type=Path, required=True)
+    finalize_parser.add_argument("--coverage", type=Path)
+    finalize_parser.add_argument("--convergence", type=Path)
     finalize_parser.add_argument("--output", type=Path, required=True)
     return parser
 
@@ -178,6 +178,12 @@ def main() -> int:
     try:
         if args.command != "finalize":
             raise RuntimeError(f"unsupported command: {args.command}")
+        if args.coverage is None or args.convergence is None:
+            raise RuntimeError(
+                "review-spec terminal handoff requires fixed-point convergence; "
+                "read .agents/skills/review-spec/CONVERGENCE.md and supply "
+                "--coverage plus --convergence"
+            )
         print(
             finalize_converged(
                 args.manifest,

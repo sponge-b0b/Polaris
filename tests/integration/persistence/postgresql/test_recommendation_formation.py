@@ -250,6 +250,54 @@ async def _scenario(target: PostgresTestTarget) -> None:
                 engine, basis_reader=PostgresCurrentBasisReader(engine, query)
             )
         )
+        second_view = replace(
+            view,
+            view_id=InvestmentViewRef(uuid4()),
+            thesis="A second material SPY comparison",
+        )
+        await foundation.record_view(OperationId(uuid4()), decision, second_view)
+        second_query, second_key, _ = _query_for_intelligence_target(
+            decision_store, owner_store, decision.decision_id, second_view.view_id
+        )
+        second_view_basis = await second_query.read(second_key, at=datetime.now(UTC))
+        assert isinstance(second_view_basis, CurrentEvidenceBasis)
+        queries[second_view.view_id] = second_query
+        with pytest.raises(InvalidInvestmentJudgment, match="each relied-upon View"):
+            await recommender.recommend(
+                OperationId(uuid4()),
+                replace(recommendation, view_ids=(view.view_id, second_view.view_id)),
+                decision.version,
+                (*bases, second_view_basis),
+                IntelligenceClaimCatalog(()),
+            )
+        assert await recommender.history(decision.decision_id) == ()
+
+        second_challenge = replace(
+            challenge,
+            challenge_id=MeaningfulChallengeResultRef(uuid4()),
+            view_id=second_view.view_id,
+        )
+        await foundation.record_challenge(
+            OperationId(uuid4()), second_challenge, decision.version
+        )
+        second_query, second_key, _ = _query_for_intelligence_target(
+            decision_store,
+            owner_store,
+            decision.decision_id,
+            second_challenge.challenge_id,
+        )
+        second_challenge_basis = await second_query.read(
+            second_key, at=datetime.now(UTC)
+        )
+        assert isinstance(second_challenge_basis, CurrentEvidenceBasis)
+        queries[second_challenge.challenge_id] = second_query
+        bases.extend((second_view_basis, second_challenge_basis))
+        recommendation = replace(
+            recommendation,
+            view_ids=(view.view_id, second_view.view_id),
+            challenge_ids=(challenge.challenge_id, second_challenge.challenge_id),
+            formed_at=datetime.now(UTC),
+        )
         receipt = await recommender.recommend(
             OperationId(uuid4()),
             recommendation,

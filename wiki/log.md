@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-25] R3 Recommendation challenge coverage | enforced per View
+
+Recorded that a consequential Recommendation commits only when each materially relied-upon View has a durable substantive Challenge result. Updated Investment Intelligence.
+
 ## [2026-10-25] R3 Intelligence writes | Decision ordinary-work gate enforced
 
 Recorded that new Investment Intelligence View, challenge, Alternative, and withholding commits require a determinately unresolved, operative governing Decision even when the supplied DecisionVersion is current. The commit check also reconstructs known Decision history at its current time under a Decision row lock. Updated Investment Intelligence.

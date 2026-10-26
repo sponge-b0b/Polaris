@@ -667,6 +667,7 @@ class PostgresInvestmentIntelligenceStore:
                 or row["payload"]["horizon"] != recommendation.horizon.value
             ):
                 raise InvalidInvestmentJudgment("material View is not applicable")
+        challenged_view_ids: set[InvestmentViewRef] = set()
         for challenge_id in recommendation.challenge_ids:
             # duplicate-code: Sharing would hide distinct judgment checks.
             # arid: disable
@@ -686,6 +687,11 @@ class PostgresInvestmentIntelligenceStore:
                 raise InvalidInvestmentJudgment(
                     "material challenge does not belong to a relied-upon View"
                 )
+            challenged_view_ids.add(InvestmentViewRef(_uuid(row["view_id"])))
+        if challenged_view_ids != set(recommendation.view_ids):
+            raise InvalidInvestmentJudgment(
+                "each relied-upon View needs a substantive Challenge result"
+            )
         alternatives = await _material_alternatives_for_decision(
             connection, recommendation.decision_id
         )

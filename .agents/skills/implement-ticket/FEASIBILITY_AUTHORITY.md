@@ -43,7 +43,7 @@ polaris.implement-feasibility/v1
 The artifact binds:
 
 - ticket number;
-- exact ticket/remediation contract hash;
+- exact typed ticket/remediation `contract_schema` plus `contract_hash`;
 - branch and exact execution HEAD;
 - the complete evidence source set used by feasibility;
 - every required seam and its ownership + authority disposition;
@@ -51,6 +51,10 @@ The artifact binds:
 - every materially applicable prior finding and its disposition;
 - exact `PASS` or `BLOCKED` outcome;
 - exact blocked classification/route when blocked.
+
+`contract_schema` is exactly one of `polaris.ticket-contract/v1` or
+`polaris.review-remediation-contract/v1`. Hash equality without schema equality is not contract
+identity.
 
 Every authority/realization/prior-finding basis must name evidence already present in the
 artifact's `evidence_sources`. This makes the pre-PASS evidence frontier explicit.
@@ -96,8 +100,8 @@ python .agents/skills/implement-ticket/scripts/attention_gate.py pre-mutation \
 ```
 
 The gate fails closed unless the feasibility artifact is `PASS` and matches the exact ticket,
-contract hash, branch, and current execution HEAD. This prevents a prose-only or stale
-feasibility claim from authorizing mutation.
+contract schema, contract hash, branch, and current execution HEAD. This prevents a prose-only
+or stale feasibility claim from authorizing mutation.
 
 ## Architecture routing after feasibility
 
@@ -123,7 +127,7 @@ Prepare one JSON route request with schema:
 polaris.architecture-route-request/v1
 ```
 
-It must bind the same ticket and contract hash and include:
+It must bind the same ticket, contract schema, and contract hash and include:
 
 - `question_kind: semantic-authority-gap`;
 - the exact unresolved `authority_coordinate`;

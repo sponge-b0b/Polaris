@@ -1,7 +1,7 @@
 ---
 name: architecture-remediation
 description: Route unresolved material architecture blockers to the smallest current semantic owner without implementing or inventing missing semantics.
-compatibility: product=codex product=claude-code system=git system=gh network=required
+compatibility: product=codex product=claude-code system=git system=gh system=python network=required
 disable-model-invocation: true
 ---
 
@@ -80,6 +80,45 @@ If current governing/constraint sources disagree materially at one semantic coor
 route the exact disagreement as `CCL SOURCE CONFLICT`. Never choose a winner locally.
 
 If a material choice remains unresolved, continue by governance mode.
+
+### Implement-ticket feasibility consistency gate
+
+When the blocker source workflow is `$implement-ticket`, architecture routing must also prove
+that it is consistent with the ticket's pre-implementation feasibility verdict.
+
+Recover the exact `polaris.implement-feasibility/v1` artifact and exact
+`polaris.architecture-route-request/v1` artifact persisted with the blocker, then run:
+
+```bash
+python .agents/skills/architecture-remediation/scripts/architecture_route_guard.py \
+  --feasibility <implement-feasibility.json> \
+  --request <architecture-route-request.json>
+```
+
+Require exactly:
+
+```text
+ARCHITECTURE ROUTE: VALID
+```
+
+If the prior feasibility artifact was `PASS`, the route is valid only when the route request
+identifies genuinely new post-feasibility evidence. Evidence already enumerated before PASS
+cannot be reused to start architecture decision work; that means the earlier feasibility
+verdict was wrong and must be corrected by `$implement-ticket` to
+`BLOCKED: contract-authority-gap` instead.
+
+A failed preferred mechanism, unavailable vendor feature, difficult persistence technique, or
+other implementation-realization problem is not itself a semantic-authority gap. The route
+request must name the exact unresolved material `authority_coordinate` and the governing
+sources checked. When accepted authority fixes the observable guarantee and leaves physical
+encoding, private algorithms, query organization, or equivalent realization to
+implementation, do not route to Wayfinder/owner-decision merely because one realization was
+rejected.
+
+An `$implement-ticket` architecture blocker that lacks a valid feasibility artifact, route
+request, and `ARCHITECTURE ROUTE: VALID` receipt is not valid input for new semantic decision
+work under current policy. Do not reopen/create Wayfinder decisions or owner decisions. Leave
+the blocker unresolved and return it to the source ticket for feasibility correction.
 
 ## 4. Wayfinder-managed blocker
 
@@ -167,6 +206,15 @@ $contract-ledger owner-decision - <Durable Source Title> (<Source URL>)
 
 After owner-decision persistence, resume `$to-specs`.
 
+Invalid `$implement-ticket` architecture routing under the feasibility consistency gate:
+
+```text
+$implement-ticket - <Ticket Title> (<Ticket URL>)
+```
+
+This return is for feasibility correction only. It does not authorize candidate mutation and
+must not be used to bypass a valid `contract-authority-gap` route.
+
 ## Attention
 
 Run `$attention` before declaring a blocker fully dispositioned. Attention may expose an
@@ -181,5 +229,7 @@ additional material question but cannot answer it or enlarge current authority.
 * create a second contract beside CCL;
 * choose among conflicting governing sources;
 * create a Wayfinder for a bounded Independent decision;
+* turn implementation-mechanism difficulty into a semantic decision;
+* accept a post-PASS architecture route based only on evidence available before feasibility;
 * rewrite completed historical Specs/tickets/ADRs;
 * repair Project projection as though it were lifecycle authority.

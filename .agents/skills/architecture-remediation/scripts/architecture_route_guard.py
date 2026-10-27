@@ -22,6 +22,7 @@ class ArchitectureRouteError(RuntimeError):
 @dataclass(frozen=True)
 class ArchitectureRouteReceipt:
     ticket: int
+    contract_schema: str
     contract_hash: str
     feasibility_outcome: str
     new_evidence_count: int
@@ -89,6 +90,7 @@ def validate_route(
         == {
             "schema",
             "ticket",
+            "contract_schema",
             "contract_hash",
             "question_kind",
             "authority_coordinate",
@@ -103,8 +105,12 @@ def validate_route(
         "architecture route: ticket differs from feasibility artifact",
     )
     _need(
+        request.get("contract_schema") == f_receipt.contract_schema,
+        "architecture route: contract schema differs from feasibility artifact",
+    )
+    _need(
         request.get("contract_hash") == f_receipt.contract_hash,
-        "architecture route: contract differs from feasibility artifact",
+        "architecture route: contract hash differs from feasibility artifact",
     )
     _need(
         request.get("question_kind") == "semantic-authority-gap",
@@ -155,6 +161,7 @@ def validate_route(
 
     return ArchitectureRouteReceipt(
         ticket=f_receipt.ticket,
+        contract_schema=f_receipt.contract_schema,
         contract_hash=f_receipt.contract_hash,
         feasibility_outcome=f_receipt.outcome,
         new_evidence_count=len(new_evidence),
@@ -164,6 +171,7 @@ def validate_route(
 def _print(receipt: ArchitectureRouteReceipt) -> None:
     print("ARCHITECTURE ROUTE: VALID")
     print(f"Ticket: #{receipt.ticket}")
+    print(f"Contract Schema: {receipt.contract_schema}")
     print(f"Contract Hash: {receipt.contract_hash}")
     print(f"Feasibility outcome: {receipt.feasibility_outcome}")
     print(f"New post-feasibility evidence: {receipt.new_evidence_count}")

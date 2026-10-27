@@ -89,7 +89,7 @@ def _validate_pre_mutation_feasibility(path: Path, argv: list[str]) -> None:
     ticket = int(_arg_value(argv, "--ticket"))
     contract_path = Path(_arg_value(argv, "--contract"))
     branch = _arg_value(argv, "--branch")
-    _, contract_hash = _contract_identity(contract_path)
+    contract_schema, contract_hash = _contract_identity(contract_path)
     head = str(_impl._run_git("rev-parse", "HEAD")).strip()
 
     if receipt.outcome != "PASS":
@@ -99,6 +99,8 @@ def _validate_pre_mutation_feasibility(path: Path, argv: list[str]) -> None:
         )
     if receipt.ticket != ticket:
         raise AttentionGateError("feasibility artifact: ticket mismatch")
+    if receipt.contract_schema != contract_schema:
+        raise AttentionGateError("feasibility artifact: contract schema mismatch")
     if receipt.contract_hash != contract_hash:
         raise AttentionGateError("feasibility artifact: contract hash mismatch")
     if value.get("branch") != branch:

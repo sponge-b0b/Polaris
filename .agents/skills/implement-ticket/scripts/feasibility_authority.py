@@ -15,6 +15,10 @@ if str(ROOT) not in sys.path:
 from scripts.workflow_hashing import sha256_canonical_json  # noqa: E402
 
 SCHEMA = "polaris.implement-feasibility/v1"
+CONTRACT_SCHEMAS = {
+    "polaris.ticket-contract/v1",
+    "polaris.review-remediation-contract/v1",
+}
 _HEAD = re.compile(r"^[0-9a-f]{40}$")
 _HASH = re.compile(r"^[0-9a-f]{64}$")
 _CELL = re.compile(r"^[A-Z]+-[0-9]{3}$")
@@ -59,6 +63,7 @@ class FeasibilityError(RuntimeError):
 @dataclass(frozen=True)
 class FeasibilityReceipt:
     ticket: int
+    contract_schema: str
     contract_hash: str
     outcome: str
     seam_count: int
@@ -93,6 +98,7 @@ def validate_feasibility(value: dict[str, Any]) -> FeasibilityReceipt:
         == {
             "schema",
             "ticket",
+            "contract_schema",
             "contract_hash",
             "branch",
             "execution_head",
@@ -106,6 +112,12 @@ def validate_feasibility(value: dict[str, Any]) -> FeasibilityReceipt:
     )
     ticket = value.get("ticket")
     _need(isinstance(ticket, int) and ticket > 0, "feasibility: invalid ticket")
+    contract_schema = value.get("contract_schema")
+    _need(
+        contract_schema in CONTRACT_SCHEMAS,
+        "feasibility: unsupported contract schema",
+    )
+    assert isinstance(contract_schema, str)
     contract_hash = value.get("contract_hash")
     _need(
         isinstance(contract_hash, str) and _HASH.fullmatch(contract_hash) is not None,
@@ -299,6 +311,7 @@ def validate_feasibility(value: dict[str, Any]) -> FeasibilityReceipt:
 
     return FeasibilityReceipt(
         ticket=ticket,
+        contract_schema=contract_schema,
         contract_hash=contract_hash,
         outcome=outcome,
         seam_count=len(seams),
@@ -316,6 +329,7 @@ def _read(path: Path) -> dict[str, Any]:
 def _print(receipt: FeasibilityReceipt) -> None:
     print(f"IMPLEMENT TICKET FEASIBILITY: {receipt.outcome}")
     print(f"Ticket: #{receipt.ticket}")
+    print(f"Contract Schema: {receipt.contract_schema}")
     print(f"Contract Hash: {receipt.contract_hash}")
     print(f"Required production seams: {receipt.seam_count}")
     print(f"Authority/realization evidence sources: {receipt.evidence_count}")

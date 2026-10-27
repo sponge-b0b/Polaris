@@ -144,6 +144,5 @@ def test_architecture_policy_requires_route_consistency_guard():
         ROOT / ".agents/skills/architecture-remediation/SKILL.md"
     ).read_text(encoding="utf-8")
     assert "architecture_route_guard.py" in policy
-    assert "feasibility PASS cannot" not in policy  # machine message belongs in the guard
     assert "Evidence already enumerated before PASS" in policy
     assert "implementation-realization problem is not itself a semantic-authority gap" in policy

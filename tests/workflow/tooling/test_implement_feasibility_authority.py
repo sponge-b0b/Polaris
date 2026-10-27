@@ -128,3 +128,22 @@ def test_architecture_route_accepts_prior_contract_authority_block():
         _request(),
     )
     assert receipt.feasibility_outcome == "BLOCKED"
+
+
+def test_pre_mutation_attention_gate_requires_machine_feasibility():
+    gate = (
+        ROOT / ".agents/skills/implement-ticket/scripts/attention_gate.py"
+    ).read_text(encoding="utf-8")
+    assert "--feasibility" in gate
+    assert "pre-mutation requires IMPLEMENT TICKET FEASIBILITY: PASS" in gate
+    assert "execution HEAD is stale" in gate
+
+
+def test_architecture_policy_requires_route_consistency_guard():
+    policy = (
+        ROOT / ".agents/skills/architecture-remediation/SKILL.md"
+    ).read_text(encoding="utf-8")
+    assert "architecture_route_guard.py" in policy
+    assert "feasibility PASS cannot" not in policy  # machine message belongs in the guard
+    assert "Evidence already enumerated before PASS" in policy
+    assert "implementation-realization problem is not itself a semantic-authority gap" in policy

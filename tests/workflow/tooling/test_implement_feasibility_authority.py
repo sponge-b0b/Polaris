@@ -25,6 +25,7 @@ A = _load("test_architecture_route_guard_module", ARCH)
 
 HASH = "a" * 64
 HEAD = "b" * 40
+CONTRACT_SCHEMA = "polaris.review-remediation-contract/v1"
 
 
 def _feasibility(*, outcome="PASS", authority="FIXED_IMPLEMENTATION_LOCAL"):
@@ -41,6 +42,7 @@ def _feasibility(*, outcome="PASS", authority="FIXED_IMPLEMENTATION_LOCAL"):
     return {
         "schema": "polaris.implement-feasibility/v1",
         "ticket": 465,
+        "contract_schema": CONTRACT_SCHEMA,
         "contract_hash": HASH,
         "branch": "spec-358",
         "execution_head": HEAD,
@@ -66,6 +68,7 @@ def _request(*, post=()):
     return {
         "schema": "polaris.architecture-route-request/v1",
         "ticket": 465,
+        "contract_schema": CONTRACT_SCHEMA,
         "contract_hash": HASH,
         "question_kind": "semantic-authority-gap",
         "authority_coordinate": "durable known-at publication boundary",
@@ -78,6 +81,7 @@ def _request(*, post=()):
 def test_pass_requires_authority_closed_for_owned_seam():
     receipt = F.validate_feasibility(_feasibility())
     assert receipt.outcome == "PASS"
+    assert receipt.contract_schema == CONTRACT_SCHEMA
 
 
 def test_pass_rejects_unresolved_material_choice():
@@ -110,6 +114,13 @@ def test_architecture_route_rejects_preexisting_evidence_after_pass():
         A.validate_route(_feasibility(), _request())
 
 
+def test_architecture_route_rejects_contract_schema_mismatch():
+    request = _request()
+    request["contract_schema"] = "polaris.ticket-contract/v1"
+    with pytest.raises(A.ArchitectureRouteError, match="contract schema differs"):
+        A.validate_route(_feasibility(), request)
+
+
 def test_architecture_route_allows_genuinely_new_evidence_after_pass():
     receipt = A.validate_route(
         _feasibility(),
@@ -136,6 +147,7 @@ def test_pre_mutation_attention_gate_requires_machine_feasibility():
     ).read_text(encoding="utf-8")
     assert "--feasibility" in gate
     assert "pre-mutation requires IMPLEMENT TICKET FEASIBILITY: PASS" in gate
+    assert "contract schema mismatch" in gate
     assert "execution HEAD is stale" in gate
 
 

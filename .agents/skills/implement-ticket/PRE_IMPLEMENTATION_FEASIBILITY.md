@@ -8,6 +8,12 @@ Its purpose is fail-fast correctness: do not spend implementation, broad-verific
 deduplication, wiki-sync, or independent-verifier work on a ticket whose required production
 providers or durable authority cannot yet exist at its current native position.
 
+Before executing this boundary, also read
+`.agents/skills/implement-ticket/FEASIBILITY_AUTHORITY.md` in full. That file strengthens this
+retained provider/dependency boundary with mandatory authority-closure evidence, the
+`polaris.implement-feasibility/v1` machine artifact, pre-mutation binding, and architecture
+routing consistency. It does not remove or weaken any requirement below.
+
 ## 1. Reconsider durable prior findings
 
 An archived or stale-candidate closure checkpoint is not current candidate authority, but its
@@ -56,7 +62,9 @@ A Protocol, interface, accepted CCL assertion, test fake, or downstream planned 
 not sufficient.
 
 `OWNED_BY_CURRENT_TICKET` requires exact current ticket cells that authorize implementing the
-seam without importing another domain's ownership or inventing new semantics.
+seam without importing another domain's ownership or inventing new semantics. It does not by
+itself prove authority closure; classify the seam's authority separately under
+`FEASIBILITY_AUTHORITY.md`.
 
 `DEFERRED_COMPOSITION` is legal only for a capability ticket whose exact current planning
 authority explicitly separates **capability implementation/certification** from a later
@@ -129,6 +137,13 @@ legitimate deferred composition seam as missing merely because its production ro
 Route the planning or authority defect when the current projection does not make that boundary
 explicit.
 
+A failed, unavailable, inconvenient, or vendor-specific implementation mechanism is not by
+itself a `contract-authority-gap`. Before using that classification, identify the exact
+material semantic coordinate current accepted authority leaves unresolved or contradictory.
+If accepted authority fixes the observable guarantee and explicitly leaves physical encoding,
+private algorithms, query organization, or equivalent realization as implementation choice,
+the seam is implementation-local rather than an architecture-routing defect.
+
 ## 5. Required receipt
 
 Before pre-mutation Attention, emit exactly one feasibility receipt.
@@ -147,8 +162,20 @@ Prior findings reconsidered: <n>
 ```
 
 A PASS requires every required seam to be `PRESENT_UPSTREAM`,
-`OWNED_BY_CURRENT_TICKET`, or lawfully `DEFERRED_COMPOSITION`, and every materially applicable
-prior finding to have a current disposition.
+`OWNED_BY_CURRENT_TICKET`, or lawfully `DEFERRED_COMPOSITION`, every materially applicable
+prior finding to have a current disposition, **and** every seam to satisfy the authority
+closure rules in `FEASIBILITY_AUTHORITY.md`.
+
+The human-readable receipt is not sufficient by itself. Build and validate the exact
+`polaris.implement-feasibility/v1` artifact before pre-mutation Attention:
+
+```bash
+python .agents/skills/implement-ticket/scripts/feasibility_authority.py \
+  <implement-feasibility.json>
+```
+
+The existing Attention gate then requires that same artifact via `--feasibility` and rejects a
+missing, stale, mismatched, or non-PASS artifact before mutation.
 
 Failure:
 
@@ -167,6 +194,11 @@ On `BLOCKED`, perform **no substantive candidate mutation and no broad technical
 deduplication, wiki sync, pre-closure Attention, or independent closure dispatch**. Persist
 any routing/planning evidence required by the owning workflow and produce the normal verified
 Human Handoff when that classification requires one.
+
+When `contract-authority-gap` is the route, validate architecture routing under
+`FEASIBILITY_AUTHORITY.md` before publishing an `architecture-blocker:v1`. A previous PASS
+cannot be invalidated by evidence that was already in its feasibility artifact; correct the
+feasibility verdict instead.
 
 ## 6. Resume behavior
 

@@ -155,7 +155,8 @@ def _validate_pre_mutation_feasibility(path: Path, argv: list[str]) -> None:
         raise AttentionGateError("feasibility artifact: branch mismatch")
     if value.get("execution_head") != head:
         raise AttentionGateError(
-            "feasibility artifact: execution HEAD is stale; rerun feasibility on current HEAD"
+            "feasibility artifact: execution HEAD is stale; rerun feasibility on "
+            "current HEAD"
         )
 
 
@@ -165,7 +166,9 @@ def _validate_pre_closure_concerns(path: Path, argv: list[str]) -> None:
     try:
         receipt = module.validate_concerns(value)
     except RuntimeError as exc:
-        raise AttentionGateError(f"pre-closure concerns artifact invalid: {exc}") from exc
+        raise AttentionGateError(
+            f"pre-closure concerns artifact invalid: {exc}"
+        ) from exc
 
     ticket = int(_arg_value(argv, "--ticket"))
     contract_path = Path(_arg_value(argv, "--contract"))
@@ -181,12 +184,17 @@ def _validate_pre_closure_concerns(path: Path, argv: list[str]) -> None:
     if receipt.ticket != ticket:
         raise AttentionGateError("pre-closure concerns artifact: ticket mismatch")
     if receipt.contract_schema != contract_schema:
-        raise AttentionGateError("pre-closure concerns artifact: contract schema mismatch")
+        raise AttentionGateError(
+            "pre-closure concerns artifact: contract schema mismatch"
+        )
     if receipt.contract_hash != contract_hash:
-        raise AttentionGateError("pre-closure concerns artifact: contract hash mismatch")
+        raise AttentionGateError(
+            "pre-closure concerns artifact: contract hash mismatch"
+        )
     if receipt.candidate_state != current_state:
         raise AttentionGateError(
-            "pre-closure concerns artifact: candidate state is stale; rebuild concern disposition"
+            "pre-closure concerns artifact: candidate state is stale; rebuild concern "
+            "disposition"
         )
 
 

@@ -145,7 +145,10 @@ def test_policy_requires_admissibility_before_wayfinder_routing():
     ).read_text(encoding="utf-8")
     assert "AUTHORITY_ADMISSIBILITY.md" in policy
     assert "FORBIDDEN_BY_EXISTING_AUTHORITY" in policy
-    assert "only after the authority-admissibility gate permits decision creation" in policy
+    assert (
+        "only after the authority-admissibility gate permits decision creation"
+        in policy
+    )
     assert "implementation-created invalid state" in authority
     assert "Never reverse steps 2 and 3" in authority
     assert "decision_creation_allowed=true" in authority

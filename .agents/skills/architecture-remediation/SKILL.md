@@ -14,6 +14,18 @@ This skill is a **routing and disposition owner**, not a second semantic compile
 
 It never implements code and never creates material semantics from blocker prose.
 
+## Authority-admissibility precedence
+
+Before normalization, governance routing, or any semantic decision mutation, read
+`AUTHORITY_ADMISSIBILITY.md`. It is normative for this skill and overrides more general routing
+language below where necessary.
+
+A blocker state is not automatically a valid product state merely because an implementation or
+verifier observed it. `$architecture-remediation` must first prove whether accepted authority
+permits that state to exist. New Wayfinder/owner-decision work is allowed only after a valid
+`polaris.architecture-authority-disposition/v1` artifact returns
+`UNRESOLVED_MATERIAL_CHOICE` with `decision_creation_allowed=true`.
+
 ## Session independence
 
 Recover all correctness-critical state from the invocation, repository, CCL, and durable
@@ -63,7 +75,25 @@ authority.
 
 ## 3. Test current authority before creating a decision
 
-For each normalized blocker ask:
+First apply `AUTHORITY_ADMISSIBILITY.md`: identify the exact observed state or interval, scan
+all materially applicable CCL/ADR/platform-architecture/source-workflow authority, build the
+machine disposition, and validate it with
+`architecture-remediation/scripts/authority_admissibility.py`.
+
+If the disposition is `FORBIDDEN_BY_EXISTING_AUTHORITY`, the implementation-created state is
+not a missing semantic coordinate. Do not create/reopen/reuse decision work for it. Resolve the
+architecture blocker with the exact existing authority and return to the source workflow for a
+compliant realization.
+
+If the disposition is `FIXED_BY_EXISTING_AUTHORITY`, do not create new decision work. Reconcile
+a stale Spec projection only when needed; otherwise return directly to the source workflow.
+
+If the disposition is `SOURCE_CONFLICT`, route the exact accepted-source conflict and never
+choose a winner locally.
+
+Only `UNRESOLVED_MATERIAL_CHOICE` permits the remainder of this section and governance routing.
+
+For each admissible unresolved blocker ask:
 
 > Does current accepted authority already determine this exact material choice at the
 > required strength?
@@ -122,7 +152,8 @@ the blocker unresolved and return it to the source ticket for feasibility correc
 
 ## 4. Wayfinder-managed blocker
 
-For a Wayfinder-managed Spec, the governing Wayfinder remains the semantic owner.
+For a Wayfinder-managed Spec, the governing Wayfinder remains the semantic owner only after the
+authority-admissibility gate permits decision creation.
 
 If the exact governing map is closed and authoritative re-entry is required, reopen that
 same map with a concise reason identifying the blocked Spec/work, read back the open state,
@@ -142,7 +173,8 @@ Wayfinder owns recommendation analysis, human acceptance, and CCL persistence.
 
 ## 5. Independent blocker
 
-For an Independent Spec, use the smallest permanent semantic boundary:
+For an Independent Spec, use the smallest permanent semantic boundary only after the
+authority-admissibility gate permits decision creation where decision work is required:
 
 ```text
 semantics already fixed exactly
@@ -179,12 +211,23 @@ resolved
 
 * `unresolved` — material choice/conflict still blocks progress;
 * `routed` — exact owning decision artifact is durable;
-* `resolved` — accepted authority now determines the blocker and required Spec projection
-  reconciliation has been identified.
+* `resolved` — accepted authority now determines the blocker, including when it forbids the
+  implementation-created state, and any required Spec projection reconciliation has been
+  identified.
 
 Status is routing provenance only; it is not semantic authority.
 
 ## 7. Return paths
+
+Observed state forbidden by existing authority:
+
+```text
+$implement-ticket - <Ticket Title> (<Ticket URL>)
+```
+
+This return preserves the verifier/blocker evidence and requires a compliant implementation
+realization. It does not reopen feasibility, create new semantics, or authorize another
+architecture decision for the forbidden state.
 
 Resolved by existing/accepted authority and Spec projection may be stale:
 
@@ -226,6 +269,8 @@ additional material question but cannot answer it or enlarge current authority.
 
 * implement product code;
 * infer material semantics from implementation shape;
+* treat an implementation-created state as admissible without the authority-admissibility gate;
+* design semantics for a state current authority already forbids;
 * create a second contract beside CCL;
 * choose among conflicting governing sources;
 * create a Wayfinder for a bounded Independent decision;

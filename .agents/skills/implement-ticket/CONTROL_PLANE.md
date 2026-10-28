@@ -9,16 +9,20 @@ disable-model-invocation: true
 
 ## Authoritative procedure composition
 
-Before executing this skill, read both of these files in full:
+Before executing this skill, read all of these files in full:
 
 1. `.agents/skills/implement-ticket/PROCEDURE.md`
 2. `.agents/skills/implement-ticket/EXECUTION_ANCHOR.md`
+3. `.agents/skills/implement-ticket/POST_ROUTE_RETURN.md`
 
 `PROCEDURE.md` preserves the complete established `$implement-ticket` lifecycle.
 `EXECUTION_ANCHOR.md` preserves the accepted Execution Anchor correction that separates
-historical ticket lineage from the current attempt's candidate. This `SKILL.md` is the
-authoritative entrypoint and adds the control-plane mutation boundary below. On conflict,
-this file wins. Failure to load either retained file is a Hard Blocker.
+historical ticket lineage from the current attempt's candidate. `POST_ROUTE_RETURN.md` owns the
+narrow recovery boundary where a confirmed verifier failure was routed out and the unchanged
+contract is durably returned to `$implement-ticket` by existing authority. This file is the
+authoritative control-plane entrypoint. On conflict over that route-return boundary,
+`POST_ROUTE_RETURN.md` wins; otherwise this file wins. Failure to load any retained file is a
+Hard Blocker.
 
 The retained procedure continues to own Invocation termination, durable ticket recovery,
 hierarchy/dependency/project-delivery admission, architecture-blocker admission,
@@ -68,8 +72,15 @@ workflow/control-plane or semantic-authority files. Product implementation scope
 duplicate-code finding, formatting, architecture verification, wiki synchronization, test
 repair, or any other delegated skill does not expand this authority.
 
-The protected control plane is machine-defined by `scripts.workflow_candidate_guard` and
-includes at minimum:
+The protected control plane uses the canonical protection definitions from
+`scripts.workflow_candidate_guard`, but `$implement-ticket` candidate admission is enforced by
+the policy-sync-aware wrapper:
+
+```text
+.agents/skills/implement-ticket/scripts/candidate_guard.py
+```
+
+Protected paths include at minimum:
 
 - `.agents/**`;
 - `AGENTS.md`;
@@ -79,20 +90,43 @@ includes at minimum:
 - `contracts/ccl/**`;
 - `docs/adr/**`;
 - `scripts/workflow_*.py`;
-- the repository delivery/contract tooling enumerated by the guard.
+- the repository delivery/contract tooling enumerated by the canonical guard.
 
 There is deliberately **no `$implement-ticket` bypass flag**. A ticket that genuinely needs
 to change these authorities is not an ordinary implementation candidate; stop and route the
 change to the owning workflow/authority process. Human approval of product implementation,
 ticket scope, or a scanner repair is not equivalent to control-plane authorization.
 
+### Authorized committed policy synchronization is upstream history
+
+The candidate guard must not misattribute already-committed, non-semantic workflow-policy
+synchronization to the ticket merely because the current Execution Anchor predates that sync.
+A committed protected path is excluded from the ticket candidate only when all of these
+machine checks pass:
+
+1. the Execution Anchor is an ancestor of current `HEAD`;
+2. the committed protected path is one of the AGENTS-authorized policy-sync surfaces:
+   `.agents/skills/**`, `docs/process/**`, or root `AGENTS.md`;
+3. every commit between the anchor and `HEAD` that touches one of those protected paths changes
+   policy-sync surfaces only;
+4. the current `HEAD` blob for each excluded path exactly equals current `origin/main`; and
+5. the path is locally clean relative to `HEAD`.
+
+If any predicate fails, the protected path remains part of the candidate and the guard fails
+closed. A local/staged edit to a previously synchronized policy path is always candidate-local
+and remains forbidden. `restore-protected` restores such a local edit to current `HEAD`, not to
+the older Execution Anchor, so a valid committed policy sync is never rolled back.
+
 ### Mandatory candidate guard
 
-After the Execution Anchor is captured, run:
+Fetch current `origin/main` before relying on policy-sync exclusion. After the Execution Anchor
+is captured, run:
 
 ```bash
-python -m scripts.workflow_candidate_guard check \
-  --anchor <execution-anchor>
+python .agents/skills/implement-ticket/scripts/candidate_guard.py check \
+  --anchor <execution-anchor> \
+  --remote origin \
+  --default-branch main
 ```
 
 Require:
@@ -115,19 +149,44 @@ If the guard reports a protected path, stop normal implementation immediately. D
 refactor, suppress, format, "fix", or otherwise continue changing that path.
 
 The only candidate-local mutation allowed while recovering from this violation is exact
-restoration of the protected paths to the Execution Anchor:
+restoration of the protected local path to current committed policy state:
 
 ```bash
-python -m scripts.workflow_candidate_guard restore-protected \
-  --anchor <execution-anchor>
-python -m scripts.workflow_candidate_guard check \
-  --anchor <execution-anchor>
+python .agents/skills/implement-ticket/scripts/candidate_guard.py restore-protected \
+  --anchor <execution-anchor> \
+  --remote origin \
+  --default-branch main
+python .agents/skills/implement-ticket/scripts/candidate_guard.py check \
+  --anchor <execution-anchor> \
+  --remote origin \
+  --default-branch main
 ```
 
 `restore-protected` is intentionally narrow: it restores/deletes only protected candidate
 paths and preserves all non-protected product candidate work. After restoration, all
 technical evidence that depended on the removed workflow/control-plane mutations is stale
 and must be recomputed as applicable.
+
+## Post-route implementation return
+
+A validated `ROUTE_REQUIRED` verifier triage does not permanently consume all future
+implementation authority when the owning downstream workflow later returns the **unchanged**
+contract to `$implement-ticket` through existing accepted authority.
+
+In that case, follow `POST_ROUTE_RETURN.md`. The original local-attempt count remains historical
+and is never reset. The downstream return may create exactly one new bounded post-route attempt
+epoch, represented by one managed `polaris.implement-route-return/v1` record. The same
+triage/route-result pair may not create a second epoch.
+
+Before the first mutation in that epoch, the managed record must be `IN_PROGRESS`, read back,
+and machine-valid. Supply the exact artifact to the formal pre-mutation Attention invocation:
+
+```text
+--route-return <implement-route-return.json>
+```
+
+The Attention wrapper must prove the returned ticket/contract identity and that the current
+candidate still equals the failed candidate bound by the route return before mutation begins.
 
 ## Delegated duplicate-code boundary
 
@@ -143,10 +202,10 @@ untouched and report the finding/routing to the owning workflow instead.
 ## Closure and independent verifier
 
 The pre-closure Attention gate and candidate identity remain Execution-Anchor-bound.
-Immediately before them, require a fresh successful candidate guard. The independent
-`$verify-ticket-closure` invocation must independently run the same guard against the same
-Execution Anchor. Any protected candidate path makes verification invalid: emit neither
-`TICKET CLOSURE: PASS` nor `TICKET CLOSURE: FAIL` until the candidate is restored to an
+Immediately before them, require a fresh successful policy-sync-aware candidate guard. The
+independent `$verify-ticket-closure` invocation must independently run the same guard against
+the same Execution Anchor. Any protected candidate path makes verification invalid: emit
+neither `TICKET CLOSURE: PASS` nor `TICKET CLOSURE: FAIL` until the candidate is restored to an
 admissible product-only state.
 
 All retained persistence, exact-candidate, and dependency/frontier rules remain unchanged.

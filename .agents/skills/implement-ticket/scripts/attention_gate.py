@@ -10,16 +10,14 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = Path(__file__).resolve().parents[4]
 FEASIBILITY_PATH = SCRIPT_DIR / "feasibility_authority.py"
 BOUNDED_EXECUTION_PATH = SCRIPT_DIR / "bounded_execution.py"
+ROUTE_RETURN_PATH = SCRIPT_DIR / "route_return.py"
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import attention_gate_impl as _impl  # noqa: E402
-from scripts.workflow_candidate_guard import (  # noqa: E402
-    CandidateGuardError,
-    validate_candidate,
-)
+from candidate_guard import CandidateGuardError, validate_candidate  # noqa: E402
 
 AttentionGateError = _impl.AttentionGateError
 SCHEMA = _impl.SCHEMA
@@ -62,6 +60,14 @@ def _load_bounded_execution_module() -> Any:
     )
 
 
+def _load_route_return_module() -> Any:
+    return _load_module(
+        ROUTE_RETURN_PATH,
+        "_polaris_implement_route_return",
+        "implement-ticket route-return",
+    )
+
+
 def _extract_required_custom_arg(
     argv: list[str],
     *,
@@ -82,6 +88,24 @@ def _extract_required_custom_arg(
     return value
 
 
+def _extract_optional_custom_arg(
+    argv: list[str],
+    *,
+    command: str,
+    flag: str,
+) -> Path | None:
+    if len(argv) < 2 or argv[1] != command or "--help" in argv or "-h" in argv:
+        return None
+    if flag not in argv:
+        return None
+    index = argv.index(flag)
+    if index + 1 >= len(argv) or argv[index + 1].startswith("--"):
+        raise AttentionGateError(f"{flag} requires a JSON artifact path")
+    value = Path(argv[index + 1])
+    del argv[index : index + 2]
+    return value
+
+
 def _extract_feasibility_arg(argv: list[str]) -> Path | None:
     return _extract_required_custom_arg(
         argv,
@@ -91,6 +115,14 @@ def _extract_feasibility_arg(argv: list[str]) -> Path | None:
             "<polaris.implement-feasibility/v1 JSON>; read "
             ".agents/skills/implement-ticket/PRE_IMPLEMENTATION_FEASIBILITY.md"
         ),
+    )
+
+
+def _extract_route_return_arg(argv: list[str]) -> Path | None:
+    return _extract_optional_custom_arg(
+        argv,
+        command="pre-mutation",
+        flag="--route-return",
     )
 
 
@@ -157,6 +189,37 @@ def _validate_pre_mutation_feasibility(path: Path, argv: list[str]) -> None:
         raise AttentionGateError(
             "feasibility artifact: execution HEAD is stale; rerun feasibility on "
             "current HEAD"
+        )
+
+
+def _validate_pre_mutation_route_return(path: Path, argv: list[str]) -> None:
+    module = _load_route_return_module()
+    value = _read_json_object(path, "route return")
+    try:
+        receipt = module.validate_route_return(value)
+    except RuntimeError as exc:
+        raise AttentionGateError(f"route-return artifact invalid: {exc}") from exc
+
+    ticket = int(_arg_value(argv, "--ticket"))
+    contract_path = Path(_arg_value(argv, "--contract"))
+    execution_anchor = _arg_value(argv, "--execution-anchor")
+    contract_schema, contract_hash = _contract_identity(contract_path)
+    current_state = candidate_state(execution_anchor)
+
+    if receipt.status != "IN_PROGRESS":
+        raise AttentionGateError(
+            "pre-mutation route-return artifact must be IN_PROGRESS"
+        )
+    if receipt.ticket != ticket:
+        raise AttentionGateError("route-return artifact: ticket mismatch")
+    if receipt.contract_schema != contract_schema:
+        raise AttentionGateError("route-return artifact: contract schema mismatch")
+    if receipt.contract_hash != contract_hash:
+        raise AttentionGateError("route-return artifact: contract hash mismatch")
+    if value.get("failed_candidate_state") != current_state:
+        raise AttentionGateError(
+            "route-return artifact: candidate state differs from returned failed "
+            "candidate; do not start another post-route attempt"
         )
 
 
@@ -228,6 +291,9 @@ def main() -> int:
         feasibility = _extract_feasibility_arg(argv)
         if feasibility is not None:
             _validate_pre_mutation_feasibility(feasibility, argv)
+        route_return = _extract_route_return_arg(argv)
+        if route_return is not None:
+            _validate_pre_mutation_route_return(route_return, argv)
         concerns = _extract_concerns_arg(argv)
         if concerns is not None:
             _validate_pre_closure_concerns(concerns, argv)

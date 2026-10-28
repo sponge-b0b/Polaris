@@ -49,7 +49,7 @@ It binds:
 - complete evidence/basis set; and
 - the managed attempt status.
 
-Validate it with:
+Validate the initial record with:
 
 ```bash
 python .agents/skills/implement-ticket/scripts/route_return.py \
@@ -90,15 +90,27 @@ The record moves only:
 READY -> IN_PROGRESS -> CONSUMED
 ```
 
+Every update must be validated against the exact prior read-back artifact:
+
+```bash
+python .agents/skills/implement-ticket/scripts/route_return.py \
+  --previous <previous-route-return.json> \
+  <updated-route-return.json>
+```
+
+The validator rejects immutable-identity changes and any transition other than
+`READY -> IN_PROGRESS` or `IN_PROGRESS -> CONSUMED`.
+
 Rules:
 
 - `READY`: downstream return is validated, but no post-route candidate mutation has started.
 - Immediately before the first corrective mutation, update the same comment to `IN_PROGRESS`,
-  read it back, and revalidate it.
+  read it back, and validate that transition from the exact prior `READY` bytes.
 - `IN_PROGRESS` authorizes continuation of that **same** bounded corrective campaign across
   resume/context boundaries. It does not authorize starting a second campaign.
 - After the next independent verifier result or another terminal disposition, update the same
-  record to `CONSUMED` and bind the fresh verifier-result SHA-256.
+  record to `CONSUMED`, bind the fresh verifier-result SHA-256, and validate the transition from
+  the exact prior `IN_PROGRESS` bytes.
 - A `CONSUMED` record may never return to `READY` or `IN_PROGRESS`.
 - Do not create a second managed record for the same identity tuple.
 
@@ -111,7 +123,7 @@ Before the first post-route mutation:
 
 1. require the policy-sync-aware candidate guard from `CONTROL_PLANE.md`;
 2. require current contract/feasibility admission;
-3. persist/read back/validate the route-return record as `IN_PROGRESS`; and
+3. persist/read back/transition-validate the route-return record as `IN_PROGRESS`; and
 4. run the formal pre-mutation Attention gate with `--route-return` pointing to that exact
    `IN_PROGRESS` artifact.
 

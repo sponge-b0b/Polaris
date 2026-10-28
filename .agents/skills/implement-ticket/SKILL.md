@@ -15,6 +15,7 @@ Before executing this skill, read all of these files in full:
 2. `.agents/skills/to-tickets/TICKET_RESLICE_RECOVERY.md`
 3. `.agents/skills/WORKFLOW_INVOCATION_JOURNAL.md`
 4. `.agents/skills/implement-ticket/WORKFLOW_INVOCATION_JOURNAL.md`
+5. `.agents/skills/implement-ticket/BOUNDED_EXECUTION.md`
 
 `ROUTING_CONTROL_PLANE.md` preserves the previously authoritative `$implement-ticket`
 entrypoint and recursively composes `PROCEDURE.md`, `EXECUTION_ANCHOR.md`, and
@@ -24,16 +25,23 @@ defects, deterministic ticket contract, Attention, closure, and shared Human Han
 `ticket-reslice-recovery:v1` record and overrides the shorter recovery summary retained in
 `PROCEDURE.md`. `WORKFLOW_INVOCATION_JOURNAL.md` at the skills root owns the shared WIJ
 storage/schema/non-authority contract; this skill's WIJ document owns only `$implement-ticket`
-integration and resume classification. On any other conflict, this file wins. Failure to
-load either retained execution/recovery authority file is a Hard Blocker.
+integration and resume classification. `BOUNDED_EXECUTION.md` owns pre-closure concern
+admission, post-verifier-failure bounded triage, mandatory durable stage checkpoints, and the
+narrow `Durable Continuation` terminal. On those subjects it overrides retained procedure and
+skill-local WIJ language, including the retained three-terminal-condition limit. On any other
+conflict, this file wins. Failure to load any retained execution/recovery/bounded-execution
+authority file is a Hard Blocker.
 
 WIJ is a best-effort execution optimization, never a lifecycle prerequisite. Journal failure,
 loss, corruption, ambiguity, or incompatibility must degrade to the ordinary current
 `$implement-ticket` reconstruction and must not create a new blocker or termination state.
 Only an explicit `resume $implement-ticket - <Title> (<URL>)` invocation may consume an old
-journal; an ordinary invocation starts fresh.
+journal; an ordinary invocation starts fresh. The workflow-durable
+`implement-ticket-continuation:v1` comment defined by `BOUNDED_EXECUTION.md` is distinct from
+WIJ and is the only source that can authorize the narrow `Durable Continuation` terminal.
 
-All retained requirements remain mandatory unless explicitly overridden here.
+All retained requirements remain mandatory unless explicitly overridden here or in
+`BOUNDED_EXECUTION.md` on its four narrow owned subjects.
 
 ## Execution-anchor invariant
 
@@ -172,11 +180,13 @@ one of the authoritative forms defined by `$verify-ticket-closure`:
 Mechanically reject a confirmation/retraction whose digest or identities do not match the
 exact dispatched attempt.
 
-A confirmed result proceeds through the retained PASS/FAIL admission path unchanged. A
-self-retracted result is neither PASS nor FAIL: preserve the original PASS/FAIL bytes as
-retracted evidence in the v3 attempt history, record the attempt as `invalid`, keep the
-candidate immutable, retire that verifier context, and dispatch one new fresh verifier if
-candidate/contract/coverage/Attention bindings remain exact.
+A confirmed result proceeds through the retained PASS/FAIL admission path unchanged, except
+that a confirmed FAIL must pass the bounded verifier-failure triage in
+`BOUNDED_EXECUTION.md` before any corrective candidate mutation. A self-retracted result is
+neither PASS nor FAIL: preserve the original PASS/FAIL bytes as retracted evidence in the v3
+attempt history, record the attempt as `invalid`, keep the candidate immutable, retire that
+verifier context, and dispatch one new fresh verifier if candidate/contract/coverage/Attention
+bindings remain exact.
 
 `$implement-ticket` may not create an INVALID payload, infer self-contradiction on the
 verifier's behalf, or semantically overrule a confirmed PASS/FAIL. Free-form follow-up with

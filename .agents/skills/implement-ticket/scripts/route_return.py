@@ -191,6 +191,50 @@ def validate_route_return(value: dict[str, Any]) -> RouteReturnReceipt:
     )
 
 
+_IDENTITY_FIELDS = {
+    "schema",
+    "ticket",
+    "contract_schema",
+    "contract_hash",
+    "failed_candidate_state",
+    "verifier_result_sha256",
+    "finding_id",
+    "triage_artifact_sha256",
+    "route",
+    "route_result_source",
+    "route_result_sha256",
+    "resolution",
+    "returned_owner",
+    "contract_changed",
+    "prior_post_route_attempts",
+    "evidence_sources",
+    "basis",
+}
+
+
+def validate_transition(
+    previous: dict[str, Any],
+    current: dict[str, Any],
+) -> RouteReturnReceipt:
+    old = validate_route_return(previous)
+    new = validate_route_return(current)
+    for field in _IDENTITY_FIELDS:
+        _need(
+            previous.get(field) == current.get(field),
+            f"route return transition: immutable field changed: {field}",
+        )
+
+    allowed = {
+        ("READY", "IN_PROGRESS"),
+        ("IN_PROGRESS", "CONSUMED"),
+    }
+    _need(
+        (old.status, new.status) in allowed,
+        "route return transition: status must move READY -> IN_PROGRESS -> CONSUMED",
+    )
+    return new
+
+
 def _read(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     _need(isinstance(value, dict), f"{path}: expected JSON object")
@@ -199,10 +243,15 @@ def _read(path: Path) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--previous", type=Path)
     parser.add_argument("artifact", type=Path)
     args = parser.parse_args()
     try:
-        receipt = validate_route_return(_read(args.artifact))
+        current = _read(args.artifact)
+        if args.previous is None:
+            receipt = validate_route_return(current)
+        else:
+            receipt = validate_transition(_read(args.previous), current)
     except (RouteReturnError, OSError, json.JSONDecodeError, ValueError) as exc:
         parser.error(str(exc))
 

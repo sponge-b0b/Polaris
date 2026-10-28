@@ -63,12 +63,17 @@ def _need(condition: bool, message: str) -> None:
 
 
 def _sha(value: dict[str, Any]) -> str:
-    payload = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    payload = json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def _str(value: Any, field: str) -> str:
-    _need(isinstance(value, str) and value.strip(), f"{field} must be a non-empty string")
+    _need(
+        isinstance(value, str) and value.strip(),
+        f"{field} must be a non-empty string",
+    )
     return value
 
 
@@ -120,7 +125,8 @@ def validate_concerns(value: dict[str, Any]) -> ConcernReceipt:
     ticket, contract_schema, contract_hash = _contract(value, prefix)
     candidate_state = value.get("candidate_state")
     _need(
-        isinstance(candidate_state, str) and _HEX64.fullmatch(candidate_state) is not None,
+        isinstance(candidate_state, str)
+        and _HEX64.fullmatch(candidate_state) is not None,
         f"{prefix}: invalid candidate state",
     )
     evidence = _str_list(value.get("evidence_sources"), f"{prefix}.evidence_sources")
@@ -184,11 +190,13 @@ def validate_concerns(value: dict[str, Any]) -> ConcernReceipt:
         else:
             _need(
                 not touches_contract,
-                f"{prefix}: {concern_id} touches assigned cells/falsifiers/guardrails and cannot be deferred",
+                f"{prefix}: {concern_id} touches assigned cells/falsifiers/guardrails "
+                "and cannot be deferred",
             )
             _need(
                 not disproof,
-                f"{prefix}: {concern_id} deferred concern must not claim disproof_evidence",
+                f"{prefix}: {concern_id} deferred concern must not claim "
+                "disproof_evidence",
             )
     outcome = "BLOCKED" if blocking else "PASS"
     return ConcernReceipt(
@@ -241,12 +249,17 @@ def validate_triage(value: dict[str, Any]) -> TriageReceipt:
     )
     finding_id = _str(value.get("finding_id"), f"{prefix}.finding_id")
     evidence = _str_list(
-        value.get("evidence_sources"), f"{prefix}.evidence_sources", nonempty=True
+        value.get("evidence_sources"),
+        f"{prefix}.evidence_sources",
+        nonempty=True,
     )
     basis = _str_list(value.get("basis"), f"{prefix}.basis", nonempty=True)
     _need(set(basis) <= set(evidence), f"{prefix}: basis missing from evidence_sources")
     prior = value.get("prior_local_attempts")
-    _need(isinstance(prior, int) and prior >= 0, f"{prefix}: invalid prior_local_attempts")
+    _need(
+        isinstance(prior, int) and prior >= 0,
+        f"{prefix}: invalid prior_local_attempts",
+    )
     changes = value.get("boundary_changes")
     _need(isinstance(changes, dict), f"{prefix}: boundary_changes must be an object")
     expected = {
@@ -271,17 +284,23 @@ def validate_triage(value: dict[str, Any]) -> TriageReceipt:
     if classification == "IMPLEMENTATION_LOCAL":
         _need(
             prior == 0,
-            f"{prefix}: only one local corrective attempt is allowed per verifier finding",
+            f"{prefix}: only one local corrective attempt is allowed per "
+            "verifier finding",
         )
         _need(
             not any(changes.values()),
-            f"{prefix}: implementation-local correction cannot introduce material runtime/operational/semantic/planning boundaries",
+            f"{prefix}: implementation-local correction cannot introduce material "
+            "runtime/operational/semantic/planning boundaries",
         )
-        _need(route is None, f"{prefix}: implementation-local correction must not name a route")
+        _need(
+            route is None,
+            f"{prefix}: implementation-local correction must not name a route",
+        )
     else:
         _need(
             any(changes.values()),
-            f"{prefix}: ROUTE_REQUIRED must identify at least one material boundary change",
+            f"{prefix}: ROUTE_REQUIRED must identify at least one material "
+            "boundary change",
         )
         _need(
             route in {"$architecture-remediation", "$to-specs", "$to-tickets"},
@@ -333,7 +352,8 @@ def validate_continuation(value: dict[str, Any]) -> ContinuationReceipt:
     )
     candidate_state = value.get("candidate_state")
     _need(
-        isinstance(candidate_state, str) and _HEX64.fullmatch(candidate_state) is not None,
+        isinstance(candidate_state, str)
+        and _HEX64.fullmatch(candidate_state) is not None,
         f"{prefix}: invalid candidate state",
     )
     phase = value.get("phase")
@@ -353,7 +373,8 @@ def validate_continuation(value: dict[str, Any]) -> ContinuationReceipt:
     _str(value.get("next_action"), f"{prefix}.next_action")
     reason = value.get("reason")
     _need(
-        reason in {
+        reason
+        in {
             "stage-checkpoint",
             "context-compaction",
             "usage-boundary",
@@ -368,9 +389,15 @@ def validate_continuation(value: dict[str, Any]) -> ContinuationReceipt:
         f"{prefix}: unsupported verifier_state fields",
     )
     attempt = verifier.get("attempt")
-    _need(isinstance(attempt, int) and attempt >= 0, f"{prefix}: invalid verifier attempt")
+    _need(
+        isinstance(attempt, int) and attempt >= 0,
+        f"{prefix}: invalid verifier attempt",
+    )
     result = verifier.get("result")
-    _need(result in {"none", "PASS", "FAIL", "invalid"}, f"{prefix}: invalid verifier result")
+    _need(
+        result in {"none", "PASS", "FAIL", "invalid"},
+        f"{prefix}: invalid verifier result",
+    )
     result_sha = verifier.get("result_sha256")
     if result == "none":
         _need(
@@ -379,7 +406,8 @@ def validate_continuation(value: dict[str, Any]) -> ContinuationReceipt:
         )
     else:
         _need(
-            isinstance(result_sha, str) and _HEX64.fullmatch(result_sha) is not None,
+            isinstance(result_sha, str)
+            and _HEX64.fullmatch(result_sha) is not None,
             f"{prefix}: invalid verifier result SHA",
         )
     _str_list(value.get("stale_evidence"), f"{prefix}.stale_evidence")

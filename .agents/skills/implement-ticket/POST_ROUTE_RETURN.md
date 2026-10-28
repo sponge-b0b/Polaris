@@ -104,8 +104,8 @@ The validator rejects immutable-identity changes and any transition other than
 Rules:
 
 - `READY`: downstream return is validated, but no post-route candidate mutation has started.
-- Immediately before the first corrective mutation, update the same comment to `IN_PROGRESS`,
-  read it back, and validate that transition from the exact prior `READY` bytes.
+- `READY` is not consumed merely by reconstruction, read-only design work, failed tooling, or a
+  rejected re-entry gate.
 - `IN_PROGRESS` authorizes continuation of that **same** bounded corrective campaign across
   resume/context boundaries. It does not authorize starting a second campaign.
 - After the next independent verifier result or another terminal disposition, update the same
@@ -117,22 +117,81 @@ Rules:
 A new independent verifier result or a materially changed contract is a new lifecycle input and
 must be handled by its normal owning procedure; it is not a reset of this record.
 
-## 4. Candidate and Attention gates still apply
+## 4. Post-route re-entry is distinct from ordinary pre-mutation
 
-Before the first post-route mutation:
+The retained ordinary `$implement-ticket` pre-mutation gate intentionally requires a clean
+worktree. Do **not** weaken or bypass that rule. A post-route recovery is different: its whole
+purpose is to resume from the exact preserved failed candidate already bound into the route-return
+record.
 
-1. require the policy-sync-aware candidate guard from `CONTROL_PLANE.md`;
-2. require current contract/feasibility admission;
-3. persist/read back/transition-validate the route-return record as `IN_PROGRESS`; and
-4. run the formal pre-mutation Attention gate with `--route-return` pointing to that exact
-   `IN_PROGRESS` artifact.
+Therefore ordinary `attention_gate.py pre-mutation --route-return ...` is not the post-route
+entry path. Before consuming `READY`, run the dedicated re-entry gate:
 
-The pre-mutation gate must prove that the route-return ticket/contract identity matches the
-current invocation and that the current candidate state still equals the failed candidate state
-bound by the route return. Mutation after that gate makes ordinary candidate-bound evidence
-stale exactly as usual.
+```bash
+python .agents/skills/implement-ticket/scripts/post_route_reentry.py \
+  --ticket <ticket> \
+  --contract <contract.json> \
+  --baseline <ticket-baseline> \
+  --branch <spec-branch> \
+  --execution-anchor <current-fetched-spec-branch-tip> \
+  --remote origin \
+  --default-branch main \
+  --feasibility <polaris.implement-feasibility-v1.json> \
+  --route-return <exact-READY-route-return.json> \
+  --attention-result <fresh-pre-mutation-attention-result>
+```
 
-## 5. What one post-route attempt means
+Require:
+
+```text
+IMPLEMENT TICKET ATTENTION: POST-ROUTE REENTRY VALID
+```
+
+The dedicated gate must fail closed unless all of these are true:
+
+1. current `HEAD` equals the freshly fetched remote shared-Spec-branch tip and the supplied
+   Execution Anchor;
+2. current feasibility is PASS and matches the exact ticket, branch, contract, and HEAD;
+3. the route-return artifact is still exactly `READY` and matches the ticket/contract;
+4. the policy-sync-aware candidate guard passes, so no protected workflow/control-plane mutation
+   is being smuggled in;
+5. the current candidate-state hash equals the exact `failed_candidate_state` bound by `READY`;
+   and
+6. a fresh nonblocking `$implement-ticket pre-mutation` Attention result is supplied.
+
+The dedicated re-entry gate writes the normal `polaris.implement-ticket-attention/v2` receipt
+for that exact preserved candidate. It deliberately does **not** require a clean worktree because
+exact candidate identity replaces cleanliness as the admission proof for this one boundary.
+
+A candidate mismatch is not authority to reset, stash, clean, or reconstruct the candidate. Stop
+and preserve the checkout.
+
+## 5. Consume READY only after re-entry succeeds
+
+The order is mandatory:
+
+```text
+READY
+  -> exact-candidate post-route re-entry Attention PASS
+  -> READY -> IN_PROGRESS durable update/readback/transition validation
+  -> first corrective candidate mutation
+```
+
+Do not move the managed record to `IN_PROGRESS` before the dedicated re-entry gate succeeds. A
+re-entry tooling failure, feasibility failure, candidate mismatch, Attention failure, or protected
+path violation leaves the managed record `READY` and consumes no post-route attempt.
+
+Immediately after the re-entry PASS and before the first corrective edit:
+
+1. update the same managed route-return comment from `READY` to `IN_PROGRESS`;
+2. read it back;
+3. validate the exact transition against the prior `READY` bytes with `route_return.py
+   --previous ...`; and
+4. only then begin the bounded corrective campaign.
+
+Mutation after that point makes ordinary candidate-bound evidence stale exactly as usual.
+
+## 6. What one post-route attempt means
 
 One post-route attempt is one bounded implementation campaign to satisfy the returned authority.
 It may contain the cohesive edits/tests needed for that realization, but it may not branch into
@@ -145,12 +204,16 @@ authority.
 If the fresh verifier fails, triage that **new exact verifier result** under
 `BOUNDED_EXECUTION.md`. The old route-return record is already consumed.
 
-## 6. #465 normative recovery example
+## 7. #465 normative recovery example
 
 For #465, verifier finding `F-465-1` and the prior local attempt remain historical facts. The
 repaired `$architecture-remediation` result establishes that the candidate-created
 post-business-commit/pre-durable-history interval is forbidden by existing authority and returns
 the unchanged remediation contract to `$implement-ticket`.
+
+The managed route-return record stays `READY` until the exact preserved failed candidate passes
+the dedicated post-route re-entry gate. Only then may that same record transition to
+`IN_PROGRESS` and authorize the first corrective mutation.
 
 That return permits exactly one post-route compliant-realization attempt. It does not authorize
 resuming the reverted logical-WAL prototype merely because that prototype exists in historical

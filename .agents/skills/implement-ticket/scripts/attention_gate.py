@@ -293,7 +293,11 @@ def main() -> int:
             _validate_pre_mutation_feasibility(feasibility, argv)
         route_return = _extract_route_return_arg(argv)
         if route_return is not None:
-            _validate_pre_mutation_route_return(route_return, argv)
+            raise AttentionGateError(
+                "ordinary pre-mutation --route-return is not a post-route entry path; "
+                "use .agents/skills/implement-ticket/scripts/post_route_reentry.py "
+                "while the managed route-return record is READY"
+            )
         concerns = _extract_concerns_arg(argv)
         if concerns is not None:
             _validate_pre_closure_concerns(concerns, argv)

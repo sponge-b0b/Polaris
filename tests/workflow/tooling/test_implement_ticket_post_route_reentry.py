@@ -217,4 +217,7 @@ def test_policy_requires_reentry_before_ready_consumption() -> None:
     assert "Post-route re-entry is distinct from ordinary pre-mutation" in policy
     assert "Consume READY only after re-entry succeeds" in policy
     assert "POST-ROUTE REENTRY VALID" in policy
-    assert policy.index("POST-ROUTE REENTRY VALID") < policy.index("READY -> IN_PROGRESS")
+    mandatory = policy.split("The order is mandatory:", 1)[1]
+    assert mandatory.index("POST-ROUTE REENTRY VALID") < mandatory.index(
+        "READY -> IN_PROGRESS"
+    )

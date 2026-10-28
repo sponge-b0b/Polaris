@@ -8,7 +8,9 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / ".agents/skills/implement-ticket/scripts/bounded_execution.py"
-SPEC = importlib.util.spec_from_file_location("implement_ticket_bounded_execution", SCRIPT)
+SPEC = importlib.util.spec_from_file_location(
+    "implement_ticket_bounded_execution", SCRIPT
+)
 assert SPEC and SPEC.loader
 BOUNDED = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = BOUNDED
@@ -163,7 +165,10 @@ def test_verifier_local_retry_rejects_new_runtime_or_operational_boundary() -> N
 
     with pytest.raises(
         BOUNDED.BoundedExecutionError,
-        match="cannot introduce material runtime/operational/semantic/planning boundaries",
+        match=(
+            "cannot introduce material runtime/operational/semantic/planning "
+            "boundaries"
+        ),
     ):
         BOUNDED.validate_triage(value)
 
@@ -188,10 +193,11 @@ def test_policy_requires_all_three_bounded_execution_invariants() -> None:
     policy = (ROOT / ".agents/skills/implement-ticket/BOUNDED_EXECUTION.md").read_text(
         encoding="utf-8"
     )
-    skill = (ROOT / ".agents/skills/implement-ticket/SKILL.md").read_text(encoding="utf-8")
-    gate = (ROOT / ".agents/skills/implement-ticket/scripts/attention_gate.py").read_text(
+    skill = (ROOT / ".agents/skills/implement-ticket/SKILL.md").read_text(
         encoding="utf-8"
     )
+    gate_path = ROOT / ".agents/skills/implement-ticket/scripts/attention_gate.py"
+    gate = gate_path.read_text(encoding="utf-8")
 
     assert "Pre-closure concern admission is fail-closed" in policy
     assert "Verifier FAIL requires triage before mutation" in policy

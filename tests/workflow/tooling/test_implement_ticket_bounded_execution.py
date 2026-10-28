@@ -197,7 +197,7 @@ def test_policy_requires_all_three_bounded_execution_invariants() -> None:
     assert "Verifier FAIL requires triage before mutation" in policy
     assert "Mandatory stage checkpoints" in policy
     assert "Durable Continuation" in policy
-    assert "exactly three terminal conditions is narrowly overridden" in policy
+    assert "fourth legal terminal condition" in policy
     assert "BOUNDED_EXECUTION.md" in skill
     assert "--concerns" in gate
     assert "validate_concerns" in gate

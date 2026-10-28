@@ -183,16 +183,19 @@ def validate_disposition(
         )
         _need(
             allowed,
-            "architecture authority: unresolved material choice may create decision work",
+            "architecture authority: unresolved material choice may create "
+            "decision work",
         )
     else:
         _need(
             coordinate is None,
-            "architecture authority: resolved/forbidden/conflict state cannot invent a coordinate",
+            "architecture authority: resolved/forbidden/conflict state cannot "
+            "invent a coordinate",
         )
         _need(
             not allowed,
-            "architecture authority: decision creation forbidden by current disposition",
+            "architecture authority: decision creation forbidden by current "
+            "disposition",
         )
 
     return AuthorityAdmissibilityReceipt(

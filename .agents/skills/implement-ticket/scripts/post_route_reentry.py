@@ -68,7 +68,8 @@ def _validate_feasibility(
     _need(value.get("branch") == branch, "feasibility artifact: branch mismatch")
     _need(
         value.get("execution_head") == head,
-        "feasibility artifact: execution HEAD is stale; rerun feasibility on current HEAD",
+        "feasibility artifact: execution HEAD is stale; "
+        "rerun feasibility on current HEAD",
     )
 
 
@@ -85,7 +86,10 @@ def _validate_route_return(
     except RouteReturnError as exc:
         raise PostRouteReentryError(f"route-return artifact invalid: {exc}") from exc
 
-    _need(receipt.status == "READY", "post-route re-entry requires route-return READY")
+    _need(
+        receipt.status == "READY",
+        "post-route re-entry requires route-return READY",
+    )
     _need(receipt.ticket == ticket, "route-return artifact: ticket mismatch")
     _need(
         receipt.contract_schema == contract_schema,

@@ -135,3 +135,34 @@ def test_restore_preserves_committed_policy_sync(tmp_path: Path) -> None:
         assert GUARD.restore_protected(anchor) == (str(policy.relative_to(repo)),)
         assert policy.read_text(encoding="utf-8") == "policy-v2\n"
         assert GUARD.validate_candidate(anchor) == ()
+
+
+def test_documented_candidate_guard_runs_without_pythonpath(tmp_path: Path) -> None:
+    repo, anchor, _policy, product = _setup(tmp_path)
+    product.write_text("VALUE = 2\n", encoding="utf-8")
+    env = dict(os.environ)
+    env.pop("PYTHONPATH", None)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "check",
+            "--anchor",
+            anchor,
+            "--remote",
+            "origin",
+            "--default-branch",
+            "main",
+        ],
+        cwd=repo,
+        env=env,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "WORKFLOW CANDIDATE GUARD: VALID" in result.stdout
+    assert "Protected control-plane paths: 0" in result.stdout

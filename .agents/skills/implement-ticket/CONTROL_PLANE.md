@@ -178,15 +178,34 @@ and is never reset. The downstream return may create exactly one new bounded pos
 epoch, represented by one managed `polaris.implement-route-return/v1` record. The same
 triage/route-result pair may not create a second epoch.
 
-Before the first mutation in that epoch, the managed record must be `IN_PROGRESS`, read back,
-and machine-valid. Supply the exact artifact to the formal pre-mutation Attention invocation:
+The retained ordinary pre-mutation gate remains clean-worktree-only. It is **not** the admission
+path for a preserved failed candidate. While the managed route-return record is still `READY`,
+run the dedicated exact-candidate gate:
 
-```text
---route-return <implement-route-return.json>
+```bash
+python .agents/skills/implement-ticket/scripts/post_route_reentry.py \
+  --ticket <ticket> \
+  --contract <contract.json> \
+  --baseline <ticket-baseline> \
+  --branch <spec-branch> \
+  --execution-anchor <current-fetched-spec-branch-tip> \
+  --remote origin \
+  --default-branch main \
+  --feasibility <feasibility.json> \
+  --route-return <exact-READY-route-return.json> \
+  --attention-result <fresh-pre-mutation-attention-result>
 ```
 
-The Attention wrapper must prove the returned ticket/contract identity and that the current
-candidate still equals the failed candidate bound by the route return before mutation begins.
+Require `IMPLEMENT TICKET ATTENTION: POST-ROUTE REENTRY VALID`. The dedicated gate must prove
+that the preserved candidate exactly equals the route-return `failed_candidate_state`, the
+policy-sync-aware candidate guard passes, feasibility/contract/branch/HEAD identities match, and
+the fresh Attention result is nonblocking.
+
+Only **after** that gate succeeds may the same managed record transition `READY -> IN_PROGRESS`,
+be read back and transition-validated, and authorize the first corrective edit. Do not use
+`attention_gate.py pre-mutation --route-return`; that obsolete composition is rejected by the
+wrapper because the retained ordinary pre-mutation implementation correctly requires a clean
+worktree.
 
 ## Delegated duplicate-code boundary
 

@@ -21,6 +21,8 @@ Before executing this skill, read all of these files in full:
 entrypoint and recursively composes `PROCEDURE.md`, `EXECUTION_ANCHOR.md`, and
 `CONTROL_PLANE.md`, including the protected workflow/control-plane boundary, durable routing
 defects, deterministic ticket contract, Attention, closure, and shared Human Handoff rules.
+`CONTROL_PLANE.md` additionally composes `POST_ROUTE_RETURN.md` for the narrow
+existing-authority return-to-implementation boundary.
 `TICKET_RESLICE_RECOVERY.md` is the canonical durable contract for every
 `ticket-reslice-recovery:v1` record and overrides the shorter recovery summary retained in
 `PROCEDURE.md`. `WORKFLOW_INVOCATION_JOURNAL.md` at the skills root owns the shared WIJ
@@ -28,9 +30,10 @@ storage/schema/non-authority contract; this skill's WIJ document owns only `$imp
 integration and resume classification. `BOUNDED_EXECUTION.md` owns pre-closure concern
 admission, post-verifier-failure bounded triage, mandatory durable stage checkpoints, and the
 narrow `Durable Continuation` terminal. On those subjects it overrides retained procedure and
-skill-local WIJ language, including the retained three-terminal-condition limit. On any other
-conflict, this file wins. Failure to load any retained execution/recovery/bounded-execution
-authority file is a Hard Blocker.
+skill-local WIJ language, including the retained three-terminal-condition limit. On the
+post-route return boundary, `POST_ROUTE_RETURN.md` as composed by `CONTROL_PLANE.md` wins. On
+any other conflict, this file wins. Failure to load any retained
+execution/recovery/bounded-execution/route-return authority file is a Hard Blocker.
 
 WIJ is a best-effort execution optimization, never a lifecycle prerequisite. Journal failure,
 loss, corruption, ambiguity, or incompatibility must degrade to the ordinary current
@@ -40,8 +43,8 @@ journal; an ordinary invocation starts fresh. The workflow-durable
 `implement-ticket-continuation:v1` comment defined by `BOUNDED_EXECUTION.md` is distinct from
 WIJ and is the only source that can authorize the narrow `Durable Continuation` terminal.
 
-All retained requirements remain mandatory unless explicitly overridden here or in
-`BOUNDED_EXECUTION.md` on its four narrow owned subjects.
+All retained requirements remain mandatory unless explicitly overridden here,
+`BOUNDED_EXECUTION.md`, or `POST_ROUTE_RETURN.md` on their narrow owned subjects.
 
 ## Execution-anchor invariant
 
@@ -156,8 +159,20 @@ destination-first records continue to use their required isolated participant wo
 ## Retained protected control-plane boundary
 
 An ordinary `$implement-ticket` invocation still has **zero authority** to alter repository
-**workflow/control-plane** or semantic-authority files. There is deliberately **no `$implement-ticket` bypass flag**.
-The retained `scripts.workflow_candidate_guard check` and `restore-protected` mechanics remain mandatory.
+**workflow/control-plane** or semantic-authority files. There is deliberately **no
+`$implement-ticket` bypass flag**.
+
+For `$implement-ticket` candidate admission, the older direct
+`scripts.workflow_candidate_guard check` / `restore-protected` invocation is superseded by the
+policy-sync-aware wrapper required by `CONTROL_PLANE.md`:
+
+```text
+.agents/skills/implement-ticket/scripts/candidate_guard.py
+```
+
+The canonical root guard still owns the protected-path definitions consumed by that wrapper.
+This override changes attribution of already-committed authorized policy sync only; it does not
+permit candidate-local edits to protected paths.
 
 ## Independent verifier result-finalization boundary
 
@@ -196,8 +211,9 @@ only same-context post-result interaction.
 ## Retained Human Handoff boundary
 
 Every terminal **Human Handoff** from `$implement-ticket` remains bound to the shared gate,
-including verifier `cell-routing-defect` -> `$to-tickets`, verifier `planning-cell-gap` -> `$to-specs`,
-and `contract-authority-gap` routing. A recommendation, prose instruction, or bare downstream skill command is **not** a Human Handoff.
+including verifier `cell-routing-defect` -> `$to-tickets`, verifier `planning-cell-gap` ->
+`$to-specs`, and `contract-authority-gap` routing. A recommendation, prose instruction, or bare
+downstream skill command is **not** a Human Handoff.
 
 The exact downstream artifact rules remain:
 
@@ -224,5 +240,6 @@ generates/verifies there without mutating the candidate branch.
 Require `WORKFLOW HANDOFF: VALID` and reproduce the generated block **byte-for-byte**. For a
 normal post-closure frontier, evaluate the **complete current actionable ticket** frontier;
 Do not stop after the first actionable ticket. Emit one manifest handoff entry for each
-current actionable ticket. Do not emit a bare `$to-specs`, `$to-tickets`, `$architecture-remediation`,
-`$implement-ticket`, or `$verify-spec` line as a terminal Human Handoff.
+current actionable ticket. Do not emit a bare `$to-specs`, `$to-tickets`,
+`$architecture-remediation`, `$implement-ticket`, or `$verify-spec` line as a terminal Human
+Handoff.

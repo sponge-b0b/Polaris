@@ -9,10 +9,17 @@ disable-model-invocation: true
 
 ## Authoritative procedure composition
 
-Before executing this skill, read `.agents/skills/verify-ticket-closure/PROCEDURE.md` in
-full. That file preserves the complete established independent-verifier procedure. This
-`SKILL.md` is the authoritative entrypoint and owns the Execution Anchor and protected
-control-plane bindings below; on conflict, this file wins.
+Before executing this skill, read both of these files in full:
+
+1. `.agents/skills/verify-ticket-closure/PROCEDURE.md`
+2. `.agents/skills/verify-ticket-closure/POLICY_SYNC_ADMISSION.md`
+
+`PROCEDURE.md` preserves the complete established independent-verifier procedure.
+`POLICY_SYNC_ADMISSION.md` owns the candidate-admission, Execution-Anchor, policy-sync,
+Attention-identity, terminal candidate recheck, and result-finalization candidate-identity
+mechanics. On those subjects it overrides retained procedure text. This `SKILL.md` is the
+authoritative entrypoint; on every other conflict, this file wins. Failure to load either
+retained file is invalid verification.
 
 All retained frozen-contract, proof-independence, per-cell proof, exclusion-guardrail,
 retry, gap-classification, PASS/FAIL completeness, and non-mutation rules remain normative.
@@ -25,15 +32,20 @@ A current v3 verification dispatch must receive and bind both:
 * **Execution Anchor** — exact fetched shared-Spec-branch commit admitted by
   `$implement-ticket` before this attempt's substantive mutation.
 
-`TICKET_CLOSURE_STATE` is computed relative to the Execution Anchor, not relative to the
-Ticket baseline. Upstream/prerequisite/shared-branch commits between those two anchors are
-not part of this ticket candidate.
+`TICKET_CLOSURE_STATE` is the exact policy-sync-aware candidate state relative to the
+Execution Anchor. Upstream/prerequisite/shared-branch commits between Ticket baseline and
+Execution Anchor are not part of this ticket candidate, and later committed exact-main
+workflow-policy synchronization is delivery-tip history rather than candidate mutation only
+when the current machine guard admits it.
 
-Before semantic proof, independently require the protected-candidate gate:
+Before semantic proof, independently fetch current `origin/main` and require the protected-
+candidate gate defined by `POLICY_SYNC_ADMISSION.md`:
 
 ```bash
-python -m scripts.workflow_candidate_guard check \
-  --anchor <execution-anchor>
+python .agents/skills/implement-ticket/scripts/candidate_guard.py check \
+  --anchor <execution-anchor> \
+  --remote origin \
+  --default-branch main
 ```
 
 Require exact:
@@ -43,10 +55,11 @@ WORKFLOW CANDIDATE GUARD: VALID
 Protected control-plane paths: 0
 ```
 
-A protected path is invalid verification. The verifier must not repair, restore, suppress,
-format, or otherwise mutate it; return invalid verification and emit neither PASS nor FAIL.
-This prevents a product-ticket candidate from laundering workflow/control-plane or semantic
-authority changes through independent verification.
+The verifier must execute this gate itself. It must not rely on a parent-reported guard
+result. A protected path, inadmissible committed delivery-tip change, stale/non-main policy
+blob, mixed policy/product commit, dirty protected path, or non-descendant HEAD is invalid
+verification. The verifier must not repair, restore, suppress, format, or otherwise mutate
+the candidate; return invalid verification and emit neither PASS nor FAIL.
 
 Mechanically admit the Attention lifecycle state with:
 
@@ -64,10 +77,14 @@ Require exact `IMPLEMENT TICKET ATTENTION: VALID`, exact printed Ticket baseline
 printed Execution Anchor, and exact printed candidate state equal to the dispatched
 `TICKET_CLOSURE_STATE`.
 
-Missing/mismatched Execution Anchor, a v1 Attention receipt, HEAD movement after the anchor,
-candidate state derived from Ticket baseline, or a protected control-plane candidate is
-invalid verification: emit neither PASS nor FAIL. Never mint, repair, or reinterpret an
-Execution Anchor in the verifier.
+Missing/mismatched Execution Anchor, a v1 Attention receipt, candidate state derived from
+Ticket baseline, candidate mutation, or committed delivery-tip movement not admitted by the
+policy-aware candidate guard is invalid verification: emit neither PASS nor FAIL. Never mint,
+repair, or reinterpret an Execution Anchor in the verifier.
+
+Authorized committed exact-main workflow-policy synchronization after the Execution Anchor
+is not, by itself, invalid verification. It remains admissible only through the exact machine
+predicates in `POLICY_SYNC_ADMISSION.md` and must be independently rechecked by this verifier.
 
 ## Result-finalization and verifier self-retraction
 
@@ -130,14 +147,17 @@ Every retained PASS/FAIL result contract is strengthened to include:
 ```text
 Ticket baseline: <immutable sha>
 Execution Anchor: <sha>
-Candidate state: <hash relative to Execution Anchor>
+Candidate state: <policy-sync-aware hash relative to Execution Anchor>
 ```
 
 Retry state must preserve the same Execution Anchor unless `$implement-ticket` legally
 abandons the stale attempt before mutation and starts a new pre-mutation attempt from a new
 clean exact-remote anchor. A verifier never performs that transition.
 
-Immediately before either terminal PASS or FAIL, rerun the protected-candidate gate against
-the same Execution Anchor. Any protected path invalidates the verifier run.
+Immediately before either terminal PASS or FAIL, fetch current `origin/main`, rerun the exact
+policy-aware candidate guard from `POLICY_SYNC_ADMISSION.md` against the same Execution
+Anchor, and rerun `attention_gate.py verify` against the same contract, Attention Receipt
+Hash, and Execution Anchor. Any identity drift or inadmissible candidate/control-plane state
+invalidates the verifier run and emits neither PASS nor FAIL.
 
 All other result fields and proof obligations in the retained procedure remain unchanged.

@@ -132,6 +132,60 @@ def authorized_policy_sync_paths(
     return tuple(sorted(protected))
 
 
+def validate_delivery_tip(
+    anchor: str,
+    *,
+    remote: str = "origin",
+    default_branch: str = "main",
+) -> tuple[str, ...]:
+    """Validate committed HEAD movement after an Execution Anchor.
+
+    HEAD may equal the anchor, or it may advance only through committed policy-sync
+    surfaces that satisfy the same exact-main predicates used by candidate admission.
+    Product/test/migration/wiki commits, mixed policy/product commits, empty commits,
+    or stale policy blobs are not admissible delivery-tip movement.
+    """
+
+    _verify_anchor(anchor)
+    head = _run_git("rev-parse", "HEAD").stdout.strip()
+    if head == anchor:
+        return ()
+    if _run_git("merge-base", "--is-ancestor", anchor, head, check=False).returncode:
+        raise CandidateGuardError(
+            "current HEAD is not a descendant of the Execution Anchor"
+        )
+
+    committed = _git_paths(
+        "diff",
+        "--no-renames",
+        "--name-only",
+        "-z",
+        anchor,
+        "HEAD",
+        "--",
+    )
+    authorized = set(
+        authorized_policy_sync_paths(
+            anchor,
+            remote=remote,
+            default_branch=default_branch,
+        )
+    )
+    if not committed:
+        raise CandidateGuardError(
+            "current HEAD advanced after the Execution Anchor without an authorized "
+            "policy-sync path"
+        )
+    if committed != authorized:
+        inadmissible = sorted(committed - authorized)
+        detail = ", ".join(inadmissible) if inadmissible else "policy sync not exact-main"
+        raise CandidateGuardError(
+            "current HEAD contains committed change(s) that are not authorized "
+            f"policy synchronization: {detail}"
+        )
+    return tuple(sorted(authorized))
+
+
 def candidate_paths(
     anchor: str,
     *,

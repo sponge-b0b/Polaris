@@ -85,7 +85,23 @@ def test_authorized_committed_policy_sync_is_not_ticket_candidate(
         assert GUARD.authorized_policy_sync_paths(anchor) == (
             str(policy.relative_to(repo)),
         )
+        assert GUARD.validate_delivery_tip(anchor) == (
+            str(policy.relative_to(repo)),
+        )
         assert GUARD.validate_candidate(anchor) == (str(product.relative_to(repo)),)
+
+
+def test_delivery_tip_rejects_committed_product_advance(tmp_path: Path) -> None:
+    repo, anchor, _policy, product = _setup(tmp_path)
+    product.write_text("VALUE = 2\n", encoding="utf-8")
+    _git(repo, "add", str(product.relative_to(repo)))
+    _git(repo, "commit", "-m", "committed product change")
+
+    with _Chdir(repo), pytest.raises(
+        GUARD.CandidateGuardError,
+        match="not authorized policy synchronization",
+    ):
+        GUARD.validate_delivery_tip(anchor)
 
 
 def test_local_edit_to_synced_policy_is_still_rejected(tmp_path: Path) -> None:

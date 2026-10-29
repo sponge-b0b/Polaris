@@ -13,6 +13,11 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from candidate_guard import (  # noqa: E402
+    CandidateGuardError,
+    candidate_paths as guarded_candidate_paths,
+    validate_delivery_tip,
+)
 from scripts.workflow_attention import AttentionProtocolError, validate_file
 from scripts.workflow_hashing import (
     canonical_json_bytes,
@@ -106,16 +111,21 @@ def _git_paths(*args: str) -> set[bytes]:
     return {item for item in output.split(b"\0") if item}
 
 
-def _changed_paths(anchor: str) -> set[bytes]:
-    return _git_paths("diff", "--no-renames", "--name-only", "-z", anchor, "--")
-
-
-def _untracked_paths() -> set[bytes]:
-    return _git_paths("ls-files", "--others", "--exclude-standard", "-z")
-
-
-def _candidate_paths(anchor: str) -> list[bytes]:
-    return sorted(_changed_paths(anchor) | _untracked_paths())
+def _candidate_paths(
+    anchor: str,
+    *,
+    remote: str = "origin",
+    default_branch: str = "main",
+) -> list[bytes]:
+    try:
+        paths = guarded_candidate_paths(
+            anchor,
+            remote=remote,
+            default_branch=default_branch,
+        )
+    except CandidateGuardError as exc:
+        raise AttentionGateError(str(exc)) from exc
+    return [os.fsencode(path) for path in paths]
 
 
 def _path_mode(path: bytes) -> bytes:
@@ -133,9 +143,18 @@ def _path_bytes(path: bytes) -> bytes:
     return Path(os.fsdecode(path)).read_bytes()
 
 
-def candidate_state(execution_anchor: str) -> str:
+def candidate_state(
+    execution_anchor: str,
+    *,
+    remote: str = "origin",
+    default_branch: str = "main",
+) -> str:
     payload = bytearray()
-    for raw_path in _candidate_paths(execution_anchor):
+    for raw_path in _candidate_paths(
+        execution_anchor,
+        remote=remote,
+        default_branch=default_branch,
+    ):
         payload.extend(b"path\0")
         payload.extend(raw_path)
         payload.extend(b"\0")
@@ -248,6 +267,22 @@ def _common(
     return schema, digest, head
 
 
+def _require_delivery_tip(
+    execution_anchor: str,
+    *,
+    remote: str,
+    default_branch: str = "main",
+) -> None:
+    try:
+        validate_delivery_tip(
+            execution_anchor,
+            remote=remote,
+            default_branch=default_branch,
+        )
+    except CandidateGuardError as exc:
+        raise AttentionGateError(str(exc)) from exc
+
+
 def record_pre_mutation(args: argparse.Namespace) -> dict[str, Any]:
     _need(_worktree_clean(), "pre-mutation gate requires a clean worktree")
     remote_anchor = _fetch_remote_branch(args.remote, args.branch)
@@ -277,7 +312,7 @@ def record_pre_mutation(args: argparse.Namespace) -> dict[str, Any]:
         "contract_hash": contract_hash,
         "pre_mutation": {
             "head": head,
-            "candidate_state": candidate_state(remote_anchor),
+            "candidate_state": candidate_state(remote_anchor, remote=args.remote),
             "attention_status": attention_status,
             "attention_result_sha256": attention_hash,
         },
@@ -318,6 +353,15 @@ def _require_identity(
     )
 
 
+def _receipt_remote(receipt: dict[str, Any]) -> str:
+    remote = receipt.get("remote")
+    _need(
+        isinstance(remote, str) and remote and not remote.startswith("-"),
+        "attention receipt: invalid remote",
+    )
+    return remote
+
+
 def record_pre_closure(args: argparse.Namespace) -> dict[str, Any]:
     contract_schema, contract_hash, head = _common(
         ticket=args.ticket,
@@ -340,17 +384,15 @@ def record_pre_closure(args: argparse.Namespace) -> dict[str, Any]:
         receipt["pre_mutation"].get("head") == args.execution_anchor,
         "attention receipt: pre-mutation HEAD does not equal execution anchor",
     )
-    _need(
-        head == args.execution_anchor,
-        "attention receipt: HEAD changed after pre-mutation gate",
-    )
+    remote = _receipt_remote(receipt)
+    _require_delivery_tip(args.execution_anchor, remote=remote)
     attention_status, attention_hash = _attention_result(
         args.attention_result,
         "$implement-ticket pre-closure",
     )
     receipt["pre_closure"] = {
         "head": head,
-        "candidate_state": candidate_state(args.execution_anchor),
+        "candidate_state": candidate_state(args.execution_anchor, remote=remote),
         "attention_status": attention_status,
         "attention_result_sha256": attention_hash,
     }
@@ -359,7 +401,7 @@ def record_pre_closure(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def verify(args: argparse.Namespace) -> dict[str, Any]:
-    contract_schema, contract_hash, head = _common(
+    contract_schema, contract_hash, _head_value = _common(
         ticket=args.ticket,
         contract=args.contract,
         baseline=args.baseline,
@@ -376,16 +418,14 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         contract_schema=contract_schema,
         contract_hash=contract_hash,
     )
-    _need(
-        head == args.execution_anchor,
-        "attention receipt: HEAD changed after pre-mutation gate",
-    )
+    remote = _receipt_remote(receipt)
+    _require_delivery_tip(args.execution_anchor, remote=remote)
     pre_closure = receipt.get("pre_closure")
     _need(
         isinstance(pre_closure, dict),
         "attention receipt: missing pre-closure gate",
     )
-    current_state = candidate_state(args.execution_anchor)
+    current_state = candidate_state(args.execution_anchor, remote=remote)
     _need(
         pre_closure.get("candidate_state") == current_state,
         "attention receipt: pre-closure candidate state is stale",

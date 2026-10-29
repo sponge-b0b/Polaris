@@ -242,7 +242,7 @@ def test_policy_requires_route_context_before_ready_consumption() -> None:
     policy = (ROOT / ".agents/skills/implement-ticket/POST_ROUTE_RETURN.md").read_text(
         encoding="utf-8"
     )
-    assert "Route-aware feasibility is mandatory before re-entry" in policy
+    assert "Route-aware feasibility binding" in policy
     assert "IMPLEMENT TICKET POST-ROUTE CONTEXT: VALID" in policy
     assert "Same-boundary reroute prohibition" in policy
-    assert "Pre-verifier terminalization" in policy
+    assert "Exact pre-verifier terminal exception" in policy

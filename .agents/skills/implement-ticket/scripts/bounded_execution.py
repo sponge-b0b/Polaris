@@ -417,7 +417,7 @@ def validate_continuation(value: dict[str, Any]) -> ContinuationReceipt:
         contract_hash=contract_hash,
         phase=phase,
         reason=reason,
-        durable_continuation=reason != "stage-checkpoint",
+        durable_continuation=reason in {"usage-boundary", "tool-boundary"},
         artifact_sha256=_sha(value),
     )
 

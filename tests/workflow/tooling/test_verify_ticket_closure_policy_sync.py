@@ -37,7 +37,7 @@ def test_verifier_binds_execution_anchor_at_admission_and_terminal_recheck() -> 
 
     assert "--execution-anchor <execution-anchor>" in skill
     assert "--execution-anchor <execution-anchor>" in policy
-    assert "Immediately before either terminal PASS or FAIL" in policy
+    assert "Immediately before emitting either terminal" in policy
     assert "rerun the exact policy-aware candidate guard" in policy
     assert "rerun `attention_gate.py verify`" in policy
     assert "same Execution Anchor" in policy

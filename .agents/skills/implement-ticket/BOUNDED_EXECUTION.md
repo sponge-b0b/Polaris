@@ -223,35 +223,44 @@ When the invocation reaches Completed, Human Handoff, or Hard Blocker, supersede
 active continuation marker as part of terminal durable reconciliation; the normal owning
 terminal artifact becomes authoritative.
 
+Context compaction is a checkpoint trigger, not a lifecycle transition. If compaction occurs,
+finish the current atomic operation as needed, refresh/read back/validate the durable checkpoint,
+reconstitute working context from that durable state when necessary, and continue the same
+invocation. A checkpoint protects progress; it does not transfer control to the user.
+
 ## 4. Durable Continuation terminal
 
 The retained statement that `$implement-ticket` has exactly three terminal conditions is
-narrowly overridden. `$implement-ticket` now has a fourth legal terminal condition:
+narrowly overridden. `$implement-ticket` has a fourth legal terminal condition only for an
+**actual execution boundary** that prevents the current invocation from continuing:
 
 ```text
 Durable Continuation
 ```
 
-Durable Continuation means:
+Durable Continuation means all of the following are true:
 
 - no human decision is currently required;
 - no Hard Blocker exists;
 - the invocation has substantial remaining work;
-- context compaction, an imminent usage boundary, or a tool/runtime boundary makes continuing
-  the current invocation materially likely to lose progress or repeat expensive work; and
+- execution genuinely cannot continue in the current invocation because an enforced usage
+  boundary or a tool/runtime boundary has been reached; and
 - the exact current state has been persisted/read back/validated in the active
-  `implement-ticket-continuation:v1` comment with reason `context-compaction`,
-  `usage-boundary`, or `tool-boundary`.
+  `implement-ticket-continuation:v1` comment with reason `usage-boundary` or `tool-boundary`.
 
-A `stage-checkpoint` reason by itself is not a terminal Durable Continuation.
+`stage-checkpoint` and `context-compaction` are never terminal Durable Continuation reasons.
+Context compaction by itself must produce `Durable Continuation: NO` and the skill must continue.
+A usage warning, percentage/time-remaining notice, expectation of future context pressure, or the
+fact that another broad implementation/research/verification stage remains is also not an actual
+execution boundary and must not stop the invocation.
 
-After the first context compaction in a still-substantial `$implement-ticket` invocation,
-finish the current atomic operation, refresh the durable checkpoint, and prefer Durable
-Continuation before starting another broad implementation/research/verification campaign.
-Likewise, after a verifier FAIL, do not begin a heavy corrective campaign until
-`post-verifier-result` and `post-verifier-triage` are durably checkpointed.
+After context compaction, refresh the durable checkpoint and continue from it. Likewise, after a
+verifier FAIL, checkpoint `post-verifier-result` and `post-verifier-triage` before a heavy
+corrective campaign, then continue when the owning procedure permits; checkpoint durability does
+not itself authorize or require termination.
 
-The terminal output is concise:
+If and only if an actual usage/tool/runtime boundary prevents further execution, the terminal
+output is concise:
 
 ```text
 IMPLEMENT TICKET: DURABLE CONTINUATION
@@ -263,13 +272,14 @@ Next action: <exact action>
 Resume: resume $implement-ticket - <Ticket Title> (<Ticket URL>)
 ```
 
-This is **not** a Human Handoff and does not route to another skill. It is a safe same-workflow
-boundary designed for finite context/usage budgets.
+This is **not** a Human Handoff and does not route to another skill. It exists only for a real
+execution boundary where the current invocation cannot continue, not as a proactive context or
+work-size management strategy.
 
-On explicit resume, current Git/GitHub/contract authority is still reconstructed first. The
-validated continuation checkpoint then provides the durable stage/next-action hint; candidate-
-bound technical evidence may be reused only where the retained WIJ/current-authority rules
-already allow it.
+On explicit resume after such an actual boundary, current Git/GitHub/contract authority is still
+reconstructed first. The validated continuation checkpoint then provides the durable
+stage/next-action hint; candidate-bound technical evidence may be reused only where the retained
+WIJ/current-authority rules already allow it.
 
 ## 5. Fail-closed precedence summary
 
@@ -281,6 +291,8 @@ known contract-touching concern -> call it nonblocking -> dispatch verifier
 confirmed verifier FAIL -> mutate/prototype -> decide later whether architecture/planning was involved
 
 start WIJ -> perform a long run -> never append/checkpoint -> lose context -> reconstruct everything
+
+context compaction -> checkpoint -> stop despite execution still being available
 ```
 
 The valid sequence is:
@@ -301,7 +313,12 @@ meaningful stage completion
     -> optional/best-effort WIJ event
     -> next substantial stage
 
-context/usage/tool boundary
+context compaction
+    -> durable continuation checkpoint + readback
+    -> reconstitute working context if necessary
+    -> continue the same invocation
+
+actual enforced usage/tool/runtime boundary that prevents further execution
     -> durable continuation checkpoint with interruption reason
     -> IMPLEMENT TICKET: DURABLE CONTINUATION
 ```

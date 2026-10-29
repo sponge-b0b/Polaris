@@ -181,12 +181,44 @@ def test_verifier_route_requires_material_boundary_and_owner() -> None:
     assert BOUNDED.validate_triage(value).classification == "ROUTE_REQUIRED"
 
 
-def test_continuation_distinguishes_stage_checkpoint_from_terminal_boundary() -> None:
+def test_continuation_distinguishes_checkpoint_from_actual_execution_boundary() -> None:
     value = _continuation()
-    assert BOUNDED.validate_continuation(value).durable_continuation is True
+    assert BOUNDED.validate_continuation(value).durable_continuation is False
 
     value["reason"] = "stage-checkpoint"
     assert BOUNDED.validate_continuation(value).durable_continuation is False
+
+    value["reason"] = "usage-boundary"
+    assert BOUNDED.validate_continuation(value).durable_continuation is True
+
+    value["reason"] = "tool-boundary"
+    assert BOUNDED.validate_continuation(value).durable_continuation is True
+
+
+def test_candidate_created_compaction_with_verification_pending_must_continue() -> None:
+    value = _continuation()
+    value["phase"] = "candidate-created"
+    value["completed"] = ["candidate-created", "feasibility", "post-route-reentry"]
+    value["pending"] = [
+        "architecture-check",
+        "duplicate-code-check",
+        "independent-closure-verification",
+        "pre-closure-attention",
+        "technical-checks",
+    ]
+    value["next_action"] = "run final verification stages"
+    value["reason"] = "context-compaction"
+    value["verifier_state"] = {
+        "attempt": 0,
+        "result": "none",
+        "result_sha256": None,
+    }
+    value["stale_evidence"] = []
+
+    receipt = BOUNDED.validate_continuation(value)
+    assert receipt.phase == "candidate-created"
+    assert receipt.reason == "context-compaction"
+    assert receipt.durable_continuation is False
 
 
 def test_policy_requires_all_three_bounded_execution_invariants() -> None:
@@ -203,7 +235,8 @@ def test_policy_requires_all_three_bounded_execution_invariants() -> None:
     assert "Verifier FAIL requires triage before mutation" in policy
     assert "Mandatory stage checkpoints" in policy
     assert "Durable Continuation" in policy
-    assert "fourth legal terminal condition" in policy
+    assert "actual execution boundary" in policy
+    assert "Context compaction is a checkpoint trigger, not a lifecycle transition" in policy
     assert "BOUNDED_EXECUTION.md" in skill
     assert "--concerns" in gate
     assert "validate_concerns" in gate

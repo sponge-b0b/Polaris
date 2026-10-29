@@ -38,8 +38,11 @@ baseline may include accepted CCL/ADR/Spec reconciliation, prerequisite ticket c
 workflow-policy synchronization, or other already-durable shared-branch history. Such
 advancement is not automatically this ticket's implementation candidate.
 
-The current ticket candidate is **only** the Git-relevant path state that differs from the
-Execution Anchor (plus untracked non-ignored paths). Do not compute candidate identity from
+The current ticket candidate is **only** the Git-relevant path state admitted by the current
+policy-sync-aware candidate guard relative to the Execution Anchor (plus untracked non-ignored
+paths). Authorized committed exact-main workflow-policy synchronization after the Execution
+Anchor is delivery-tip history and is excluded only when the current machine predicates in
+`CONTROL_PLANE.md` and `candidate_guard.py` admit it. Do not compute candidate identity from
 the historical Ticket baseline once an Execution Anchor has been admitted.
 
 This distinction does not weaken fail-closed behavior. A new Execution Anchor may be minted
@@ -118,23 +121,27 @@ candidate state relative to the Execution Anchor.
 No substantive mutation is allowed until this command succeeds.
 
 The old retained rule that admitted `baseline -> HEAD` only when it was default-branch
-workflow-policy synchronization is superseded. Non-retroactivity is now enforced by the
-clean exact-remote Execution Anchor plus the rule that HEAD may not change after the
-pre-mutation gate until certification/persistence.
+workflow-policy synchronization is superseded for initial anchor capture. After the anchor
+is captured, substantive/candidate committed HEAD movement remains forbidden until exact
+certified persistence, but committed delivery-tip movement consisting solely of current
+machine-admitted exact-main policy synchronization is allowed and is not candidate mutation.
 
 ## Candidate identity and pre-closure Attention
 
-Every retained candidate-state algorithm remains byte-for-byte the same except replace the
-Git diff base `TICKET_BASELINE` with `EXECUTION_ANCHOR`:
+Every retained candidate-state algorithm remains byte-for-byte the same for included paths,
+but the path universe is the policy-sync-aware candidate universe relative to the Execution
+Anchor:
 
 ```text
-path universe =
-    git diff --no-renames --name-only -z <execution-anchor> --
-    union untracked non-ignored paths
+candidate paths =
+    candidate_guard.py candidate_paths(<execution-anchor>)
+
+where authorized committed exact-main policy-sync paths are excluded,
+and local dirty/staged/untracked candidate paths remain included.
 ```
 
-This `TICKET_CLOSURE_STATE` therefore identifies only this attempt's candidate, excluding
-already-durable shared-branch history between Ticket baseline and Execution Anchor.
+This `TICKET_CLOSURE_STATE` therefore identifies only this attempt's candidate while excluding
+already-durable shared-branch history and currently admitted policy-only delivery-tip sync.
 
 Before closure dispatch, run the retained pre-closure Attention sweep and bind it with:
 
@@ -161,8 +168,10 @@ python .agents/skills/implement-ticket/scripts/attention_gate.py verify \
 ```
 
 Require `IMPLEMENT TICKET ATTENTION: PRE-CLOSURE VALID` and then
-`IMPLEMENT TICKET ATTENTION: VALID`. The gate rejects any committed HEAD movement after the
-Execution Anchor and any stale candidate bytes.
+`IMPLEMENT TICKET ATTENTION: VALID`. The gate rejects any committed delivery-tip movement
+that is not admitted by the policy-sync-aware candidate guard and rejects stale candidate
+bytes. Authorized exact-main policy-only synchronization is not, by itself, stale candidate
+state.
 
 ## Durable closure checkpoint v3 and independent verifier binding
 
@@ -171,12 +180,13 @@ The retained `implement-ticket-closure-checkpoint:v3` schema is strengthened wit
 ```markdown
 **Ticket baseline:** <immutable historical sha>
 **Execution Anchor:** <exact pre-mutation fetched shared-branch sha>
-**Candidate state:** <hash relative to Execution Anchor>
+**Candidate state:** <policy-sync-aware hash relative to Execution Anchor>
 ```
 
 Persist/read back the Execution Anchor anywhere the retained procedure currently binds
 Ticket baseline and candidate identity. Dispatch `$verify-ticket-closure` with both values.
-The verifier result must bind both values exactly.
+The verifier result must bind both values exactly and must independently admit the same
+policy-sync-aware candidate universe.
 
 An existing v3 checkpoint without an Execution Anchor is not silently upgraded by minting a
 new attempt over the same candidate. If its exact candidate was created under the older
@@ -185,14 +195,20 @@ assert a v2 pre-mutation receipt.
 
 ## Persistence and representation independence
 
-Before commit/push, the Attention verifier runs while HEAD still equals the Execution Anchor.
+Before commit/push, rerun the policy-sync-aware candidate guard and Attention verifier against
+the same immutable Execution Anchor and exact certified candidate state. Current `HEAD` need
+not equal the Execution Anchor when the only committed movement is machine-admitted exact-main
+policy synchronization. Any committed product/test/migration/wiki change, mixed policy/product
+commit, non-descendant HEAD, stale policy blob, dirty protected path, or candidate-state drift
+invalidates the certification and fails closed.
+
 After independent closure PASS, commit only the exact certified candidate and push without
 force under the retained persistence rules.
 
-Representation independence is preserved: recomputing candidate content relative to the
-same Execution Anchor before and after committing the exact bytes yields the same candidate
-identity. Ticket baseline remains immutable lineage evidence and is never substituted for
-the Execution Anchor in candidate hashing.
+Representation independence is preserved: recomputing the admitted candidate content against
+the same Execution Anchor before and after committing the exact certified bytes yields the
+same candidate identity. Ticket baseline remains immutable lineage evidence and is never
+substituted for the Execution Anchor in candidate hashing.
 
 ## Frontier handoff
 

@@ -7,7 +7,6 @@ from uuid import uuid4
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.exc import DBAPIError
 
 from polaris.application.decisions import (
     ApplySubstantiveResolutionCommand,
@@ -71,6 +70,7 @@ from polaris.domain.investment_intelligence import (
 from polaris.domain.investment_recommendation import RecommendationWithholdingJudgment
 from polaris.domain.portfolio import FinancialInstrumentId, PortfolioId
 from polaris.infrastructure.persistence.postgresql import (
+    INVESTMENT_INTELLIGENCE_TABLE_NAMES,
     PostgresDecisionStore,
     PostgresIntelligenceJudgmentHistoryStore,
     PostgresInvestmentIntelligenceStore,
@@ -83,8 +83,13 @@ from polaris.infrastructure.persistence.postgresql.investment_intelligence impor
     JudgmentConcurrencyConflict,
     JudgmentIdempotencyConflict,
 )
+from polaris.infrastructure.persistence.postgresql.schema import (
+    investment_intelligence_act_publications,
+    investment_intelligence_judgment_acts,
+)
+from polaris.infrastructure.persistence.postgresql.schema_foundation import metadata
 
-from .conftest import PostgresTestTarget
+from .conftest import PostgresTestTarget, assert_intelligence_table_immutable
 
 NOW = datetime(2026, 10, 17, 12, tzinfo=UTC)
 
@@ -192,15 +197,6 @@ async def _exercise(
             await service.record_view(
                 OperationId(uuid4()), decision, wrong_instrument_view
             )
-        with pytest.raises(DBAPIError):
-            async with engine.begin() as connection:
-                await connection.execute(
-                    text(
-                        "UPDATE investment_views SET payload = payload "
-                        "WHERE view_id = :view_id"
-                    ),
-                    {"view_id": view.view_id.value},
-                )
         with pytest.raises(JudgmentIdempotencyConflict):
             await service.record_view(
                 view_operation,
@@ -451,6 +447,16 @@ async def _exercise(
             await service.record_alternatives(
                 OperationId(uuid4()), decision, alternatives
             )
+        tables = tuple(
+            metadata.tables[name]
+            for name in sorted(INVESTMENT_INTELLIGENCE_TABLE_NAMES)
+        )
+        for table in (
+            *tables,
+            investment_intelligence_judgment_acts,
+            investment_intelligence_act_publications,
+        ):
+            await assert_intelligence_table_immutable(engine, table)
     finally:
         await engine.dispose()
 

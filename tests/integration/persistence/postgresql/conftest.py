@@ -12,7 +12,8 @@ from uuid import uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import Table, func, select, text
+from sqlalchemy import Table, delete, func, select, text, update
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from polaris.domain.decisions import DecisionRelationshipFactId, InvestmentDecisionId
@@ -85,6 +86,25 @@ async def postgres_row_counts(
                 raise AssertionError("PostgreSQL row count query returned no result")
             counts.append(count)
     return tuple(counts)
+
+
+async def assert_intelligence_table_immutable(
+    engine: AsyncEngine, table: Table
+) -> None:
+    key = next(iter(table.primary_key.columns))
+    row = select(key).limit(1).scalar_subquery()
+    async with engine.connect() as connection:
+        assert await connection.scalar(select(func.count()).select_from(table)) > 0
+    for statement in (
+        update(table).where(key == row).values({key.name: key}),
+        delete(table).where(key == row),
+    ):
+        with pytest.raises(
+            DBAPIError,
+            match="immutable Investment Intelligence facts cannot be changed",
+        ):
+            async with engine.begin() as connection:
+                await connection.execute(statement)
 
 
 async def corrupt_relationship_lineage_source(

@@ -104,7 +104,7 @@ from tests.domain.configuration.configuration_support import (
     requirement_version,
 )
 
-from .conftest import PostgresTestTarget
+from .conftest import PostgresTestTarget, assert_intelligence_table_immutable
 
 START = datetime(2026, 10, 20, tzinfo=UTC)
 
@@ -425,6 +425,9 @@ async def _scenario(target: PostgresTestTarget) -> None:
         assert isinstance(accepted, JudgmentReceipt)
         assert await _captured_basis(engine, accepted_operation) == fresh
         assert await withholding_service.history(decision.decision_id) == (withholding,)
+        await assert_intelligence_table_immutable(
+            engine, investment_intelligence_judgment_bases
+        )
     finally:
         await engine.dispose()
 

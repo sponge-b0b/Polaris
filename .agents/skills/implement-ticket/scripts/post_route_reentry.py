@@ -16,6 +16,10 @@ if str(REPO_ROOT) not in sys.path:
 import attention_gate_impl as _impl  # noqa: E402
 from candidate_guard import CandidateGuardError, validate_candidate  # noqa: E402
 from feasibility_authority import FeasibilityError, validate_feasibility  # noqa: E402
+from post_route_control import (  # noqa: E402
+    PostRouteControlError,
+    validate_context,
+)
 from route_return import RouteReturnError, validate_route_return  # noqa: E402
 
 
@@ -45,7 +49,7 @@ def _validate_feasibility(
     contract_hash: str,
     branch: str,
     head: str,
-) -> None:
+) -> dict[str, Any]:
     value = _read_json_object(path, "feasibility")
     try:
         receipt = validate_feasibility(value)
@@ -68,9 +72,9 @@ def _validate_feasibility(
     _need(value.get("branch") == branch, "feasibility artifact: branch mismatch")
     _need(
         value.get("execution_head") == head,
-        "feasibility artifact: execution HEAD is stale; "
-        "rerun feasibility on current HEAD",
+        "feasibility artifact: execution HEAD is stale; rerun feasibility on current HEAD",
     )
+    return value
 
 
 def _validate_route_return(
@@ -86,10 +90,7 @@ def _validate_route_return(
     except RouteReturnError as exc:
         raise PostRouteReentryError(f"route-return artifact invalid: {exc}") from exc
 
-    _need(
-        receipt.status == "READY",
-        "post-route re-entry requires route-return READY",
-    )
+    _need(receipt.status == "READY", "post-route re-entry requires route-return READY")
     _need(receipt.ticket == ticket, "route-return artifact: ticket mismatch")
     _need(
         receipt.contract_schema == contract_schema,
@@ -100,6 +101,19 @@ def _validate_route_return(
         "route-return artifact: contract hash mismatch",
     )
     return value
+
+
+def _validate_post_route_context(
+    path: Path,
+    *,
+    feasibility: dict[str, Any],
+    route_return: dict[str, Any],
+) -> None:
+    value = _read_json_object(path, "post-route context")
+    try:
+        validate_context(value, feasibility, route_return)
+    except PostRouteControlError as exc:
+        raise PostRouteReentryError(f"post-route context invalid: {exc}") from exc
 
 
 def record_post_route_reentry(args: argparse.Namespace) -> dict[str, Any]:
@@ -123,7 +137,7 @@ def record_post_route_reentry(args: argparse.Namespace) -> dict[str, Any]:
         "post-route re-entry requires current HEAD to equal the fetched execution anchor",
     )
 
-    _validate_feasibility(
+    feasibility = _validate_feasibility(
         args.feasibility,
         ticket=args.ticket,
         contract_schema=contract_schema,
@@ -136,6 +150,11 @@ def record_post_route_reentry(args: argparse.Namespace) -> dict[str, Any]:
         ticket=args.ticket,
         contract_schema=contract_schema,
         contract_hash=contract_hash,
+    )
+    _validate_post_route_context(
+        args.post_route_context,
+        feasibility=feasibility,
+        route_return=route_return,
     )
 
     try:
@@ -191,6 +210,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--attention-result", type=Path, required=True)
     parser.add_argument("--feasibility", type=Path, required=True)
     parser.add_argument("--route-return", type=Path, required=True)
+    parser.add_argument("--post-route-context", type=Path, required=True)
     return parser
 
 

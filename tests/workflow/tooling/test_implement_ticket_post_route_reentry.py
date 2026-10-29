@@ -100,6 +100,7 @@ def _args(repo: Path, anchor: str, contract: Path) -> argparse.Namespace:
         attention_result=repo / "attention-result.json",
         feasibility=repo / "feasibility.json",
         route_return=repo / "route-return.json",
+        post_route_context=repo / "post-route-context.json",
     )
 
 
@@ -117,12 +118,13 @@ def test_dirty_exact_failed_candidate_can_pass_post_route_reentry(
             "_fetch_remote_branch",
             lambda _remote, _branch: anchor,
         )
-        monkeypatch.setattr(REENTRY, "_validate_feasibility", lambda *a, **k: None)
+        monkeypatch.setattr(REENTRY, "_validate_feasibility", lambda *a, **k: {})
         monkeypatch.setattr(
             REENTRY,
             "_validate_route_return",
             lambda *a, **k: {"failed_candidate_state": failed_state},
         )
+        monkeypatch.setattr(REENTRY, "_validate_post_route_context", lambda *a, **k: None)
         monkeypatch.setattr(
             REENTRY._impl,
             "_attention_result",
@@ -150,18 +152,44 @@ def test_post_route_reentry_rejects_candidate_state_mismatch(
             "_fetch_remote_branch",
             lambda _remote, _branch: anchor,
         )
-        monkeypatch.setattr(REENTRY, "_validate_feasibility", lambda *a, **k: None)
+        monkeypatch.setattr(REENTRY, "_validate_feasibility", lambda *a, **k: {})
         monkeypatch.setattr(
             REENTRY,
             "_validate_route_return",
             lambda *a, **k: {"failed_candidate_state": "f" * 64},
         )
+        monkeypatch.setattr(REENTRY, "_validate_post_route_context", lambda *a, **k: None)
 
         with pytest.raises(
             REENTRY.PostRouteReentryError,
             match="candidate state differs from returned failed candidate",
         ):
             REENTRY.record_post_route_reentry(_args(repo, anchor, contract))
+
+
+def test_reentry_requires_post_route_context_argument() -> None:
+    parser = REENTRY._parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(
+            [
+                "--ticket",
+                "465",
+                "--contract",
+                "contract.json",
+                "--baseline",
+                "a" * 40,
+                "--branch",
+                "spec-1",
+                "--execution-anchor",
+                "b" * 40,
+                "--feasibility",
+                "feasibility.json",
+                "--route-return",
+                "route-return.json",
+                "--attention-result",
+                "attention.json",
+            ]
+        )
 
 
 def test_ordinary_pre_mutation_remains_clean_only(tmp_path: Path) -> None:
@@ -210,14 +238,11 @@ def test_obsolete_pre_mutation_route_return_path_is_rejected(
     assert "post_route_reentry.py" in output
 
 
-def test_policy_requires_reentry_before_ready_consumption() -> None:
+def test_policy_requires_route_context_before_ready_consumption() -> None:
     policy = (ROOT / ".agents/skills/implement-ticket/POST_ROUTE_RETURN.md").read_text(
         encoding="utf-8"
     )
-    assert "Post-route re-entry is distinct from ordinary pre-mutation" in policy
-    assert "Consume READY only after re-entry succeeds" in policy
-    assert "POST-ROUTE REENTRY VALID" in policy
-    mandatory = policy.split("The order is mandatory:", 1)[1]
-    assert mandatory.index("exact-candidate post-route re-entry Attention PASS") < (
-        mandatory.index("READY -> IN_PROGRESS")
-    )
+    assert "Route-aware feasibility is mandatory before re-entry" in policy
+    assert "IMPLEMENT TICKET POST-ROUTE CONTEXT: VALID" in policy
+    assert "Same-boundary reroute prohibition" in policy
+    assert "Pre-verifier terminalization" in policy

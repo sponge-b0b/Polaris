@@ -24,6 +24,7 @@ from polaris.application.evidence.judgment_versions import ResolvedTargetJudgmen
 from polaris.application.evidence.reconstruction import StaleEvidenceBasis
 from polaris.application.evidence.revalidation import CurrentEvidenceBasisRevalidator
 from polaris.application.intelligence_judgment_history import (
+    IntelligenceJudgmentHistoryUnavailable,
     IntelligenceJudgmentTargetReader,
 )
 from polaris.application.investment_intelligence import JudgmentId, JudgmentReceipt
@@ -64,7 +65,7 @@ from polaris.domain.evidence.judgments import (
 )
 from polaris.domain.intelligence_judgment_history import (
     IntelligenceClaimCatalog,
-    IntelligenceJudgmentAct,
+    IntelligenceJudgmentActDraft,
     IntelligenceJudgmentStatus,
 )
 from polaris.domain.investment_intelligence import (
@@ -99,8 +100,11 @@ from .intelligence_contract_codec import (
 )
 from .intelligence_judgment_history import (
     INTELLIGENCE_OWNER_LOCK,
+    INTELLIGENCE_ROOT_TYPES,
     PostgresIntelligenceJudgmentHistoryStore,
+    archive_intelligence_act_commits,
     insert_initial_intelligence_act,
+    intelligence_owner_write,
 )
 from .relationship_store import _load_decision, _load_relationship_history
 from .runtime_qualification import require_qualified_postgres_runtime
@@ -118,6 +122,13 @@ from .schema import (
 )
 
 _WRITE_LOCK = INTELLIGENCE_OWNER_LOCK
+_PERSISTENCE_ERRORS = (
+    SQLAlchemyError,
+    IntelligenceJudgmentHistoryUnavailable,
+    ValueError,
+    TypeError,
+    KeyError,
+)
 _MATERIAL_TARGETS = {
     "InvestmentViewRef": InvestmentViewRef,
     "MeaningfulChallengeResultRef": MeaningfulChallengeResultRef,
@@ -237,17 +248,14 @@ async def _append_initial_target(
     ),
     catalog: IntelligenceClaimCatalog | None = None,
 ) -> None:
-    now = datetime.now(UTC)
     await insert_initial_intelligence_act(
         connection,
-        IntelligenceJudgmentAct(
+        IntelligenceJudgmentActDraft(
             act_id=uuid4(),
             root=assertion.evidence_target,
             attribution=assertion.actor_attribution,
             basis="initial accepted Investment Intelligence judgment",
             effective_at=assertion.formed_at,
-            recorded_at=now,
-            known_at=now,
             ancestry=(),
             assertion=assertion,
             catalog=IntelligenceClaimCatalog(()) if catalog is None else catalog,
@@ -519,7 +527,7 @@ class PostgresInvestmentIntelligenceStore:
         try:
             async with self._engine.connect() as connection:
                 yield connection
-        except (SQLAlchemyError, ValueError, TypeError, KeyError) as error:
+        except _PERSISTENCE_ERRORS as error:
             raise JudgmentPersistenceUnavailable(
                 f"{purpose} read unavailable"
             ) from error
@@ -537,10 +545,7 @@ class PostgresInvestmentIntelligenceStore:
         captured = tuple(basis_payload(item) for item in evidence_bases)
         fingerprint = _fingerprint(kind, [payload, captured])
         try:
-            async with self._engine.begin() as connection:
-                await connection.execute(
-                    text("SELECT pg_advisory_xact_lock(:key)"), {"key": _WRITE_LOCK}
-                )
+            async with intelligence_owner_write(self._engine) as connection:
                 prior = (
                     (
                         await connection.execute(
@@ -553,36 +558,48 @@ class PostgresInvestmentIntelligenceStore:
                     .mappings()
                     .first()
                 )
+                result: JudgmentReceipt | StaleEvidenceBasis | CurrentEvidenceNoBasis
                 if prior is not None:
                     if prior["request_fingerprint"] != fingerprint:
                         raise JudgmentIdempotencyConflict(
                             "operation ID was used for another judgment request"
                         )
-                    return JudgmentReceipt(
+                    result = JudgmentReceipt(
                         operation_id, _receipt_ids_from_payload(prior["judgment_ids"])
                     )
-                invalid = await self._validate_bases(connection, evidence_bases)
-                if invalid is not None:
-                    return invalid
-                judgment_ids = await write(connection)
-                await connection.execute(
-                    insert(investment_intelligence_command_receipts).values(
-                        operation_id=operation_id.value,
-                        request_fingerprint=fingerprint,
-                        judgment_ids=_receipt_ids_payload(judgment_ids),
-                        committed_at=datetime.now(UTC),
-                    )
-                )
-                for index, basis in enumerate(captured):
-                    await connection.execute(
-                        insert(investment_intelligence_judgment_bases).values(
-                            operation_id=operation_id.value,
-                            basis_index=index,
-                            basis=basis,
+                else:
+                    invalid = await self._validate_bases(connection, evidence_bases)
+                    if invalid is not None:
+                        result = invalid
+                    else:
+                        judgment_ids = await write(connection)
+                        await connection.execute(
+                            insert(investment_intelligence_command_receipts).values(
+                                operation_id=operation_id.value,
+                                request_fingerprint=fingerprint,
+                                judgment_ids=_receipt_ids_payload(judgment_ids),
+                                committed_at=datetime.now(UTC),
+                            )
                         )
-                    )
-                return JudgmentReceipt(operation_id, judgment_ids)
-        except (SQLAlchemyError, ValueError, TypeError, KeyError) as error:
+                        for index, basis in enumerate(captured):
+                            await connection.execute(
+                                insert(investment_intelligence_judgment_bases).values(
+                                    operation_id=operation_id.value,
+                                    basis_index=index,
+                                    basis=basis,
+                                )
+                            )
+                        result = JudgmentReceipt(operation_id, judgment_ids)
+            if isinstance(result, JudgmentReceipt):
+                roots = tuple(
+                    item
+                    for item in result.judgment_ids
+                    if isinstance(item, INTELLIGENCE_ROOT_TYPES)
+                )
+                if roots:
+                    await archive_intelligence_act_commits(self._engine)
+            return result
+        except _PERSISTENCE_ERRORS as error:
             if isinstance(
                 error,
                 (
@@ -1114,7 +1131,7 @@ class PostgresInvestmentIntelligenceStore:
             rows = (
                 (
                     await connection.execute(
-                        select(investment_intelligence_judgment_acts.c.act)
+                        select(investment_intelligence_judgment_acts.c.draft)
                         .where(
                             investment_intelligence_judgment_acts.c.decision_id
                             == decision_id.value,
@@ -1134,12 +1151,12 @@ class PostgresInvestmentIntelligenceStore:
             )
         history: list[RecommendationEvent] = []
         for row in rows:
-            act = contract_value_from_payload(row)
-            if not isinstance(act, IntelligenceJudgmentAct):
+            draft = contract_value_from_payload(row)
+            if not isinstance(draft, IntelligenceJudgmentActDraft):
                 raise JudgmentPersistenceUnavailable(
                     "Recommendation history has invalid owner acts"
                 )
-            assertion = act.assertion
+            assertion = draft.assertion
             if (
                 not isinstance(
                     assertion,

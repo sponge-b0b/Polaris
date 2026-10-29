@@ -64,7 +64,7 @@ from polaris.domain.evidence.judgments import (
 )
 from polaris.domain.intelligence_judgment_history import (
     IntelligenceClaim,
-    IntelligenceJudgmentAct,
+    IntelligenceJudgmentActDraft,
     IntelligenceJudgmentHistory,
     IntelligenceJudgmentNotYetEffective,
     IntelligenceJudgmentRoot,
@@ -82,7 +82,7 @@ class IntelligenceJudgmentHistoryStore(Protocol):
     ) -> IntelligenceJudgmentHistory | None: ...
 
     async def append(
-        self, act: IntelligenceJudgmentAct
+        self, draft: IntelligenceJudgmentActDraft
     ) -> IntelligenceJudgmentHistory: ...
 
 
@@ -90,20 +90,18 @@ class IntelligenceJudgmentHistoryUnavailable(Exception):
     """The durable owner history cannot be read or committed."""
 
 
-# duplicate-code: Sharing would couple distinct owner proofs.
-# arid: disable
 class IntelligenceJudgmentCorrectionService:
-    """Admit one complete owner act through an atomic same-root store."""
+    """Admit a correction; persistence supplies its trusted knowledge boundary."""
 
     def __init__(self, store: IntelligenceJudgmentHistoryStore) -> None:
         self._store = store
 
     async def correct(
-        self, act: IntelligenceJudgmentAct
+        self, draft: IntelligenceJudgmentActDraft
     ) -> IntelligenceJudgmentHistory:
-        if type(act) is not IntelligenceJudgmentAct or act.ancestry == ():
-            raise TypeError("correction requires a typed non-root owner act")
-        return await self._store.append(act)
+        if type(draft) is not IntelligenceJudgmentActDraft or draft.ancestry == ():
+            raise TypeError("correction requires a typed non-root owner draft")
+        return await self._store.append(draft)
 
 
 def _version(selection: IntelligenceJudgmentSelection):
@@ -118,9 +116,6 @@ def _version(selection: IntelligenceJudgmentSelection):
     if type(root) is InvestmentRecommendationRef:
         return InvestmentRecommendationVersionRef(root, revision)
     return RecommendationWithholdingJudgmentVersionRef(root, revision)
-
-
-# arid: enable
 
 
 class IntelligenceJudgmentTargetReader:

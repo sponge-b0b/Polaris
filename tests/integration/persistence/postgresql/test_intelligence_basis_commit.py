@@ -69,7 +69,7 @@ from polaris.domain.evidence.judgments import (
 )
 from polaris.domain.intelligence_judgment_history import (
     IntelligenceClaimCatalog,
-    IntelligenceJudgmentAct,
+    IntelligenceJudgmentActDraft,
     IntelligenceJudgmentStatus,
 )
 from polaris.domain.investment_intelligence import InvestmentView, R3InvestmentSlice
@@ -346,14 +346,12 @@ async def _scenario(target: PostgresTestTarget) -> None:
         initial = history.acts[0]
         correction_at = datetime.now(UTC)
         await owner_store.append(
-            IntelligenceJudgmentAct(
+            IntelligenceJudgmentActDraft(
                 act_id=uuid4(),
                 root=original.view_id,
                 attribution=actor,
                 basis="owner revised the material View",
                 effective_at=correction_at,
-                recorded_at=correction_at,
-                known_at=correction_at,
                 ancestry=(initial.act_id,),
                 assertion=replace(original, thesis="SPY exposure may remain unchanged"),
                 target_predecessor=initial.act_id,

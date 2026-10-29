@@ -44,7 +44,7 @@ from polaris.domain.evidence.judgments import (
 )
 from polaris.domain.intelligence_judgment_history import (
     IntelligenceClaimCatalog,
-    IntelligenceJudgmentAct,
+    IntelligenceJudgmentActDraft,
     IntelligenceJudgmentStatus,
 )
 from polaris.domain.investment_intelligence import (
@@ -316,14 +316,12 @@ async def _scenario(target: PostgresTestTarget) -> None:
         initial = history.acts[0]
         corrected_at = datetime.now(UTC)
         await owner_store.append(
-            IntelligenceJudgmentAct(
+            IntelligenceJudgmentActDraft(
                 act_id=uuid4(),
                 root=recommendation.recommendation_id,
                 attribution=actor,
                 basis="Recommendation support withdrawn after review",
                 effective_at=corrected_at,
-                recorded_at=corrected_at,
-                known_at=corrected_at,
                 ancestry=(initial.act_id,),
                 target_predecessor=initial.act_id,
                 compatible_opposite_acts=(initial.act_id,),

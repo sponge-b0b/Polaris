@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-28] Investment Intelligence historical admission uses actual commit time
+
+Recorded the owner-act knowledge boundary at PostgreSQL commit, retained atomically in a logical WAL slot until archived for historical reconstruction. Admission fails when that recovery boundary is unavailable. Updated `investment-intelligence` and `durable-persistence`.
+
 ## [2026-10-25] R3 Recommendation challenge coverage | enforced per View
 
 Recorded that a consequential Recommendation commits only when each materially relied-upon View has a durable substantive Challenge result. Updated Investment Intelligence.

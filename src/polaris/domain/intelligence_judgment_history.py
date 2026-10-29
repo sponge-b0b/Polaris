@@ -284,6 +284,55 @@ class IntelligenceJudgmentAct:
 
 
 @dataclass(frozen=True, slots=True)
+class IntelligenceJudgmentActDraft:
+    """An owner correction awaiting its trusted durable knowledge boundary."""
+
+    # duplicate-code: The Intelligence and Portfolio owner act shapes evolve
+    # independently; sharing these fields would couple distinct domain histories.
+    # arid: disable
+    act_id: UUID
+    root: IntelligenceJudgmentRoot
+    attribution: ActorAttribution
+    basis: str
+    effective_at: datetime
+    ancestry: tuple[UUID, ...]
+    assertion: IntelligenceJudgmentAssertion | None = None
+    catalog: IntelligenceClaimCatalog | None = None
+    target_predecessor: UUID | None = None
+    catalog_predecessor: UUID | None = None
+    pending_resolutions: tuple[PendingResolution, ...] = ()
+    compatible_opposite_acts: tuple[UUID, ...] = ()
+    target_interim_until: datetime | None = None
+    catalog_interim_until: datetime | None = None
+    # arid: enable
+    target_status: IntelligenceJudgmentStatus | None = None
+    contested_catalog: bool = False
+
+    def at_boundary(self, known_at: datetime) -> IntelligenceJudgmentAct:
+        """Build an act at a supplied knowledge boundary for validation or read."""
+        return IntelligenceJudgmentAct(
+            act_id=self.act_id,
+            root=self.root,
+            attribution=self.attribution,
+            basis=self.basis,
+            effective_at=self.effective_at,
+            recorded_at=known_at,
+            known_at=known_at,
+            ancestry=self.ancestry,
+            assertion=self.assertion,
+            catalog=self.catalog,
+            target_predecessor=self.target_predecessor,
+            catalog_predecessor=self.catalog_predecessor,
+            pending_resolutions=self.pending_resolutions,
+            compatible_opposite_acts=self.compatible_opposite_acts,
+            target_interim_until=self.target_interim_until,
+            catalog_interim_until=self.catalog_interim_until,
+            target_status=self.target_status,
+            contested_catalog=self.contested_catalog,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class IntelligenceJudgmentSelection:
     target_act: IntelligenceJudgmentAct
     catalog_act: IntelligenceJudgmentAct

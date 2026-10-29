@@ -174,15 +174,12 @@ portfolio_judgment_acts = Table(
     Column("sequence", Integer, nullable=False),
     Column("consequence_id", UUID(as_uuid=True)),
     Column("assessment_id", UUID(as_uuid=True)),
-    # duplicate-code: Sharing would couple distinct owner tables.
-    # arid: disable
     Column("effective_at", DateTime(timezone=True), nullable=False),
     Column("recorded_at", DateTime(timezone=True), nullable=False),
     Column("known_at", DateTime(timezone=True), nullable=False),
     Column("judgment_revision", Integer, nullable=False),
     Column("claim_catalog_version", Integer, nullable=False),
     Column("act", JSONB, nullable=False),
-    # arid: enable
     CheckConstraint(
         "(consequence_id IS NULL) <> (assessment_id IS NULL)",
         name="one_portfolio_judgment_root",
@@ -226,16 +223,9 @@ investment_intelligence_judgment_acts = Table(
     ),
     Column("sequence", Integer, nullable=False),
     Column("effective_at", DateTime(timezone=True), nullable=False),
-    Column("recorded_at", DateTime(timezone=True), nullable=False),
-    Column("known_at", DateTime(timezone=True), nullable=False),
-    Column("judgment_revision", Integer, nullable=False),
-    Column("claim_catalog_version", Integer, nullable=False),
-    Column("act", JSONB, nullable=False),
+    Column("draft", JSONB, nullable=False),
     CheckConstraint("sequence > 0", name="positive_sequence"),
-    CheckConstraint("judgment_revision > 0", name="positive_judgment_revision"),
-    CheckConstraint("claim_catalog_version > 0", name="positive_catalog_version"),
-    CheckConstraint("known_at >= recorded_at", name="known_after_recorded"),
-    CheckConstraint("jsonb_typeof(act) = 'object'", name="act_object"),
+    CheckConstraint("jsonb_typeof(draft) = 'object'", name="draft_object"),
     CheckConstraint(
         "target_family IN ('InvestmentHypothesisRef', 'InvestmentViewRef', "
         "'MeaningfulChallengeResultRef', 'InvestmentRecommendationRef', "
@@ -246,7 +236,19 @@ investment_intelligence_judgment_acts = Table(
         "target_family", "target_id", "sequence", name="uq_intelligence_act_sequence"
     ),
     UniqueConstraint("row_id", name="uq_intelligence_act_row_id"),
-    Index("ix_intelligence_act_history", "target_family", "target_id", "known_at"),
+    Index("ix_intelligence_act_history", "target_family", "target_id", "sequence"),
+)
+
+investment_intelligence_act_publications = Table(
+    "investment_intelligence_act_publications",
+    _foundation.metadata,
+    Column(
+        "act_id",
+        UUID(as_uuid=True),
+        ForeignKey("investment_intelligence_judgment_acts.act_id", ondelete="RESTRICT"),
+        primary_key=True,
+    ),
+    Column("committed_at", DateTime(timezone=True), nullable=False),
 )
 
 investment_intelligence_judgment_bases = Table(
@@ -276,6 +278,7 @@ POLARIS_TABLE_NAMES = _foundation.POLARIS_TABLE_NAMES | frozenset(
         "portfolio_judgment_acts",
         "portfolio_context_commits",
         "investment_intelligence_judgment_acts",
+        "investment_intelligence_act_publications",
         "investment_intelligence_judgment_bases",
     }
 )

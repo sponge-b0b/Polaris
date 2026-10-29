@@ -35,6 +35,7 @@ from polaris.domain.intelligence_judgment_history import (
     IntelligenceClaim,
     IntelligenceClaimCatalog,
     IntelligenceJudgmentAct,
+    IntelligenceJudgmentActDraft,
     IntelligenceJudgmentAssertion,
     IntelligenceJudgmentHistory,
     IntelligenceJudgmentLane,
@@ -115,6 +116,27 @@ def _future(history: IntelligenceJudgmentHistory) -> IntelligenceJudgmentAct:
         target_predecessor=initial.act_id,
         compatible_opposite_acts=(initial.act_id,),
         target_status=IntelligenceJudgmentStatus.ACTIVE,
+    )
+
+
+def _draft(act: IntelligenceJudgmentAct) -> IntelligenceJudgmentActDraft:
+    return IntelligenceJudgmentActDraft(
+        act_id=act.act_id,
+        root=act.root,
+        attribution=act.attribution,
+        basis=act.basis,
+        effective_at=act.effective_at,
+        ancestry=act.ancestry,
+        assertion=act.assertion,
+        catalog=act.catalog,
+        target_predecessor=act.target_predecessor,
+        catalog_predecessor=act.catalog_predecessor,
+        pending_resolutions=act.pending_resolutions,
+        compatible_opposite_acts=act.compatible_opposite_acts,
+        target_interim_until=act.target_interim_until,
+        catalog_interim_until=act.catalog_interim_until,
+        target_status=act.target_status,
+        contested_catalog=act.contested_catalog,
     )
 
 

@@ -23,6 +23,13 @@ from polaris.application.decisions.relationships import (
     EstablishSupersessionCommand,
     SupersessionTarget,
 )
+from polaris.application.evidence.judgment_versions import (
+    ResolvedTargetJudgment,
+    TargetJudgmentMissing,
+)
+from polaris.application.intelligence_judgment_history import (
+    IntelligenceJudgmentTargetReader,
+)
 from polaris.application.investment_intelligence import (
     FIRST_R3_SPY_INSTRUMENT_ID,
     InvestmentIntelligenceService,
@@ -65,6 +72,7 @@ from polaris.domain.investment_recommendation import RecommendationWithholdingJu
 from polaris.domain.portfolio import FinancialInstrumentId, PortfolioId
 from polaris.infrastructure.persistence.postgresql import (
     PostgresDecisionStore,
+    PostgresIntelligenceJudgmentHistoryStore,
     PostgresInvestmentIntelligenceStore,
     create_postgres_engine,
 )
@@ -81,7 +89,9 @@ from .conftest import PostgresTestTarget
 NOW = datetime(2026, 10, 17, 12, tzinfo=UTC)
 
 
-async def _exercise(target: PostgresTestTarget) -> None:
+async def _exercise(
+    target: PostgresTestTarget, monkeypatch: pytest.MonkeyPatch
+) -> None:
     engine = create_postgres_engine(target.database_url, schema=target.schema)
     try:
         decision_store = PostgresDecisionStore(engine)
@@ -142,15 +152,36 @@ async def _exercise(target: PostgresTestTarget) -> None:
             NOW,
         )
         view_operation = OperationId(uuid4())
-        receipt = await service.record_view(
-            view_operation, decision, view, (hypothesis,)
-        )
+
+        class AheadDateTime(datetime):
+            @classmethod
+            def now(cls, tz: tzinfo | None = None) -> AheadDateTime:
+                return cls.fromtimestamp(
+                    (datetime.now(tz) + timedelta(days=2)).timestamp(), tz
+                )
+
+        with monkeypatch.context() as skew:
+            skew.setattr(intelligence_module, "datetime", AheadDateTime)
+            receipt = await service.record_view(
+                view_operation, decision, view, (hypothesis,)
+            )
         assert (
             await service.record_view(view_operation, decision, view, (hypothesis,))
             == receipt
         )
         assert await judgment_store.load_view(view.view_id) == view
         assert await judgment_store.load_hypothesis(hypothesis_id) == hypothesis
+        async with engine.connect() as connection:
+            at = await connection.scalar(text("SELECT clock_timestamp()"))
+            archived = await connection.scalar(
+                text("SELECT count(*) FROM investment_intelligence_act_publications")
+            )
+        assert isinstance(at, datetime)
+        assert archived == 2
+        current = await IntelligenceJudgmentTargetReader(
+            PostgresIntelligenceJudgmentHistoryStore(engine)
+        ).read_at(view.view_id, effective_at=at, known_at=at)
+        assert isinstance(current, ResolvedTargetJudgment)
         wrong_instrument_view = replace(
             view,
             view_id=InvestmentViewRef(uuid4()),
@@ -425,9 +456,9 @@ async def _exercise(target: PostgresTestTarget) -> None:
 
 
 def test_investment_intelligence_judgments_are_durable_and_root_local(
-    postgres_target: PostgresTestTarget,
+    postgres_target: PostgresTestTarget, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    asyncio.run(_exercise(postgres_target))
+    asyncio.run(_exercise(postgres_target, monkeypatch))
 
 
 def test_future_supersession_rejects_intelligence_writes_with_lagging_process_clock(
@@ -509,6 +540,28 @@ def test_future_supersession_rejects_intelligence_writes_with_lagging_process_cl
             )
             await intelligence.record_view(
                 OperationId(uuid4()), view, (), target_version
+            )
+            target_reader = IntelligenceJudgmentTargetReader(
+                PostgresIntelligenceJudgmentHistoryStore(engine)
+            )
+            assert isinstance(
+                await target_reader.read_at(
+                    view.view_id,
+                    effective_at=database_now,
+                    known_at=database_now,
+                ),
+                TargetJudgmentMissing,
+            )
+            async with engine.connect() as connection:
+                after_commit = await connection.scalar(text("SELECT clock_timestamp()"))
+            assert isinstance(after_commit, datetime)
+            assert isinstance(
+                await target_reader.read_at(
+                    view.view_id,
+                    effective_at=after_commit,
+                    known_at=after_commit,
+                ),
+                ResolvedTargetJudgment,
             )
 
             relationship_recorded_at = lagging_now + timedelta(hours=1)

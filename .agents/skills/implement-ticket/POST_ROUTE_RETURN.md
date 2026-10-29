@@ -65,6 +65,26 @@ IMPLEMENT TICKET ROUTE RETURN: VALID
 `prior_post_route_attempts` must be `0`. The prior local-attempt count from verifier triage may
 already be nonzero; that does not consume this new authority-return epoch.
 
+### Route-aware feasibility binding
+
+Before post-route re-entry, a normal feasibility PASS must be bound to the route result that
+returned the finding to implementation. Build `polaris.implement-post-route-context/v1` and
+validate it with:
+
+```bash
+python .agents/skills/implement-ticket/scripts/post_route_control.py context \
+  <post-route-context.json> \
+  --feasibility <feasibility.json> \
+  --route-return <READY-route-return.json>
+```
+
+Require `IMPLEMENT TICKET POST-ROUTE CONTEXT: VALID`.
+
+The context requires the returned finding to appear in feasibility `prior_findings` as
+`OWNED_BY_CURRENT_TICKET` and freezes the exact union of current feasibility evidence plus
+route-return evidence as the adjudicated evidence frontier. A returned finding may not disappear
+from feasibility and later be rediscovered as a routing/planning gap.
+
 ## 3. One managed record, monotonic status
 
 Maintain exactly one managed issue comment for one identity tuple:
@@ -84,7 +104,7 @@ Use marker:
 <exact validation receipt>
 ```
 
-The record moves only:
+The normal successful path remains:
 
 ```text
 READY -> IN_PROGRESS -> CONSUMED
@@ -98,9 +118,6 @@ python .agents/skills/implement-ticket/scripts/route_return.py \
   <updated-route-return.json>
 ```
 
-The validator rejects immutable-identity changes and any transition other than
-`READY -> IN_PROGRESS` or `IN_PROGRESS -> CONSUMED`.
-
 Rules:
 
 - `READY`: downstream return is validated, but no post-route candidate mutation has started.
@@ -108,14 +125,44 @@ Rules:
   rejected re-entry gate.
 - `IN_PROGRESS` authorizes continuation of that **same** bounded corrective campaign across
   resume/context boundaries. It does not authorize starting a second campaign.
-- After the next independent verifier result or another terminal disposition, update the same
-  record to `CONSUMED`, bind the fresh verifier-result SHA-256, and validate the transition from
-  the exact prior `IN_PROGRESS` bytes.
+- After the next independent verifier result, update the same record to `CONSUMED`, bind the fresh
+  verifier-result SHA-256, and validate the transition from the exact prior `IN_PROGRESS` bytes.
 - A `CONSUMED` record may never return to `READY` or `IN_PROGRESS`.
 - Do not create a second managed record for the same identity tuple.
 
 A new independent verifier result or a materially changed contract is a new lifecycle input and
 must be handled by its normal owning procedure; it is not a reset of this record.
+
+### Exact pre-verifier terminal exception
+
+A campaign can terminate before a fresh verifier. Do not invent a verifier digest. Build
+`polaris.implement-route-terminal/v1` and validate it with:
+
+```bash
+python .agents/skills/implement-ticket/scripts/post_route_control.py terminal \
+  <route-terminal.json> \
+  --route-return <IN_PROGRESS-route-return.json>
+```
+
+Then pass the same artifact to the transition validator:
+
+```bash
+python .agents/skills/implement-ticket/scripts/route_return.py \
+  --previous <IN_PROGRESS-route-return.json> \
+  --terminal <route-terminal.json> \
+  <updated-route-return.json>
+```
+
+Two fail-closed outcomes exist:
+
+- if no corrective mutation started, the current candidate state must still equal the exact failed
+  candidate, `attempt_consumed=false`, and the same record may reconcile `IN_PROGRESS -> READY`;
+- if corrective mutation started, `attempt_consumed=true`, the record moves
+  `IN_PROGRESS -> CONSUMED`, and the v1 legacy `result_verifier_sha256` field contains the exact
+  route-terminal artifact SHA as the terminal-result digest.
+
+The no-mutation reset is the only permitted backward status transition. It is workflow-state
+reconciliation and does not create a second attempt.
 
 ## 4. Post-route re-entry is distinct from ordinary pre-mutation
 
@@ -138,6 +185,7 @@ python .agents/skills/implement-ticket/scripts/post_route_reentry.py \
   --default-branch main \
   --feasibility <polaris.implement-feasibility-v1.json> \
   --route-return <exact-READY-route-return.json> \
+  --post-route-context <polaris.implement-post-route-context-v1.json> \
   --attention-result <fresh-pre-mutation-attention-result>
 ```
 
@@ -153,11 +201,13 @@ The dedicated gate must fail closed unless all of these are true:
    Execution Anchor;
 2. current feasibility is PASS and matches the exact ticket, branch, contract, and HEAD;
 3. the route-return artifact is still exactly `READY` and matches the ticket/contract;
-4. the policy-sync-aware candidate guard passes, so no protected workflow/control-plane mutation
+4. the post-route context proves the returned finding remains implementation-owned and binds the
+   exact feasibility/route-return evidence frontier;
+5. the policy-sync-aware candidate guard passes, so no protected workflow/control-plane mutation
    is being smuggled in;
-5. the current candidate-state hash equals the exact `failed_candidate_state` bound by `READY`;
+6. the current candidate-state hash equals the exact `failed_candidate_state` bound by `READY`;
    and
-6. a fresh nonblocking `$implement-ticket pre-mutation` Attention result is supplied.
+7. a fresh nonblocking `$implement-ticket pre-mutation` Attention result is supplied.
 
 The dedicated re-entry gate writes the normal `polaris.implement-ticket-attention/v2` receipt
 for that exact preserved candidate. It deliberately does **not** require a clean worktree because
@@ -172,14 +222,16 @@ The order is mandatory:
 
 ```text
 READY
+  -> route-aware feasibility/context PASS
   -> exact-candidate post-route re-entry Attention PASS
   -> READY -> IN_PROGRESS durable update/readback/transition validation
   -> first corrective candidate mutation
 ```
 
 Do not move the managed record to `IN_PROGRESS` before the dedicated re-entry gate succeeds. A
-re-entry tooling failure, feasibility failure, candidate mismatch, Attention failure, or protected
-path violation leaves the managed record `READY` and consumes no post-route attempt.
+re-entry tooling failure, feasibility failure, context failure, candidate mismatch, Attention
+failure, or protected-path violation leaves the managed record `READY` and consumes no post-route
+attempt.
 
 Immediately after the re-entry PASS and before the first corrective edit:
 
@@ -197,9 +249,35 @@ One post-route attempt is one bounded implementation campaign to satisfy the ret
 It may contain the cohesive edits/tests needed for that realization, but it may not branch into
 multiple alternative production prototypes.
 
-If the attempt exposes another material boundary before a fresh verifier result, stop and route
-that new evidence normally. Do not manufacture another post-route epoch from the same returned
-authority.
+### Same-boundary reroute prohibition
+
+The returned finding is already adjudicated for this unchanged contract. It must remain
+`OWNED_BY_CURRENT_TICKET` throughout the post-route epoch. An unavailable or difficult mechanism,
+or deployment/retention/operational consequences already represented in the adjudicated evidence
+frontier, do not convert that same finding into `planning-cell-gap`, `contract-authority-gap`, or
+another route under a new label.
+
+A pre-verifier outbound route is legal only for a materially distinct new finding first observed
+after the post-route context. Build `polaris.implement-post-route-reroute/v1` and validate:
+
+```bash
+python .agents/skills/implement-ticket/scripts/post_route_control.py reroute \
+  <post-route-reroute.json> \
+  --context <post-route-context.json> \
+  --feasibility <BLOCKED-feasibility.json>
+```
+
+Require `IMPLEMENT TICKET POST-ROUTE REROUTE: VALID` before generating any outbound lifecycle
+handoff from an active post-route epoch.
+
+The validator requires a different `new_finding_id`, keeps the returned finding
+implementation-owned, requires nonempty evidence disjoint from the adjudicated context frontier,
+and binds that new evidence/fact to the blocked feasibility artifact. Relabeling the returned
+finding or reusing already-adjudicated evidence is invalid.
+
+If the attempt exposes such a genuinely new material boundary before a fresh verifier result,
+terminalize the current epoch exactly under section 3 before routing. Do not manufacture another
+post-route epoch from the same returned authority.
 
 If the fresh verifier fails, triage that **new exact verifier result** under
 `BOUNDED_EXECUTION.md`. The old route-return record is already consumed.
@@ -211,11 +289,17 @@ repaired `$architecture-remediation` result establishes that the candidate-creat
 post-business-commit/pre-durable-history interval is forbidden by existing authority and returns
 the unchanged remediation contract to `$implement-ticket`.
 
-The managed route-return record stays `READY` until the exact preserved failed candidate passes
-the dedicated post-route re-entry gate. Only then may that same record transition to
-`IN_PROGRESS` and authorize the first corrective mutation.
-
 That return permits exactly one post-route compliant-realization attempt. It does not authorize
 resuming the reverted logical-WAL prototype merely because that prototype exists in historical
 evidence. The new realization must satisfy the existing atomic durable-admission and historical
 reconstruction obligations without exposing the forbidden partial-publication state.
+
+`F-465-1` therefore remains `OWNED_BY_CURRENT_TICKET` in post-route feasibility. PostgreSQL commit
+timestamp lifetime, logical-decoding/WAL-retention implications, and related operational ownership
+concerns already associated with that returned boundary do not become a new planning gap merely by
+being restated after re-entry.
+
+If a defective workflow transition moved the record to `IN_PROGRESS` but no corrective product
+mutation occurred and the candidate still equals the returned failed candidate, use the exact
+no-mutation terminal proof to reconcile the same record back to `READY`; do not consume the one
+post-route attempt.

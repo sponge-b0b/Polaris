@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 SCHEMA = "polaris.implement-route-return/v1"
+TERMINAL_SCHEMA = "polaris.implement-route-terminal/v1"
 CONTRACT_SCHEMAS = {
     "polaris.ticket-contract/v1",
     "polaris.review-remediation-contract/v1",
@@ -16,6 +17,11 @@ CONTRACT_SCHEMAS = {
 ROUTES = {"$architecture-remediation", "$to-specs", "$to-tickets"}
 STATUSES = {"READY", "IN_PROGRESS", "CONSUMED"}
 RESOLUTION = "EXISTING_AUTHORITY_IMPLEMENTATION_RETURN"
+TERMINAL_DISPOSITIONS = {
+    "WORKFLOW_DEFECT_NO_MUTATION",
+    "PRE_VERIFIER_ROUTE",
+    "PRE_VERIFIER_HARD_BLOCKER",
+}
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -174,10 +180,10 @@ def validate_route_return(value: dict[str, Any]) -> RouteReturnReceipt:
     if status in {"READY", "IN_PROGRESS"}:
         _need(
             result_sha is None,
-            "route return: active attempt must not already name a verifier result",
+            "route return: active attempt must not already name a terminal result",
         )
     else:
-        _digest(result_sha, "result verifier SHA-256")
+        _digest(result_sha, "terminal result SHA-256")
 
     return RouteReturnReceipt(
         ticket=ticket,
@@ -212,9 +218,75 @@ _IDENTITY_FIELDS = {
 }
 
 
+def _validate_terminal_artifact(
+    terminal: dict[str, Any],
+    previous: dict[str, Any],
+) -> tuple[bool, str]:
+    _need(
+        terminal.get("schema") == TERMINAL_SCHEMA,
+        f"route return transition: terminal schema must be {TERMINAL_SCHEMA}",
+    )
+    _need(
+        set(terminal)
+        == {
+            "schema",
+            "ticket",
+            "contract_schema",
+            "contract_hash",
+            "route_return_sha256",
+            "candidate_state",
+            "mutation_started",
+            "attempt_consumed",
+            "disposition",
+            "evidence_sources",
+            "basis",
+            "reason",
+        },
+        "route return transition: unsupported terminal fields",
+    )
+    _need(terminal.get("ticket") == previous.get("ticket"), "route return transition: terminal ticket mismatch")
+    _need(
+        terminal.get("contract_schema") == previous.get("contract_schema"),
+        "route return transition: terminal contract schema mismatch",
+    )
+    _need(
+        terminal.get("contract_hash") == previous.get("contract_hash"),
+        "route return transition: terminal contract hash mismatch",
+    )
+    _need(
+        terminal.get("route_return_sha256") == _sha(previous),
+        "route return transition: terminal route-return SHA mismatch",
+    )
+    candidate_state = _digest(terminal.get("candidate_state"), "terminal candidate state")
+    mutation_started = terminal.get("mutation_started")
+    attempt_consumed = terminal.get("attempt_consumed")
+    _need(isinstance(mutation_started, bool), "route return transition: terminal mutation_started must be boolean")
+    _need(isinstance(attempt_consumed, bool), "route return transition: terminal attempt_consumed must be boolean")
+    _need(
+        attempt_consumed is mutation_started,
+        "route return transition: terminal attempt is consumed iff corrective mutation started",
+    )
+    _need(
+        terminal.get("disposition") in TERMINAL_DISPOSITIONS,
+        "route return transition: invalid terminal disposition",
+    )
+    evidence = _str_list(terminal.get("evidence_sources"), "terminal evidence_sources", nonempty=True)
+    basis = _str_list(terminal.get("basis"), "terminal basis", nonempty=True)
+    _need(set(basis) <= set(evidence), "route return transition: terminal basis missing from evidence_sources")
+    _text(terminal.get("reason"), "terminal reason")
+    if not mutation_started:
+        _need(
+            candidate_state == previous.get("failed_candidate_state"),
+            "route return transition: no-mutation terminal must preserve failed candidate state",
+        )
+    return mutation_started, _sha(terminal)
+
+
 def validate_transition(
     previous: dict[str, Any],
     current: dict[str, Any],
+    *,
+    terminal: dict[str, Any] | None = None,
 ) -> RouteReturnReceipt:
     old = validate_route_return(previous)
     new = validate_route_return(current)
@@ -224,14 +296,38 @@ def validate_transition(
             f"route return transition: immutable field changed: {field}",
         )
 
-    allowed = {
-        ("READY", "IN_PROGRESS"),
-        ("IN_PROGRESS", "CONSUMED"),
-    }
+    if (old.status, new.status) == ("READY", "IN_PROGRESS"):
+        _need(terminal is None, "route return transition: READY -> IN_PROGRESS does not take a terminal artifact")
+        return new
+
+    if old.status == "IN_PROGRESS" and terminal is not None:
+        mutation_started, terminal_sha = _validate_terminal_artifact(terminal, previous)
+        if mutation_started:
+            _need(new.status == "CONSUMED", "route return transition: mutated pre-verifier stop must consume the attempt")
+            _need(
+                current.get("result_verifier_sha256") == terminal_sha,
+                "route return transition: CONSUMED result must equal route-terminal artifact SHA",
+            )
+        else:
+            _need(new.status == "READY", "route return transition: no-mutation terminal must restore READY")
+            _need(
+                current.get("result_verifier_sha256") is None,
+                "route return transition: restored READY must not carry a terminal result",
+            )
+        return new
+
     _need(
-        (old.status, new.status) in allowed,
-        "route return transition: status must move READY -> IN_PROGRESS -> CONSUMED",
+        (old.status, new.status) == ("IN_PROGRESS", "CONSUMED"),
+        "route return transition: status must move READY -> IN_PROGRESS, or "
+        "IN_PROGRESS -> CONSUMED/READY through a valid terminal artifact",
     )
+    _need(
+        terminal is None,
+        "route return transition: unexpected terminal artifact",
+    )
+    # Legacy/fresh-verifier path: the CONSUMED artifact's terminal-result digest is
+    # the fresh verifier-result SHA supplied by the owning closure procedure.
+    _digest(current.get("result_verifier_sha256"), "result verifier SHA-256")
     return new
 
 
@@ -244,14 +340,21 @@ def _read(path: Path) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--previous", type=Path)
+    parser.add_argument("--terminal", type=Path)
     parser.add_argument("artifact", type=Path)
     args = parser.parse_args()
     try:
         current = _read(args.artifact)
         if args.previous is None:
+            _need(args.terminal is None, "route return: --terminal requires --previous")
             receipt = validate_route_return(current)
         else:
-            receipt = validate_transition(_read(args.previous), current)
+            terminal = _read(args.terminal) if args.terminal is not None else None
+            receipt = validate_transition(
+                _read(args.previous),
+                current,
+                terminal=terminal,
+            )
     except (RouteReturnError, OSError, json.JSONDecodeError, ValueError) as exc:
         parser.error(str(exc))
 

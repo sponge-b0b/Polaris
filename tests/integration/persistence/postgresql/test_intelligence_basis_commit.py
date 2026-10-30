@@ -509,7 +509,13 @@ async def _scenario(
                 await asyncio.wait_for(correction_committed.wait(), timeout=1)
             release_dependent.set()
             try:
-                outcome = await asyncio.wait_for(dependent_task, timeout=5)
+                done, _ = await asyncio.wait({dependent_task}, timeout=5)
+                if dependent_task not in done:
+                    dependent_task.cancel()
+                    with suppress(asyncio.CancelledError):
+                        await dependent_task
+                    raise AssertionError("dependent basis revalidation stalled")
+                outcome = dependent_task.result()
             finally:
                 release_correction.set()
                 await asyncio.wait_for(correction_task, timeout=5)

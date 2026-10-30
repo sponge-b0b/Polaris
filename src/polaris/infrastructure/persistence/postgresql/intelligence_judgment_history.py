@@ -378,12 +378,12 @@ async def archive_intelligence_act_commits(engine: AsyncEngine) -> None:
 async def intelligence_owner_write(
     engine: AsyncEngine,
 ) -> AsyncIterator[AsyncConnection]:
-    """Recover prior commits before locking the owner for a new transaction."""
-    await archive_intelligence_act_commits(engine)
+    """Recover prior commits under the owner lock before dependent reads."""
     async with engine.begin() as connection:
         await connection.execute(
             select(func.pg_advisory_xact_lock(INTELLIGENCE_OWNER_LOCK))
         )
+        await archive_intelligence_act_commits(engine)
         yield connection
 
 

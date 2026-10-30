@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import suppress
 from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import uuid4
 
+import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -81,6 +83,9 @@ from polaris.infrastructure.persistence.postgresql import (
     PostgresIntelligenceJudgmentHistoryStore,
     PostgresInvestmentIntelligenceStore,
     create_postgres_engine,
+)
+from polaris.infrastructure.persistence.postgresql import (
+    intelligence_judgment_history as history_persistence,
 )
 from polaris.infrastructure.persistence.postgresql.intelligence_contract_codec import (
     basis_from_payload,
@@ -240,7 +245,9 @@ def _view(decision, portfolio_id: PortfolioId, actor) -> InvestmentView:
     )
 
 
-async def _scenario(target: PostgresTestTarget) -> None:
+async def _scenario(
+    target: PostgresTestTarget, monkeypatch: pytest.MonkeyPatch
+) -> None:
     register_owner_value_type(_Relationship)
     register_owner_value_type(_Universe)
     engine = create_postgres_engine(target.database_url, schema=target.schema)
@@ -428,11 +435,93 @@ async def _scenario(target: PostgresTestTarget) -> None:
         await assert_intelligence_table_immutable(
             engine, investment_intelligence_judgment_bases
         )
+
+        race_root = _view(decision, portfolio_id, actor)
+        assert isinstance(
+            await plain.record_view(OperationId(uuid4()), decision, race_root),
+            JudgmentReceipt,
+        )
+        race_query, race_key, _ = _query_for_intelligence_target(
+            decision_store, owner_store, decision.decision_id, race_root.view_id
+        )
+        race_basis = await race_query.read(race_key, at=datetime.now(UTC))
+        assert isinstance(race_basis, CurrentEvidenceBasis)
+        race_service = InvestmentIntelligenceService(
+            PostgresInvestmentIntelligenceStore(
+                engine, basis_reader=PostgresCurrentBasisReader(engine, race_query)
+            )
+        )
+        race_history = await owner_store.load(race_root.view_id)
+        assert race_history is not None
+        race_initial = race_history.acts[0]
+        correction = IntelligenceJudgmentActDraft(
+            act_id=uuid4(),
+            root=race_root.view_id,
+            attribution=actor,
+            basis="owner revised the material View during dependent validation",
+            effective_at=datetime.now(UTC),
+            ancestry=(race_initial.act_id,),
+            assertion=replace(race_root, thesis="SPY exposure may remain unchanged"),
+            target_predecessor=race_initial.act_id,
+            compatible_opposite_acts=(race_initial.act_id,),
+            target_status=IntelligenceJudgmentStatus.ACTIVE,
+        )
+
+        archived = asyncio.Event()
+        release_dependent = asyncio.Event()
+        correction_committed = asyncio.Event()
+        release_correction = asyncio.Event()
+        original_archive = history_persistence.archive_intelligence_act_commits
+        dependent_task: asyncio.Task[object] | None = None
+        correction_task: asyncio.Task[object] | None = None
+        correction_archives = 0
+
+        async def coordinate_archive(archive_engine: AsyncEngine) -> None:
+            nonlocal correction_archives
+            task = asyncio.current_task()
+            if task is correction_task:
+                correction_archives += 1
+                if correction_archives == 2:
+                    correction_committed.set()
+                    await release_correction.wait()
+            await original_archive(archive_engine)
+            if task is dependent_task and not archived.is_set():
+                archived.set()
+                await release_dependent.wait()
+
+        with monkeypatch.context() as patcher:
+            patcher.setattr(
+                history_persistence,
+                "archive_intelligence_act_commits",
+                coordinate_archive,
+            )
+            dependent_task = asyncio.create_task(
+                race_service.record_view(
+                    OperationId(uuid4()),
+                    decision,
+                    _view(decision, portfolio_id, actor),
+                    evidence_bases=(race_basis,),
+                )
+            )
+            await asyncio.wait_for(archived.wait(), timeout=5)
+            correction_task = asyncio.create_task(owner_store.append(correction))
+            with suppress(TimeoutError):
+                await asyncio.wait_for(correction_committed.wait(), timeout=1)
+            release_dependent.set()
+            try:
+                outcome = await asyncio.wait_for(dependent_task, timeout=5)
+            finally:
+                release_correction.set()
+                await asyncio.wait_for(correction_task, timeout=5)
+            assert isinstance(
+                outcome, JudgmentReceipt | StaleEvidenceBasis | CurrentEvidenceNoBasis
+            )
     finally:
         await engine.dispose()
 
 
 def test_real_owner_correction_stales_consumed_basis_atomically(
     postgres_target: PostgresTestTarget,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    asyncio.run(_scenario(postgres_target))
+    asyncio.run(_scenario(postgres_target, monkeypatch))

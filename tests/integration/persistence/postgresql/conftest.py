@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import os
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import asynccontextmanager
@@ -11,7 +12,8 @@ from uuid import uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import Table, func, select, text
+from sqlalchemy import Table, delete, func, select, text, update
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from polaris.domain.decisions import DecisionRelationshipFactId, InvestmentDecisionId
@@ -86,6 +88,25 @@ async def postgres_row_counts(
     return tuple(counts)
 
 
+async def assert_intelligence_table_immutable(
+    engine: AsyncEngine, table: Table
+) -> None:
+    key = next(iter(table.primary_key.columns))
+    row = select(key).limit(1).scalar_subquery()
+    async with engine.connect() as connection:
+        assert await connection.scalar(select(func.count()).select_from(table)) > 0
+    for statement in (
+        update(table).where(key == row).values({key.name: key}),
+        delete(table).where(key == row),
+    ):
+        with pytest.raises(
+            DBAPIError,
+            match="immutable Investment Intelligence facts cannot be changed",
+        ):
+            async with engine.begin() as connection:
+                await connection.execute(statement)
+
+
 async def corrupt_relationship_lineage_source(
     engine: AsyncEngine,
     *,
@@ -141,6 +162,30 @@ async def _drop_schema(database_url: str, schema: str) -> None:
     )
 
 
+async def _drop_intelligence_commit_log(database_url: str, schema: str) -> None:
+    engine = create_async_engine(database_url)
+    try:
+        async with engine.connect() as connection:
+            connection = await connection.execution_options(
+                isolation_level="AUTOCOMMIT"
+            )
+            database = await connection.scalar(text("SELECT current_database()"))
+            identity = f"{database}:{schema}".encode()
+            suffix = hashlib.md5(identity, usedforsecurity=False).hexdigest()[:32]
+            slot = f"polaris_ii_{suffix}"
+            exists = await connection.scalar(
+                text("SELECT 1 FROM pg_replication_slots WHERE slot_name = :slot"),
+                {"slot": slot},
+            )
+            if exists:
+                await connection.execute(
+                    text("SELECT pg_drop_replication_slot(:slot)"), {"slot": slot}
+                )
+            await connection.execute(text(f'DROP PUBLICATION IF EXISTS "{slot}"'))
+    finally:
+        await engine.dispose()
+
+
 @pytest.fixture
 def postgres_target(monkeypatch: pytest.MonkeyPatch) -> Iterator[PostgresTestTarget]:
     database_url = os.environ.get("POLARIS_TEST_DATABASE_URL")
@@ -162,3 +207,4 @@ def postgres_target(monkeypatch: pytest.MonkeyPatch) -> Iterator[PostgresTestTar
         yield PostgresTestTarget(database_url, schema)
     finally:
         asyncio.run(_drop_schema(database_url, schema))
+        asyncio.run(_drop_intelligence_commit_log(database_url, schema))

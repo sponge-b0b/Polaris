@@ -1,5 +1,25 @@
 # wiki/log.md
 
+## [2026-10-28] Investment Intelligence historical admission uses actual commit time
+
+Recorded the owner-act knowledge boundary at PostgreSQL commit, retained atomically in a logical WAL slot until archived for historical reconstruction. Admission fails when that recovery boundary is unavailable. Updated `investment-intelligence` and `durable-persistence`.
+
+## [2026-10-25] R3 Recommendation challenge coverage | enforced per View
+
+Recorded that a consequential Recommendation commits only when each materially relied-upon View has a durable substantive Challenge result. Updated Investment Intelligence.
+
+## [2026-10-25] R3 Intelligence writes | Decision ordinary-work gate enforced
+
+Recorded that new Investment Intelligence View, challenge, Alternative, and withholding commits require a determinately unresolved, operative governing Decision even when the supplied DecisionVersion is current. The commit check also reconstructs known Decision history at its current time under a Decision row lock. Updated Investment Intelligence.
+
+## [2026-10-25] R3 withholding Evidence basis | commit protection completed
+
+Recorded that withholding which consumes a current Evidence result preserves its exact basis and revalidates it atomically before append, returning typed stale or no-basis outcomes without a judgment write. Updated Investment Intelligence and Durable Persistence; cross-domain production provider assembly remains downstream.
+
+## [2026-10-24] R3 Investment Intelligence owner history and Recommendation semantics | realized
+
+Recorded five typed Investment Intelligence Evidence targets and complete claim catalogs with explicit future-correction overlap resolution, owner-issued current versions, and temporal-cause witnesses. Recorded durable Recommendation and withholding history, latest-judgment support semantics, Portfolio/Risk consequence consumption, and exact dependent Evidence-basis capture/revalidation through the inward current-basis boundary; complete cross-domain provider composition remains downstream. Updated Investment Intelligence, Evidence, and Durable Persistence.
+
 ## [2026-10-22] R3 Portfolio initial claim catalogs | admission completed
 
 Recorded explicit complete claim catalogs at initial Projected Portfolio Consequence and Portfolio Risk Assessment admission. Application requires catalogs for each target root, and PostgreSQL commits each catalog with its owner judgment. Updated Application Use Cases and Durable Persistence.
@@ -27,6 +47,10 @@ Recorded the typed Portfolio consequence producer for the complete material Alte
 ## [2026-10-19] R3 actual Portfolio State | historical owner fact established
 
 Marked Portfolio & Risk present and recorded the implemented actual-State identity, external source provenance, append-only history, and inward `(T,K)` read capability. The accepted projected consequence and Risk portions remain planned.
+
+## [2026-10-17] Foundational Investment Intelligence judgments | #398 realized
+
+Marked Investment Intelligence `present` and recorded the first R3 judgment persistence and Application slice: typed Views, material Hypotheses, substantive challenge results, and material Decision Alternatives with append-only root-local revisions and guarded selection. The broader Recommendation, withholding, and Evidence target/catalog contracts remain pending in later #358 tickets.
 
 ## [2026-10-17] R3 Investment Intelligence correction overlap | accepted authority
 

@@ -28,6 +28,9 @@ _portfolio.PORTFOLIO_TABLE_NAMES = (
         "portfolio_risk_assessments",
         "portfolio_judgment_acts",
         "portfolio_context_commits",
+        "investment_intelligence_judgment_acts",
+        "investment_intelligence_judgment_bases",
+        "investment_intelligence_act_publications",
     }
 )
 # arid: enable

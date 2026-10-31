@@ -5,6 +5,8 @@ from .correction_store import PostgresEvidenceCorrectionStore
 from .decisions import create_postgres_engine
 from .evidence_reconstruction_store import PostgresHistoricalEvidenceStore
 from .evidence_store import PostgresEvidenceStore
+from .intelligence_basis_participation import PostgresCurrentBasisReader
+from .intelligence_judgment_history import PostgresIntelligenceJudgmentHistoryStore
 from .investment_intelligence import PostgresInvestmentIntelligenceStore
 from .portfolio_consequences import (
     PostgresPortfolioConsequenceStore,
@@ -43,6 +45,8 @@ __all__ = [
     "PostgresEvidenceStore",
     "PostgresHistoricalEvidenceStore",
     "PostgresInvestmentIntelligenceStore",
+    "PostgresCurrentBasisReader",
+    "PostgresIntelligenceJudgmentHistoryStore",
     "PostgresPortfolioConsequenceStore",
     "PostgresPortfolioContextHistoryStore",
     "PostgresPortfolioJudgmentHistoryStore",

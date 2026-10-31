@@ -11,9 +11,7 @@ from scripts.workflow_hashing import sha256_canonical_json
 SCHEMA = "polaris.workflow-handoff/v1"
 RUNTIME_CONTRACT = "polaris.workflow-handoff-runtime/v2"
 DESTINATION = re.compile(r"^\$[a-z0-9][a-z0-9-]*(?: [a-z0-9][a-z0-9-]*)*$")
-ARTIFACT_URL = re.compile(
-    r"^https://github\.com/[^/\s]+/[^/\s]+/(?:issues|pull)/\d+$"
-)
+ARTIFACT_URL = re.compile(r"^https://github\.com/[^/\s]+/[^/\s]+/(?:issues|pull)/\d+$")
 DURABLE_URL = re.compile(r"^https://github\.com/[^/\s]+/[^/\s]+/.+$")
 OUTCOME_EMOJI = {"success": "✅", "warning": "⚠️"}
 
@@ -37,8 +35,13 @@ def render_artifact_line(destination: str, title: str, url: str) -> str:
     destination = destination.strip()
     title = title.strip()
     url = url.strip()
-    _need(DESTINATION.fullmatch(destination) is not None, "handoff: invalid destination")
-    _need(title != "" and "\n" not in title and "\r" not in title, "handoff: invalid title")
+    _need(
+        DESTINATION.fullmatch(destination) is not None, "handoff: invalid destination"
+    )
+    _need(
+        title != "" and "\n" not in title and "\r" not in title,
+        "handoff: invalid title",
+    )
     _need(ARTIFACT_URL.fullmatch(url) is not None, "handoff: invalid artifact URL")
     return f"{destination} - {title} ({url})"
 
@@ -64,17 +67,31 @@ def render_manifest(manifest: dict[str, Any]) -> str:
     _need(isinstance(durability, dict), "manifest: missing durability receipt")
     _need(durability.get("verified") is True, "manifest: durability is not verified")
     sources = durability.get("sources")
-    _need(isinstance(sources, list) and len(sources) > 0, "manifest: durability sources required")
+    _need(
+        isinstance(sources, list) and len(sources) > 0,
+        "manifest: durability sources required",
+    )
     normalized_sources: list[str] = []
     for source in sources:
-        _need(isinstance(source, str), "manifest: durability source must be a URL string")
+        _need(
+            isinstance(source, str), "manifest: durability source must be a URL string"
+        )
         source = source.strip()
-        _need(DURABLE_URL.fullmatch(source) is not None, "manifest: invalid durability source URL")
+        _need(
+            DURABLE_URL.fullmatch(source) is not None,
+            "manifest: invalid durability source URL",
+        )
         normalized_sources.append(source)
-    _need(len(set(normalized_sources)) == len(normalized_sources), "manifest: duplicate durability source")
+    _need(
+        len(set(normalized_sources)) == len(normalized_sources),
+        "manifest: duplicate durability source",
+    )
 
     handoffs = manifest.get("handoffs")
-    _need(isinstance(handoffs, list) and len(handoffs) > 0, "manifest: at least one handoff required")
+    _need(
+        isinstance(handoffs, list) and len(handoffs) > 0,
+        "manifest: at least one handoff required",
+    )
 
     lines: list[str] = []
     seen: set[str] = set()

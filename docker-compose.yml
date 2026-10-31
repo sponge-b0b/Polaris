@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:18
+    command: ["postgres", "-c", "wal_level=logical"]
     environment:
       POSTGRES_USER: ${POLARIS_POSTGRES_USER}
       POSTGRES_PASSWORD: ${POLARIS_POSTGRES_PASSWORD}

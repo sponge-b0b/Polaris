@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass, fields
 from datetime import datetime
 from typing import Protocol
@@ -67,6 +68,21 @@ class AtomicCurrentBasisParticipation(Protocol):
 
 class AtomicCurrentBasisUnavailable(Exception):
     """An authoritative owner or the dependent write cannot join validation."""
+
+
+class CurrentBasisWriteTransaction[T](AtomicCurrentBasisParticipation, Protocol):
+    """One enrolled owner read and dependent write in the same atomic boundary."""
+
+    async def write(self) -> T:
+        """Persist the prepared judgment without doing external or model work."""
+
+
+class CurrentBasisWriteBoundary[T](Protocol):
+    """Open a transaction that excludes invalidating owner commits until exit."""
+
+    def transaction(
+        self, key: BasisScopeKey
+    ) -> AbstractAsyncContextManager[CurrentBasisWriteTransaction[T]]: ...
 
 
 class CurrentEvidenceBasisRevalidator:
@@ -135,6 +151,24 @@ class CurrentEvidenceBasisRevalidator:
         if fresh_failure is not None:
             return fresh_failure
         return compare_current_evidence_bases(prior, fresh)
+
+    async def commit[T](
+        self,
+        prior: CurrentEvidenceBasis,
+        boundary: CurrentBasisWriteBoundary[T],
+    ) -> T | StaleEvidenceBasis | CurrentEvidenceNoBasis:
+        """Validate the accepted basis inside the dependent write transaction.
+
+        The caller prepares the judgment before opening the boundary. A stale or
+        unusable basis never invokes ``write``; the caller must obtain a new read.
+        """
+        if type(prior) is not CurrentEvidenceBasis:
+            raise TypeError("dependent commit requires a complete prior basis")
+        async with boundary.transaction(prior.key) as transaction:
+            outcome = await self.revalidate(prior, transaction)
+            if outcome is not None:
+                return outcome
+            return await transaction.write()
 
 
 def _same_prior_basis(

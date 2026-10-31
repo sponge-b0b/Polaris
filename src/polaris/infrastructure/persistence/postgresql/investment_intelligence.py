@@ -8,14 +8,34 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import Column, Table, insert, select, text
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
+from polaris.application.evidence.current_basis import (
+    CurrentEvidenceBasis,
+    CurrentEvidenceNoBasis,
+    CurrentNoBasisReason,
+)
+from polaris.application.evidence.judgment_versions import ResolvedTargetJudgment
+from polaris.application.evidence.reconstruction import StaleEvidenceBasis
+from polaris.application.evidence.revalidation import CurrentEvidenceBasisRevalidator
+from polaris.application.intelligence_judgment_history import (
+    IntelligenceJudgmentHistoryUnavailable,
+    IntelligenceJudgmentTargetReader,
+)
 from polaris.application.investment_intelligence import JudgmentId, JudgmentReceipt
+from polaris.application.investment_recommendation import (
+    CurrentRecommendationSupport,
+    RecommendationEvent,
+    derive_current_recommendation_support,
+)
+from polaris.application.portfolio_judgment_history import (
+    PortfolioJudgmentTargetReader,
+)
 from polaris.domain.actors import (
     ActorAttribution,
     ActorId,
@@ -25,7 +45,10 @@ from polaris.domain.actors import (
 )
 from polaris.domain.configuration.evidence_requirements import InvestmentHorizon
 from polaris.domain.decisions import (
+    DecisionApplicability,
+    DecisionLifecycleDisposition,
     DecisionVersion,
+    DeterminateDecisionLifecycleInterpretation,
     InvestmentDecision,
     InvestmentDecisionId,
     OperationId,
@@ -37,6 +60,13 @@ from polaris.domain.evidence.judgments import (
     InvestmentRecommendationRef,
     InvestmentViewRef,
     MeaningfulChallengeResultRef,
+    ProjectedPortfolioConsequenceRef,
+    RecommendationWithholdingJudgmentRef,
+)
+from polaris.domain.intelligence_judgment_history import (
+    IntelligenceClaimCatalog,
+    IntelligenceJudgmentActDraft,
+    IntelligenceJudgmentStatus,
 )
 from polaris.domain.investment_intelligence import (
     ChallengeDisposition,
@@ -48,9 +78,35 @@ from polaris.domain.investment_intelligence import (
     InvestmentView,
     MeaningfulChallengeResult,
     R3InvestmentSlice,
+    require_minimum_alternatives,
+)
+from polaris.domain.investment_recommendation import (
+    InvestmentRecommendation,
+    RecommendationWithholdingJudgment,
 )
 from polaris.domain.portfolio import FinancialInstrumentId, PortfolioId
+from polaris.domain.portfolio_consequences import ProjectedPortfolioConsequence
+from polaris.domain.portfolio_risk import PortfolioRiskAssessment
 
+from .intelligence_basis_participation import (
+    PostgresCurrentBasisReader,
+    PostgresIntelligenceBasisParticipation,
+)
+from .intelligence_contract_codec import (
+    basis_from_payload,
+    basis_payload,
+    contract_value_from_payload,
+    contract_value_payload,
+)
+from .intelligence_judgment_history import (
+    INTELLIGENCE_OWNER_LOCK,
+    INTELLIGENCE_ROOT_TYPES,
+    PostgresIntelligenceJudgmentHistoryStore,
+    archive_intelligence_act_commits,
+    insert_initial_intelligence_act,
+    intelligence_owner_write,
+)
+from .relationship_store import _load_decision, _load_relationship_history
 from .runtime_qualification import require_qualified_postgres_runtime
 from .schema import (
     decision_alternative_revisions,
@@ -59,11 +115,20 @@ from .schema import (
     investment_decisions,
     investment_hypotheses,
     investment_intelligence_command_receipts,
+    investment_intelligence_judgment_acts,
+    investment_intelligence_judgment_bases,
     investment_views,
     meaningful_challenges,
 )
 
-_WRITE_LOCK = 6_934_842_191_352_427_103
+_WRITE_LOCK = INTELLIGENCE_OWNER_LOCK
+_PERSISTENCE_ERRORS = (
+    SQLAlchemyError,
+    IntelligenceJudgmentHistoryUnavailable,
+    ValueError,
+    TypeError,
+    KeyError,
+)
 _MATERIAL_TARGETS = {
     "InvestmentViewRef": InvestmentViewRef,
     "MeaningfulChallengeResultRef": MeaningfulChallengeResultRef,
@@ -75,6 +140,8 @@ _RECEIPT_IDENTITIES = {
     "InvestmentViewRef": InvestmentViewRef,
     "MeaningfulChallengeResultRef": MeaningfulChallengeResultRef,
     "DecisionAlternativeId": DecisionAlternativeId,
+    "InvestmentRecommendationRef": InvestmentRecommendationRef,
+    "RecommendationWithholdingJudgmentRef": RecommendationWithholdingJudgmentRef,
 }
 
 
@@ -167,20 +234,75 @@ async def _append_hypotheses(
                 payload=_hypothesis_payload(hypothesis),
             )
         )
+        await _append_initial_target(connection, hypothesis)
 
 
-async def _require_decision_version(
+async def _append_initial_target(
+    connection: AsyncConnection,
+    assertion: (
+        InvestmentHypothesis
+        | InvestmentView
+        | MeaningfulChallengeResult
+        | InvestmentRecommendation
+        | RecommendationWithholdingJudgment
+    ),
+    catalog: IntelligenceClaimCatalog | None = None,
+) -> None:
+    await insert_initial_intelligence_act(
+        connection,
+        IntelligenceJudgmentActDraft(
+            act_id=uuid4(),
+            root=assertion.evidence_target,
+            attribution=assertion.actor_attribution,
+            basis="initial accepted Investment Intelligence judgment",
+            effective_at=assertion.formed_at,
+            ancestry=(),
+            assertion=assertion,
+            catalog=IntelligenceClaimCatalog(()) if catalog is None else catalog,
+            target_status=IntelligenceJudgmentStatus.ACTIVE,
+        ),
+    )
+
+
+async def _require_decision_ordinary_work(
     connection: AsyncConnection,
     decision_id: InvestmentDecisionId,
     expected: DecisionVersion,
 ) -> None:
-    current = await connection.scalar(
-        select(investment_decisions.c.decision_version).where(
-            investment_decisions.c.decision_id == decision_id.value
+    """Lock the Decision and admit only its current ordinary-work meaning.
+
+    Known future-effective history can change meaning without advancing its version.
+    """
+    current = (
+        await connection.execute(
+            select(investment_decisions.c.decision_version)
+            .where(investment_decisions.c.decision_id == decision_id.value)
+            .with_for_update()
         )
-    )
-    if current != expected.value:
+    ).one_or_none()
+    if current is None or current.decision_version != expected.value:
         raise JudgmentConcurrencyConflict("governing Decision version changed")
+    now = await connection.scalar(text("SELECT clock_timestamp()"))
+    relationships = await _load_relationship_history(connection, known_at=now)
+    loaded = await _load_decision(
+        connection,
+        decision_id,
+        known_at=now,
+        relationship_history=relationships,
+    )
+    if loaded is None:
+        raise InvalidInvestmentJudgment("governing Decision history is unavailable")
+    decision, applicability = loaded
+    interpretation = decision.lifecycle_interpretation
+    if (
+        decision.version != expected
+        or not isinstance(interpretation, DeterminateDecisionLifecycleInterpretation)
+        or interpretation.disposition is not DecisionLifecycleDisposition.UNRESOLVED
+        or applicability is not DecisionApplicability.OPERATIVE
+    ):
+        raise InvalidInvestmentJudgment(
+            "governing Decision does not admit ordinary work"
+        )
 
 
 async def _require_decision_horizon(
@@ -388,16 +510,24 @@ async def _latest_selection(
 class PostgresInvestmentIntelligenceStore:
     """Store typed business judgments, without promoting adapter/process identity."""
 
-    def __init__(self, engine: AsyncEngine) -> None:
+    def __init__(
+        self,
+        engine: AsyncEngine,
+        *,
+        basis_reader: PostgresCurrentBasisReader | None = None,
+    ) -> None:
         require_qualified_postgres_runtime()
+        if basis_reader is not None and basis_reader.engine is not engine:
+            raise ValueError("Evidence owner query must use the write engine")
         self._engine = engine
+        self._basis_reader = basis_reader
 
     @asynccontextmanager
     async def _read_connection(self, purpose: str) -> AsyncIterator[AsyncConnection]:
         try:
             async with self._engine.connect() as connection:
                 yield connection
-        except (SQLAlchemyError, ValueError, TypeError, KeyError) as error:
+        except _PERSISTENCE_ERRORS as error:
             raise JudgmentPersistenceUnavailable(
                 f"{purpose} read unavailable"
             ) from error
@@ -408,15 +538,14 @@ class PostgresInvestmentIntelligenceStore:
         kind: str,
         payload: object,
         write: Callable[[AsyncConnection], Awaitable[tuple[JudgmentId, ...]]],
-    ) -> JudgmentReceipt:
+        evidence_bases: tuple[CurrentEvidenceBasis, ...] = (),
+    ) -> JudgmentReceipt | StaleEvidenceBasis | CurrentEvidenceNoBasis:
         if type(operation_id) is not OperationId:
             raise TypeError("operation_id must be OperationId")
-        fingerprint = _fingerprint(kind, payload)
+        captured = tuple(basis_payload(item) for item in evidence_bases)
+        fingerprint = _fingerprint(kind, [payload, captured])
         try:
-            async with self._engine.begin() as connection:
-                await connection.execute(
-                    text("SELECT pg_advisory_xact_lock(:key)"), {"key": _WRITE_LOCK}
-                )
+            async with intelligence_owner_write(self._engine) as connection:
                 prior = (
                     (
                         await connection.execute(
@@ -429,25 +558,48 @@ class PostgresInvestmentIntelligenceStore:
                     .mappings()
                     .first()
                 )
+                result: JudgmentReceipt | StaleEvidenceBasis | CurrentEvidenceNoBasis
                 if prior is not None:
                     if prior["request_fingerprint"] != fingerprint:
                         raise JudgmentIdempotencyConflict(
                             "operation ID was used for another judgment request"
                         )
-                    return JudgmentReceipt(
+                    result = JudgmentReceipt(
                         operation_id, _receipt_ids_from_payload(prior["judgment_ids"])
                     )
-                judgment_ids = await write(connection)
-                await connection.execute(
-                    insert(investment_intelligence_command_receipts).values(
-                        operation_id=operation_id.value,
-                        request_fingerprint=fingerprint,
-                        judgment_ids=_receipt_ids_payload(judgment_ids),
-                        committed_at=datetime.now(UTC),
-                    )
+                else:
+                    invalid = await self._validate_bases(connection, evidence_bases)
+                    if invalid is not None:
+                        result = invalid
+                    else:
+                        judgment_ids = await write(connection)
+                        await connection.execute(
+                            insert(investment_intelligence_command_receipts).values(
+                                operation_id=operation_id.value,
+                                request_fingerprint=fingerprint,
+                                judgment_ids=_receipt_ids_payload(judgment_ids),
+                                committed_at=datetime.now(UTC),
+                            )
+                        )
+                        for index, basis in enumerate(captured):
+                            await connection.execute(
+                                insert(investment_intelligence_judgment_bases).values(
+                                    operation_id=operation_id.value,
+                                    basis_index=index,
+                                    basis=basis,
+                                )
+                            )
+                        result = JudgmentReceipt(operation_id, judgment_ids)
+            if isinstance(result, JudgmentReceipt):
+                roots = tuple(
+                    item
+                    for item in result.judgment_ids
+                    if isinstance(item, INTELLIGENCE_ROOT_TYPES)
                 )
-                return JudgmentReceipt(operation_id, judgment_ids)
-        except (SQLAlchemyError, ValueError, TypeError, KeyError) as error:
+                if roots:
+                    await archive_intelligence_act_commits(self._engine)
+            return result
+        except _PERSISTENCE_ERRORS as error:
             if isinstance(
                 error,
                 (
@@ -461,13 +613,192 @@ class PostgresInvestmentIntelligenceStore:
                 "Investment Intelligence commit unavailable"
             ) from error
 
+    async def _validate_bases(
+        self,
+        connection: AsyncConnection,
+        bases: tuple[CurrentEvidenceBasis, ...],
+    ) -> StaleEvidenceBasis | CurrentEvidenceNoBasis | None:
+        if not bases:
+            return None
+        reader = self._basis_reader
+        if reader is None:
+            basis = bases[0]
+            return CurrentEvidenceNoBasis(
+                basis.key,
+                basis.at,
+                CurrentNoBasisReason.UNAVAILABLE,
+                "current-basis provider is unavailable",
+            )
+        participation = PostgresIntelligenceBasisParticipation(connection, reader)
+        revalidator = CurrentEvidenceBasisRevalidator()
+        for basis in bases:
+            outcome = await revalidator.revalidate(basis, participation)
+            if outcome is not None:
+                return outcome
+        return None
+
+    async def _require_recommendation_inputs(
+        self,
+        connection: AsyncConnection,
+        recommendation: InvestmentRecommendation,
+        expected_decision_version: DecisionVersion,
+    ) -> None:
+        """Check the real owner facts protected by the complete basis lock."""
+        from .portfolio_consequences import PostgresPortfolioConsequenceStore
+        from .portfolio_judgment_history import PostgresPortfolioJudgmentHistoryStore
+        from .portfolio_states import PostgresPortfolioStateStore
+
+        await _require_decision_ordinary_work(
+            connection, recommendation.decision_id, expected_decision_version
+        )
+        # duplicate-code: Sharing would hide distinct judgment checks.
+        # arid: disable
+        decision = await _row_by_id(
+            connection,
+            investment_decisions,
+            investment_decisions.c.decision_id,
+            recommendation.decision_id.value,
+        )
+        # arid: enable
+        state = await PostgresPortfolioStateStore(self._engine).get(
+            recommendation.source_state_id
+        )
+        if (
+            decision is None
+            or decision["applicability"] != "operative"
+            or state is None
+            or state.state.portfolio_id.value not in decision["scope_portfolio_ids"]
+            or state.state.as_of > recommendation.formed_at
+            or state.known_at > recommendation.formed_at
+        ):
+            raise InvalidInvestmentJudgment(
+                "Recommendation requires an applicable Decision and actual State"
+            )
+        for view_id in recommendation.view_ids:
+            row = await _row_by_id(
+                connection, investment_views, investment_views.c.view_id, view_id.value
+            )
+            if (
+                row is None
+                or row["decision_id"] != recommendation.decision_id.value
+                or row["payload"]["horizon"] != recommendation.horizon.value
+            ):
+                raise InvalidInvestmentJudgment("material View is not applicable")
+        challenged_view_ids: set[InvestmentViewRef] = set()
+        for challenge_id in recommendation.challenge_ids:
+            # duplicate-code: Sharing would hide distinct judgment checks.
+            # arid: disable
+            row = await _row_by_id(
+                connection,
+                meaningful_challenges,
+                meaningful_challenges.c.challenge_id,
+                challenge_id.value,
+            )
+            # arid: enable
+            if (
+                row is None
+                or row["decision_id"] != recommendation.decision_id.value
+                or InvestmentViewRef(_uuid(row["view_id"]))
+                not in recommendation.view_ids
+            ):
+                raise InvalidInvestmentJudgment(
+                    "material challenge does not belong to a relied-upon View"
+                )
+            challenged_view_ids.add(InvestmentViewRef(_uuid(row["view_id"])))
+        if challenged_view_ids != set(recommendation.view_ids):
+            raise InvalidInvestmentJudgment(
+                "each relied-upon View needs a substantive Challenge result"
+            )
+        alternatives = await _material_alternatives_for_decision(
+            connection, recommendation.decision_id
+        )
+        require_minimum_alternatives(alternatives)
+        if {(item.alternative_id.value, item.revision) for item in alternatives} != {
+            (item.root.value, item.revision.value)
+            for item in recommendation.alternatives
+        } or any(
+            not item.valid or item.contested or item.horizon != recommendation.horizon
+            for item in alternatives
+        ):
+            raise InvalidInvestmentJudgment(
+                "material Alternative versions are stale or incomplete"
+            )
+        consequence_store = PostgresPortfolioConsequenceStore(self._engine)
+        at = await connection.scalar(text("SELECT clock_timestamp()"))
+        assert isinstance(at, datetime)
+        portfolio_reader = PortfolioJudgmentTargetReader(
+            PostgresPortfolioJudgmentHistoryStore(self._engine).for_validation(
+                connection
+            )
+        )
+        for link in recommendation.consequences:
+            recorded = await consequence_store.get(link.consequence_id)
+            current = await portfolio_reader.read_at(
+                link.consequence_id, effective_at=at, known_at=at
+            )
+            if (
+                recorded is None
+                or not isinstance(current, ResolvedTargetJudgment)
+                or not isinstance(current.assertion, ProjectedPortfolioConsequence)
+                or current.correction_support[-1].known_at > recommendation.formed_at
+                or current.assertion.alternative != link.alternative
+                or current.assertion.source_state_id != recommendation.source_state_id
+                or current.assertion.source_as_of != state.state.as_of
+                or current.assertion.horizon != recommendation.horizon
+                or recorded.known_at > recommendation.formed_at
+            ):
+                raise InvalidInvestmentJudgment(
+                    "each material Alternative needs its attributable consequence"
+                )
+        consequence_ids = {item.consequence_id for item in recommendation.consequences}
+        await self._require_recommendation_risks(
+            recommendation, state.state.as_of, consequence_ids, portfolio_reader, at
+        )
+
+    async def _require_recommendation_risks(
+        self,
+        recommendation: InvestmentRecommendation,
+        state_as_of: datetime,
+        consequence_ids: set[ProjectedPortfolioConsequenceRef],
+        portfolio_reader: PortfolioJudgmentTargetReader,
+        at: datetime,
+    ) -> None:
+        from .portfolio_risk import PostgresPortfolioRiskStore
+
+        risk_store = PostgresPortfolioRiskStore(self._engine)
+        for risk_id in recommendation.risk_assessment_ids:
+            recorded = await risk_store.get(risk_id)
+            current = await portfolio_reader.read_at(
+                risk_id, effective_at=at, known_at=at
+            )
+            if (
+                recorded is None
+                or not isinstance(current, ResolvedTargetJudgment)
+                or not isinstance(current.assertion, PortfolioRiskAssessment)
+                or current.correction_support[-1].known_at > recommendation.formed_at
+                or current.assertion.source_state_id != recommendation.source_state_id
+                or current.assertion.source_as_of != state_as_of
+                or current.assertion.horizon != recommendation.horizon
+                or (
+                    current.assertion.projected_consequence_id is not None
+                    and current.assertion.projected_consequence_id
+                    not in consequence_ids
+                )
+                or recorded.known_at > recommendation.formed_at
+                or current.assertion.unresolved
+            ):
+                raise InvalidInvestmentJudgment(
+                    "unresolved or mismatched Portfolio Risk cannot support finality"
+                )
+
     async def record_view(
         self,
         operation_id: OperationId,
         view: InvestmentView,
         hypotheses: tuple[InvestmentHypothesis, ...],
         expected_decision_version: DecisionVersion,
-    ) -> JudgmentReceipt:
+        evidence_bases: tuple[CurrentEvidenceBasis, ...] = (),
+    ) -> JudgmentReceipt | StaleEvidenceBasis | CurrentEvidenceNoBasis:
         payload = [
             expected_decision_version.value,
             _view_payload(view),
@@ -478,7 +809,7 @@ class PostgresInvestmentIntelligenceStore:
         ]
 
         async def write(connection: AsyncConnection) -> tuple[JudgmentId, ...]:
-            await _require_decision_version(
+            await _require_decision_ordinary_work(
                 connection, view.decision_id, expected_decision_version
             )
             await _require_decision_horizon(
@@ -492,13 +823,14 @@ class PostgresInvestmentIntelligenceStore:
                     payload=_view_payload(view),
                 )
             )
+            await _append_initial_target(connection, view)
             await _append_hypotheses(connection, hypotheses)
             return (
                 view.view_id,
                 *(item.hypothesis_id for item in hypotheses),
             )
 
-        return await self._commit(operation_id, "view", payload, write)
+        return await self._commit(operation_id, "view", payload, write, evidence_bases)
 
     async def record_challenge(
         self,
@@ -506,7 +838,8 @@ class PostgresInvestmentIntelligenceStore:
         challenge: MeaningfulChallengeResult,
         hypotheses: tuple[InvestmentHypothesis, ...],
         expected_decision_version: DecisionVersion,
-    ) -> JudgmentReceipt:
+        evidence_bases: tuple[CurrentEvidenceBasis, ...] = (),
+    ) -> JudgmentReceipt | StaleEvidenceBasis | CurrentEvidenceNoBasis:
         payload = [
             expected_decision_version.value,
             str(challenge.challenge_id.value),
@@ -518,7 +851,7 @@ class PostgresInvestmentIntelligenceStore:
         ]
 
         async def write(connection: AsyncConnection) -> tuple[JudgmentId, ...]:
-            await _require_decision_version(
+            await _require_decision_ordinary_work(
                 connection, challenge.decision_id, expected_decision_version
             )
             view_decision = await connection.scalar(
@@ -539,13 +872,16 @@ class PostgresInvestmentIntelligenceStore:
                     payload=_challenge_payload(challenge),
                 )
             )
+            await _append_initial_target(connection, challenge)
             await _append_hypotheses(connection, hypotheses)
             return (
                 challenge.challenge_id,
                 *(item.hypothesis_id for item in hypotheses),
             )
 
-        return await self._commit(operation_id, "challenge", payload, write)
+        return await self._commit(
+            operation_id, "challenge", payload, write, evidence_bases
+        )
 
     async def record_alternatives(
         self,
@@ -567,7 +903,7 @@ class PostgresInvestmentIntelligenceStore:
         ]
 
         async def write(connection: AsyncConnection) -> tuple[JudgmentId, ...]:
-            await _require_decision_version(
+            await _require_decision_ordinary_work(
                 connection, alternatives[0].decision_id, expected_decision_version
             )
             await _require_decision_horizon(
@@ -655,7 +991,7 @@ class PostgresInvestmentIntelligenceStore:
         ]
 
         async def write(connection: AsyncConnection) -> tuple[JudgmentId, ...]:
-            await _require_decision_version(
+            await _require_decision_ordinary_work(
                 connection, decision.decision_id, decision.version
             )
             previous = await _latest_selection(connection, decision.decision_id)
@@ -706,6 +1042,263 @@ class PostgresInvestmentIntelligenceStore:
             return tuple(() if selected_id is None else (selected_id,))
 
         return await self._commit(operation_id, "select_alternative", payload, write)
+
+    async def record_recommendation(
+        self,
+        operation_id: OperationId,
+        recommendation: InvestmentRecommendation,
+        expected_decision_version: DecisionVersion,
+        evidence_bases: tuple[CurrentEvidenceBasis, ...],
+        initial_claim_catalog: IntelligenceClaimCatalog,
+    ) -> JudgmentReceipt | StaleEvidenceBasis | CurrentEvidenceNoBasis:
+        if (
+            type(recommendation) is not InvestmentRecommendation
+            or type(initial_claim_catalog) is not IntelligenceClaimCatalog
+            or type(evidence_bases) is not tuple
+            or not evidence_bases
+        ):
+            raise InvalidInvestmentJudgment(
+                "Recommendation needs typed judgment, catalog, and Evidence bases"
+            )
+        targets = {basis.key.target for basis in evidence_bases}
+        if not (
+            set(recommendation.view_ids) | set(recommendation.challenge_ids)
+        ).issubset(targets):
+            raise InvalidInvestmentJudgment(
+                "each relied-upon View and challenge needs a current basis"
+            )
+        payload = [
+            expected_decision_version.value,
+            contract_value_payload(recommendation),
+            contract_value_payload(initial_claim_catalog),
+        ]
+
+        async def write(connection: AsyncConnection) -> tuple[JudgmentId, ...]:
+            await self._require_recommendation_inputs(
+                connection, recommendation, expected_decision_version
+            )
+            await _append_initial_target(
+                connection, recommendation, initial_claim_catalog
+            )
+            return (recommendation.recommendation_id,)
+
+        return await self._commit(
+            operation_id, "recommendation", payload, write, evidence_bases
+        )
+
+    async def record_withholding(
+        self,
+        operation_id: OperationId,
+        withholding: RecommendationWithholdingJudgment,
+        expected_decision_version: DecisionVersion,
+        initial_claim_catalog: IntelligenceClaimCatalog,
+        evidence_bases: tuple[CurrentEvidenceBasis, ...] = (),
+    ) -> JudgmentReceipt | StaleEvidenceBasis | CurrentEvidenceNoBasis:
+        if (
+            type(withholding) is not RecommendationWithholdingJudgment
+            or type(initial_claim_catalog) is not IntelligenceClaimCatalog
+            or type(evidence_bases) is not tuple
+            or any(type(item) is not CurrentEvidenceBasis for item in evidence_bases)
+        ):
+            raise InvalidInvestmentJudgment("typed withholding and catalog required")
+        payload = [
+            expected_decision_version.value,
+            contract_value_payload(withholding),
+            contract_value_payload(initial_claim_catalog),
+        ]
+
+        async def write(connection: AsyncConnection) -> tuple[JudgmentId, ...]:
+            await _require_decision_ordinary_work(
+                connection, withholding.decision_id, expected_decision_version
+            )
+            await _append_initial_target(connection, withholding, initial_claim_catalog)
+            return (withholding.withholding_id,)
+
+        return await self._commit(
+            operation_id,
+            "recommendation_withholding",
+            payload,
+            write,
+            evidence_bases,
+        )
+
+    async def recommendation_history(
+        self, decision_id: InvestmentDecisionId
+    ) -> tuple[RecommendationEvent, ...]:
+        if type(decision_id) is not InvestmentDecisionId:
+            raise TypeError("history requires a typed Decision")
+        async with self._read_connection("Recommendation history") as connection:
+            rows = (
+                (
+                    await connection.execute(
+                        select(investment_intelligence_judgment_acts.c.draft)
+                        .where(
+                            investment_intelligence_judgment_acts.c.decision_id
+                            == decision_id.value,
+                            investment_intelligence_judgment_acts.c.sequence == 1,
+                            investment_intelligence_judgment_acts.c.target_family.in_(
+                                (
+                                    "InvestmentRecommendationRef",
+                                    "RecommendationWithholdingJudgmentRef",
+                                )
+                            ),
+                        )
+                        .order_by(investment_intelligence_judgment_acts.c.row_id)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+        history: list[RecommendationEvent] = []
+        for row in rows:
+            draft = contract_value_from_payload(row)
+            if not isinstance(draft, IntelligenceJudgmentActDraft):
+                raise JudgmentPersistenceUnavailable(
+                    "Recommendation history has invalid owner acts"
+                )
+            assertion = draft.assertion
+            if (
+                not isinstance(
+                    assertion,
+                    (InvestmentRecommendation, RecommendationWithholdingJudgment),
+                )
+                or assertion.decision_id != decision_id
+            ):
+                raise JudgmentPersistenceUnavailable(
+                    "Recommendation history has invalid owner acts"
+                )
+            history.append(assertion)
+        return tuple(history)
+
+    async def current_recommendation_support(
+        self, decision_id: InvestmentDecisionId
+    ) -> CurrentRecommendationSupport:
+        """Derive current support from only the latest durable owner act."""
+        if type(decision_id) is not InvestmentDecisionId:
+            raise TypeError("support requires a typed Decision")
+        async with self._engine.begin() as connection:
+            await connection.execute(
+                text("SELECT pg_advisory_xact_lock(:key)"), {"key": _WRITE_LOCK}
+            )
+            history = await self.recommendation_history(decision_id)
+            if not history or type(history[-1]) is RecommendationWithholdingJudgment:
+                return derive_current_recommendation_support(
+                    history,
+                    decision_applicable=False,
+                    evidence_fit=False,
+                    risk_fit=False,
+                )
+            latest = history[-1]
+            assert isinstance(latest, InvestmentRecommendation)
+            at = await connection.scalar(text("SELECT clock_timestamp()"))
+            assert isinstance(at, datetime)
+            current_recommendation = await IntelligenceJudgmentTargetReader(
+                PostgresIntelligenceJudgmentHistoryStore(self._engine).for_validation(
+                    connection
+                )
+            ).read_at(latest.recommendation_id, effective_at=at, known_at=at)
+            recommendation_fit = (
+                isinstance(current_recommendation, ResolvedTargetJudgment)
+                and current_recommendation.assertion == latest
+            )
+            receipt = (
+                (
+                    await connection.execute(
+                        select(
+                            investment_intelligence_command_receipts.c.operation_id
+                        ).where(
+                            investment_intelligence_command_receipts.c.judgment_ids.contains(
+                                [
+                                    [
+                                        "InvestmentRecommendationRef",
+                                        str(latest.recommendation_id.value),
+                                    ]
+                                ]
+                            )
+                        )
+                    )
+                )
+                .scalars()
+                .one_or_none()
+            )
+            if receipt is None:
+                raise JudgmentPersistenceUnavailable(
+                    "Recommendation is missing its accepted command receipt"
+                )
+            basis_rows = (
+                (
+                    await connection.execute(
+                        select(investment_intelligence_judgment_bases.c.basis)
+                        .where(
+                            investment_intelligence_judgment_bases.c.operation_id
+                            == receipt
+                        )
+                        .order_by(investment_intelligence_judgment_bases.c.basis_index)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            bases = tuple(basis_from_payload(row) for row in basis_rows)
+            reader = self._basis_reader
+            evidence_fit = recommendation_fit and bool(bases) and reader is not None
+            if evidence_fit:
+                participation = PostgresIntelligenceBasisParticipation(
+                    connection, reader
+                )
+                revalidator = CurrentEvidenceBasisRevalidator()
+                for basis in bases:
+                    if await revalidator.revalidate(basis, participation) is not None:
+                        evidence_fit = False
+                        break
+            decision = await _row_by_id(
+                connection,
+                investment_decisions,
+                investment_decisions.c.decision_id,
+                decision_id.value,
+            )
+            decision_applicable = (
+                decision is not None and decision["applicability"] == "operative"
+            )
+            risk_fit = evidence_fit and await self._current_risks_fit(
+                latest, at, connection
+            )
+            return derive_current_recommendation_support(
+                history,
+                decision_applicable=decision_applicable,
+                evidence_fit=evidence_fit,
+                risk_fit=risk_fit,
+            )
+
+    async def _current_risks_fit(
+        self,
+        recommendation: InvestmentRecommendation,
+        at: datetime,
+        connection: AsyncConnection,
+    ) -> bool:
+        from .portfolio_judgment_history import PostgresPortfolioJudgmentHistoryStore
+        from .portfolio_states import PostgresPortfolioStateStore
+
+        state = await PostgresPortfolioStateStore(self._engine).get(
+            recommendation.source_state_id
+        )
+        if state is None:
+            return False
+        risk_reader = PortfolioJudgmentTargetReader(
+            PostgresPortfolioJudgmentHistoryStore(self._engine).for_validation(
+                connection
+            )
+        )
+        for risk_id in recommendation.risk_assessment_ids:
+            risk = await risk_reader.read_at(risk_id, effective_at=at, known_at=at)
+            if (
+                not isinstance(risk, ResolvedTargetJudgment)
+                or risk.target != risk_id
+                or risk.assertion.unresolved
+                or risk.assertion.source_as_of != state.state.as_of
+            ):
+                return False
+        return True
 
     async def load_view(self, view_id: InvestmentViewRef) -> InvestmentView | None:
         async with self._read_connection("View") as connection:

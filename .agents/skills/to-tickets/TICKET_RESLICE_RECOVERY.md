@@ -191,7 +191,7 @@ Lifecycle:
 3. Update the same record to `source-complete` with exact Source completion commit.
 4. Intermediate native tickets execute normally in dependency order.
 5. Destination becomes actionable only after all native blockers close. It executes in an
-   isolated worktree at the current remote tip. If `Ticket baseline: Pending`, pin that
+   isolated worktree at the current remote tip. If its Ticket baseline is `Pending`, pin that
    isolated HEAD as Destination baseline. Consume committed upstream behavior as authority;
    do not copy preserved Source donor bytes merely because they were shared dependencies.
 6. After Destination independently verifies, commits, pushes, reads back, and closes, set

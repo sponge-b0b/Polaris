@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-10-31] R3 minimum human investment authority | domain check implemented
+
+Recorded the narrow Governance regime check for one attributable actor, Portfolio, Human-Investment-Decision power, and effective time. Missing or mismatched authority fails closed. Human Decision persistence and Evidence owner history remain planned. Updated Governance & Authority.
+
 ## [2026-10-28] Investment Intelligence historical admission uses actual commit time
 
 Recorded the owner-act knowledge boundary at PostgreSQL commit, retained atomically in a logical WAL slot until archived for historical reconstruction. Admission fails when that recovery boundary is unavailable. Updated `investment-intelligence` and `durable-persistence`.

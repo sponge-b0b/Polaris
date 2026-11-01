@@ -5,6 +5,10 @@ from .correction_store import PostgresEvidenceCorrectionStore
 from .decisions import create_postgres_engine
 from .evidence_reconstruction_store import PostgresHistoricalEvidenceStore
 from .evidence_store import PostgresEvidenceStore
+from .governance import (
+    PostgresGovernanceStore,
+    create_postgres_human_decision_service,
+)
 from .intelligence_basis_participation import PostgresCurrentBasisReader
 from .intelligence_judgment_history import PostgresIntelligenceJudgmentHistoryStore
 from .investment_intelligence import PostgresInvestmentIntelligenceStore
@@ -44,6 +48,7 @@ __all__ = [
     "PostgresEvidenceRequirementStore",
     "PostgresEvidenceStore",
     "PostgresHistoricalEvidenceStore",
+    "PostgresGovernanceStore",
     "PostgresInvestmentIntelligenceStore",
     "PostgresCurrentBasisReader",
     "PostgresIntelligenceJudgmentHistoryStore",
@@ -57,5 +62,6 @@ __all__ = [
     "PostgresEvidenceSufficiencyStore",
     "PostgresEvidenceSupportEpochStore",
     "create_postgres_engine",
+    "create_postgres_human_decision_service",
     "metadata",
 ]

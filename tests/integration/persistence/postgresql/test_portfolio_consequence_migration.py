@@ -45,6 +45,11 @@ def test_consequence_revision_binds_both_owner_roots_and_round_trips(
                 "portfolio_risk_assessments",
                 "portfolio_judgment_acts",
                 "portfolio_context_commits",
+                "investment_intelligence_judgment_acts",
+                "investment_intelligence_act_publications",
+                "investment_intelligence_judgment_bases",
+                "governance_authority_regimes",
+                "human_investment_decisions",
             }
         )
         | {"alembic_version"},

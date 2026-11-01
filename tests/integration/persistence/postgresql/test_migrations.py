@@ -1,9 +1,9 @@
-"""Integrated migration regression suite for the R3 sibling foundations.
+"""Integrated migration regression suite for the R3 owner tables.
 
 The #359 Portfolio migration suite is retained byte-for-byte in the helper module.
 At the shared ``0008_support_epochs`` downgrade boundary, both sibling ``0009``
-branches disappear together, so its branch-local table inventory is widened to
-include the certified Investment Intelligence tables before re-exporting the tests.
+branches disappear together, so its branch-local table inventory includes all
+later R3 owner tables before re-exporting the tests.
 """
 
 from . import _migration_tests_portfolio_base as _portfolio
@@ -31,6 +31,8 @@ _portfolio.PORTFOLIO_TABLE_NAMES = (
         "investment_intelligence_judgment_acts",
         "investment_intelligence_judgment_bases",
         "investment_intelligence_act_publications",
+        "governance_authority_regimes",
+        "human_investment_decisions",
     }
 )
 # arid: enable

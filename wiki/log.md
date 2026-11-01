@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-11-01] R3 Human Investment Decision | durable Governance fact implemented
+
+Recorded the shared authority-checked command and typed query, separate immutable Governance persistence, Recommendation link validation, and restart reconstruction. Evidence target/context versioning and atomic Decisions-side lifecycle coordination remain pending. Updated Governance & Authority, Application Use Cases, and Durable Persistence.
+
 ## [2026-10-31] R3 minimum human investment authority | domain check implemented
 
 Recorded the narrow Governance regime check for one attributable actor, Portfolio, Human-Investment-Decision power, and effective time. Missing or mismatched authority fails closed. Human Decision persistence and Evidence owner history remain planned. Updated Governance & Authority.

@@ -29,6 +29,71 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from . import schema_foundation as _foundation
 from .schema_foundation import *  # noqa: F401,F403
 
+governance_authority_regimes = Table(
+    "governance_authority_regimes",
+    _foundation.metadata,
+    Column("regime_id", UUID(as_uuid=True), primary_key=True),
+    Column("actor_id", UUID(as_uuid=True), nullable=False),
+    Column("portfolio_id", UUID(as_uuid=True), nullable=False),
+    Column("power", String(48), nullable=False),
+    Column("effective_from", DateTime(timezone=True), nullable=False),
+    Column("effective_until", DateTime(timezone=True)),
+    CheckConstraint(
+        "power = 'human-investment-decision'", name="r3_human_decision_power"
+    ),
+    CheckConstraint(
+        "effective_until IS NULL OR effective_until > effective_from",
+        name="valid_authority_interval",
+    ),
+)
+
+human_investment_decisions = Table(
+    "human_investment_decisions",
+    _foundation.metadata,
+    Column("decision_ref", UUID(as_uuid=True), primary_key=True),
+    Column("operation_id", UUID(as_uuid=True), nullable=False, unique=True),
+    Column(
+        "investment_decision_id",
+        UUID(as_uuid=True),
+        ForeignKey("investment_decisions.decision_id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    Column("portfolio_id", UUID(as_uuid=True), nullable=False),
+    Column("actor_id", UUID(as_uuid=True), nullable=False),
+    Column(
+        "regime_id",
+        UUID(as_uuid=True),
+        ForeignKey("governance_authority_regimes.regime_id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    Column("made_at", DateTime(timezone=True), nullable=False),
+    Column("recorded_at", DateTime(timezone=True), nullable=False),
+    Column("choice", String(16), nullable=False),
+    Column("effect", String(32), nullable=False),
+    Column("recommendations", JSONB, nullable=False),
+    Column("material_rationale", Text),
+    Column("expected_decision_version", Integer, nullable=False),
+    CheckConstraint(
+        "choice IN ('increase', 'hold', 'reduce', 'deferral')",
+        name="closed_human_choice",
+    ),
+    CheckConstraint(
+        "(choice = 'deferral' AND effect = 'deferring') OR "
+        "(choice <> 'deferral' AND effect = 'substantively_resolving')",
+        name="human_choice_effect",
+    ),
+    CheckConstraint(
+        "jsonb_typeof(recommendations) = 'array'",
+        name="recommendation_links_array",
+    ),
+    CheckConstraint(
+        "material_rationale IS NULL OR btrim(material_rationale) <> ''",
+        name="material_rationale_nonempty",
+    ),
+    CheckConstraint("expected_decision_version > 0", name="positive_decision_version"),
+    Index("ix_human_decision_history", "investment_decision_id", "recorded_at"),
+)
+
 
 def _portfolio_actor_columns() -> tuple[Column[Any], ...]:
     return (
@@ -280,5 +345,7 @@ POLARIS_TABLE_NAMES = _foundation.POLARIS_TABLE_NAMES | frozenset(
         "investment_intelligence_judgment_acts",
         "investment_intelligence_act_publications",
         "investment_intelligence_judgment_bases",
+        "governance_authority_regimes",
+        "human_investment_decisions",
     }
 )

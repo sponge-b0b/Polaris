@@ -28,6 +28,11 @@ _POST_0008_TABLE_NAMES = _INVESTMENT_INTELLIGENCE_TABLE_NAMES | frozenset(
         "portfolio_risk_assessments",
         "portfolio_judgment_acts",
         "portfolio_context_commits",
+        "investment_intelligence_judgment_acts",
+        "investment_intelligence_act_publications",
+        "investment_intelligence_judgment_bases",
+        "governance_authority_regimes",
+        "human_investment_decisions",
     }
 )
 # arid: enable

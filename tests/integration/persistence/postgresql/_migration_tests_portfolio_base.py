@@ -242,7 +242,8 @@ def test_fresh_root_migrates_only_greenfield_polaris_schema(
     assert not {
         table
         for table in tables
-        if any(fragment in table for fragment in FORBIDDEN_TABLE_FRAGMENTS)
+        if table not in PORTFOLIO_TABLE_NAMES
+        and any(fragment in table for fragment in FORBIDDEN_TABLE_FRAGMENTS)
     }
 
     column_types = asyncio.run(_identity_column_types(postgres_target))

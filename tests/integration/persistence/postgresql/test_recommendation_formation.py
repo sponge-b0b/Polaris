@@ -30,17 +30,29 @@ from polaris.domain.configuration.evidence_requirements import InvestmentHorizon
 from polaris.domain.decisions import (
     DecisionScope,
     DecisionSubject,
+    HumanInvestmentDecisionEffect,
     OperationId,
     TechnicalProvenance,
     TriggerKind,
     TriggerProvenance,
 )
+from polaris.domain.evidence import InvestmentAuthorityRegimeId
 from polaris.domain.evidence.judgments import (
+    HumanInvestmentDecisionRef,
     InvestmentRecommendationRef,
     InvestmentViewRef,
     MeaningfulChallengeResultRef,
     PortfolioRiskAssessmentRef,
     RecommendationWithholdingJudgmentRef,
+)
+from polaris.domain.governance_authority import (
+    InvestmentAuthorityPower,
+    InvestmentAuthorityRegime,
+)
+from polaris.domain.human_investment_decision import (
+    ConsideredRecommendation,
+    HumanInvestmentDecisionDraft,
+    RecommendationRelationship,
 )
 from polaris.domain.intelligence_judgment_history import (
     IntelligenceClaimCatalog,
@@ -68,11 +80,13 @@ from polaris.domain.portfolio_judgment_history import (
 from polaris.infrastructure.persistence.postgresql import (
     PostgresCurrentBasisReader,
     PostgresDecisionStore,
+    PostgresGovernanceStore,
     PostgresIntelligenceJudgmentHistoryStore,
     PostgresInvestmentIntelligenceStore,
     PostgresPortfolioJudgmentHistoryStore,
     PostgresPortfolioStateStore,
     create_postgres_engine,
+    create_postgres_human_decision_service,
     create_postgres_portfolio_consequence_service,
     create_postgres_portfolio_risk_service,
 )
@@ -310,6 +324,48 @@ async def _scenario(target: PostgresTestTarget) -> None:
         assert (
             await recommender.current_support(decision.decision_id)
         ).kind is RecommendationSupportKind.SUPPORTED
+
+        regime = InvestmentAuthorityRegime(
+            InvestmentAuthorityRegimeId(uuid4()),
+            actor.actor_id,
+            source.state.portfolio_id,
+            InvestmentAuthorityPower.HUMAN_INVESTMENT_DECISION,
+            NOW - timedelta(days=1),
+            None,
+        )
+        await PostgresGovernanceStore(engine).install_regime(regime)
+        human_decisions = create_postgres_human_decision_service(
+            engine, now=lambda: NOW
+        )
+        recommendation_before = await owner_store.load(recommendation.recommendation_id)
+        assert recommendation_before is not None
+        for relationship, choice in (
+            (RecommendationRelationship.REJECTED, EconomicDisposition.HOLD),
+            (RecommendationRelationship.DIFFERED, EconomicDisposition.REDUCE),
+        ):
+            await human_decisions.record(
+                OperationId(uuid4()),
+                HumanInvestmentDecisionDraft(
+                    decision_ref=HumanInvestmentDecisionRef(uuid4()),
+                    investment_decision_id=decision.decision_id,
+                    portfolio_id=source.state.portfolio_id,
+                    actor=actor,
+                    choice=choice,
+                    effect=HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING,
+                    authority_regime_id=regime.regime_id,
+                    recommendations=(
+                        ConsideredRecommendation(
+                            recommendation.recommendation_id, relationship
+                        ),
+                    ),
+                ),
+                decision.version,
+            )
+            assert await recommender.history(decision.decision_id) == (recommendation,)
+            assert (
+                await owner_store.load(recommendation.recommendation_id)
+                == recommendation_before
+            )
 
         history = await owner_store.load(recommendation.recommendation_id)
         assert history is not None

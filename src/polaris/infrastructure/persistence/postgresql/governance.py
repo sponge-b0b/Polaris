@@ -12,6 +12,7 @@ from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
+from polaris.application.governance_context import GovernanceOwnerReadUnavailable
 from polaris.application.human_investment_decision import HumanInvestmentDecisionService
 from polaris.domain.actors import ActorId, KnownActorAttribution
 from polaris.domain.decisions import (
@@ -28,6 +29,12 @@ from polaris.domain.evidence.judgments import (
 from polaris.domain.governance_authority import (
     InvestmentAuthorityPower,
     InvestmentAuthorityRegime,
+)
+from polaris.domain.governance_claim_catalog import GovernanceClaimCatalog
+from polaris.domain.governance_regime_history import (
+    AuthorityRegimeNeedsReevaluation,
+    AuthorityRegimeStatus,
+    InvalidAuthorityRegimeHistory,
 )
 from polaris.domain.human_investment_decision import (
     ConsideredRecommendation,
@@ -54,7 +61,7 @@ class HumanDecisionConflict(InvalidHumanInvestmentDecision):
     """The command identity or governing Decision changed."""
 
 
-class HumanDecisionStoreUnavailable(RuntimeError):
+class HumanDecisionStoreUnavailable(GovernanceOwnerReadUnavailable):
     """Governance fact storage could not be read or committed."""
 
 
@@ -70,20 +77,34 @@ def _regime_from_row(row: RowMapping) -> InvestmentAuthorityRegime:
 
 
 async def _load_regime(
-    connection: AsyncConnection, regime_id: InvestmentAuthorityRegimeId
+    connection: AsyncConnection,
+    regime_id: InvestmentAuthorityRegimeId,
+    *,
+    effective_at: datetime | None = None,
 ) -> InvestmentAuthorityRegime | None:
-    row = (
-        (
-            await connection.execute(
-                select(governance_authority_regimes).where(
-                    governance_authority_regimes.c.regime_id == regime_id.value
-                )
-            )
+    from .governance_regime_history import load_regime_history
+
+    history = await load_regime_history(connection, regime_id)
+    if history is None:
+        return None
+    now = await connection.scalar(select(func.clock_timestamp()))
+    assert isinstance(now, datetime)
+    try:
+        selection = history.select(
+            effective_at if effective_at is not None else now, now
         )
-        .mappings()
-        .first()
+    except AuthorityRegimeNeedsReevaluation:
+        return None
+    except InvalidAuthorityRegimeHistory as error:
+        raise HumanDecisionStoreUnavailable(
+            "authority regime history is invalid"
+        ) from error
+    return (
+        selection.regime
+        if selection is not None
+        and selection.status is AuthorityRegimeStatus.DETERMINATE
+        else None
     )
-    return None if row is None else _regime_from_row(row)
 
 
 def _decision_from_row(row: RowMapping) -> HumanInvestmentDecision:
@@ -205,9 +226,15 @@ class PostgresGovernanceStore:
 
     async def install_regime(self, regime: InvestmentAuthorityRegime) -> None:
         """Install a trusted minimum regime as an immutable authority fact."""
+        from .governance_history import (
+            archive_governance_act_commits,
+            ensure_governance_commit_slot,
+        )
+
         if type(regime) is not InvestmentAuthorityRegime:
             raise TypeError("regime must be InvestmentAuthorityRegime")
         try:
+            await ensure_governance_commit_slot(self._engine)
             async with self._engine.begin() as connection:
                 await connection.execute(
                     insert(governance_authority_regimes).values(
@@ -219,6 +246,7 @@ class PostgresGovernanceStore:
                         effective_until=regime.effective_until,
                     )
                 )
+            await archive_governance_act_commits(self._engine)
         except IntegrityError as error:
             raise HumanDecisionConflict(
                 "authority regime identity already exists"
@@ -231,9 +259,12 @@ class PostgresGovernanceStore:
     async def authority_regime(
         self, regime_id: InvestmentAuthorityRegimeId
     ) -> InvestmentAuthorityRegime | None:
+        from .governance_history import archive_governance_act_commits
+
         if type(regime_id) is not InvestmentAuthorityRegimeId:
             raise TypeError("regime identity must be typed")
         try:
+            await archive_governance_act_commits(self._engine)
             async with self._engine.connect() as connection:
                 return await _load_regime(connection, regime_id)
         except SQLAlchemyError as error:
@@ -243,17 +274,30 @@ class PostgresGovernanceStore:
 
     async def human_decision_for_operation(
         self, operation_id: OperationId
-    ) -> tuple[HumanInvestmentDecision, DecisionVersion] | None:
+    ) -> tuple[HumanInvestmentDecision, DecisionVersion, GovernanceClaimCatalog] | None:
+        from .governance_claim_catalog import load_catalog_history
+        from .governance_history import archive_governance_act_commits
+
         if type(operation_id) is not OperationId:
             raise TypeError("operation identity must be typed")
         try:
+            await archive_governance_act_commits(self._engine)
             async with self._engine.connect() as connection:
                 row = await _operation_row(connection, operation_id)
                 if row is None:
                     return None
+                catalog = await load_catalog_history(
+                    connection,
+                    HumanInvestmentDecisionRef(UUID(str(row["decision_ref"]))),
+                )
+                if not catalog:
+                    raise HumanDecisionStoreUnavailable(
+                        "Human Decision has no complete claim catalog"
+                    )
                 return (
                     _decision_from_row(row),
                     DecisionVersion(row["expected_decision_version"]),
+                    catalog[0][0],
                 )
         except SQLAlchemyError as error:
             raise HumanDecisionStoreUnavailable(
@@ -265,28 +309,53 @@ class PostgresGovernanceStore:
         operation_id: OperationId,
         decision: HumanInvestmentDecision,
         expected_decision_version: DecisionVersion,
+        initial_claim_catalog: GovernanceClaimCatalog,
     ) -> HumanInvestmentDecision:
+        from .governance_claim_catalog import (
+            insert_initial_catalog,
+            load_catalog_history,
+        )
         from .governance_history import (
+            _GOVERNANCE_OWNER_LOCK,
             archive_governance_act_commits,
             ensure_governance_commit_slot,
         )
 
         try:
+            if type(initial_claim_catalog) is not GovernanceClaimCatalog:
+                raise TypeError("root requires an explicitly complete claim catalog")
             await ensure_governance_commit_slot(self._engine)
+            # duplicate-code: Human Decision admission and owner corrections lock
+            # distinct aggregate commands; sharing transaction bodies would hide their
+            # separate checks.
+            # arid: disable
+            await archive_governance_act_commits(self._engine)
             async with self._engine.begin() as connection:
-                await connection.execute(select(func.pg_advisory_xact_lock(479001)))
+                await connection.execute(
+                    select(func.pg_advisory_xact_lock(_GOVERNANCE_OWNER_LOCK))
+                )
+                # arid: enable
                 prior = await _operation_row(connection, operation_id)
                 if prior is not None:
                     prior_fact = _decision_from_row(prior)
+                    catalog = await load_catalog_history(
+                        connection, decision.decision_ref
+                    )
                     if (
                         replace(prior_fact, made_at=decision.made_at) != decision
                         or prior["expected_decision_version"]
                         != expected_decision_version.value
+                        or not catalog
+                        or catalog[0][0] != initial_claim_catalog
                     ):
                         raise HumanDecisionConflict("operation ID has another request")
                     return prior_fact
 
-                regime = await _load_regime(connection, decision.authority_regime_id)
+                regime = await _load_regime(
+                    connection,
+                    decision.authority_regime_id,
+                    effective_at=decision.made_at,
+                )
                 require_human_decision_authority(regime, decision)
                 await _require_decision_state(
                     connection, decision, expected_decision_version
@@ -322,6 +391,12 @@ class PostgresGovernanceStore:
                         material_rationale=decision.material_rationale,
                         expected_decision_version=expected_decision_version.value,
                     )
+                )
+                await insert_initial_catalog(
+                    connection,
+                    decision.decision_ref,
+                    initial_claim_catalog,
+                    decision.made_at,
                 )
             await archive_governance_act_commits(self._engine)
             return decision

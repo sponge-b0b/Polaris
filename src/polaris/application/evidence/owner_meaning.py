@@ -7,6 +7,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
 
+from polaris.application.evidence.context_versions import ContextNoBasisReason
 from polaris.domain.evidence.claims import ClaimCatalogVersion
 from polaris.domain.evidence.context_versions import (
     BasisScopeKey,
@@ -214,6 +215,23 @@ class OwnerMeaningNoBasisReason(StrEnum):
     UNAVAILABLE = "unavailable"
     CONTRADICTORY = "contradictory"
     INVALID_HISTORY = "invalid_history"
+
+
+def context_no_basis_meaning_reason(
+    reason: ContextNoBasisReason,
+) -> OwnerMeaningNoBasisReason:
+    """Translate a shared context failure into the owner-meaning contract."""
+    return {
+        ContextNoBasisReason.MISSING_REQUIRED: OwnerMeaningNoBasisReason.MISSING,
+        ContextNoBasisReason.INCOMPLETE_MEMBERSHIP: (
+            OwnerMeaningNoBasisReason.INCOMPLETE
+        ),
+        ContextNoBasisReason.CONTESTED: OwnerMeaningNoBasisReason.CONTESTED,
+        ContextNoBasisReason.INVALID_HISTORY: OwnerMeaningNoBasisReason.INVALID_HISTORY,
+        ContextNoBasisReason.UNAVAILABLE_AUTHORITY: (
+            OwnerMeaningNoBasisReason.UNAVAILABLE
+        ),
+    }[reason]
 
 
 @dataclass(frozen=True, slots=True)

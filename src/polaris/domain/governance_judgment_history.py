@@ -15,6 +15,8 @@ from polaris.domain.evidence.judgment_versions import (
 from polaris.domain.evidence.judgments import HumanInvestmentDecisionRef
 from polaris.domain.human_investment_decision import HumanInvestmentDecision
 
+from .governance_claim_catalog import GovernanceClaimCatalog
+
 
 class InvalidHumanDecisionTargetHistory(ValueError):
     """A target history has incomplete or contradictory owner ancestry."""
@@ -52,6 +54,7 @@ class HumanDecisionTargetCorrectionDraft:
     effective_at: datetime
     effect: HumanDecisionTargetEffect
     replacement: HumanInvestmentDecision | None = None
+    catalog: GovernanceClaimCatalog | None = None
 
     def __post_init__(self) -> None:
         _uuid4(self.correction_id, "correction_id")
@@ -74,6 +77,11 @@ class HumanDecisionTargetCorrectionDraft:
             raise ValueError("revision needs one complete replacement assertion")
         if self.replacement is not None and self.replacement.decision_ref != self.root:
             raise ValueError("correction cannot change the Human Decision root")
+        if (
+            self.catalog is not None
+            and type(self.catalog) is not GovernanceClaimCatalog
+        ):
+            raise TypeError("catalog must be a complete GovernanceClaimCatalog")
 
     def at_boundary(self, committed_at: datetime) -> HumanDecisionTargetCorrection:
         _aware(committed_at, "committed_at")

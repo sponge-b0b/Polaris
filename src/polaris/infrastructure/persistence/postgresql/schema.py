@@ -47,6 +47,33 @@ governance_authority_regimes = Table(
     ),
 )
 
+authority_regime_corrections = Table(
+    "authority_regime_corrections",
+    _foundation.metadata,
+    Column("correction_id", UUID(as_uuid=True), primary_key=True),
+    Column("operation_id", UUID(as_uuid=True), nullable=False, unique=True),
+    Column(
+        "regime_id",
+        UUID(as_uuid=True),
+        ForeignKey("governance_authority_regimes.regime_id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    Column("sequence", Integer, nullable=False),
+    Column("effective_at", DateTime(timezone=True), nullable=False),
+    Column("draft", JSONB, nullable=False),
+    UniqueConstraint("regime_id", "sequence", name="uq_authority_regime_sequence"),
+    CheckConstraint("sequence > 0", name="positive_authority_regime_sequence"),
+    CheckConstraint(
+        "jsonb_typeof(draft) = 'object'", name="authority_regime_draft_object"
+    ),
+)
+
+Index(
+    "ix_authority_regime_history",
+    authority_regime_corrections.c.regime_id,
+    authority_regime_corrections.c.sequence,
+)
+
 human_investment_decisions = Table(
     "human_investment_decisions",
     _foundation.metadata,
@@ -60,12 +87,16 @@ human_investment_decisions = Table(
     ),
     Column("portfolio_id", UUID(as_uuid=True), nullable=False),
     Column("actor_id", UUID(as_uuid=True), nullable=False),
+    # duplicate-code: Regime reference in the Human Decision and correction tables
+    # expresses separate foreign-key roles.
+    # arid: disable
     Column(
         "regime_id",
         UUID(as_uuid=True),
         ForeignKey("governance_authority_regimes.regime_id", ondelete="RESTRICT"),
         nullable=False,
     ),
+    # arid: enable
     Column("made_at", DateTime(timezone=True), nullable=False),
     Column("recorded_at", DateTime(timezone=True), nullable=False),
     Column("choice", String(16), nullable=False),
@@ -96,6 +127,9 @@ human_investment_decisions = Table(
 
 human_decision_target_corrections = Table(
     "human_decision_target_corrections",
+    # duplicate-code: Target correction and regime correction schemas are independent
+    # tables with distinct owner identities.
+    # arid: disable
     _foundation.metadata,
     Column("correction_id", UUID(as_uuid=True), primary_key=True),
     Column("operation_id", UUID(as_uuid=True), nullable=False, unique=True),
@@ -108,19 +142,42 @@ human_decision_target_corrections = Table(
     Column("sequence", Integer, nullable=False),
     Column("effective_at", DateTime(timezone=True), nullable=False),
     Column("draft", JSONB, nullable=False),
+    # arid: enable
     CheckConstraint("sequence > 0", name="positive_human_target_sequence"),
     CheckConstraint("jsonb_typeof(draft) = 'object'", name="human_target_draft_object"),
     UniqueConstraint("decision_ref", "sequence", name="uq_human_target_sequence"),
     Index("ix_human_target_history", "decision_ref", "sequence"),
 )
 
+human_decision_claim_catalogs = Table(
+    "human_decision_claim_catalogs",
+    _foundation.metadata,
+    Column(
+        "decision_ref",
+        UUID(as_uuid=True),
+        ForeignKey("human_investment_decisions.decision_ref", ondelete="RESTRICT"),
+        primary_key=True,
+    ),
+    Column("catalog_version", Integer, primary_key=True),
+    Column("source_act_id", UUID(as_uuid=True), nullable=False, unique=True),
+    Column("effective_at", DateTime(timezone=True), nullable=False),
+    Column("catalog", JSONB, nullable=False),
+    CheckConstraint("catalog_version > 0", name="positive_human_claim_version"),
+    CheckConstraint(
+        "jsonb_typeof(catalog) = 'object'", name="human_claim_catalog_object"
+    ),
+)
+
 human_decision_act_publications = Table(
     "human_decision_act_publications",
     _foundation.metadata,
     Column("act_id", UUID(as_uuid=True), primary_key=True),
-    Column("kind", String(16), nullable=False),
+    Column("kind", String(32), nullable=False),
     Column("committed_at", DateTime(timezone=True), nullable=False),
-    CheckConstraint("kind IN ('root', 'correction')", name="human_publication_kind"),
+    CheckConstraint(
+        "kind IN ('root', 'correction', 'regime', 'regime-correction')",
+        name="human_publication_kind",
+    ),
 )
 
 
@@ -375,8 +432,10 @@ POLARIS_TABLE_NAMES = _foundation.POLARIS_TABLE_NAMES | frozenset(
         "investment_intelligence_act_publications",
         "investment_intelligence_judgment_bases",
         "governance_authority_regimes",
+        "authority_regime_corrections",
         "human_investment_decisions",
         "human_decision_target_corrections",
+        "human_decision_claim_catalogs",
         "human_decision_act_publications",
     }
 )

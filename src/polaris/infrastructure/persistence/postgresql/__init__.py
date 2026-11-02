@@ -9,6 +9,9 @@ from .governance import (
     PostgresGovernanceStore,
     create_postgres_human_decision_service,
 )
+from .governance_claim_catalog import PostgresGovernanceClaimCatalogStore
+from .governance_history import PostgresHumanDecisionTargetHistoryStore
+from .governance_regime_history import PostgresAuthorityRegimeHistoryStore
 from .intelligence_basis_participation import PostgresCurrentBasisReader
 from .intelligence_judgment_history import PostgresIntelligenceJudgmentHistoryStore
 from .investment_intelligence import PostgresInvestmentIntelligenceStore
@@ -49,6 +52,9 @@ __all__ = [
     "PostgresEvidenceStore",
     "PostgresHistoricalEvidenceStore",
     "PostgresGovernanceStore",
+    "PostgresGovernanceClaimCatalogStore",
+    "PostgresHumanDecisionTargetHistoryStore",
+    "PostgresAuthorityRegimeHistoryStore",
     "PostgresInvestmentIntelligenceStore",
     "PostgresCurrentBasisReader",
     "PostgresIntelligenceJudgmentHistoryStore",

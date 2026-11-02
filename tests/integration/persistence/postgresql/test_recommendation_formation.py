@@ -49,6 +49,7 @@ from polaris.domain.governance_authority import (
     InvestmentAuthorityPower,
     InvestmentAuthorityRegime,
 )
+from polaris.domain.governance_claim_catalog import GovernanceClaimCatalog
 from polaris.domain.human_investment_decision import (
     ConsideredRecommendation,
     HumanInvestmentDecisionDraft,
@@ -360,6 +361,7 @@ async def _scenario(target: PostgresTestTarget) -> None:
                     ),
                 ),
                 decision.version,
+                initial_claim_catalog=GovernanceClaimCatalog(()),
             )
             assert await recommender.history(decision.decision_id) == (recommendation,)
             assert (

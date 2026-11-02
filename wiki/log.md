@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-11-01] R3 Governance Evidence context | authority history and claim catalog implemented
+
+Recorded Governance-owned authority-regime revisions, historical context selection and absence guards, owner-meaning replay, and separately versioned complete Human Decision claim catalogs. PostgreSQL retains the corresponding owner acts and commit boundaries across restarts. Updated Governance & Authority, Evidence, and Durable Persistence.
+
 ## [2026-11-01] R3 Human Decision Evidence target | Governance version history implemented
 
 Recorded Governance-owned same-root correction history, positive target revisions, exact commit-boundary archival, and historical `(T,K)` reconstruction. The complete claim catalog, shared inward Evidence reader, authority-context provider, and Decisions lifecycle coordination remain in their downstream routes. Updated Governance & Authority and Durable Persistence.

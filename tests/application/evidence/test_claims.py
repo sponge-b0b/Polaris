@@ -31,6 +31,7 @@ from polaris.domain.evidence import (
     DecisionEvaluationRef,
     EvidenceJudgmentRef,
     HumanInvestmentDecisionRef,
+    InvalidClaimCatalogHistory,
     InvestmentHypothesisRef,
     InvestmentRecommendationRef,
     InvestmentViewRef,
@@ -220,3 +221,26 @@ def test_contested_invalid_and_unavailable_histories_remain_distinct() -> None:
         )
     )
     assert isinstance(unavailable, UnavailableClaimCatalog)
+
+
+def test_invalid_owner_catalog_read_is_a_typed_failure() -> None:
+    class InvalidStore(_ClaimStore):
+        async def load_claim_catalog(
+            self, target: EvidenceJudgmentRef
+        ) -> tuple[ClaimCatalogRevision, ...]:
+            raise InvalidClaimCatalogHistory("owner catalog is invalid")
+
+    target = HumanInvestmentDecisionRef(TARGET_ID)
+    result = asyncio.run(
+        ClaimCatalogResolver(InvalidStore(())).resolve(
+            # duplicate-code: Invalid owner reads and unavailable reads need
+            # separate store falsifiers; sharing this call would hide the source.
+            # arid: disable
+            target,
+            ClaimId(CLAIM_ID),
+            effective_at=EFFECTIVE_AT,
+            known_at=RECORDED_AT,
+            # arid: enable
+        )
+    )
+    assert isinstance(result, InvalidClaimHistory)

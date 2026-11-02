@@ -25,6 +25,7 @@ from polaris.domain.governance_authority import (
     InvestmentAuthorityPower,
     InvestmentAuthorityRegime,
 )
+from polaris.domain.governance_claim_catalog import GovernanceClaimCatalog
 from polaris.domain.human_investment_decision import (
     ConsideredRecommendation,
     HumanDecisionChoice,
@@ -39,6 +40,18 @@ from tests.domain.test_investment_recommendation import _recommendation
 
 AT = datetime(2026, 11, 1, tzinfo=UTC)
 RESOLVES = HumanInvestmentDecisionEffect.SUBSTANTIVELY_RESOLVING
+EMPTY_CATALOG = GovernanceClaimCatalog(())
+
+
+async def _record(
+    service: HumanInvestmentDecisionService,
+    operation: OperationId,
+    draft: HumanInvestmentDecisionDraft,
+    version: DecisionVersion,
+) -> HumanInvestmentDecision:
+    return await service.record(
+        operation, draft, version, initial_claim_catalog=EMPTY_CATALOG
+    )
 
 
 def _fact(
@@ -95,7 +108,8 @@ class _Store:
         self.regime = regime
         self.recorded: list[HumanInvestmentDecision] = []
         self.operations: dict[
-            OperationId, tuple[HumanInvestmentDecision, DecisionVersion]
+            OperationId,
+            tuple[HumanInvestmentDecision, DecisionVersion, GovernanceClaimCatalog],
         ] = {}
 
     async def human_decision_for_operation(self, operation_id):
@@ -105,10 +119,14 @@ class _Store:
         return self.regime if regime_id == self.regime.regime_id else None
 
     async def record_human_decision(
-        self, operation_id, decision, expected_decision_version
+        self, operation_id, decision, expected_decision_version, initial_claim_catalog
     ):
         self.recorded.append(decision)
-        self.operations[operation_id] = decision, expected_decision_version
+        self.operations[operation_id] = (
+            decision,
+            expected_decision_version,
+            initial_claim_catalog,
+        )
         return decision
 
     async def human_decision(self, decision_ref):
@@ -167,14 +185,14 @@ def test_reject_and_differ_preserve_recommendation_and_do_not_set_effect() -> No
             ),
         )
         assert (
-            await service.record(
-                OperationId(uuid4()), _draft(rejected), DecisionVersion(1)
+            await _record(
+                service, OperationId(uuid4()), _draft(rejected), DecisionVersion(1)
             )
             == rejected
         )
         assert (
-            await service.record(
-                OperationId(uuid4()), _draft(differed), DecisionVersion(1)
+            await _record(
+                service, OperationId(uuid4()), _draft(differed), DecisionVersion(1)
             )
             == differed
         )
@@ -188,8 +206,11 @@ def test_reject_and_differ_preserve_recommendation_and_do_not_set_effect() -> No
             effect=HumanInvestmentDecisionEffect.DEFERRING,
         )
         assert (
-            await service.record(
-                OperationId(uuid4()), _draft(deferred_rejection), DecisionVersion(1)
+            await _record(
+                service,
+                OperationId(uuid4()),
+                _draft(deferred_rejection),
+                DecisionVersion(1),
             )
             == deferred_rejection
         )
@@ -213,7 +234,9 @@ def test_missing_authority_or_recommendation_fails_closed() -> None:
         reader = _Recommendations(())
         service = HumanInvestmentDecisionService(store, reader, now=lambda: AT)
         with pytest.raises(InvalidHumanInvestmentDecision, match="unestablished"):
-            await service.record(OperationId(uuid4()), _draft(fact), DecisionVersion(1))
+            await _record(
+                service, OperationId(uuid4()), _draft(fact), DecisionVersion(1)
+            )
         store.regime = replace(regime, actor_id=fact.actor.actor_id)
         linked = replace(
             fact,
@@ -227,8 +250,8 @@ def test_missing_authority_or_recommendation_fails_closed() -> None:
             ),
         )
         with pytest.raises(InvalidHumanInvestmentDecision, match="unavailable"):
-            await service.record(
-                OperationId(uuid4()), _draft(linked), DecisionVersion(1)
+            await _record(
+                service, OperationId(uuid4()), _draft(linked), DecisionVersion(1)
             )
         assert store.recorded == []
 
@@ -257,11 +280,11 @@ def test_act_time_is_captured_by_application_and_replay_preserves_it() -> None:
         )
         operation = OperationId(uuid4())
         draft = _draft(fact)
-        assert await service.record(operation, draft, DecisionVersion(1)) == fact
+        assert await _record(service, operation, draft, DecisionVersion(1)) == fact
         clock[0] = AT + timedelta(days=2)
-        assert await service.record(operation, draft, DecisionVersion(1)) == fact
+        assert await _record(service, operation, draft, DecisionVersion(1)) == fact
         with pytest.raises(InvalidHumanInvestmentDecision, match="unestablished"):
-            await service.record(OperationId(uuid4()), draft, DecisionVersion(1))
+            await _record(service, OperationId(uuid4()), draft, DecisionVersion(1))
         assert store.recorded == [fact]
 
     asyncio.run(scenario())
@@ -301,8 +324,8 @@ def test_adoption_modification_and_rationale_keep_recommendation_identity() -> N
         # arid: enable
         assert adopted.material_rationale == "Holding is prudent"
         assert (
-            await service.record(
-                OperationId(uuid4()), _draft(adopted), DecisionVersion(1)
+            await _record(
+                service, OperationId(uuid4()), _draft(adopted), DecisionVersion(1)
             )
             == adopted
         )
@@ -318,13 +341,14 @@ def test_adoption_modification_and_rationale_keep_recommendation_identity() -> N
             ),
         )
         assert (
-            await service.record(
-                OperationId(uuid4()), _draft(changed), DecisionVersion(1)
+            await _record(
+                service, OperationId(uuid4()), _draft(changed), DecisionVersion(1)
             )
             == changed
         )
         with pytest.raises(InvalidHumanInvestmentDecision, match="adoption"):
-            await service.record(
+            await _record(
+                service,
                 OperationId(uuid4()),
                 _draft(
                     replace(

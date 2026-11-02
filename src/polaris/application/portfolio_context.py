@@ -26,6 +26,7 @@ from polaris.application.evidence.owner_meaning import (
     OwnerMeaningNoBasisReason,
     OwnerMeaningSubject,
     OwnerMeaningWitness,
+    context_no_basis_meaning_reason,
 )
 from polaris.application.portfolio import PortfolioStateStoreFailure
 from polaris.domain.evidence.context_versions import (
@@ -539,15 +540,6 @@ def _selection_at(
     )
 
 
-_NO_BASIS_REASON = {
-    ContextNoBasisReason.MISSING_REQUIRED: OwnerMeaningNoBasisReason.MISSING,
-    ContextNoBasisReason.INCOMPLETE_MEMBERSHIP: OwnerMeaningNoBasisReason.INCOMPLETE,
-    ContextNoBasisReason.CONTESTED: OwnerMeaningNoBasisReason.CONTESTED,
-    ContextNoBasisReason.INVALID_HISTORY: OwnerMeaningNoBasisReason.INVALID_HISTORY,
-    ContextNoBasisReason.UNAVAILABLE_AUTHORITY: OwnerMeaningNoBasisReason.UNAVAILABLE,
-}
-
-
 class PortfolioContextMeaningReader:
     """Attest and revalidate Portfolio context meaning against owner history."""
 
@@ -580,7 +572,9 @@ class PortfolioContextMeaningReader:
             key, subject.role, effective_at=effective_at, known_at=known_at
         )
         if isinstance(result, ContextNoBasis):
-            return no_basis(_NO_BASIS_REASON[result.reason], result.detail)
+            return no_basis(
+                context_no_basis_meaning_reason(result.reason), result.detail
+            )
         if result.guard != subject.selection:
             return no_basis(
                 OwnerMeaningNoBasisReason.INVALID_HISTORY,

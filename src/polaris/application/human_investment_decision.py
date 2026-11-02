@@ -15,6 +15,7 @@ from polaris.domain.decisions import (
 from polaris.domain.evidence import InvestmentAuthorityRegimeId
 from polaris.domain.evidence.judgments import HumanInvestmentDecisionRef
 from polaris.domain.governance_authority import InvestmentAuthorityRegime
+from polaris.domain.governance_claim_catalog import GovernanceClaimCatalog
 from polaris.domain.human_investment_decision import (
     HumanDecisionChoice,
     HumanInvestmentDecision,
@@ -31,7 +32,9 @@ from .investment_recommendation import RecommendationEvent
 class HumanDecisionStore(Protocol):
     async def human_decision_for_operation(
         self, operation_id: OperationId
-    ) -> tuple[HumanInvestmentDecision, DecisionVersion] | None: ...
+    ) -> (
+        tuple[HumanInvestmentDecision, DecisionVersion, GovernanceClaimCatalog] | None
+    ): ...
 
     async def authority_regime(
         self, regime_id: InvestmentAuthorityRegimeId
@@ -42,6 +45,7 @@ class HumanDecisionStore(Protocol):
         operation_id: OperationId,
         decision: HumanInvestmentDecision,
         expected_decision_version: DecisionVersion,
+        initial_claim_catalog: GovernanceClaimCatalog,
     ) -> HumanInvestmentDecision: ...
 
     async def human_decision(
@@ -78,17 +82,24 @@ class HumanInvestmentDecisionService:
         operation_id: OperationId,
         draft: HumanInvestmentDecisionDraft,
         expected_decision_version: DecisionVersion,
+        *,
+        initial_claim_catalog: GovernanceClaimCatalog,
     ) -> HumanInvestmentDecision:
         if (
             type(operation_id) is not OperationId
             or type(draft) is not HumanInvestmentDecisionDraft
             or type(expected_decision_version) is not DecisionVersion
+            or type(initial_claim_catalog) is not GovernanceClaimCatalog
         ):
             raise InvalidHumanInvestmentDecision("typed command inputs are required")
         prior = await self._store.human_decision_for_operation(operation_id)
         if prior is not None:
-            fact, version = prior
-            if draft.at(fact.made_at) != fact or version != expected_decision_version:
+            fact, version, catalog = prior
+            if (
+                draft.at(fact.made_at) != fact
+                or version != expected_decision_version
+                or catalog != initial_claim_catalog
+            ):
                 raise InvalidHumanInvestmentDecision("operation ID has another request")
             return fact
         decision = draft.at(self._now())
@@ -132,7 +143,7 @@ class HumanInvestmentDecisionService:
                     "Deferral cannot adopt or modify an economic Recommendation"
                 )
         return await self._store.record_human_decision(
-            operation_id, decision, expected_decision_version
+            operation_id, decision, expected_decision_version, initial_claim_catalog
         )
 
     async def get(

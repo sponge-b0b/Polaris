@@ -133,6 +133,8 @@ class ClaimCatalogResolver:
             revisions = await self._store.load_claim_catalog(target)
         except ClaimCatalogReadUnavailable as error:
             return UnavailableClaimCatalog(target, str(error))
+        except (ContestedClaimCatalogHistory, InvalidClaimCatalogHistory) as error:
+            return _history_failure(target, error)
         return resolve_claim_membership(
             revisions,
             target,
@@ -161,10 +163,8 @@ def resolve_claim_membership(
         return ClaimTargetNotKnownAtCutoff(target)
     try:
         validate_claim_catalog_history(known, target=target)
-    except ContestedClaimCatalogHistory as error:
-        return ContestedClaimHistory(target, str(error))
-    except InvalidClaimCatalogHistory as error:
-        return InvalidClaimHistory(target, str(error))
+    except (ContestedClaimCatalogHistory, InvalidClaimCatalogHistory) as error:
+        return _history_failure(target, error)
 
     active = tuple(
         revision for revision in known if revision.effective_at <= effective_at
@@ -190,6 +190,15 @@ def resolve_claim_membership(
     )
     # arid: enable
     return result
+
+
+def _history_failure(
+    target: EvidenceJudgmentRef,
+    error: ContestedClaimCatalogHistory | InvalidClaimCatalogHistory,
+) -> ContestedClaimHistory | InvalidClaimHistory:
+    if isinstance(error, ContestedClaimCatalogHistory):
+        return ContestedClaimHistory(target, str(error))
+    return InvalidClaimHistory(target, str(error))
 
 
 def _validate_query(

@@ -37,6 +37,8 @@ from .intelligence_contract_codec import (
 )
 from .runtime_qualification import require_qualified_postgres_runtime
 from .schema import (
+    authority_regime_corrections,
+    governance_authority_regimes,
     human_decision_act_publications,
     human_decision_target_corrections,
     human_investment_decisions,
@@ -62,7 +64,7 @@ async def ensure_governance_commit_slot(engine: AsyncEngine) -> str:
         engine,
         prefix="polaris_ga_",
         setup_lock=_SLOT_SETUP_LOCK,
-        owner_acts=human_investment_decisions,
+        owner_acts=governance_authority_regimes,
         error_type=HumanDecisionStoreUnavailable,
     )
 
@@ -108,7 +110,7 @@ def _parse_message(payload: bytes, slot: str) -> tuple[str, UUID] | None:
         raise HumanDecisionStoreUnavailable(
             "Governance WAL act identity is invalid"
         ) from error
-    if kind not in {"root", "correction"}:
+    if kind not in {"root", "correction", "regime", "regime-correction"}:
         raise HumanDecisionStoreUnavailable("Governance WAL act kind is invalid")
     return kind, identity
 
@@ -136,12 +138,19 @@ async def archive_governance_act_commits(engine: AsyncEngine) -> None:
         rows = await peek_commit_rows(connection, slot)
         publications, end_lsn = _commit_markers(rows, slot)
         for identity, (kind, committed_at) in publications.items():
-            table = (
-                human_investment_decisions
+            table = {
+                "root": human_investment_decisions,
+                "correction": human_decision_target_corrections,
+                "regime": governance_authority_regimes,
+                "regime-correction": authority_regime_corrections,
+            }[kind]
+            key = (
+                table.c.decision_ref
                 if kind == "root"
-                else human_decision_target_corrections
+                else table.c.regime_id
+                if kind == "regime"
+                else table.c.correction_id
             )
-            key = table.c.decision_ref if kind == "root" else table.c.correction_id
             exists = await connection.scalar(select(key).where(key == identity))
             if exists is None:
                 raise HumanDecisionStoreUnavailable(
@@ -292,6 +301,8 @@ class PostgresHumanDecisionTargetHistoryStore:
     async def append(
         self, operation_id: OperationId, draft: HumanDecisionTargetCorrectionDraft
     ) -> HumanDecisionTargetHistory:
+        from .governance_claim_catalog import insert_correction_catalog
+
         if (
             type(operation_id) is not OperationId
             or type(draft) is not HumanDecisionTargetCorrectionDraft
@@ -335,7 +346,9 @@ class PostgresHumanDecisionTargetHistoryStore:
                                 "corrected act time is later than the store clock"
                             )
                         regime = await _load_regime(
-                            connection, draft.replacement.authority_regime_id
+                            connection,
+                            draft.replacement.authority_regime_id,
+                            effective_at=draft.replacement.made_at,
                         )
                         require_human_decision_authority(regime, draft.replacement)
                         await _require_recommendation_links(
@@ -351,6 +364,7 @@ class PostgresHumanDecisionTargetHistoryStore:
                             draft=contract_value_payload(draft),
                         )
                     )
+                    await insert_correction_catalog(connection, draft, now)
             # duplicate-code: Correction admission reloads its own root history
             # after commit; Intelligence replays a different owner act schema.
             # arid: disable

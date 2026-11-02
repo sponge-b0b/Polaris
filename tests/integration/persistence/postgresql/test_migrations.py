@@ -32,7 +32,11 @@ _portfolio.PORTFOLIO_TABLE_NAMES = (
         "investment_intelligence_judgment_bases",
         "investment_intelligence_act_publications",
         "governance_authority_regimes",
+        "authority_regime_corrections",
         "human_investment_decisions",
+        "human_decision_target_corrections",
+        "human_decision_claim_catalogs",
+        "human_decision_act_publications",
     }
 )
 # arid: enable

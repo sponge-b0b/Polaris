@@ -19,6 +19,17 @@ from polaris.application.decisions import (
     ExpectedDecisionVersion,
     InitiateDecisionCommand,
 )
+from polaris.application.evidence.claims import (
+    ClaimCatalogResolver,
+    ClaimNotKnownAtCutoff,
+    ResolvedClaimMembership,
+)
+from polaris.application.evidence.context_versions import (
+    ContextNoBasis,
+    ContextNoBasisReason,
+)
+from polaris.application.governance_context import GovernanceContextOwner
+from polaris.application.human_investment_decision import HumanInvestmentDecisionService
 from polaris.domain.actors import ActorId, KnownActorAttribution
 from polaris.domain.decisions import (
     DecisionLifecycleDisposition,
@@ -32,16 +43,31 @@ from polaris.domain.decisions import (
     TriggerProvenance,
 )
 from polaris.domain.evidence import InvestmentAuthorityRegimeId
-from polaris.domain.evidence.judgments import HumanInvestmentDecisionRef
+from polaris.domain.evidence.context_versions import BasisScopeKey, ContextSelectionRole
+from polaris.domain.evidence.judgments import (
+    ClaimId,
+    EvidenceUse,
+    HumanInvestmentDecisionRef,
+    JudgmentWideEvidenceScope,
+)
 from polaris.domain.governance_authority import (
     InvestmentAuthorityPower,
     InvestmentAuthorityRegime,
+)
+from polaris.domain.governance_claim_catalog import (
+    GovernanceClaim,
+    GovernanceClaimCatalog,
 )
 from polaris.domain.governance_judgment_history import (
     HumanDecisionTargetCorrectionDraft,
     HumanDecisionTargetEffect,
 )
+from polaris.domain.governance_regime_history import (
+    AuthorityRegimeCorrectionDraft,
+    AuthorityRegimeStatus,
+)
 from polaris.domain.human_investment_decision import (
+    HumanInvestmentDecision,
     HumanInvestmentDecisionDraft,
     InvalidHumanInvestmentDecision,
 )
@@ -56,13 +82,20 @@ from polaris.infrastructure.persistence.postgresql import (
 from polaris.infrastructure.persistence.postgresql.governance import (
     HumanDecisionConflict,
 )
+from polaris.infrastructure.persistence.postgresql.governance_claim_catalog import (
+    PostgresGovernanceClaimCatalogStore,
+)
 from polaris.infrastructure.persistence.postgresql.governance_history import (
     PostgresHumanDecisionTargetHistoryStore,
+)
+from polaris.infrastructure.persistence.postgresql.governance_regime_history import (
+    PostgresAuthorityRegimeHistoryStore,
 )
 from polaris.infrastructure.persistence.postgresql.intelligence_contract_codec import (
     contract_value_payload,
 )
 from polaris.infrastructure.persistence.postgresql.schema import (
+    authority_regime_corrections,
     human_decision_act_publications,
     human_decision_target_corrections,
     human_investment_decisions,
@@ -71,6 +104,18 @@ from polaris.infrastructure.persistence.postgresql.schema import (
 from .conftest import PostgresTestTarget
 
 AT = datetime(2026, 11, 1, 12, tzinfo=UTC)
+EMPTY_CATALOG = GovernanceClaimCatalog(())
+
+
+async def _record(
+    service: HumanInvestmentDecisionService,
+    operation: OperationId,
+    draft: HumanInvestmentDecisionDraft,
+    version: DecisionVersion,
+) -> HumanInvestmentDecision:
+    return await service.record(
+        operation, draft, version, initial_claim_catalog=EMPTY_CATALOG
+    )
 
 
 async def _scenario(target: PostgresTestTarget) -> None:
@@ -115,6 +160,10 @@ async def _scenario(target: PostgresTestTarget) -> None:
         )
         store = PostgresGovernanceStore(engine)
         await store.install_regime(regime)
+        regime_store = PostgresAuthorityRegimeHistoryStore(engine)
+        installed = await regime_store.load(regime.regime_id)
+        assert installed is not None
+        assert installed.revisions[-1].value == 1
         service = create_postgres_human_decision_service(engine, now=lambda: AT)
         draft = HumanInvestmentDecisionDraft(
             decision_ref=HumanInvestmentDecisionRef(uuid4()),
@@ -127,9 +176,14 @@ async def _scenario(target: PostgresTestTarget) -> None:
             material_rationale="Hold until the next decision horizon",
         )
         operation = OperationId(uuid4())
-        fact = await service.record(operation, draft, state.decision.version)
+        fact = await _record(service, operation, draft, state.decision.version)
+        catalog_store = PostgresGovernanceClaimCatalogStore(engine)
+        initial_catalog = await catalog_store.load_claim_catalog(fact.decision_ref)
+        assert len(initial_catalog) == 1
+        assert not initial_catalog[0].claim_ids
+        assert initial_catalog[0].version.value == 1
         assert fact.made_at == AT
-        assert await service.record(operation, draft, state.decision.version) == fact
+        assert await _record(service, operation, draft, state.decision.version) == fact
         assert await service.get(fact.decision_ref) == fact
         target_store = PostgresHumanDecisionTargetHistoryStore(engine)
         target_history = await target_store.load(fact.decision_ref)
@@ -149,10 +203,43 @@ async def _scenario(target: PostgresTestTarget) -> None:
             AT,
             HumanDecisionTargetEffect.REVISE,
             corrected,
+            GovernanceClaimCatalog(
+                (
+                    GovernanceClaim(
+                        ClaimId(uuid4()), "Hold exposure pending review", frozenset()
+                    ),
+                )
+            ),
         )
         correction_operation = OperationId(uuid4())
         target_history = await target_store.append(correction_operation, correction)
         assert target_history.revisions[-1].value == 2
+        catalog_history = await catalog_store.load_claim_catalog(fact.decision_ref)
+        assert len(catalog_history) == 2
+        claim_id = correction.catalog.claims[0].claim_id
+        claim_resolver = ClaimCatalogResolver(catalog_store)
+        assert isinstance(
+            await claim_resolver.resolve(
+                fact.decision_ref,
+                claim_id,
+                effective_at=AT,
+                known_at=initial_catalog[0].recorded_at,
+            ),
+            ClaimNotKnownAtCutoff,
+        )
+        # duplicate-code: Cutoff and current catalog assertions independently exercise
+        # the same resolver with distinct knowledge times.
+        # arid: disable
+        assert isinstance(
+            await claim_resolver.resolve(
+                fact.decision_ref,
+                claim_id,
+                effective_at=AT,
+                # arid: enable
+                known_at=catalog_history[1].recorded_at,
+            ),
+            ResolvedClaimMembership,
+        )
         assert (
             await target_store.append(correction_operation, correction)
             == target_history
@@ -217,13 +304,15 @@ async def _scenario(target: PostgresTestTarget) -> None:
             == unarchived.replacement
         )
         with pytest.raises(InvalidHumanInvestmentDecision, match="another request"):
-            await service.record(
+            await _record(
+                service,
                 operation,
                 replace(draft, material_rationale="Changed"),
                 state.decision.version,
             )
         with pytest.raises(HumanDecisionConflict, match="version changed"):
-            await service.record(
+            await _record(
+                service,
                 OperationId(uuid4()),
                 replace(draft, decision_ref=HumanInvestmentDecisionRef(uuid4())),
                 DecisionVersion(999),
@@ -318,6 +407,116 @@ async def _scenario(target: PostgresTestTarget) -> None:
                 )
             )
         assert action_intent_tables == 0
+        key = BasisScopeKey(
+            accepted.decision_id,
+            fact.decision_ref,
+            JudgmentWideEvidenceScope(),
+            EvidenceUse.JUDGMENT_BASIS,
+        )
+        owner = GovernanceContextOwner(regime_store, target_store)
+        before_correction = await owner.read_at(
+            key,
+            ContextSelectionRole.INVESTMENT_AUTHORITY_REGIME,
+            effective_at=AT,
+            known_at=target_history.root_known_at,
+        )
+        assert not isinstance(before_correction, ContextNoBasis)
+        assert before_correction.facts[0].reference.revision.value == 1
+        contested = AuthorityRegimeCorrectionDraft(
+            uuid4(),
+            regime.regime_id,
+            actor,
+            "authority now contested",
+            AT,
+            AuthorityRegimeStatus.CONTESTED,
+            None,
+        )
+        revised_regime = await regime_store.append(OperationId(uuid4()), contested)
+        assert revised_regime.revisions[-1].value == 2
+        assert await store.authority_regime(regime.regime_id) is None
+        after_correction = await owner.read_at(
+            key,
+            ContextSelectionRole.INVESTMENT_AUTHORITY_REGIME,
+            effective_at=AT,
+            known_at=revised_regime.corrections[-1].known_at,
+        )
+        assert isinstance(after_correction, ContextNoBasis)
+        assert after_correction.reason is ContextNoBasisReason.CONTESTED
+        recovered_draft = AuthorityRegimeCorrectionDraft(
+            uuid4(),
+            regime.regime_id,
+            actor,
+            "authoritative review restored power",
+            AT,
+            AuthorityRegimeStatus.DETERMINATE,
+            regime,
+        )
+        async with engine.begin() as connection:
+            await connection.execute(
+                insert(authority_regime_corrections).values(
+                    correction_id=recovered_draft.correction_id,
+                    operation_id=uuid4(),
+                    regime_id=regime.regime_id.value,
+                    sequence=2,
+                    effective_at=AT,
+                    draft=contract_value_payload(recovered_draft),
+                )
+            )
+            before_regime_commit = await connection.scalar(
+                select(func.clock_timestamp())
+            )
+            assert isinstance(before_regime_commit, datetime)
+            await asyncio.sleep(0.03)
+        revised_regime = await regime_store.load(regime.regime_id)
+        assert revised_regime is not None
+        assert revised_regime.revisions[-1].value == 3
+        assert revised_regime.corrections[-1].known_at > before_regime_commit
+        assert (
+            revised_regime.select(AT, before_regime_commit).status
+            is AuthorityRegimeStatus.CONTESTED
+        )
+        assert (
+            revised_regime.select(AT, revised_regime.corrections[-1].known_at).regime
+            == regime
+        )
+        store_now = datetime.now(UTC)
+        later_regime = replace(
+            regime,
+            regime_id=InvestmentAuthorityRegimeId(uuid4()),
+            effective_from=store_now - timedelta(hours=1),
+            effective_until=store_now + timedelta(days=1),
+        )
+        await store.install_regime(later_regime)
+        await regime_store.append(
+            OperationId(uuid4()),
+            AuthorityRegimeCorrectionDraft(
+                uuid4(),
+                later_regime.regime_id,
+                actor,
+                "backdated power under a later correction",
+                store_now - timedelta(minutes=30),
+                AuthorityRegimeStatus.DETERMINATE,
+                replace(later_regime, effective_from=AT - timedelta(days=1)),
+            ),
+        )
+        with pytest.raises(InvalidHumanInvestmentDecision, match="unestablished"):
+            await target_store.append(
+                OperationId(uuid4()),
+                HumanDecisionTargetCorrectionDraft(
+                    uuid4(),
+                    fact.decision_ref,
+                    unarchived.correction_id,
+                    actor,
+                    "correct authority at the historical act time",
+                    store_now,
+                    HumanDecisionTargetEffect.REVISE,
+                    replace(
+                        fact,
+                        authority_regime_id=later_regime.regime_id,
+                        material_rationale="Later regime cannot authorize this act",
+                    ),
+                ),
+            )
     finally:
         await engine.dispose()
 
@@ -333,6 +532,16 @@ async def _scenario(target: PostgresTestTarget) -> None:
             restarted
         ).load(fact.decision_ref)
         assert target_history_after_restart == target_history
+        assert (
+            await PostgresGovernanceClaimCatalogStore(restarted).load_claim_catalog(
+                fact.decision_ref
+            )
+            == catalog_history
+        )
+        assert (
+            await PostgresAuthorityRegimeHistoryStore(restarted).load(regime.regime_id)
+            == revised_regime
+        )
     finally:
         await restarted.dispose()
     # arid: enable

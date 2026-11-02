@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import select, text, update
+from sqlalchemy import func, insert, select, text, update
 from sqlalchemy.exc import DBAPIError
 
 from polaris.application.decisions import (
@@ -37,6 +37,10 @@ from polaris.domain.governance_authority import (
     InvestmentAuthorityPower,
     InvestmentAuthorityRegime,
 )
+from polaris.domain.governance_judgment_history import (
+    HumanDecisionTargetCorrectionDraft,
+    HumanDecisionTargetEffect,
+)
 from polaris.domain.human_investment_decision import (
     HumanInvestmentDecisionDraft,
     InvalidHumanInvestmentDecision,
@@ -52,7 +56,15 @@ from polaris.infrastructure.persistence.postgresql import (
 from polaris.infrastructure.persistence.postgresql.governance import (
     HumanDecisionConflict,
 )
+from polaris.infrastructure.persistence.postgresql.governance_history import (
+    PostgresHumanDecisionTargetHistoryStore,
+)
+from polaris.infrastructure.persistence.postgresql.intelligence_contract_codec import (
+    contract_value_payload,
+)
 from polaris.infrastructure.persistence.postgresql.schema import (
+    human_decision_act_publications,
+    human_decision_target_corrections,
     human_investment_decisions,
 )
 
@@ -119,6 +131,91 @@ async def _scenario(target: PostgresTestTarget) -> None:
         assert fact.made_at == AT
         assert await service.record(operation, draft, state.decision.version) == fact
         assert await service.get(fact.decision_ref) == fact
+        target_store = PostgresHumanDecisionTargetHistoryStore(engine)
+        target_history = await target_store.load(fact.decision_ref)
+        assert target_history is not None
+        initial = target_history.select(
+            target_history.root_known_at, target_history.root_known_at
+        )
+        assert initial.version.revision.value == 1
+        assert initial.assertion == fact
+        corrected = replace(fact, material_rationale="Corrected recorded rationale")
+        correction = HumanDecisionTargetCorrectionDraft(
+            uuid4(),
+            fact.decision_ref,
+            fact.decision_ref,
+            actor,
+            "Correct the recorded rationale",
+            AT,
+            HumanDecisionTargetEffect.REVISE,
+            corrected,
+        )
+        correction_operation = OperationId(uuid4())
+        target_history = await target_store.append(correction_operation, correction)
+        assert target_history.revisions[-1].value == 2
+        assert (
+            await target_store.append(correction_operation, correction)
+            == target_history
+        )
+        current = target_history.select(
+            target_history.corrections[-1].known_at,
+            target_history.corrections[-1].known_at,
+        )
+        assert current.assertion == corrected
+        assert (
+            target_history.select(
+                current.effective_at, target_history.root_known_at
+            ).assertion
+            == fact
+        )
+        assert await service.get(fact.decision_ref) == fact
+        unarchived = HumanDecisionTargetCorrectionDraft(
+            uuid4(),
+            fact.decision_ref,
+            correction.correction_id,
+            actor,
+            "Correct the correction's recorded rationale",
+            AT,
+            HumanDecisionTargetEffect.REVISE,
+            replace(fact, material_rationale="Second corrected rationale"),
+        )
+        async with engine.begin() as connection:
+            await connection.execute(
+                insert(human_decision_target_corrections).values(
+                    correction_id=unarchived.correction_id,
+                    operation_id=uuid4(),
+                    decision_ref=fact.decision_ref.value,
+                    sequence=2,
+                    effective_at=unarchived.effective_at,
+                    draft=contract_value_payload(unarchived),
+                )
+            )
+            before_commit = await connection.scalar(select(func.clock_timestamp()))
+            assert isinstance(before_commit, datetime)
+            await asyncio.sleep(0.03)
+        async with engine.connect() as connection:
+            # duplicate-code: This assertion proves an unarchived correction
+            # is recovered from WAL, independently of the root publication.
+            # arid: disable
+            assert (
+                await connection.scalar(
+                    select(human_decision_act_publications.c.act_id).where(
+                        human_decision_act_publications.c.act_id
+                        == unarchived.correction_id
+                    )
+                )
+                is None
+            )
+            # arid: enable
+        target_history = await target_store.load(fact.decision_ref)
+        assert target_history is not None
+        committed_at = target_history.corrections[-1].known_at
+        assert committed_at > before_commit
+        assert target_history.select(committed_at, before_commit).assertion == corrected
+        assert (
+            target_history.select(committed_at, committed_at).assertion
+            == unarchived.replacement
+        )
         with pytest.raises(InvalidHumanInvestmentDecision, match="another request"):
             await service.record(
                 operation,
@@ -140,6 +237,26 @@ async def _scenario(target: PostgresTestTarget) -> None:
             assert len(rows) == 1
             assert rows[0]["choice"] == "hold"
             assert rows[0]["effect"] == "substantively_resolving"
+            assert (
+                await connection.scalar(
+                    select(human_decision_act_publications.c.act_id).where(
+                        human_decision_act_publications.c.act_id
+                        == fact.decision_ref.value
+                    )
+                )
+                == fact.decision_ref.value
+            )
+            correction_ids = set(
+                (
+                    await connection.execute(
+                        select(human_decision_target_corrections.c.correction_id)
+                    )
+                ).scalars()
+            )
+            assert correction_ids == {
+                correction.correction_id,
+                unarchived.correction_id,
+            }
         with pytest.raises(DBAPIError, match="immutable Governance fact"):
             async with engine.begin() as connection:
                 await connection.execute(
@@ -212,6 +329,10 @@ async def _scenario(target: PostgresTestTarget) -> None:
         service = create_postgres_human_decision_service(restarted)
         assert await service.get(fact.decision_ref) == fact
         assert await service.history(accepted.decision_id) == (fact,)
+        target_history_after_restart = await PostgresHumanDecisionTargetHistoryStore(
+            restarted
+        ).load(fact.decision_ref)
+        assert target_history_after_restart == target_history
     finally:
         await restarted.dispose()
     # arid: enable

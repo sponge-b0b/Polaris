@@ -94,6 +94,35 @@ human_investment_decisions = Table(
     Index("ix_human_decision_history", "investment_decision_id", "recorded_at"),
 )
 
+human_decision_target_corrections = Table(
+    "human_decision_target_corrections",
+    _foundation.metadata,
+    Column("correction_id", UUID(as_uuid=True), primary_key=True),
+    Column("operation_id", UUID(as_uuid=True), nullable=False, unique=True),
+    Column(
+        "decision_ref",
+        UUID(as_uuid=True),
+        ForeignKey("human_investment_decisions.decision_ref", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    Column("sequence", Integer, nullable=False),
+    Column("effective_at", DateTime(timezone=True), nullable=False),
+    Column("draft", JSONB, nullable=False),
+    CheckConstraint("sequence > 0", name="positive_human_target_sequence"),
+    CheckConstraint("jsonb_typeof(draft) = 'object'", name="human_target_draft_object"),
+    UniqueConstraint("decision_ref", "sequence", name="uq_human_target_sequence"),
+    Index("ix_human_target_history", "decision_ref", "sequence"),
+)
+
+human_decision_act_publications = Table(
+    "human_decision_act_publications",
+    _foundation.metadata,
+    Column("act_id", UUID(as_uuid=True), primary_key=True),
+    Column("kind", String(16), nullable=False),
+    Column("committed_at", DateTime(timezone=True), nullable=False),
+    CheckConstraint("kind IN ('root', 'correction')", name="human_publication_kind"),
+)
+
 
 def _portfolio_actor_columns() -> tuple[Column[Any], ...]:
     return (
@@ -347,5 +376,7 @@ POLARIS_TABLE_NAMES = _foundation.POLARIS_TABLE_NAMES | frozenset(
         "investment_intelligence_judgment_bases",
         "governance_authority_regimes",
         "human_investment_decisions",
+        "human_decision_target_corrections",
+        "human_decision_act_publications",
     }
 )

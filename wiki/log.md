@@ -1,5 +1,9 @@
 # wiki/log.md
 
+## [2026-11-01] R3 Human Decision Evidence target | Governance version history implemented
+
+Recorded Governance-owned same-root correction history, positive target revisions, exact commit-boundary archival, and historical `(T,K)` reconstruction. The complete claim catalog, shared inward Evidence reader, authority-context provider, and Decisions lifecycle coordination remain in their downstream routes. Updated Governance & Authority and Durable Persistence.
+
 ## [2026-11-01] R3 Human Investment Decision | durable Governance fact implemented
 
 Recorded the shared authority-checked command and typed query, separate immutable Governance persistence, Recommendation link validation, and restart reconstruction. Evidence target/context versioning and atomic Decisions-side lifecycle coordination remain pending. Updated Governance & Authority, Application Use Cases, and Durable Persistence.

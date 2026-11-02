@@ -69,6 +69,23 @@ def _regime_from_row(row: RowMapping) -> InvestmentAuthorityRegime:
     )
 
 
+async def _load_regime(
+    connection: AsyncConnection, regime_id: InvestmentAuthorityRegimeId
+) -> InvestmentAuthorityRegime | None:
+    row = (
+        (
+            await connection.execute(
+                select(governance_authority_regimes).where(
+                    governance_authority_regimes.c.regime_id == regime_id.value
+                )
+            )
+        )
+        .mappings()
+        .first()
+    )
+    return None if row is None else _regime_from_row(row)
+
+
 def _decision_from_row(row: RowMapping) -> HumanInvestmentDecision:
     raw_links = row["recommendations"]
     if not isinstance(raw_links, list):
@@ -166,9 +183,6 @@ async def _require_recommendation_links(
 async def _operation_row(
     connection: AsyncConnection, operation_id: OperationId
 ) -> RowMapping | None:
-    # duplicate-code: This typed Governance operation read reconstructs the
-    # owner act; another owner's table read must remain independent.
-    # arid: disable
     return (
         (
             await connection.execute(
@@ -180,7 +194,6 @@ async def _operation_row(
         .mappings()
         .first()
     )
-    # arid: enable
 
 
 class PostgresGovernanceStore:
@@ -221,24 +234,8 @@ class PostgresGovernanceStore:
         if type(regime_id) is not InvestmentAuthorityRegimeId:
             raise TypeError("regime identity must be typed")
         try:
-            # duplicate-code: Regime lookup and unrelated owner-fact reads keep
-            # their typed table and reconstruction boundaries independent.
-            # arid: disable
             async with self._engine.connect() as connection:
-                row = (
-                    (
-                        await connection.execute(
-                            select(governance_authority_regimes).where(
-                                governance_authority_regimes.c.regime_id
-                                == regime_id.value
-                            )
-                        )
-                    )
-                    .mappings()
-                    .first()
-                )
-                return None if row is None else _regime_from_row(row)
-            # arid: enable
+                return await _load_regime(connection, regime_id)
         except SQLAlchemyError as error:
             raise HumanDecisionStoreUnavailable(
                 "authority regime read failed"
@@ -269,7 +266,13 @@ class PostgresGovernanceStore:
         decision: HumanInvestmentDecision,
         expected_decision_version: DecisionVersion,
     ) -> HumanInvestmentDecision:
+        from .governance_history import (
+            archive_governance_act_commits,
+            ensure_governance_commit_slot,
+        )
+
         try:
+            await ensure_governance_commit_slot(self._engine)
             async with self._engine.begin() as connection:
                 await connection.execute(select(func.pg_advisory_xact_lock(479001)))
                 prior = await _operation_row(connection, operation_id)
@@ -283,24 +286,20 @@ class PostgresGovernanceStore:
                         raise HumanDecisionConflict("operation ID has another request")
                     return prior_fact
 
-                regime_row = (
-                    (
-                        await connection.execute(
-                            select(governance_authority_regimes).where(
-                                governance_authority_regimes.c.regime_id
-                                == decision.authority_regime_id.value
-                            )
-                        )
-                    )
-                    .mappings()
-                    .first()
-                )
-                regime = None if regime_row is None else _regime_from_row(regime_row)
+                regime = await _load_regime(connection, decision.authority_regime_id)
                 require_human_decision_authority(regime, decision)
                 await _require_decision_state(
                     connection, decision, expected_decision_version
                 )
                 await _require_recommendation_links(connection, decision)
+                trusted_now = await connection.scalar(select(func.clock_timestamp()))
+                if (
+                    not isinstance(trusted_now, datetime)
+                    or decision.made_at > trusted_now
+                ):
+                    raise InvalidHumanInvestmentDecision(
+                        "human act time is later than the durable store clock"
+                    )
                 await connection.execute(
                     insert(human_investment_decisions).values(
                         decision_ref=decision.decision_ref.value,
@@ -324,7 +323,8 @@ class PostgresGovernanceStore:
                         expected_decision_version=expected_decision_version.value,
                     )
                 )
-                return decision
+            await archive_governance_act_commits(self._engine)
+            return decision
         except IntegrityError as error:
             raise HumanDecisionConflict(
                 "Human Decision identity already exists"

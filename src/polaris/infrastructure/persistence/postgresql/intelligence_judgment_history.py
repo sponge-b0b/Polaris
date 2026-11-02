@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, insert, select, text
+from sqlalchemy import func, insert, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import Row
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -40,11 +40,18 @@ from .schema import (
     investment_intelligence_act_publications,
     investment_intelligence_judgment_acts,
 )
+from .wal_commit_custody import (
+    advance_commit_slot,
+    commit_boundary,
+    ensure_commit_slot,
+    owner_archive_connection,
+    peek_commit_rows,
+    transactional_message,
+)
 
 INTELLIGENCE_OWNER_LOCK = 6_934_842_191_352_427_103
 _SLOT_SETUP_LOCK = 6_934_842_191_352_427_104
 _SLOT_ARCHIVE_LOCK = 6_934_842_191_352_427_105
-_POSTGRES_EPOCH = datetime(2000, 1, 1, tzinfo=UTC)
 INTELLIGENCE_ROOT_TYPES = (
     InvestmentHypothesisRef,
     InvestmentViewRef,
@@ -55,91 +62,22 @@ INTELLIGENCE_ROOT_TYPES = (
 
 
 async def ensure_intelligence_commit_slot(engine: AsyncEngine) -> str:
-    """Install the durable WAL boundary before admitting an owner act."""
-    async with engine.connect() as connection:
-        connection = await connection.execution_options(isolation_level="AUTOCOMMIT")
-        await connection.execute(select(func.pg_advisory_lock(_SLOT_SETUP_LOCK)))
-        try:
-            slot = await connection.scalar(
-                text(
-                    "SELECT 'polaris_ii_' || substr(md5(current_database() || ':' || "
-                    "current_schema()), 1, 32)"
-                )
-            )
-            if not isinstance(slot, str):
-                raise IntelligenceJudgmentHistoryUnavailable(
-                    "Intelligence commit slot identity is unavailable"
-                )
-            publication = await connection.scalar(
-                text("SELECT pubname FROM pg_publication WHERE pubname = :slot"),
-                {"slot": slot},
-            )
-            if publication != slot:
-                raise IntelligenceJudgmentHistoryUnavailable(
-                    "Intelligence commit publication is unavailable"
-                )
-            exists = await connection.scalar(
-                text("SELECT 1 FROM pg_replication_slots WHERE slot_name = :slot"),
-                {"slot": slot},
-            )
-            if exists is None:
-                existing = await connection.scalar(
-                    select(investment_intelligence_judgment_acts.c.act_id).limit(1)
-                )
-                if existing is not None:
-                    raise IntelligenceJudgmentHistoryUnavailable(
-                        "Intelligence commit slot is missing for existing owner acts"
-                    )
-                await connection.execute(
-                    text(
-                        "SELECT slot_name FROM "
-                        "pg_create_logical_replication_slot(:slot, 'pgoutput')"
-                    ),
-                    {"slot": slot},
-                )
-            row = (
-                await connection.execute(
-                    text(
-                        "SELECT plugin, database, temporary, wal_status, "
-                        "invalidation_reason FROM pg_replication_slots "
-                        "WHERE slot_name = :slot"
-                    ),
-                    {"slot": slot},
-                )
-            ).first()
-            database = await connection.scalar(text("SELECT current_database()"))
-            if (
-                row is None
-                or row.plugin != "pgoutput"
-                or row.database != database
-                or row.temporary
-                or row.wal_status not in {"reserved", "extended"}
-                or row.invalidation_reason is not None
-            ):
-                raise IntelligenceJudgmentHistoryUnavailable(
-                    "Intelligence commit slot cannot retain owner history"
-                )
-            return slot
-        finally:
-            await connection.execute(select(func.pg_advisory_unlock(_SLOT_SETUP_LOCK)))
+    """Install durable WAL custody before admitting an owner act."""
+    return await ensure_commit_slot(
+        engine,
+        prefix="polaris_ii_",
+        setup_lock=_SLOT_SETUP_LOCK,
+        owner_acts=investment_intelligence_judgment_acts,
+        error_type=IntelligenceJudgmentHistoryUnavailable,
+    )
 
 
 def _message_act_id(payload: bytes, slot: str) -> UUID | None:
-    if len(payload) < 15 or payload[:1] != b"M":
-        raise IntelligenceJudgmentHistoryUnavailable("invalid commit message")
-    prefix_end = payload.find(b"\0", 10)
-    if prefix_end < 0:
-        raise IntelligenceJudgmentHistoryUnavailable("commit message prefix is missing")
-    if payload[10:prefix_end].decode("utf-8") != slot:
+    content = transactional_message(
+        payload, slot, IntelligenceJudgmentHistoryUnavailable
+    )
+    if content is None:
         return None
-    if payload[1] != 1 or len(payload) < prefix_end + 5:
-        raise IntelligenceJudgmentHistoryUnavailable(
-            "commit message is not transactional"
-        )
-    length = int.from_bytes(payload[prefix_end + 1 : prefix_end + 5], "big")
-    content = payload[prefix_end + 5 :]
-    if length != len(content):
-        raise IntelligenceJudgmentHistoryUnavailable("commit message length differs")
     try:
         return UUID(content.decode("ascii"))
     except (UnicodeDecodeError, ValueError) as error:
@@ -154,17 +92,16 @@ def _finish_commit(
     pending: dict[int, list[UUID]],
     publications: dict[UUID, datetime],
 ) -> int:
-    if len(payload) != 26 or xid not in pending:
-        raise IntelligenceJudgmentHistoryUnavailable("invalid WAL commit boundary")
-    micros = int.from_bytes(payload[18:26], "big", signed=True)
-    committed_at = _POSTGRES_EPOCH + timedelta(microseconds=micros)
+    committed_at, end_lsn = commit_boundary(
+        payload, xid, pending, IntelligenceJudgmentHistoryUnavailable
+    )
     for act_id in pending.pop(xid):
         if act_id in publications:
             raise IntelligenceJudgmentHistoryUnavailable(
                 "Intelligence act marker was repeated"
             )
         publications[act_id] = committed_at
-    return int.from_bytes(payload[10:18], "big")
+    return end_lsn
 
 
 def _commit_publications(
@@ -315,63 +252,36 @@ async def insert_initial_intelligence_act(
 async def archive_intelligence_act_commits(engine: AsyncEngine) -> None:
     """Archive commit boundaries before advancing their durable WAL slot."""
     slot = await ensure_intelligence_commit_slot(engine)
-    async with engine.connect() as connection:
-        connection = await connection.execution_options(isolation_level="AUTOCOMMIT")
-        await connection.execute(select(func.pg_advisory_lock(_SLOT_ARCHIVE_LOCK)))
-        try:
-            rows = (
-                await connection.execute(
-                    text(
-                        "SELECT lsn, xid, data FROM "
-                        "pg_logical_slot_peek_binary_changes("
-                        ":slot, NULL, NULL, 'proto_version', '1', "
-                        "'publication_names', :publication, "
-                        "'messages', 'true')"
-                    ),
-                    {"slot": slot, "publication": slot},
+    async with owner_archive_connection(engine, _SLOT_ARCHIVE_LOCK) as connection:
+        rows = await peek_commit_rows(connection, slot)
+        publications, end_lsn = _commit_publications(rows, slot)
+        for act_id, committed_at in publications.items():
+            existing_act = await connection.scalar(
+                select(investment_intelligence_judgment_acts.c.act_id).where(
+                    investment_intelligence_judgment_acts.c.act_id == act_id
                 )
-            ).all()
-            publications, end_lsn = _commit_publications(rows, slot)
-            for act_id, committed_at in publications.items():
-                existing_act = await connection.scalar(
-                    select(investment_intelligence_judgment_acts.c.act_id).where(
-                        investment_intelligence_judgment_acts.c.act_id == act_id
-                    )
-                )
-                if existing_act is None:
-                    raise IntelligenceJudgmentHistoryUnavailable(
-                        "WAL marker has no committed Intelligence act"
-                    )
-                await connection.execute(
-                    pg_insert(investment_intelligence_act_publications)
-                    .values(act_id=act_id, committed_at=committed_at)
-                    .on_conflict_do_nothing(
-                        index_elements=[
-                            investment_intelligence_act_publications.c.act_id
-                        ]
-                    )
-                )
-                archived_at = await connection.scalar(
-                    select(
-                        investment_intelligence_act_publications.c.committed_at
-                    ).where(investment_intelligence_act_publications.c.act_id == act_id)
-                )
-                if archived_at != committed_at:
-                    raise IntelligenceJudgmentHistoryUnavailable(
-                        "archived Intelligence commit boundary differs from WAL"
-                    )
-            if end_lsn is not None:
-                await connection.execute(
-                    text(
-                        "SELECT end_lsn FROM pg_replication_slot_advance("
-                        ":slot, CAST(:end_lsn AS pg_lsn))"
-                    ),
-                    {"slot": slot, "end_lsn": end_lsn},
-                )
-        finally:
-            await connection.execute(
-                select(func.pg_advisory_unlock(_SLOT_ARCHIVE_LOCK))
             )
+            if existing_act is None:
+                raise IntelligenceJudgmentHistoryUnavailable(
+                    "WAL marker has no committed Intelligence act"
+                )
+            await connection.execute(
+                pg_insert(investment_intelligence_act_publications)
+                .values(act_id=act_id, committed_at=committed_at)
+                .on_conflict_do_nothing(
+                    index_elements=[investment_intelligence_act_publications.c.act_id]
+                )
+            )
+            archived_at = await connection.scalar(
+                select(investment_intelligence_act_publications.c.committed_at).where(
+                    investment_intelligence_act_publications.c.act_id == act_id
+                )
+            )
+            if archived_at != committed_at:
+                raise IntelligenceJudgmentHistoryUnavailable(
+                    "archived Intelligence commit boundary differs from WAL"
+                )
+        await advance_commit_slot(connection, slot, end_lsn)
 
 
 @asynccontextmanager

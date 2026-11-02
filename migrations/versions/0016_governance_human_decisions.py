@@ -92,23 +92,144 @@ def upgrade() -> None:
         "human_investment_decisions",
         ["investment_decision_id", "recorded_at"],
     )
+    op.create_table(
+        "human_decision_target_corrections",
+        # duplicate-code: A frozen Governance migration must retain its own column
+        # definition rather than depend on Intelligence's earlier schema snapshot.
+        # arid: disable
+        sa.Column("correction_id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column("operation_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("decision_ref", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("sequence", sa.Integer(), nullable=False),
+        sa.Column("effective_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("draft", postgresql.JSONB(), nullable=False),
+        # arid: enable
+        sa.ForeignKeyConstraint(
+            ["decision_ref"],
+            ["human_investment_decisions.decision_ref"],
+            ondelete="RESTRICT",
+        ),
+        sa.UniqueConstraint("operation_id"),
+        sa.UniqueConstraint(
+            "decision_ref", "sequence", name="uq_human_target_sequence"
+        ),
+        sa.CheckConstraint(
+            "sequence > 0",
+            name=op.f(
+                "ck_human_decision_target_corrections_positive_human_target_sequence"
+            ),
+        ),
+        sa.CheckConstraint(
+            "jsonb_typeof(draft) = 'object'",
+            name=op.f("ck_human_decision_target_corrections_human_target_draft_object"),
+        ),
+    )
+    op.create_index(
+        "ix_human_target_history",
+        "human_decision_target_corrections",
+        ["decision_ref", "sequence"],
+    )
+    op.create_table(
+        "human_decision_act_publications",
+        sa.Column("act_id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column("kind", sa.String(length=16), nullable=False),
+        sa.Column("committed_at", sa.DateTime(timezone=True), nullable=False),
+        sa.CheckConstraint(
+            "kind IN ('root', 'correction')",
+            name=op.f("ck_human_decision_act_publications_human_publication_kind"),
+        ),
+    )
     op.execute(
         "CREATE FUNCTION polaris_reject_governance_fact_mutation() "
         "RETURNS trigger LANGUAGE plpgsql AS $$ "
         "BEGIN RAISE EXCEPTION 'immutable Governance fact cannot be changed'; END $$"
     )
-    for table in ("governance_authority_regimes", "human_investment_decisions"):
+    # duplicate-code: This immutable trigger list is a frozen migration snapshot;
+    # runtime table registration evolves independently.
+    # arid: disable
+    for table in (
+        "governance_authority_regimes",
+        "human_investment_decisions",
+        "human_decision_target_corrections",
+        "human_decision_act_publications",
+    ):
+        # arid: enable
         op.execute(
             f"CREATE TRIGGER trg_{table}_immutable "
             f"BEFORE UPDATE OR DELETE ON {table} "
             "FOR EACH ROW EXECUTE FUNCTION polaris_reject_governance_fact_mutation()"
         )
+    op.execute(
+        "DO $$ DECLARE slot_name text := 'polaris_ga_' || "
+        "substr(md5(current_database() || ':' || current_schema()), 1, 32); "
+        "BEGIN EXECUTE format('CREATE PUBLICATION %I', slot_name); END $$"
+    )
+    op.execute(
+        "CREATE FUNCTION polaris_governance_act_commit_message() "
+        "RETURNS trigger LANGUAGE plpgsql AS $$ "
+        "DECLARE expected_slot text := 'polaris_ga_' || "
+        "substr(md5(current_database() || ':' || TG_TABLE_SCHEMA), 1, 32); "
+        "act_id uuid; act_kind text; "
+        "BEGIN "
+        "IF TG_TABLE_NAME = 'human_investment_decisions' THEN "
+        "act_id := NEW.decision_ref; act_kind := 'root'; "
+        "ELSE act_id := NEW.correction_id; act_kind := 'correction'; END IF; "
+        # duplicate-code: The historical Governance trigger owns its own durable
+        # slot check; sharing another migration's PL/pgSQL changes old history.
+        # arid: disable
+        "IF NOT EXISTS (SELECT 1 FROM pg_replication_slots AS s "
+        "WHERE s.slot_name = expected_slot AND s.plugin = 'pgoutput' "
+        "AND s.database = current_database() AND NOT s.temporary "
+        "AND s.wal_status IN ('reserved', 'extended') "
+        "AND s.invalidation_reason IS NULL) THEN "
+        # arid: enable
+        "RAISE EXCEPTION 'Governance commit slot is unavailable'; "
+        "END IF; "
+        "PERFORM pg_logical_emit_message(true, expected_slot, "
+        "act_kind || ':' || act_id::text); "
+        "RETURN NEW; END $$"
+    )
+    for table in ("human_investment_decisions", "human_decision_target_corrections"):
+        op.execute(
+            f"CREATE TRIGGER trg_{table}_commit_message "
+            f"AFTER INSERT ON {table} FOR EACH ROW "
+            "EXECUTE FUNCTION polaris_governance_act_commit_message()"
+        )
 
 
 def downgrade() -> None:
-    for table in ("human_investment_decisions", "governance_authority_regimes"):
+    for table in ("human_decision_target_corrections", "human_investment_decisions"):
+        op.execute(f"DROP TRIGGER trg_{table}_commit_message ON {table}")
+    op.execute("DROP FUNCTION polaris_governance_act_commit_message()")
+    # duplicate-code: This downgrade belongs to a frozen Governance migration;
+    # reusing Intelligence's rollback would couple distinct historical revisions.
+    # arid: disable
+    op.execute(
+        "DO $$ DECLARE expected_slot text := 'polaris_ga_' || "
+        "substr(md5(current_database() || ':' || current_schema()), 1, 32); "
+        "BEGIN IF EXISTS (SELECT 1 FROM pg_replication_slots AS s "
+        "WHERE s.slot_name = expected_slot) THEN "
+        "PERFORM pg_drop_replication_slot(expected_slot); END IF; END $$"
+    )
+    op.execute(
+        "DO $$ DECLARE slot_name text := 'polaris_ga_' || "
+        "substr(md5(current_database() || ':' || current_schema()), 1, 32); "
+        "BEGIN EXECUTE format('DROP PUBLICATION %I', slot_name); END $$"
+    )
+    # arid: enable
+    for table in (
+        "human_decision_act_publications",
+        "human_decision_target_corrections",
+        "human_investment_decisions",
+        "governance_authority_regimes",
+    ):
         op.execute(f"DROP TRIGGER trg_{table}_immutable ON {table}")
     op.execute("DROP FUNCTION polaris_reject_governance_fact_mutation()")
+    op.drop_table("human_decision_act_publications")
+    op.drop_index(
+        "ix_human_target_history", table_name="human_decision_target_corrections"
+    )
+    op.drop_table("human_decision_target_corrections")
     op.drop_index("ix_human_decision_history", table_name="human_investment_decisions")
     op.drop_table("human_investment_decisions")
     op.drop_table("governance_authority_regimes")

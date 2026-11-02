@@ -162,7 +162,7 @@ async def _drop_schema(database_url: str, schema: str) -> None:
     )
 
 
-async def _drop_intelligence_commit_log(database_url: str, schema: str) -> None:
+async def _drop_owner_commit_logs(database_url: str, schema: str) -> None:
     engine = create_async_engine(database_url)
     try:
         async with engine.connect() as connection:
@@ -172,16 +172,18 @@ async def _drop_intelligence_commit_log(database_url: str, schema: str) -> None:
             database = await connection.scalar(text("SELECT current_database()"))
             identity = f"{database}:{schema}".encode()
             suffix = hashlib.md5(identity, usedforsecurity=False).hexdigest()[:32]
-            slot = f"polaris_ii_{suffix}"
-            exists = await connection.scalar(
-                text("SELECT 1 FROM pg_replication_slots WHERE slot_name = :slot"),
-                {"slot": slot},
-            )
-            if exists:
-                await connection.execute(
-                    text("SELECT pg_drop_replication_slot(:slot)"), {"slot": slot}
+            for prefix in ("polaris_ii_", "polaris_ga_"):
+                slot = f"{prefix}{suffix}"
+                exists = await connection.scalar(
+                    text("SELECT 1 FROM pg_replication_slots WHERE slot_name = :slot"),
+                    {"slot": slot},
                 )
-            await connection.execute(text(f'DROP PUBLICATION IF EXISTS "{slot}"'))
+                if exists:
+                    await connection.execute(
+                        text("SELECT pg_drop_replication_slot(:slot)"),
+                        {"slot": slot},
+                    )
+                await connection.execute(text(f'DROP PUBLICATION IF EXISTS "{slot}"'))
     finally:
         await engine.dispose()
 
@@ -207,4 +209,4 @@ def postgres_target(monkeypatch: pytest.MonkeyPatch) -> Iterator[PostgresTestTar
         yield PostgresTestTarget(database_url, schema)
     finally:
         asyncio.run(_drop_schema(database_url, schema))
-        asyncio.run(_drop_intelligence_commit_log(database_url, schema))
+        asyncio.run(_drop_owner_commit_logs(database_url, schema))
